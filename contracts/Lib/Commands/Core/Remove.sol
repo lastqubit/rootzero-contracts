@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function remove(uint account, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = IRemove.remove.selector;
 
-
 interface IRemove {
     function remove(
         uint account,

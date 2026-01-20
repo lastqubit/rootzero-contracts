@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = IResolve.resolve.selector;
 
-
 interface IResolve {
     function resolve(
         uint account,

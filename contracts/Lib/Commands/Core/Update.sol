@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function update(uint account, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = IUpdate.update.selector;
 
-
 interface IUpdate {
     function update(
         uint account,

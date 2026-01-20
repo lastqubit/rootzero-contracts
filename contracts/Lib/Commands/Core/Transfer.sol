@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function transfer(uint account, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = ITransfer.transfer.selector;
 
-
 interface ITransfer {
     function transfer(
         uint account,

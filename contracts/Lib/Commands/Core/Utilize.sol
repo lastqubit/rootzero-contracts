@@ -1,34 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command, IUtilize, NEXT} from "../Base.sol";
+import {Command} from "../Base.sol";
 
 string constant ABI = "function utilize(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = IUtilize.utilize.selector;
 
-
-struct UtilizeInput {
-    uint account;
-    uint id;
-    uint amount;
-    bytes data;
-    bytes step;
-}
-
-function encodeUtilize(
-    uint account,
-    uint id,
-    uint amount,
-    bytes memory data
-) pure returns (bytes32, bytes memory) {
-    return (SELECTOR, abi.encode(account, id, amount, data, ""));
-}
-
-function decodeUtilize(bytes memory data) pure returns (UtilizeInput memory i) {
-    (i.account, i.id, i.amount, i.data, i.step) = abi.decode(
-        data,
-        (uint, uint, uint, bytes, bytes)
-    );
+interface IUtilize {
+    function utilize(
+        uint account,
+        uint id,
+        uint amount,
+        bytes calldata data,
+        bytes calldata step
+    ) external payable returns (bytes32, bytes memory);
 }
 
 abstract contract Utilize is IUtilize, Command {
@@ -36,26 +21,6 @@ abstract contract Utilize is IUtilize, Command {
 
     constructor(string memory params) {
         emit Endpoint(hostId, utilizeId, 0, ABI, params);
-    }
-
-    function isUtilize(uint head) internal view returns (bool) {
-        return false;
-    }
-
-    function isLocalUtilize(uint eid) internal view returns (bool) {
-        return eid == utilizeId;
-    }
-
-    function ensureUtilize(uint head) internal returns(uint) {
-
-    }
-
-    function next(
-        uint account,
-        uint id,
-        uint amount
-    ) internal pure returns (bytes32, bytes memory) {
-        return encodeUtilize(account, id, amount, "");
     }
 
     function utilize(

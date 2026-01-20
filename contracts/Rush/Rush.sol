@@ -24,10 +24,6 @@ contract Rush is Executor {
         return Id.create(addr); /////
     } */
 
-    function initValue() internal view returns (Value memory) {
-        return Value(msg.value);
-    }
-
     function settle(
         uint from,
         uint to,
@@ -43,7 +39,8 @@ contract Rush is Executor {
         bytes memory body,
         bytes[] calldata steps
     ) external payable override onlyOwner returns (uint) {
-        return pipe(Id.account(admin), head, body, steps, initValue());
+        uint account = Id.account(admin);
+        return pipe(account, head, body, steps, Value(msg.value));
     }
 
     function resume(
@@ -52,14 +49,16 @@ contract Rush is Executor {
         bytes calldata signed,
         bytes[] calldata steps
     ) external payable override onlyAuthorized returns (uint) {
-        return pipe(validate(signed, steps), head, body, steps, initValue()); // If not signed, from becomes calling node!!
+        uint account = validate(signed, steps);
+        return pipe(account, head, body, steps, Value(msg.value)); // If not signed, from becomes calling node!!
     }
 
     function execute(
         bytes calldata signed,
         bytes[] calldata steps
     ) external payable override returns (uint) {
-        return pipe(validate(signed, steps), 0, "", steps, initValue());
+        uint account = validate(signed, steps);
+        return pipe(account, 0, "", steps, Value(msg.value));
     }
 
     function getBalances(
@@ -71,92 +70,5 @@ contract Rush is Executor {
             result[i] = balances[account][ids[i]];
         }
         return result;
-    }
-
-    function foo() external pure {
-        address to = address(0);
-        uint id = 50;
-        uint amount = 2000;
-        bytes4 x = 0xFF00FF00;
-        bytes32 c = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-        bytes32 a = 0xFF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00;
-        bytes32 b = 0xF0000000FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF0000000000;
-
-        //bytes memory data = hex"00FF";
-        bytes memory step = bytes.concat(a, b);
-        bytes32 out;
-
-        assembly {
-            mstore(add(add(step, 32), sub(mload(step), 32)), c)
-        }
-
-        assembly {
-            out := mload(add(add(step, 32), sub(mload(step), 32)))
-        }
-
-        console.log("OUT: %s", uint(out));
-
-        //console.log("BOOL: %s", uint8(true));
-
-        /*         bytes8 size = 0x0000000000000020;
-        bytes4 selector = this.bar.selector;
-        console.log("Selector: %s", uint32(selector));
-        bytes memory data = abi.encode(size | selector);
-        console.log("Selector: %s", uint32(bytes4(data)));
-        console.log("Size: %s", uint32(uint64(bytes8(data)))); */
-        /*         bytes memory data = abi.encode(
-            0,
-            abi.encode(address(0), 50, 99999, "", ""),
-            ""
-        );
-        (, bytes memory x, ) = abi.decode(data, (bytes4, bytes, bytes));
-        (uint to, uint id, uint amount, , ) = abi.decode(
-            x,
-            (address, uint, uint, bytes, bytes)
-        );
-        console.log("Decode %s %s %s", id, amount, to); */
-    }
-
-    /*     function xx(uint head) internal {
-        if (head == 0) toId(address(0));
-    } */
-
-    function bar(address svc) external pure {
-        bytes memory x = bytes.concat(
-            bytes32(uint(11)),
-            bytes32(uint(22)),
-            bytes32(uint(33))
-        );
-        uint ch = uint(bytes32(x));
-        uint num;
-        uint128 s = 0x04000006030000070200000901000005;
-        bytes memory gg = hex"04000006030000070200000908000005";
-
-        //(uint64(uint32(len))) |= uint64(99) << 32;
-        //console.log("REQ BLOCK %", Context.STEP | uint24(800));
-        console.log(
-            "COOL %",
-            uint(1) | (uint(1) << 16) | (uint(1) << 32) | (uint(1) << 64)
-        );
-        console.log("BYTES LIB %", uint8(Bytes.to1no(gg, 1)));
-        console.log("TEST %", (3 | 1) ^ 3);
-        //console.log("OFFSET %", Context.find(3, uint(s) << 64));
-        console.log("HELLO CTX HEADER %", ch);
-        console.log("HELLO LEN %", x.length);
-        console.log("HELLO WORLD %", uint(bytes32(x)));
-        assembly {
-            let a := add(x, 32)
-            let b := add(x, 96)
-            num := mload(a)
-            mstore(a, mload(b))
-            mstore(b, num)
-        }
-
-        /*             E.num
-            let h := num << 36 */
-        console.log("NUM %s", num);
-
-        (uint a, uint b, uint c) = abi.decode(x, (uint, uint, uint));
-        console.log("HELLO WORLD %s %s %s", a, b, c);
     }
 }

@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function transform(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = ITransform.transform.selector;
 
-
 interface ITransform {
     function transform(
         uint account,
@@ -16,7 +15,6 @@ interface ITransform {
         bytes calldata step
     ) external payable returns (bytes32, bytes memory);
 }
-
 
 abstract contract Transform is ITransform, Command {
     uint internal immutable transformId = toEid(false, SELECTOR);

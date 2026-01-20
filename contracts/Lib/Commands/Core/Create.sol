@@ -6,7 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function create(uint account, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = ICreate.create.selector;
 
-
 interface ICreate {
     function create(
         uint account,

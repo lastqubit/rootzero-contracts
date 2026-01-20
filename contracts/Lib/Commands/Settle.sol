@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Transact, Tx} from "./Core/Transact.sol";
+import {Tx, Transact} from "./Core/Transact.sol";
 
 ////////
 abstract contract Settle is Transact("") {

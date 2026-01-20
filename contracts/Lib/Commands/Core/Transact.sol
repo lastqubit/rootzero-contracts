@@ -7,7 +7,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function transact(tuple(uint from, uint to, uint id, uint amount)[] txs, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = ITransact.transact.selector;
 
-
 interface ITransact {
     function transact(
         Tx[] calldata txs,

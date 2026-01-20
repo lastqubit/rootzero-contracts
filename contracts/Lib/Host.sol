@@ -8,6 +8,7 @@ import {EndpointEvent} from "./Events/Node/Endpoint.sol";
 abstract contract Host is AccessControl, EndpointEvent {
     uint public immutable hostId = Id.node(address(this));
 
+// add error bytes??
     error FailedCall(bytes4 selector, address addr, uint size);
 
     function toEid(bool open, bytes4 selector) internal view returns (uint) {

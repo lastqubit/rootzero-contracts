@@ -10,7 +10,7 @@ import {Value} from "../Lib/Entity.sol";
 import {useValue} from "../Lib/Utils/Value.sol";
 import {Id} from "../Lib/Utils/Id.sol";
 import {Step} from "../Lib/Utils/Step.sol";
-import {UtilizeInput, decodeUtilize} from "../Lib/Commands/Core/Utilize.sol";
+import {NextInput, decodeNext} from "../Lib/Commands/Base.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
@@ -19,15 +19,15 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     error BadPipe();
 
     function creditTo(
-        bytes memory input,
+        bytes memory body,
         bytes calldata step
     ) internal returns (bytes32, bytes memory) {
-        UtilizeInput memory i = decodeUtilize(input);
+        NextInput memory i = decodeNext(body);
         return creditTo(i.account, i.id, i.amount, step);
     }
 
     // check eid... use eid open flag
-    function toEid(bytes32 head, bytes calldata step) private returns (uint) {
+    function auth(bytes32 head, bytes calldata step) private returns (uint) {
         // head utilize -> accept step resolve/finalize
         return uint(bytes32(step));
     }
@@ -41,6 +41,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         bytes calldata signed,
         bytes[] calldata steps
     ) internal returns (uint) {
+        if (signed.length == 0) return Id.account(msg.sender);
         // include fee in signed ??
         // only validate abi.encode(steps)... factors included. cannot extract factors before validate
         // verify meta, factor and step addr
@@ -115,8 +116,8 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     }
 
     function next(
-        uint account,
         uint eid,
+        uint account,
         bytes memory body,
         bytes calldata step,
         Value memory value
@@ -131,27 +132,25 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         bytes memory body,
         Value memory value
     ) internal returns (bool) {
-        /*         ensureUtilize(head); // ???
-        if (isUtilize(head) == false) {
-            revert();
-        } */
+        // IS NEXT ??
+
         return true; //
         // creditTo(body)
     }
 
     function pipe(
-        uint acc,
+        uint account,
         bytes32 head,
         bytes memory body,
         bytes[] calldata steps,
         Value memory v
     ) internal returns (uint) {
-        uint len = steps.length;
-        for (uint i = 0; i < len; i++) {
-            (head, body) = next(acc, toEid(head, steps[i]), body, steps[i], v);
+        for (uint i = 0; i < steps.length; i++) {
+            uint eid = auth(head, steps[i]);
+            (head, body) = next(eid, account, body, steps[i], v);
             if (head == 0) return i + 1;
         }
         resolve(head, body, v);
-        return len + 1;
+        return steps.length + 1;
     }
 }

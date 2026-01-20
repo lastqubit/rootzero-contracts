@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Io} from "../Io.sol";
 import {Initiate} from "./Core/Initiate.sol";
 
 string constant REQ = "debitFrom(uint use, uint min, uint max, uint fee)";
@@ -20,6 +19,8 @@ abstract contract DebitFrom is Initiate(REQ) {
         return abi.decode(step[64:], (DebitRequest));
     }
 
+    // virtual fee function ??
+
     function debitFrom(
         uint account,
         uint id,
@@ -32,11 +33,10 @@ abstract contract DebitFrom is Initiate(REQ) {
         uint account,
         bytes calldata step
     ) internal returns (bytes32, bytes memory) {
-        //if (bytes32(step) != initiateId) return "";
+        ensureValidStage(initiateId, step);
         DebitRequest memory q = toDebitRequest(step);
         uint amount = debitFrom(account, q.use, q.min, q.max, q.fee);
-        //activity(account, q.use, amount, "debitFrom", ""); // act not needed ??
-        return Io.utilize(account, q.use, amount, "");
+        return next(account, q.use, amount);
     }
 
     function initiate(
