@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {Id, Host} from "./Host.sol"; ////
-import {Authorize} from "./Commands/Admin/Authorize.sol";
-import {Unauthorize} from "./Commands/Admin/Unauthorize.sol";
-import {Relocate} from "./Commands/Admin/Relocate.sol";
+import {Authorize} from "./Commands/Core/Authorize.sol";
+import {Unauthorize} from "./Commands/Core/Unauthorize.sol";
+import {Relocate} from "./Commands/Core/Relocate.sol";
 import {GetTrusted} from "./Queries/GetTrusted.sol";
 import {IDiscovery} from "./Discovery.sol";
 

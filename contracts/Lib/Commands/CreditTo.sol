@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Resolve} from "./Core/Resolve.sol";
+import {NextInput, decodeNext} from "./Base.sol";
 import {ensureAmount} from "../Utils/Amount.sol";
 
 string constant REQ = "creditTo(uint to)";
@@ -11,9 +12,7 @@ struct CreditRequest {
 }
 
 abstract contract CreditTo is Resolve(REQ) {
-    function toCreditRequest(
-        bytes calldata step
-    ) private pure returns (CreditRequest memory) {
+    function toCreditRequest(bytes calldata step) private pure returns (CreditRequest memory) {
         return CreditRequest(0);
         //return abi.decode(step[64:], (CreditRequest));
     }
@@ -23,11 +22,7 @@ abstract contract CreditTo is Resolve(REQ) {
         return account;
     }
 
-    function creditTo(
-        uint account,
-        uint id,
-        uint amount
-    ) internal virtual returns (uint);
+    function creditTo(uint account, uint id, uint amount) internal virtual returns (uint);
 
     function creditTo(
         uint account,
@@ -35,9 +30,15 @@ abstract contract CreditTo is Resolve(REQ) {
         uint amount,
         bytes calldata step
     ) internal returns (bytes32, bytes memory) {
+        ensureValidStage(resolveId, step);
         uint to = resolveTo(account, step);
         ensureAmount(creditTo(to, id, amount));
         return done();
+    }
+
+    function creditTo(bytes memory body, bytes calldata step) internal returns (bytes32, bytes memory) {
+        NextInput memory i = decodeNext(body);
+        return creditTo(i.account, i.id, i.amount, step);
     }
 
     function resolve(

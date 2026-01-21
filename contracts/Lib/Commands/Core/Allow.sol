@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.33;
+
+import {Command} from "../Base.sol";
+
+string constant ABI = "function allow(uint account, bytes step) external payable returns (bytes32, bytes)";
+bytes4 constant SELECTOR = IAllow.allow.selector;
+
+// uint[] calldata ids
+
+interface IAllow {
+    function allow(
+        uint account,
+        bytes calldata step
+    ) external payable returns (bytes32, bytes memory);
+}
+
+abstract contract Allow is IAllow, Command {
+    uint internal immutable allowEid = toEid(true, SELECTOR);
+
+    constructor(string memory params) {
+        emit Endpoint(hostId, allowEid, 0, ABI, params);
+    }
+
+    function allow(
+        uint account,
+        bytes calldata step
+    ) external payable virtual returns (bytes32, bytes memory);
+}

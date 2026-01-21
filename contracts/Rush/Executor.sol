@@ -10,24 +10,20 @@ import {Value} from "../Lib/Entity.sol";
 import {useValue} from "../Lib/Utils/Value.sol";
 import {Id} from "../Lib/Utils/Id.sol";
 import {Step} from "../Lib/Utils/Step.sol";
-import {NextInput, decodeNext} from "../Lib/Commands/Base.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
     using Step for bytes;
 
     error BadPipe();
-
-    function creditTo(
-        bytes memory body,
-        bytes calldata step
-    ) internal returns (bytes32, bytes memory) {
-        NextInput memory i = decodeNext(body);
-        return creditTo(i.account, i.id, i.amount, step);
-    }
+    error InvalidBody();
 
     // check eid... use eid open flag
     function auth(bytes32 head, bytes calldata step) private returns (uint) {
+        if(head == 0) {
+            // must be open
+        }
+            // open utilize step to resolve account
         // head utilize -> accept step resolve/finalize
         return uint(bytes32(step));
     }
@@ -37,16 +33,53 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     // validate factors on dst endpoint...
     // validator id can be endpoint id ??.. seperate validator for each endpoint
     // signed must include signer address as 32 bytes.. cross chain
-    function validate(
-        bytes calldata signed,
-        bytes[] calldata steps
-    ) internal returns (uint) {
+    function validate(bytes[] calldata steps, bytes calldata signed) internal returns (uint) {
         if (signed.length == 0) return Id.account(msg.sender);
         // include fee in signed ??
         // only validate abi.encode(steps)... factors included. cannot extract factors before validate
         // verify meta, factor and step addr
         // allow max steps ???
         return Id.account(msg.sender);
+    }
+
+    function encodeInitCall(bytes4 selector, uint account, bytes calldata step) private pure returns (bytes memory c) {
+        assembly {
+            let s := step.length
+            c := mload(0x40)
+            mstore(0x40, add(c, add(s, 0x84)))
+            mstore(c, add(s, 0x44))
+            mstore(add(c, 0x20), selector)
+            mstore(add(c, 0x24), account)
+            mstore(add(c, 0x44), 0x40)
+            calldatacopy(add(c, 0x64), sub(step.offset, 0x20), add(s, 0x20))
+        }
+    }
+
+    // @dev expect valid body.
+    function encodeNextCall(
+        bytes4 selector,
+        bytes memory body,
+        bytes calldata step
+    ) private pure returns (bytes memory c) {
+        assembly {
+            let s := step.length
+            let b := mload(body)
+            c := mload(0x40)
+            mstore(0x40, add(add(c, b), add(s, 0x44)))
+            mstore(c, add(add(b, s), 4))
+            mstore(add(c, 0x20), selector)
+            mcopy(add(c, 0x24), add(body, 0x20), sub(b, 0x20))
+            calldatacopy(add(c, add(b, 4)), sub(step.offset, 0x20), add(s, 0x20))
+        }
+    }
+
+    function checkBody(bytes memory body) private pure {
+        assembly {
+            if sub(mload(body), 0xe0) {
+                mstore(0, 0x1e9d6c6e) // bytes4(keccak256("InvalidBody()"))
+                revert(0x1c, 0x04)
+            }
+        }
     }
 
     /*     function callTo(
@@ -127,11 +160,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         return executeEndpoint(account, eid, body, step, value);
     }
 
-    function resolve(
-        bytes32 head,
-        bytes memory body,
-        Value memory value
-    ) internal returns (bool) {
+    function resolve(bytes32 head, bytes memory body, Value memory value) internal returns (bool) {
         // IS NEXT ??
 
         return true; //
@@ -146,8 +175,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         Value memory v
     ) internal returns (uint) {
         for (uint i = 0; i < steps.length; i++) {
-            uint eid = auth(head, steps[i]);
-            (head, body) = next(eid, account, body, steps[i], v);
+            (head, body) = next(auth(head, steps[i]), account, body, steps[i], v);
             if (head == 0) return i + 1;
         }
         resolve(head, body, v);

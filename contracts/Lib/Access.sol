@@ -10,8 +10,9 @@ abstract contract AccessControl is AccessEvent {
 
     error Unauthorized(address addr);
 
-    modifier onlyAdmin() {
-        auth(msg.sender, msg.sender == admin);
+    modifier onlyAdmin(uint account) {
+        // CHECK ACCOUNT
+        ensureTrusted(msg.sender);
         _;
     }
 
@@ -48,11 +49,15 @@ abstract contract AccessControl is AccessEvent {
         return addr == admin || addr == address(this) || authorized[addr];
     }
 
+    function ensureAdmin(address addr) internal view returns (address) {
+        return auth(addr, addr == admin);
+    }
+
     function ensureAuthorized(address addr) internal view returns (address) {
         return auth(addr, isAuthorized(addr));
     }
 
-// trust address admin or this.. or cast to nodeId and check
+    // trust address admin or this.. or cast to nodeId and check
     function ensureTrusted(address addr) internal view returns (address) {
         return auth(addr, isTrusted(addr));
     }

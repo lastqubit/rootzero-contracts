@@ -15,15 +15,10 @@ function slice4(bytes calldata data, uint offset) pure returns (bytes4 result) {
     }
 }
 
-function compare4(
-    bytes calldata data,
-    uint offset,
-    bytes4 target
-) pure returns (bool equal) {
+function compare4(bytes calldata data, uint offset, bytes4 target) pure returns (bool equal) {
     assembly {
         if iszero(gt(offset, sub(data.length, 4))) {
-            let word := calldataload(add(data.offset, offset))
-            equal := eq(and(word, MASK4), target)
+            equal := eq(and(calldataload(add(data.offset, offset)), MASK4), target)
         }
     }
 }
@@ -33,19 +28,11 @@ library Data {
 
     error BadData();
 
-    function oob(
-        uint size,
-        uint o,
-        bytes calldata data
-    ) private pure returns (bool) {
+    function oob(uint size, uint o, bytes calldata data) private pure returns (bool) {
         return o + size > data.length;
     }
 
-    function noob(
-        uint size,
-        uint no,
-        bytes calldata data
-    ) private pure returns (bool) {
+    function noob(uint size, uint no, bytes calldata data) private pure returns (bool) {
         return no < size || no > data.length;
     }
 
@@ -73,99 +60,62 @@ library Data {
         return oob(32, o, data) ? bytes32(0) : bytes32(data[o:o + 32]);
     }
 
-    function to1no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes1) {
+    function to1no(bytes calldata data, uint no) internal pure returns (bytes1) {
         if (noob(1, no, data)) return 0;
         uint o = data.length - no;
         return bytes1(data[o:o + 1]);
     }
 
-    function to2no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes2) {
+    function to2no(bytes calldata data, uint no) internal pure returns (bytes2) {
         if (noob(2, no, data)) return 0;
         uint o = data.length - no;
         return bytes2(data[o:o + 2]);
     }
 
-    function to4no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes4) {
+    function to4no(bytes calldata data, uint no) internal pure returns (bytes4) {
         if (noob(4, no, data)) return 0;
         uint o = data.length - no;
         return bytes4(data[o:o + 4]);
     }
 
-    function to8no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes8) {
+    function to8no(bytes calldata data, uint no) internal pure returns (bytes8) {
         if (noob(8, no, data)) return 0;
         uint o = data.length - no;
         return bytes8(data[o:o + 8]);
     }
 
-    function to20no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes20) {
+    function to20no(bytes calldata data, uint no) internal pure returns (bytes20) {
         if (noob(20, no, data)) return 0;
         uint o = data.length - no;
         return bytes20(data[o:o + 20]);
     }
 
-    function to32no(
-        bytes calldata data,
-        uint no
-    ) internal pure returns (bytes32) {
+    function to32no(bytes calldata data, uint no) internal pure returns (bytes32) {
         if (noob(32, no, data)) return 0;
         uint o = data.length - no;
         return bytes32(data[o:o + 32]);
     }
 
-    function eq2(
-        bytes calldata data,
-        bytes2 eq,
-        uint o
-    ) internal pure returns (bool) {
+    function eq2(bytes calldata data, bytes2 eq, uint o) internal pure returns (bool) {
         return !oob(2, o, data) && eq == bytes2(data[o:o + 2]);
     }
 
-    function eq20(
-        bytes calldata data,
-        bytes20 eq,
-        uint o
-    ) internal pure returns (bool) {
+    function eq20(bytes calldata data, bytes20 eq, uint o) internal pure returns (bool) {
         return !oob(20, o, data) && eq == bytes20(data[o:o + 20]);
     }
 
-    function eq32(
-        bytes calldata data,
-        bytes32 eq,
-        uint o
-    ) internal pure returns (bool) {
+    function eq32(bytes calldata data, bytes32 eq, uint o) internal pure returns (bool) {
         return !oob(32, o, data) && eq == bytes32(data[o:o + 32]);
     }
 
-    function ensure32(
-        bytes calldata data,
-        bytes32 eq,
-        uint o
-    ) internal pure returns (bytes calldata) {
+    function ensure32(bytes calldata data, bytes32 eq, uint o) internal pure returns (bytes calldata) {
         if (eq32(data, eq, o) == false) {
             revert BadData();
         }
         return data;
     }
 
-    function toBlock(
-        bytes calldata blocks,
-        bytes2 cat
-    ) internal pure returns (bytes calldata) {
+    function toBlock(bytes calldata blocks, bytes2 cat) internal pure returns (bytes calldata) {
         uint16 len;
         for (uint o = 0; (len = uint16(to2(blocks, o))) > 0; ) {
             if (eq2(blocks, cat, o + 2)) {
