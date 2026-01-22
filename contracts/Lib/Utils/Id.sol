@@ -3,8 +3,6 @@ pragma solidity ^0.8.33;
 
 // @dev bytes4(EVM=1,ID=1,TYPE,SUB)
 
-// Change node to host ???
-
 library Id {
     uint16 internal constant ID = uint16(bytes2(0x0101));
     uint32 internal constant VALUE = uint32(bytes4(0x01010100));

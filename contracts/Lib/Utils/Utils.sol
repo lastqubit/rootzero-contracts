@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {Data} from "../Utils/Data.sol";
-import {STEP, FACTOR} from "../Utils/Block.sol";
 
 uint16 constant DENOMINATOR = 10_000;
 
@@ -18,15 +17,3 @@ function reverse(uint amount, uint16 bps) pure returns (uint) {
     return (amount * DENOMINATOR) / (DENOMINATOR + bps);
 }
 
-function getStep(
-    bytes calldata ctx
-) pure returns (bytes calldata) {
-    return Data.toBlock(ctx, STEP);
-}
-
-function getFactor(
-    bytes32 ep,
-    bytes calldata ctx
-) pure returns (bytes calldata) {
-    return Data.ensure32(Data.toBlock(ctx, FACTOR), ep, 0);
-}

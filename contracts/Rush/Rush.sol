@@ -5,7 +5,6 @@ import {Executor, Value, Ownable} from "./Executor.sol";
 import {Node} from "../Lib/Node.sol";
 import {Id} from "../Lib/Utils/Id.sol";
 import {Addr} from "../Lib/Utils/Addr.sol";
-import {Bytes} from "../Lib/Utils/Bytes.sol";
 
 contract Rush is Executor {
     mapping(uint => bool) internal initial; /////
@@ -19,7 +18,7 @@ contract Rush is Executor {
         return pipe(Id.account(admin), 0, "", steps, Value(msg.value)); // make admin uint
     }
 
-    // add bounty to step instead of fee.
+    // add bounty to step instead of fee... reentry attack ??
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
         return pipe(validate(steps, signed), 0, "", steps, Value(msg.value));
     }

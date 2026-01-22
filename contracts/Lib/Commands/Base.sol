@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Host} from "../Host.sol";
-import {Value, useValue} from "../Utils/Value.sol";
+import {Call, Value, useValue} from "../Utils/Call.sol";
 
 bytes4 constant OPEN = INext.open.selector;
 bytes4 constant NEXT = INext.next.selector;
@@ -14,10 +14,7 @@ struct NextInput {
 }
 
 interface INext {
-    function open(
-        uint account,
-        bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
+    function open(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
 
     function next(
         uint account,
@@ -38,17 +35,11 @@ abstract contract Command is Host {
         return (0, "");
     }
 
-    function next(
-        uint account,
-        uint id,
-        uint amount
-    ) internal pure returns (bytes32, bytes memory) {
+    function next(uint account, uint id, uint amount) internal pure returns (bytes32, bytes memory) {
         return (NEXT, abi.encode(account, id, amount, "", ""));
     }
 
-    function getRequest(
-        bytes calldata step
-    ) internal pure returns (bytes calldata) {
-        return step[64:];
+    function getRequest(bytes calldata step) internal pure returns (bytes calldata) {
+        return Call.getParam(step, 0, 64);
     }
 }

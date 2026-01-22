@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {Utilize} from "./Core/Utilize.sol";
-import {getStep} from "../Utils/Utils.sol";
 
 string constant REQ = "swap(uint use, uint accept)";
 
@@ -22,6 +21,6 @@ abstract contract Swap is Utilize(REQ) {
     function getSwapRequest(
         bytes calldata ctx
     ) internal view returns (SwapRequest memory) {
-        return abi.decode(getStep(ctx), (SwapRequest));
+        return abi.decode(ctx, (SwapRequest)); ///
     }
 }

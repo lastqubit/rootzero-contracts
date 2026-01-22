@@ -30,20 +30,4 @@ library Addr {
         }
         return addr;
     }
-
-    function toUint(address addr) internal pure returns (uint) {
-        return uint(uint160(addr));
-    }
-
-    function extract(uint value) internal pure returns (address) {
-        return address(uint160(value));
-    }
-
-    function extract(bytes32 value) internal pure returns (address) {
-        return address(uint160(uint(value)));
-    }
-
-    function extract(bytes memory data) internal pure returns (address) {
-        return abi.decode(data, (address));
-    }
 }

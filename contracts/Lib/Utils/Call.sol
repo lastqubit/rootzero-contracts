@@ -3,8 +3,18 @@ pragma solidity ^0.8.33;
 
 // @dev head with any value(selector) as the last uint32 is expected to have a body encoded to work with these call functions.
 
+error BadValue();
+
 struct Value {
     uint amount;
+}
+
+function useValue(Value memory total, uint amount) pure returns (uint) {
+    if (amount > total.amount) {
+        revert BadValue();
+    }
+    total.amount -= amount;
+    return amount;
 }
 
 library Call {
@@ -65,6 +75,46 @@ library Call {
             // Copy step length and data at the position where the zero was
             let stepPos := add(add(result, 0x24), argsToCopy)
             calldatacopy(stepPos, step.offset, add(s, 0x20))
+        }
+    }
+
+    function getParam(bytes calldata step, bytes4 target, uint offset) internal pure returns (bytes calldata result) {
+        assembly {
+            let sos := step.offset
+            let eos := add(sos, step.length)
+            let cursor := add(sos, offset)
+
+            result.offset := 0
+            result.length := 0
+
+            //prettier-ignore
+            for { let i := 0 } lt(i, 5) { i := add(i, 1) } {
+                // Check cursor overflow and ensure room for header
+                if or(lt(cursor, sos), gt(cursor, sub(eos, 8))) {
+                    break
+                }
+
+                let head := calldataload(cursor)
+                let len := and(shr(192, head), 0xffffffff)
+
+                // Calculate data boundaries
+                let sod := add(cursor, 8)
+                let eod := add(sod, len)
+
+                // Check for overflow or out of bounds
+                if or(lt(eod, sod), gt(eod, eos)) {
+                    break
+                }
+
+                // Match found
+                if or(iszero(target), eq(and(shr(224, head), 0xffffffff), target)) {
+                    result.offset := sod
+                    result.length := len
+                    break
+                }
+
+                cursor := eod
+            }
         }
     }
 }

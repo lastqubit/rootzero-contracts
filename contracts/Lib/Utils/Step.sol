@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Head} from "../Utils/Head.sol";
 import {Bytes} from "../Utils/Bytes.sol";
 import {slice4} from "./Data.sol";
 
@@ -46,8 +45,7 @@ library Step {
         return address(bytes20(step[12:32]));
     }
 
-    // @dev find key and return data given step is blocks(bytes4 len, bytes4 key, bytes data).
-    // blocks starts at offset 64. param(step, 0, 64) -> request param.
+    // @dev find key and return data given step is blocks(uint32 len, bytes4 key, bytes data).
     function param(bytes calldata step, bytes4 target, uint offset) internal pure returns (bytes calldata result) {
         assembly {
             let start := step.offset
@@ -55,7 +53,11 @@ library Step {
             result.offset := 0
             result.length := 0
 
-            for {} iszero(gt(add(offset, 8), dataLen)) {} {
+            for {
+
+            } iszero(gt(add(offset, 8), dataLen)) {
+
+            } {
                 let currentPos := add(start, offset)
                 let len := and(shr(224, calldataload(currentPos)), 0xffffffff)
                 let key := and(shr(224, calldataload(add(currentPos, 4))), 0xffffffff)
@@ -78,6 +80,49 @@ library Step {
         }
     }
 
+    /*     function encodeBlock(bytes4 key, bytes memory data) internal pure returns (bytes memory) {
+        uint32 len = uint32(data.length); // Just data length, not including header
+        return abi.encodePacked(key, len, data);
+    } */
+
+    function param2(bytes calldata step, bytes4 target, uint offset) internal pure returns (bytes calldata result) {
+        assembly {
+            let sos := step.offset
+            let eos := add(sos, step.length)
+            let cursor := add(sos, offset)
+            result.offset := 0
+            result.length := 0
+
+            //prettier-ignore
+            for { let i := 0 } lt(i, 5) { i := add(i, 1) } {
+                // Check cursor overflow and ensure room for header
+                if or(lt(cursor, sos), gt(cursor, sub(eos, 8))) {
+                    break
+                }
+
+                let header := calldataload(cursor)
+                let len := and(shr(192, header), 0xffffffff)
+
+                // Calculate data boundaries
+                let sod := add(cursor, 8)
+                let eod := add(sod, len)
+
+                // Check for overflow or out of bounds
+                if or(lt(eod, sod), gt(eod, eos)) {
+                    break
+                }
+
+                // Match found
+                if or(iszero(target), eq(and(shr(224, header), 0xffffffff), target)) {
+                    result.offset := sod
+                    result.length := len
+                    break
+                }
+
+                cursor := eod
+            }
+        }
+    }
     /*     // @dev expects body to be encoded params with the last being an placeholder(empty bytes array).
     function inject(bytes calldata step, bytes memory body) internal pure returns (bytes memory result) {
         assembly {

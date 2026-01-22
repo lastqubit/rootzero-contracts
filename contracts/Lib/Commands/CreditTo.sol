@@ -30,7 +30,7 @@ abstract contract CreditTo is Resolve(REQ) {
         uint amount,
         bytes calldata step
     ) internal returns (bytes32, bytes memory) {
-        ensureValidStage(resolveId, step);
+        //ensureValidStage(resolveId, step);
         uint to = resolveTo(account, step);
         ensureAmount(creditTo(to, id, amount));
         return done();

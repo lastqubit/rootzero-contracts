@@ -3,10 +3,6 @@ pragma solidity ^0.8.33;
 
 //import {Tx} from "./Io.sol";
 
-struct Value {
-    uint amount;
-}
-
 /* struct Discover {
     address addr;
     uint id;

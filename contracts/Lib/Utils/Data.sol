@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Head} from "../Utils/Head.sol";
-
 // @dev returns zero on out of bounds instead of revert.
 
 bytes32 constant MASK4 = 0xFFFFFFFF00000000000000000000000000000000000000000000000000000000;
@@ -24,7 +22,8 @@ function compare4(bytes calldata data, uint offset, bytes4 target) pure returns 
 }
 
 library Data {
-    bytes1 constant SIGNED = bytes1(Head.SIGNED);
+    bytes1 constant SIGNED = bytes1(uint8(5));
+        //uint8 internal constant SIGNED = 5;
 
     error BadData();
 
