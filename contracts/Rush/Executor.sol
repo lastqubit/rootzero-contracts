@@ -10,10 +10,12 @@ import {Value} from "../Lib/Entity.sol";
 import {useValue} from "../Lib/Utils/Value.sol";
 import {Id} from "../Lib/Utils/Id.sol";
 import {Step} from "../Lib/Utils/Step.sol";
+import {Call} from "../Lib/Utils/Call.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
     using Step for bytes;
+    using Call for bytes4;
 
     error BadPipe();
     error InvalidBody();
@@ -42,50 +44,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         return Id.account(msg.sender);
     }
 
-    function encodeInitCall(bytes4 selector, uint account, bytes calldata step) private pure returns (bytes memory c) {
-        assembly {
-            let s := step.length
-            c := mload(0x40)
 
-            mstore(0x40, add(c, and(add(add(0x84, s), 0x1f), not(0x1f))))
-
-            mstore(c, add(0x64, s))
-
-            // Store account first
-            mstore(add(c, 0x24), account)
-
-            // Write selector bytes
-            let ptr := add(c, 0x20)
-            mstore8(ptr, byte(0, selector))
-            mstore8(add(ptr, 1), byte(1, selector))
-            mstore8(add(ptr, 2), byte(2, selector))
-            mstore8(add(ptr, 3), byte(3, selector))
-
-            // Store offset
-            mstore(add(c, 0x44), 0x40)
-
-            // Copy step length AND data in one operation
-            calldatacopy(add(c, 0x64), step.offset, add(s, 0x20))
-        }
-    }
-
-    // @dev expect valid body.
-    function encodeNextCall(
-        bytes4 selector,
-        bytes memory body,
-        bytes calldata step
-    ) private pure returns (bytes memory c) {
-        assembly {
-            let s := step.length
-            let b := mload(body)
-            c := mload(0x40)
-            mstore(0x40, add(add(c, b), add(s, 0x44)))
-            mstore(c, add(add(b, s), 4))
-            mstore(add(c, 0x20), selector)
-            mcopy(add(c, 0x24), add(body, 0x20), sub(b, 0x20))
-            calldatacopy(add(c, add(b, 4)), sub(step.offset, 0x20), add(s, 0x20))
-        }
-    }
 
     function checkBody(bytes memory body) private pure {
         assembly {
@@ -152,13 +111,15 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     function executeEndpoint(
         uint account,
         uint eid,
-        bytes memory body,
+        bytes memory args,
         bytes calldata step,
         Value memory value
     ) private returns (bytes32, bytes memory) {
         bool open;
         bytes4 selector;
-        body = open ? abi.encode(account, step) : step.inject(body);
+        selector.encodeCall(account, step);
+        selector.encodeCall(args, step);
+        args = open ? abi.encode(account, step) : step.inject(args);
         // check eid for open flag to encoded (account, step)
     }
 
