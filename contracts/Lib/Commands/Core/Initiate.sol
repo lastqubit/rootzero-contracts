@@ -7,14 +7,7 @@ string constant ABI = "function initiate(uint account, bytes step) external paya
 bytes4 constant SELECTOR = IInitiate.initiate.selector;
 
 interface IInitiate {
-    function initiate(
-        uint account,
-        bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
-}
-
-function encodeInitiate(uint account) pure returns (bytes32, bytes memory) {
-    return (SELECTOR, abi.encode(account, ""));
+    function initiate(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
 }
 
 abstract contract Initiate is IInitiate, Command {
@@ -24,12 +17,5 @@ abstract contract Initiate is IInitiate, Command {
         emit Endpoint(hostId, initiateId, 0, ABI, params);
     }
 
-    function isLocalInitiate(uint eid) internal view returns (bool) {
-        return eid == initiateId;
-    }
-
-    function initiate(
-        uint account,
-        bytes calldata step
-    ) external payable virtual returns (bytes32, bytes memory);
+    function initiate(uint account, bytes calldata step) external payable virtual returns (bytes32, bytes memory);
 }

@@ -6,7 +6,7 @@ import {AccessControl} from "./Access.sol";
 import {EndpointEvent} from "./Events/Node/Endpoint.sol";
 
 abstract contract Host is AccessControl, EndpointEvent {
-    uint public immutable hostId = Id.host(address(this));
+    uint public immutable valueId = Id.value();
 
     error UnexpectedStage();
     // add error bytes??

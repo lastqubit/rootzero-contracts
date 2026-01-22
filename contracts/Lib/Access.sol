@@ -7,15 +7,16 @@ import {Id} from "./Utils/Id.sol";
 abstract contract AccessControl is AccessEvent {
     address internal immutable cmdr;
     uint internal immutable admin;
+    uint public immutable hostId = Id.host(address(this));
+
+    mapping(address => bool) internal authorized;
+
+    error Unauthorized(address addr);
 
     constructor(address commander) {
         cmdr = commander == address(0) ? address(this) : commander;
         admin = Id.account(cmdr);
     }
-
-    mapping(address => bool) internal authorized;
-
-    error Unauthorized(address addr);
 
     modifier onlyAdmin(uint account) {
         // CHECK ACCOUNT
@@ -33,10 +34,10 @@ abstract contract AccessControl is AccessEvent {
         _;
     }
 
-    function access(uint host, bool allow) internal returns (address) {
-        address addr = Id.hostAddr(host, true);
+    function access(uint caller, bool allow) internal returns (address) {
+        address addr = Id.hostAddr(caller, true);
         authorized[addr] = allow;
-        emit Access(host, addr, allow); /////// hostId
+        emit Access(hostId, addr, allow);
         return addr;
     }
 
@@ -60,7 +61,6 @@ abstract contract AccessControl is AccessEvent {
         return auth(addr, isAuthorized(addr));
     }
 
-    // trust address admin or this.. or cast to nodeId and check
     function ensureTrusted(address addr) internal view returns (address) {
         return auth(addr, isTrusted(addr));
     }

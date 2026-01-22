@@ -7,10 +7,7 @@ string constant ABI = "function create(uint account, bytes step) external payabl
 bytes4 constant SELECTOR = ICreate.create.selector;
 
 interface ICreate {
-    function create(
-        uint account,
-        bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
+    function create(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
 }
 
 abstract contract Create is ICreate, Command {
@@ -20,8 +17,5 @@ abstract contract Create is ICreate, Command {
         emit Endpoint(hostId, createId, 0, ABI, params);
     }
 
-    function create(
-        uint account,
-        bytes calldata step
-    ) external payable virtual returns (bytes32, bytes memory);
+    function create(uint account, bytes calldata step) external payable virtual returns (bytes32, bytes memory);
 }

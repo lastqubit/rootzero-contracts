@@ -14,6 +14,10 @@ contract Rush is Executor {
         address discovery
     ) Node(address(0), discovery, "admin") Ownable(Addr.or(owner, msg.sender)) {}
 
+    function getBalance(uint account, uint id) internal view override returns (uint) {
+        return balances[account][id];
+    }
+
     function inject(bytes[] calldata steps) external payable override onlyOwner returns (uint) {
         return pipe(admin, 0, "", steps, Value(msg.value)); // make admin uint
     }
@@ -31,13 +35,5 @@ contract Rush is Executor {
         bytes calldata signed
     ) external payable override onlyAuthorized returns (uint) {
         return pipe(validate(steps, signed), head, body, steps, Value(msg.value)); // If not signed, from becomes calling node!!
-    }
-
-    function getBalances(uint account, uint[] calldata ids) external view override returns (uint[] memory) {
-        uint[] memory result = new uint[](ids.length);
-        for (uint i = 0; i < ids.length; i++) {
-            result[i] = balances[account][ids[i]];
-        }
-        return result;
     }
 }
