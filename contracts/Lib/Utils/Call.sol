@@ -7,49 +7,64 @@ struct Value {
     uint amount;
 }
 
-// Failed call endpoint instead of selector...
-error FailedCall(bytes4 selector, address addr, uint size);
+library Call {
+    function encodeCall(
+        bytes4 selector,
+        uint account,
+        bytes calldata step
+    ) internal pure returns (bytes memory result) {
+        assembly {
+            let s := step.length
+            let size := add(0x84, s)
 
-function toSelector(uint head) pure returns (bytes4) {
-    bytes4 selector = bytes4(uint32(head));
-    if (selector == 0) {
-        revert();
+            result := mload(0x40)
+
+            mstore(0x40, add(result, and(add(size, 0x1f), not(0x1f))))
+            mstore(result, add(0x64, s))
+            mstore(add(result, 0x24), account)
+
+            let ptr := add(result, 0x20)
+            mstore8(ptr, byte(0, selector))
+            mstore8(add(ptr, 1), byte(1, selector))
+            mstore8(add(ptr, 2), byte(2, selector))
+            mstore8(add(ptr, 3), byte(3, selector))
+
+            // Store offset to step (0x40)
+            mstore(add(result, 0x44), 0x40)
+
+            // Copy step length and data
+            calldatacopy(add(result, 0x64), step.offset, add(s, 0x20))
+        }
     }
-    return selector;
-}
 
-/* function _call(
-    address payable addr,
-    uint value,
-    bytes memory data
-) pure returns (bytes memory out) {
-    bool success;
-    (success, out) = addr.call{value: value}(data);
-    if (!success) {
-        revert FailedCall(bytes4(data), addr, data.length);
+    function encodeCall(
+        bytes4 selector,
+        bytes memory args,
+        bytes calldata step
+    ) internal pure returns (bytes memory result) {
+        assembly {
+            let s := step.length
+            let argsLen := mload(args)
+            let size := add(add(4, argsLen), s)
+            let argsToCopy := sub(argsLen, 0x20)
+
+            result := mload(0x40)
+
+            mstore(0x40, add(result, and(add(add(0x20, size), 0x1f), not(0x1f))))
+            mstore(result, size)
+
+            let ptr := add(result, 0x20)
+            mstore8(ptr, byte(0, selector))
+            mstore8(add(ptr, 1), byte(1, selector))
+            mstore8(add(ptr, 2), byte(2, selector))
+            mstore8(add(ptr, 3), byte(3, selector))
+
+            // Copy args except last 32 bytes (the zero length) using mcopy
+            mcopy(add(result, 0x24), add(args, 0x20), argsToCopy)
+
+            // Copy step length and data at the position where the zero was
+            let stepPos := add(add(result, 0x24), argsToCopy)
+            calldatacopy(stepPos, step.offset, add(s, 0x20))
+        }
     }
-    return out;
-} */
-
-// @dev expects last encoded value of body to be empty bytes array(placeholder for step).
-function encodeCall(
-    uint head,
-    bytes memory body,
-    bytes calldata step
-) pure returns (bytes memory) {
-    uint o = body.length + 4 - 32;
-    bytes memory call = bytes.concat(toSelector(head), body, step);
-    //call.store32no(step.length + 32, step.length);
 }
-
-/* function callNext(
-    address addr,
-    uint head,
-    bytes memory body,
-    bytes calldata step,
-    Value memory total
-) pure returns (bytes32, bytes memory) {
-    uint v = uint96(bytes12(step[32:44]));
-    bytes memory call = encodeCall(head, body, step);
-    return abi.decode(callTo(addr, v, total, call), (uint, bytes));
-} */

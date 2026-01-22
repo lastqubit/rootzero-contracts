@@ -32,19 +32,8 @@ function decodeNext(bytes memory data) pure returns (NextInput memory i) {
     (i.account, i.id, i.amount) = abi.decode(data, (uint, uint, uint));
 }
 
-/* function encodeNext(
-    uint account,
-    uint id,
-    uint amount,
-    bytes memory data
-) pure returns (bytes32, bytes memory) {
-    return (NEXT, abi.encode(account, id, amount, data, ""));
-}
- */
 // @dev open endpoint = user can use endpoint as entry point
 abstract contract Command is Host {
-    error UnexpectedStage();
-
     function done() internal pure returns (bytes32, bytes memory) {
         return (0, "");
     }
@@ -55,12 +44,6 @@ abstract contract Command is Host {
         uint amount
     ) internal pure returns (bytes32, bytes memory) {
         return (NEXT, abi.encode(account, id, amount, "", ""));
-    }
-
-    function ensureValidStage(uint eid, bytes calldata step) internal pure {
-        if (eid != uint(bytes32(step))) {
-            revert UnexpectedStage();
-        }
     }
 
     function getRequest(

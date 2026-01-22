@@ -18,8 +18,7 @@ contract Faucet is Node, Endpoints {
         uint account,
         uint id,
         uint min,
-        uint max,
-        uint fee
+        uint max
     ) internal override returns (uint) {
         uint amount = Amount.resolve(disposable, min, max);
         uint out = amount - 0; //fee; ///////////

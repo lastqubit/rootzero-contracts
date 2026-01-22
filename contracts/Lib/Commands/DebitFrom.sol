@@ -3,39 +3,26 @@ pragma solidity ^0.8.33;
 
 import {Initiate} from "./Core/Initiate.sol";
 
-string constant REQ = "debitFrom(uint use, uint min, uint max, uint fee)";
+string constant REQ = "debitFrom(uint use, uint min, uint max)";
 
 struct DebitRequest {
     uint use;
     uint min;
     uint max;
-    uint fee;
 }
 
+// virtual fee function ??
 abstract contract DebitFrom is Initiate(REQ) {
-    function toDebitRequest(
-        bytes calldata step
-    ) public pure returns (DebitRequest memory q) {
-        return abi.decode(step[64:], (DebitRequest));
+    function decodeDebit(bytes calldata step) private pure returns (DebitRequest memory i) {
+        (i.use, i.min, i.max) = abi.decode(getRequest(step), (uint, uint, uint));
     }
 
-    // virtual fee function ??
+    function debitFrom(uint account, uint id, uint min, uint max) internal virtual returns (uint) {}
 
-    function debitFrom(
-        uint account,
-        uint id,
-        uint min,
-        uint max,
-        uint fee
-    ) internal virtual returns (uint) {}
-
-    function debitFrom(
-        uint account,
-        bytes calldata step
-    ) internal returns (bytes32, bytes memory) {
+    function debitFrom(uint account, bytes calldata step) internal returns (bytes32, bytes memory) {
         ensureValidStage(initiateId, step);
-        DebitRequest memory q = toDebitRequest(step);
-        uint amount = debitFrom(account, q.use, q.min, q.max, q.fee);
+        DebitRequest memory q = decodeDebit(step);
+        uint amount = debitFrom(account, q.use, q.min, q.max);
         return next(account, q.use, amount);
     }
 

@@ -10,24 +10,22 @@ import {Value} from "../Lib/Entity.sol";
 import {useValue} from "../Lib/Utils/Value.sol";
 import {Id} from "../Lib/Utils/Id.sol";
 import {Step} from "../Lib/Utils/Step.sol";
-import {NextInput, decodeNext} from "../Lib/Commands/Base.sol";
+import {Call} from "../Lib/Utils/Call.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
     using Step for bytes;
+    using Call for bytes4;
 
     error BadPipe();
-
-    function creditTo(
-        bytes memory body,
-        bytes calldata step
-    ) internal returns (bytes32, bytes memory) {
-        NextInput memory i = decodeNext(body);
-        return creditTo(i.account, i.id, i.amount, step);
-    }
+    error InvalidBody();
 
     // check eid... use eid open flag
     function auth(bytes32 head, bytes calldata step) private returns (uint) {
+        if (head == 0) {
+            // must be open
+        }
+        // open utilize step to resolve account
         // head utilize -> accept step resolve/finalize
         return uint(bytes32(step));
     }
@@ -37,16 +35,24 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     // validate factors on dst endpoint...
     // validator id can be endpoint id ??.. seperate validator for each endpoint
     // signed must include signer address as 32 bytes.. cross chain
-    function validate(
-        bytes calldata signed,
-        bytes[] calldata steps
-    ) internal returns (uint) {
+    function validate(bytes[] calldata steps, bytes calldata signed) internal returns (uint) {
         if (signed.length == 0) return Id.account(msg.sender);
         // include fee in signed ??
         // only validate abi.encode(steps)... factors included. cannot extract factors before validate
         // verify meta, factor and step addr
         // allow max steps ???
         return Id.account(msg.sender);
+    }
+
+
+
+    function checkBody(bytes memory body) private pure {
+        assembly {
+            if sub(mload(body), 0xe0) {
+                mstore(0, 0x1e9d6c6e) // bytes4(keccak256("InvalidBody()"))
+                revert(0x1c, 0x04)
+            }
+        }
     }
 
     /*     function callTo(
@@ -105,13 +111,15 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     function executeEndpoint(
         uint account,
         uint eid,
-        bytes memory body,
+        bytes memory args,
         bytes calldata step,
         Value memory value
     ) private returns (bytes32, bytes memory) {
         bool open;
         bytes4 selector;
-        body = open ? abi.encode(account, step) : step.inject(body);
+        selector.encodeCall(account, step);
+        selector.encodeCall(args, step);
+        args = open ? abi.encode(account, step) : step.inject(args);
         // check eid for open flag to encoded (account, step)
     }
 
@@ -127,11 +135,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         return executeEndpoint(account, eid, body, step, value);
     }
 
-    function resolve(
-        bytes32 head,
-        bytes memory body,
-        Value memory value
-    ) internal returns (bool) {
+    function resolve(bytes32 head, bytes memory body, Value memory value) internal returns (bool) {
         // IS NEXT ??
 
         return true; //
@@ -146,8 +150,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         Value memory v
     ) internal returns (uint) {
         for (uint i = 0; i < steps.length; i++) {
-            uint eid = auth(head, steps[i]);
-            (head, body) = next(eid, account, body, steps[i], v);
+            (head, body) = next(auth(head, steps[i]), account, body, steps[i], v);
             if (head == 0) return i + 1;
         }
         resolve(head, body, v);
