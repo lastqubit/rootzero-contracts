@@ -4,14 +4,13 @@ pragma solidity ^0.8.33;
 import {Host} from "../Host.sol";
 import {Value, useValue} from "../Utils/Value.sol";
 
+bytes4 constant OPEN = INext.open.selector;
 bytes4 constant NEXT = INext.next.selector;
 
 struct NextInput {
     uint account;
     uint id;
     uint amount;
-    bytes data;
-    bytes step;
 }
 
 interface INext {
@@ -30,10 +29,7 @@ interface INext {
 }
 
 function decodeNext(bytes memory data) pure returns (NextInput memory i) {
-    (i.account, i.id, i.amount, i.data, i.step) = abi.decode(
-        data,
-        (uint, uint, uint, bytes, bytes)
-    );
+    (i.account, i.id, i.amount) = abi.decode(data, (uint, uint, uint));
 }
 
 /* function encodeNext(
