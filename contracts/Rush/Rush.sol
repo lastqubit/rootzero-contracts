@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Executor, Value, Ownable} from "./Executor.sol";
 import {Node} from "../Lib/Node.sol";
 import {Id} from "../Lib/Utils/Id.sol";
-import {Addr} from "../Lib/Utils/Addr.sol";
+import {addrOr} from "../Lib/Utils/Utils.sol";
 
 contract Rush is Executor {
     mapping(uint => bool) internal initial; /////
@@ -12,7 +12,7 @@ contract Rush is Executor {
     constructor(
         address owner,
         address discovery
-    ) Node(address(0), discovery, "admin") Ownable(Addr.or(owner, msg.sender)) {}
+    ) Node(address(0), discovery, "admin") Ownable(addrOr(owner, msg.sender)) {}
 
     function getBalance(uint account, uint id) internal view override returns (uint) {
         return balances[account][id];

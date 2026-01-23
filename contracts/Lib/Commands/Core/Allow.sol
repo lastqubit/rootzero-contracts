@@ -6,8 +6,6 @@ import {Command} from "../Base.sol";
 string constant ABI = "function allow(uint account, bytes step) external payable returns (bytes32, bytes)";
 bytes4 constant SELECTOR = IAllow.allow.selector;
 
-// uint[] calldata ids
-
 interface IAllow {
     function allow(
         uint account,

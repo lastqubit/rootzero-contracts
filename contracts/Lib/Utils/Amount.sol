@@ -18,19 +18,10 @@ function ensureAmount(uint amount, uint min, uint max) pure returns (uint) {
     }
     return amount;
 }
-// revert on not in range...
-function toAmount(uint disposable, uint min, uint max) pure returns (uint) {
-    uint amount = disposable > max ? max : disposable;
-    return amount < min ? 0 : amount;
-}
 
 library Amount {
-    function valid(
-        uint amount,
-        uint min,
-        uint max
-    ) internal pure returns (bool) {
-        return amount >= min && amount <= max;
+    function difference(uint a, uint b) internal pure returns (uint) {
+        return a > b ? a - b : b - a;
     }
 
     function ensure(uint amount) internal pure returns (uint) {
@@ -47,15 +38,15 @@ library Amount {
         return amount;
     }
 
-    function ensure(
-        uint amount,
-        uint min,
-        uint max
-    ) internal pure returns (uint) {
+    function ensure(uint amount, uint min, uint max) internal pure returns (uint) {
         if (amount < min || amount > max) {
             revert BadAmount(amount);
         }
         return amount;
+    }
+
+    function resolve(uint disposable, uint min, uint max) internal pure returns (uint) {
+        return ensure(disposable > max ? max : disposable, min, max);
     }
 
     function out(uint amount, uint min, uint max) internal pure returns (uint) {
@@ -67,22 +58,5 @@ library Amount {
             revert Nondeductible(amount, disposable);
         }
         return disposable - amount;
-    }
-
-    function find(
-        uint disposable,
-        uint min,
-        uint max
-    ) internal pure returns (uint) {
-        uint amount = disposable > max ? max : disposable;
-        return amount < min ? 0 : amount;
-    }
-
-    function resolve(
-        uint disposable,
-        uint min,
-        uint max
-    ) internal pure returns (uint) {
-        return ensure(find(disposable, min, max));
     }
 }

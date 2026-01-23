@@ -10,7 +10,7 @@ abstract contract Settle is Transact("") {
         uint to,
         uint id,
         uint amount
-    ) internal virtual returns (bool);
+    ) internal virtual returns (uint);
 
     function transact(
         Tx[] calldata txs,

@@ -6,6 +6,22 @@ uint16 constant DENOMINATOR = 10_000;
 // step: endpoint:value:req:?(validator:deadline:from:sig)
 
 error ValueOverflow();
+error ZeroAddr();
+
+function addrOr(address addr, address or) pure returns (address) {
+    return addr == address(0) ? or : addr;
+}
+
+function zeroAddr(address addr) pure returns (bool) {
+    return addr == address(0);
+}
+
+function ensureAddr(address addr) pure returns (address) {
+    if (addr == address(0)) {
+        revert ZeroAddr();
+    }
+    return addr;
+}
 
 function max32(uint value) pure returns (uint) {
     if (value > type(uint32).max) {
@@ -42,10 +58,10 @@ function max160(uint value) pure returns (uint) {
     return value;
 }
 
-function chainId() view returns (uint32) {
+/* function chainId() view returns (uint32) {
     return uint32(max32(block.chainid));
 }
-
+ */
 function pack(uint value, uint bounty) pure returns (uint) {
     return (max96(value) << 160) | max160(bounty);
 }

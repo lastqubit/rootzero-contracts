@@ -4,8 +4,16 @@ pragma solidity ^0.8.33;
 import {Host} from "../Host.sol";
 import {Call, Value, useValue} from "../Utils/Call.sol";
 
-bytes4 constant OPEN = INext.open.selector;
-bytes4 constant NEXT = INext.next.selector;
+/*
+In Utils/Command.sol
+implement a function that takes two params: bytes4 head and bytes4 step
+if head == NEXT step needs to be match one of the next type commands.
+if head == ENTRY step needs to be match one of the entry type commands.
+else head needs to equal step.
+*/
+
+bytes4 constant ENTRY = IResponse.entry.selector;
+bytes4 constant NEXT = IResponse.next.selector;
 
 struct NextInput {
     uint account;
@@ -13,8 +21,8 @@ struct NextInput {
     uint amount;
 }
 
-interface INext {
-    function open(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
+interface IResponse {
+    function entry(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
 
     function next(
         uint account,
@@ -40,6 +48,6 @@ abstract contract Command is Host {
     }
 
     function getRequest(bytes calldata step) internal pure returns (bytes calldata) {
-        return Call.getParam(step, 0, 64);
+        return Call.getParam(0, 64, step);
     }
 }

@@ -8,12 +8,11 @@ import {Node} from "../Lib/Node.sol";
 import {Validator} from "../Lib/Validator.sol";
 import {Value, useValue} from "../Lib/Utils/Call.sol";
 import {Id} from "../Lib/Utils/Id.sol";
-import {Step} from "../Lib/Utils/Step.sol";
 import {Call} from "../Lib/Utils/Call.sol";
+import {isNext, isEntry} from "../Lib/Utils/Command.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
-    using Step for bytes;
     using Call for bytes4;
 
     error BadPipe();
@@ -114,7 +113,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         bytes calldata step,
         Value memory value
     ) private returns (bytes32, bytes memory) {
-        bool open;
+        bool entry;
         bytes4 selector;
         selector.encodeCall(account, step);
         selector.encodeCall(args, step);

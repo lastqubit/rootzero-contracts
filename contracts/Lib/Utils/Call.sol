@@ -78,7 +78,16 @@ library Call {
         }
     }
 
-    function getParam(bytes calldata step, bytes4 target, uint offset) internal pure returns (bytes calldata result) {
+    /*     function encodeBlock(bytes4 key, bytes memory data) internal pure returns (bytes memory) {
+        uint32 len = uint32(data.length); // Just data length, not including header
+        return abi.encodePacked(key, len, data);
+    } */
+
+/*        function toKey(string memory p) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes(p)));
+    } */
+
+    function getParam(bytes4 target, uint offset, bytes calldata step) internal pure returns (bytes calldata result) {
         assembly {
             let sos := step.offset
             let eos := add(sos, step.length)

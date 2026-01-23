@@ -5,7 +5,7 @@ import {DebitFrom} from "./Commands/DebitFrom.sol";
 import {CreditTo} from "./Commands/CreditTo.sol";
 import {Settle} from "./Commands/Settle.sol";
 import {BalanceEvent} from "./Events/Account/Balance.sol";
-import {toAmount} from "./Utils/Amount.sol";
+import {Amount} from "./Utils/Amount.sol";
 
 abstract contract Balances is DebitFrom, CreditTo, Settle, BalanceEvent {
     mapping(uint account => mapping(uint id => uint amount)) internal balances;
@@ -24,13 +24,11 @@ abstract contract Balances is DebitFrom, CreditTo, Settle, BalanceEvent {
         return amount;
     }
 
-    // revert on 0 ??? Amount.resolve ?? 
     function debitFrom(uint account, uint id, uint min, uint max) internal override returns (uint) {
-        return debitFrom(account, id, toAmount(balances[account][id], min, max));
+        return debitFrom(account, id, Amount.resolve(balances[account][id], min, max));
     }
 
-    function settle(uint from, uint to, uint id, uint amount) internal override returns (bool) {
-        // return if out == in ??
-        return debitFrom(from, id, amount) == creditTo(to, id, amount);
+    function settle(uint from, uint to, uint id, uint amount) internal override returns (uint) {
+        return Amount.difference(debitFrom(from, id, amount), creditTo(to, id, amount));
     }
 }

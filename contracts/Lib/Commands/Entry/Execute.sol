@@ -11,8 +11,10 @@ interface IExecute {
 }
 
 abstract contract Execute is IExecute, Command {
+    uint internal immutable executeId = toEid(false, SELECTOR);
+
     constructor() {
-        emit Endpoint(hostId, toEid(false, SELECTOR), 0, ABI, "");
+        emit Endpoint(hostId, executeId, 0, ABI, "");
     }
 
     function execute(bytes[] calldata steps, bytes calldata signed) external payable virtual returns (uint);

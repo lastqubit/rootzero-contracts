@@ -26,13 +26,6 @@ library Id {
         return id;
     }
 
-    /*     function chainId() internal view returns (uint32) {
-        if (block.chainid > type(uint32).max) {
-            revert InvalidId();
-        }
-        return uint32(block.chainid);
-    }
- */
     function ensure(uint id) internal pure returns (uint) {
         if (id == 0) {
             revert ZeroId();

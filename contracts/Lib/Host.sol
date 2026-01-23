@@ -12,7 +12,7 @@ abstract contract Host is AccessControl, EndpointEvent {
     // add error bytes??
     error FailedCall(bytes4 selector, address addr, uint size);
 
-    function toEid(bool open, bytes4 selector) internal view returns (uint) {
+    function toEid(bool entry, bytes4 selector) internal view returns (uint) {
         return Id.endpoint(address(this), selector);
     }
 
@@ -27,11 +27,7 @@ abstract contract Host is AccessControl, EndpointEvent {
     }
 
     // add ensureTrusted ?? transfer can only be called to trusted addr??
-    function _call(
-        address addr,
-        uint value,
-        bytes memory data
-    ) internal returns (bytes memory) {
+    function _call(address addr, uint value, bytes memory data) internal returns (bytes memory) {
         (bool s, bytes memory out) = payable(addr).call{value: value}(data);
         if (s == false) {
             revert FailedCall(bytes4(data), addr, data.length);
