@@ -23,6 +23,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         if (head == 0) {
             // must be open
         }
+        
         // open utilize step to resolve account
         // head utilize -> accept step resolve/finalize
         return uint(bytes32(step));
@@ -33,25 +34,15 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     // validate factors on dst endpoint...
     // validator id can be endpoint id ??.. seperate validator for each endpoint
     // signed must include signer address as 32 bytes.. cross chain
-    function validate(bytes[] calldata steps, bytes calldata signed) internal returns (uint) {
-        if (signed.length == 0) return Id.account(msg.sender);
-        // include fee in signed ??
-        // only validate abi.encode(steps)... factors included. cannot extract factors before validate
-        // verify meta, factor and step addr
-        // allow max steps ???
-        return Id.account(msg.sender);
-    }
-
-
-
-    function checkBody(bytes memory body) private pure {
-        assembly {
-            if sub(mload(body), 0xe0) {
-                mstore(0, 0x1e9d6c6e) // bytes4(keccak256("InvalidBody()"))
-                revert(0x1c, 0x04)
-            }
+    function validate(bytes[] calldata steps, bytes calldata signed) internal view returns (uint) {
+        if (signed.length == 0) {
+            return Id.account(msg.sender);
         }
+        uint64 deadline;
+        bytes memory data = abi.encode(executeId, deadline, steps);
+        return Id.account(validateRecover(data, signed));
     }
+
 
     /*     function callTo(
         uint eid,
@@ -148,6 +139,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         Value memory v
     ) internal returns (uint) {
         for (uint i = 0; i < steps.length; i++) {
+            // auth not return eid
             (head, body) = next(auth(head, steps[i]), account, body, steps[i], v);
             if (head == 0) return i + 1;
         }
