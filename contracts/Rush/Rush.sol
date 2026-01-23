@@ -19,13 +19,16 @@ contract Rush is Executor {
     }
 
     function inject(bytes[] calldata steps) external payable override onlyOwner returns (uint) {
-        return pipe(admin, 0, "", steps, Value(msg.value)); // make admin uint
+        bytes4 entry = 0;
+        return pipe(admin, entry, "", steps, Value(msg.value)); // make admin uint
     }
 
+    // rush javascript -> pipe() factor() sign(steps).. or pipe.sign()
     // add bounty to step instead of fee.
     // account not allowed to change thru pipeline. must be local account
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
-        return pipe(validate(steps, signed), 0, "", steps, Value(msg.value));
+        bytes4 entry = 0;
+        return pipe(validate(steps, signed), entry, "", steps, Value(msg.value));
     }
 
     function resume(
