@@ -18,10 +18,10 @@ library Id {
     error ZeroId();
     error InvalidId();
 
-    function build(address addr, uint32 selector, uint32 desc) private view returns (uint) {
+    function build(address addr, uint32 selector, uint32 chain, uint32 desc) private pure returns (uint) {
         uint id = uint(uint160(addr));
         id |= uint(selector) << 160;
-        id |= uint(max32(block.chainid)) << 192;
+        id |= uint(chain) << 192;
         id |= uint(desc << 224);
         return id;
     }
@@ -34,23 +34,23 @@ library Id {
     }
 
     function value() internal view returns (uint) {
-        return build(address(0), 0, VALUE);
+        return build(address(0), 0, uint32(max32(block.chainid)), VALUE);
     }
 
-    function account(address addr) internal view returns (uint) {
-        return build(addr, 0, ACCOUNT);
+    function account(address addr) internal pure returns (uint) {
+        return build(addr, 0, 0, ACCOUNT);
     }
 
     function host(address addr) internal view returns (uint) {
-        return build(addr, 0, HOST);
+        return build(addr, 0, uint32(max32(block.chainid)), HOST);
     }
 
     function endpoint(address addr, bytes4 selector) internal view returns (uint) {
-        return build(addr, uint32(selector), ENDPOINT);
+        return build(addr, uint32(selector), uint32(max32(block.chainid)), ENDPOINT);
     }
 
     function token(address addr) internal view returns (uint) {
-        return build(addr, 0, TOKEN);
+        return build(addr, 0, uint32(max32(block.chainid)), TOKEN);
     }
 
     function anyAddr(uint id) internal pure returns (address) {
@@ -60,8 +60,15 @@ library Id {
         return address(uint160(id));
     }
 
-    function accountAddr(uint id, bool onlyLocal) internal view returns (address) {
-        if (uint32(id >> 224) != ACCOUNT || (onlyLocal && uint32(id >> 192) != block.chainid)) {
+    function ensureAccount(uint id) internal pure returns (uint) {
+        if (uint32(id >> 224) != ACCOUNT) {
+            revert InvalidId();
+        }
+        return id;
+    }
+
+    function accountAddr(uint id) internal pure returns (address) {
+        if (uint32(id >> 224) != ACCOUNT) {
             revert InvalidId();
         }
         return address(uint160(id));

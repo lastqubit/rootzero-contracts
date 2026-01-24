@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Id} from "./Utils/Id.sol";
+import {Id} from "./Id.sol";
 import {AccessControl} from "./Access.sol";
 import {EndpointEvent} from "./Events/Node/Endpoint.sol";
 

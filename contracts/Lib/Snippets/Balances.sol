@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {DebitFrom} from "./Commands/DebitFrom.sol";
-import {CreditTo} from "./Commands/CreditTo.sol";
-import {Settle} from "./Commands/Settle.sol";
-import {BalanceEvent} from "./Events/Account/Balance.sol";
-import {Amount} from "./Utils/Amount.sol";
+import {DebitFrom} from "../Commands/DebitFrom.sol";
+import {CreditTo} from "../Commands/CreditTo.sol";
+import {Settle} from "../Commands/Settle.sol";
+import {BalanceEvent} from "../Events/Account/Balance.sol";
+import {difference, resolveAmount} from "../Utils.sol";
 
 abstract contract Balances is DebitFrom, CreditTo, Settle, BalanceEvent {
     mapping(uint account => mapping(uint id => uint amount)) internal balances;
@@ -25,10 +25,11 @@ abstract contract Balances is DebitFrom, CreditTo, Settle, BalanceEvent {
     }
 
     function debitFrom(uint account, uint id, uint min, uint max) internal override returns (uint) {
-        return debitFrom(account, id, Amount.resolve(balances[account][id], min, max));
+        uint amount = resolveAmount(balances[account][id], min, max);
+        return debitFrom(account, id, amount);
     }
 
     function settle(uint from, uint to, uint id, uint amount) internal override returns (uint) {
-        return Amount.difference(debitFrom(from, id, amount), creditTo(to, id, amount));
+        return difference(debitFrom(from, id, amount), creditTo(to, id, amount));
     }
 }

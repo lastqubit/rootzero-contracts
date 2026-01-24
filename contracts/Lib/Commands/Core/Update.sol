@@ -3,14 +3,14 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function update(uint account, bytes step) external payable returns (bytes32, bytes)";
+string constant ABI = "function update(uint account, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant SELECTOR = IUpdate.update.selector;
 
 interface IUpdate {
     function update(
         uint account,
         bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
+    ) external payable returns (bytes4, bytes memory);
 }
 
 abstract contract Update is IUpdate, Command {
@@ -23,5 +23,5 @@ abstract contract Update is IUpdate, Command {
     function update(
         uint account,
         bytes calldata step
-    ) external payable virtual returns (bytes32, bytes memory);
+    ) external payable virtual returns (bytes4, bytes memory);
 }

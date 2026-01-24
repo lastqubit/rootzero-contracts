@@ -10,6 +10,10 @@ abstract contract Crypto {
 
     error InvalidSignature();
 
+    function toEthHash(bytes calldata data) public pure returns (bytes32) {
+        return keccak256(data).toEthSignedMessageHash();
+    }
+
     function isSigned(bytes32 hash, address by, bytes calldata sig) internal pure returns (bool) {
         if (hash == 0 || by == address(0) || sig.length == 0) return false;
         return hash.toEthSignedMessageHash().recover(sig) == by;

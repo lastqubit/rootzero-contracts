@@ -3,14 +3,14 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function remove(uint account, bytes step) external payable returns (bytes32, bytes)";
+string constant ABI = "function remove(uint account, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant SELECTOR = IRemove.remove.selector;
 
 interface IRemove {
     function remove(
         uint account,
         bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
+    ) external payable returns (bytes4, bytes memory);
 }
 
 abstract contract Remove is IRemove, Command {
@@ -23,5 +23,5 @@ abstract contract Remove is IRemove, Command {
     function remove(
         uint account,
         bytes calldata step
-    ) external payable virtual returns (bytes32, bytes memory);
+    ) external payable virtual returns (bytes4, bytes memory);
 }

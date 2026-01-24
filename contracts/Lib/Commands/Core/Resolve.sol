@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes32, bytes)";
+string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant SELECTOR = IResolve.resolve.selector;
 
 interface IResolve {
@@ -13,7 +13,7 @@ interface IResolve {
         uint amount,
         bytes calldata data,
         bytes calldata step
-    ) external payable returns (bytes32, bytes memory);
+    ) external payable returns (bytes4, bytes memory);
 }
 
 function encodeResolve(
@@ -21,7 +21,7 @@ function encodeResolve(
     uint id,
     uint amount,
     bytes memory data
-) pure returns (bytes32, bytes memory) {
+) pure returns (bytes4, bytes memory) {
     return (SELECTOR, abi.encode(account, id, amount, data, ""));
 }
 
@@ -38,5 +38,5 @@ abstract contract Resolve is IResolve, Command {
         uint amount,
         bytes calldata data,
         bytes calldata step
-    ) external payable virtual returns (bytes32, bytes memory);
+    ) external payable virtual returns (bytes4, bytes memory);
 }

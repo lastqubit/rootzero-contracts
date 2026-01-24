@@ -5,8 +5,11 @@ uint16 constant DENOMINATOR = 10_000;
 
 // step: endpoint:value:req:?(validator:deadline:from:sig)
 
-error ValueOverflow();
 error ZeroAddr();
+error ZeroAmount();
+error BadAmount(uint amount);
+error Nondeductible(uint amount, uint disposable);
+error ValueOverflow();
 
 function addrOr(address addr, address or) pure returns (address) {
     return addr == address(0) ? or : addr;
@@ -21,6 +24,39 @@ function ensureAddr(address addr) pure returns (address) {
         revert ZeroAddr();
     }
     return addr;
+}
+
+function ensureAmount(uint amount) pure returns (uint) {
+    if (amount == 0) {
+        revert ZeroAmount();
+    }
+    return amount;
+}
+
+function ensureAmount(uint amount, uint min, uint max) pure returns (uint) {
+    if (amount < min || amount > max) {
+        revert BadAmount(amount);
+    }
+    return amount;
+}
+
+function resolveAmount(uint disposable, uint min, uint max) pure returns (uint) {
+    uint amount = disposable > max ? max : disposable;
+    if (amount < min) {
+        revert BadAmount(amount);
+    }
+    return amount;
+}
+
+function deductFrom(uint amount, uint from) pure returns (uint) {
+    if (amount > from) {
+        revert Nondeductible(amount, from);
+    }
+    return from - amount;
+}
+
+function difference(uint a, uint b) pure returns (uint) {
+    return a > b ? a - b : b - a;
 }
 
 function max32(uint value) pure returns (uint) {

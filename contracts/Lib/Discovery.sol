@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {DiscoverEvent} from "./Events/Node/Discover.sol";
-import {Id} from "./Utils/Id.sol";
+import {Id} from "./Id.sol";
 
 interface IDiscovery {
     function broadcast(string calldata name) external;

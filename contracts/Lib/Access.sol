@@ -2,20 +2,22 @@
 pragma solidity ^0.8.33;
 
 import {AccessEvent} from "./Events/Node/Access.sol";
-import {Id} from "./Utils/Id.sol";
+import {Id} from "./Id.sol";
+import {addrOr} from "./Utils.sol";
 
 abstract contract AccessControl is AccessEvent {
     address internal immutable cmdr;
     uint internal immutable admin;
-    uint public immutable hostId = Id.host(address(this));
+    uint internal immutable hostId;
 
     mapping(address => bool) internal authorized;
 
     error Unauthorized(address addr);
 
     constructor(address commander) {
-        cmdr = commander == address(0) ? address(this) : commander;
+        cmdr = addrOr(commander, address(this));
         admin = Id.account(cmdr);
+        hostId = Id.host(address(this));
     }
 
     modifier onlyAdmin(uint account) {

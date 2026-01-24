@@ -15,7 +15,7 @@ abstract contract Settle is Transact("") {
     function transact(
         Tx[] calldata txs,
         bytes calldata step
-    ) external payable override returns (bytes32, bytes memory) {
+    ) external payable override returns (bytes4, bytes memory) {
         for (uint i = 0; i < txs.length; i++) {
             settle(txs[i].from, txs[i].to, txs[i].id, txs[i].amount);
         }

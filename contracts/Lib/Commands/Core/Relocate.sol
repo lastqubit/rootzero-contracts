@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
-import {Amount} from "../../Utils/Amount.sol";
+import {resolveAmount} from "../../Utils.sol";
 
-string constant ABI = "function relocate(uint account, bytes step) external payable returns (bytes32, bytes)";
+string constant ABI = "function relocate(uint account, bytes step) external payable returns (bytes4, bytes)";
 string constant REQ = "relocate(address payable to, uint min, uint max)";
 bytes4 constant SELECTOR = IRelocate.relocate.selector;
 
@@ -15,7 +15,7 @@ struct RelocateRequest {
 }
 
 interface IRelocate {
-    function relocate(uint account, bytes calldata step) external payable returns (bytes32, bytes memory);
+    function relocate(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
 }
 
 abstract contract Relocate is IRelocate, Command {
@@ -30,9 +30,9 @@ abstract contract Relocate is IRelocate, Command {
     function relocate(
         uint account,
         bytes calldata step
-    ) external payable onlyAdmin(account) returns (bytes32, bytes memory) {
+    ) external payable onlyAdmin(account) returns (bytes4, bytes memory) {
         RelocateRequest memory q = decodeRelocate(step);
-        _call(q.to, Amount.resolve(address(this).balance, q.min, q.max), "");
+        _call(q.to, resolveAmount(address(this).balance, q.min, q.max), "");
         return done();
     }
 }

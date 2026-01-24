@@ -32,7 +32,7 @@ abstract contract DebitFrom is Transfer(REQ) {
     function swish(
         uint from,
         bytes calldata step
-    ) internal returns (bytes32, bytes memory) {
+    ) internal returns (bytes4, bytes memory) {
         SwishRequest memory q = toSwishRequest(step);
         uint amount = swish(from, q.to, q.use, q.min, q.max, q.fee);
         //activity(from, q.use, amount, "swish", "");
@@ -42,7 +42,7 @@ abstract contract DebitFrom is Transfer(REQ) {
     function transfer(
         uint from,
         bytes calldata step
-    ) external payable override onlyTrusted returns (bytes32, bytes memory) {
+    ) external payable override onlyTrusted returns (bytes4, bytes memory) {
         return swish(from, step);
     }
 }

@@ -3,8 +3,9 @@ pragma solidity ^0.8.33;
 
 import {Executor, Value, Ownable} from "./Executor.sol";
 import {Node} from "../Lib/Node.sol";
-import {Id} from "../Lib/Utils/Id.sol";
-import {addrOr} from "../Lib/Utils/Utils.sol";
+import {Id} from "../Lib/Id.sol";
+import {addrOr} from "../Lib/Utils.sol";
+import {ENTRY} from "../Lib/Commands/Base.sol";
 
 contract Rush is Executor {
     mapping(uint => bool) internal initial; /////
@@ -19,24 +20,21 @@ contract Rush is Executor {
     }
 
     function inject(bytes[] calldata steps) external payable override onlyOwner returns (uint) {
-        bytes4 entry = 0;
-        return pipe(admin, entry, "", steps, Value(msg.value)); // make admin uint
+        return pipe(ENTRY, abi.encode(admin, ""), steps, Value(msg.value));
     }
 
     // rush javascript -> pipe() factor() sign(steps).. or pipe.sign()
     // add bounty to step instead of fee.
-    // account not allowed to change thru pipeline. must be local account
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
-        bytes4 entry = 0;
-        return pipe(validate(steps, signed), entry, "", steps, Value(msg.value));
+        address account = validate(steps, signed);
+        return pipe(ENTRY, abi.encode(Id.account(account), ""), steps, Value(msg.value));
     }
 
     function resume(
-        bytes32 head,
-        bytes memory body,
-        bytes[] calldata steps,
-        bytes calldata signed
+        bytes4 head,
+        bytes memory args,
+        bytes[] calldata steps
     ) external payable override onlyAuthorized returns (uint) {
-        return pipe(validate(steps, signed), head, body, steps, Value(msg.value)); // If not signed, from becomes calling node!!
+        return pipe(head, args, steps, Value(msg.value));
     }
 }

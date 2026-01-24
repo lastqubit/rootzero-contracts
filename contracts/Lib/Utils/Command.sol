@@ -15,23 +15,40 @@ import {SELECTOR as SET} from "../Commands/Core/Set.sol";
 import {SELECTOR as TRANSFER} from "../Commands/Core/Transfer.sol";
 import {SELECTOR as UNAUTHORIZE} from "../Commands/Core/Unauthorize.sol";
 import {SELECTOR as UPDATE} from "../Commands/Core/Update.sol";
+import {SELECTOR as RELAY} from "../Commands/Core/Relay.sol";
 import {SELECTOR as RESOLVE} from "../Commands/Core/Resolve.sol";
 import {SELECTOR as TRANSFORM} from "../Commands/Core/Transform.sol";
 import {SELECTOR as UTILIZE} from "../Commands/Core/Utilize.sol";
 
 function isEntry(bytes4 s) pure returns (bool) {
-    return s == ACT || s == ADD || s == ALLOW || s == AUTHORIZE
-        || s == CREATE || s == DENY || s == INITIATE || s == RELOCATE
-        || s == REMOVE || s == SET || s == TRANSFER || s == UNAUTHORIZE
-        || s == UPDATE;
+    return
+        s == ENTRY ||
+        s == ACT ||
+        s == ADD ||
+        s == ALLOW ||
+        s == AUTHORIZE ||
+        s == CREATE ||
+        s == DENY ||
+        s == INITIATE ||
+        s == RELAY ||
+        s == RELOCATE ||
+        s == REMOVE ||
+        s == SET ||
+        s == TRANSFER ||
+        s == UNAUTHORIZE ||
+        s == UPDATE;
 }
 
 function isNext(bytes4 s) pure returns (bool) {
-    return s == RESOLVE || s == TRANSFORM || s == UTILIZE;
+    return s == NEXT || s == RESOLVE || s == TRANSFORM || s == UTILIZE;
 }
 
 function isMatch(bytes4 head, bytes4 step) pure returns (bool) {
-    if (head == NEXT) return isNext(step);
-    if (head == ENTRY) return isEntry(step);
-    return head == step;
+    return head == step || (head == NEXT && isNext(step)) || (head == ENTRY && isEntry(step));
+}
+
+function ensureMatch(bytes4 head, bytes4 step) pure {
+    if (!isMatch(head, step)) {
+        revert("Head does not match step");
+    }
 }

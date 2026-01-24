@@ -2,8 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {CollectEvent} from "./Events/Account/Collect.sol";
-import {calcBps} from "./Utils/Utils.sol";
-import {Amount} from "./Utils/Amount.sol";
+import {calcBps} from "./Utils.sol";
+import {deductFrom} from "./Utils.sol";
 
 abstract contract Fees is CollectEvent {
     uint public immutable collector;
@@ -14,7 +14,7 @@ abstract contract Fees is CollectEvent {
         uint disposable
     ) internal virtual returns (uint) {
         if (fee == 0) return disposable;
-        uint out = Amount.deduct(fee, disposable);
+        uint out = deductFrom(fee, disposable);
         //emit Collect(collector, id, fee);
         return out;
     }
