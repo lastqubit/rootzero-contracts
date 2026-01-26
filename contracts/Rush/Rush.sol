@@ -20,7 +20,6 @@ contract Rush is Executor, Discovery {
         return pipe(ADMIN, abi.encode(admin, ""), steps, msgValue());
     }
 
-    // rush javascript -> pipe() factor() sign(steps).. or pipe.sign()
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
         uint account = toAccountId(validate(steps, signed));
         return pipe(ENTRY, abi.encode(account, ""), steps, msgValue());

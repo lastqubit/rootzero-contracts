@@ -3,6 +3,7 @@ import { Contract } from "ethers";
 const INJECT = "function inject(bytes[] steps) external payable returns(uint count)";
 const EXECUTE = "function execute(bytes[] steps, bytes signed) external payable returns(uint count)";
 
+    // rush javascript -> pipe() factor() sign(steps).. or pipe.sign()
 export function createRush(addr, provider) {
     const contract = new Contract(addr, [INJECT, EXECUTE], provider);
 
