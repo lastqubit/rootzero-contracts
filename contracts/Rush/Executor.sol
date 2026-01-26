@@ -6,7 +6,6 @@ import "hardhat/console.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Node} from "../Lib/Node.sol";
 import {Validator} from "../Lib/Validation/Validator.sol";
-import {useValue, encodeCall} from "../Lib/Call.sol";
 import {Value} from "../Lib/Utils.sol";
 import {isNext, isEntry} from "../Lib/Utils/Command.sol";
 import {Endpoints} from "./Endpoints.sol";
@@ -32,8 +31,39 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
             return msg.sender;
         }
         uint64 deadline;
-        bytes memory data = abi.encode(executeId, deadline, steps);
+        bytes memory data = abi.encode(steps, executeId, deadline);
         return validateRecover(data, signed);
+    }
+
+    function encodeCall(
+        bytes4 selector,
+        bytes memory args,
+        bytes calldata step
+    ) private pure returns (bytes memory result) {
+        assembly {
+            let s := step.length
+            let argsLen := mload(args)
+            let argsToCopy := sub(argsLen, 0x20)
+            let size := add(add(4, argsLen), s)
+
+            result := mload(0x40)
+
+            mstore(0x40, add(result, and(add(add(0x20, size), 0x1f), not(0x1f))))
+            mstore(result, size)
+
+            let ptr := add(result, 0x20)
+            mstore8(ptr, byte(0, selector))
+            mstore8(add(ptr, 1), byte(1, selector))
+            mstore8(add(ptr, 2), byte(2, selector))
+            mstore8(add(ptr, 3), byte(3, selector))
+
+            // Copy args except last 32 bytes (the zero length) using mcopy
+            mcopy(add(result, 0x24), add(args, 0x20), argsToCopy)
+
+            // Copy step length and data at the position where the zero was
+            let stepPos := add(add(result, 0x24), argsToCopy)
+            calldatacopy(stepPos, step.offset, add(s, 0x20))
+        }
     }
 
     /*     function callTo(

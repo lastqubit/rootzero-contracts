@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Host} from "../Host.sol";
-import {getBlock} from "../Call.sol";
+import {getBlock} from "../Utils.sol";
 
 bytes4 constant ADMIN = IPipeline.admin.selector;
 bytes4 constant ENTRY = IPipeline.entry.selector;
