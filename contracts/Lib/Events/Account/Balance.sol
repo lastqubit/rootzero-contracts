@@ -5,7 +5,6 @@ import {EventEmitter} from "../Emitter.sol";
 
 string constant ABI = "event Balance(address indexed account, uint indexed eid, uint id, uint balance, uint change)";
 
-// check order on emit Balance
 abstract contract BalanceEvent is EventEmitter {
     event Balance(
         uint indexed account,
