@@ -11,6 +11,6 @@ abstract contract AccessEvent is EventEmitter {
     event Access(uint indexed host, address caller, bool trusted);
 
     constructor() {
-        emit EventDefinition(false, address(this), block.number, TYPE, ABI);
+        emit EventDesc(false, TYPE, ABI);
     }
 }

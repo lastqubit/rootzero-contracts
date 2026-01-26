@@ -5,22 +5,18 @@ import "hardhat/console.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Node} from "../Lib/Node.sol";
-import {Validator} from "../Lib/Validator.sol";
-import {Call, Value, useValue, encodeCall} from "../Lib/Call.sol";
-import {Id} from "../Lib/Id.sol";
+import {Validator} from "../Lib/Validation/Validator.sol";
+import {useValue, encodeCall} from "../Lib/Call.sol";
+import {Value} from "../Lib/Utils.sol";
 import {isNext, isEntry} from "../Lib/Utils/Command.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
-    using Call for bytes4;
-
     error BadPipe();
     error InvalidBody();
 
     // check eid... use eid open flag
     function auth(bytes4 head, bytes calldata step) private returns (uint) {
-
-
         // open utilize step to resolve account
         // head utilize -> accept step resolve/finalize
         return uint(bytes32(step));
@@ -38,10 +34,6 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         uint64 deadline;
         bytes memory data = abi.encode(executeId, deadline, steps);
         return validateRecover(data, signed);
-    }
-
-    function encodeEntry(uint account) internal pure returns (bytes memory) {
-        return abi.encode(account, "");
     }
 
     /*     function callTo(
@@ -97,32 +89,29 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         return bytes.concat(selector, abi.encode(from, step));
     } */
 
-    function executeEndpoint(
-        uint eid,
-        bytes memory args,
-        bytes calldata step,
-        Value memory value
-    ) private returns (bytes4, bytes memory) {
+    function callEndpoint(uint eid, bytes memory call, Value memory value) private returns (bytes4, bytes memory) {
         bytes4 selector;
-        encodeCall(selector, args, step);
+        value.use = 0;
         // check eid for open flag to encoded (account, step)
     }
 
     function next(
-        uint eid,
+        bytes4 selector,
         bytes memory args,
         bytes calldata step,
         Value memory value
     ) private returns (bytes4, bytes memory) {
+        uint eid;
         if (eid == initiateId) return debitFrom(args, step);
         if (eid == resolveId) return creditTo(args, step);
-        return executeEndpoint(eid, args, step, value);
+        bytes memory call = encodeCall(selector, args, step);
+        return callEndpoint(eid, call, value);
     }
 
     function pipe(bytes4 head, bytes memory args, bytes[] calldata steps, Value memory v) internal returns (uint) {
         for (uint i = 0; i < steps.length; i++) {
-            // auth not return eid
-            (head, args) = next(auth(head, steps[i]), args, steps[i], v);
+            // auth not return eid auth(head, steps[i])
+            (head, args) = next(0, args, steps[i], v);
             if (head == 0) return i + 1;
         }
         creditTo(args, msg.data[0:0]); // ensure head is next..

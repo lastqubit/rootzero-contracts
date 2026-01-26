@@ -10,6 +10,6 @@ abstract contract TokenEmitter is EventEmitter {
     event Token(uint indexed host, address addr, uint id, bool supported);
 
     constructor() {
-        emit EventDefinition(false, address(this), block.number, TYPE, ABI);
+        emit EventDesc(false, TYPE, ABI);
     }
 }

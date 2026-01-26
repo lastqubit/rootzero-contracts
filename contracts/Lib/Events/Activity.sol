@@ -5,6 +5,6 @@ import {EventEmitter} from "./Emitter.sol";
 
 abstract contract ActivityEmitter is EventEmitter {
     function activityEvent(string memory _abi) internal {
-        emit EventDefinition(false, address(this), block.number, "activity", _abi);
+        emit EventDesc(false, "activity", _abi);
     }
 }

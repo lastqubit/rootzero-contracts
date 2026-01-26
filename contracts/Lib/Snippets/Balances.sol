@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {DebitFrom} from "../Commands/DebitFrom.sol";
 import {CreditTo} from "../Commands/CreditTo.sol";
+import {DebitFrom} from "../Commands/DebitFrom.sol";
 import {Settle} from "../Commands/Settle.sol";
 import {BalanceEvent} from "../Events/Account/Balance.sol";
 import {difference, resolveAmount} from "../Utils.sol";

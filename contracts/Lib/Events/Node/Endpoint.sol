@@ -18,6 +18,6 @@ abstract contract EndpointEvent is EventEmitter {
     );
 
     constructor() {
-        emit EventDefinition(true, address(this), block.number, TYPE, ABI);
+        emit EventDesc(true, TYPE, ABI);
     }
 }

@@ -1,15 +1,46 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-uint16 constant DENOMINATOR = 10_000;
-
 // step: endpoint:value:req:?(validator:deadline:from:sig)
+
+uint16 constant DENOMINATOR = 10_000;
+uint16 constant ID = uint16(bytes2(0x0101));
+uint32 constant VALUE = uint32(bytes4(0x01010100));
+uint32 constant ACCOUNT = uint32(bytes4(0x01010200));
+uint32 constant HOST = uint32(bytes4(0x01010300));
+uint32 constant ENDPOINT = uint32(bytes4(0x01010400));
+uint32 constant ASSET = uint32(bytes4(0x01010500));
+
+uint32 constant TOKEN = ASSET | 1;
 
 error ZeroAddr();
 error ZeroAmount();
+error ZeroId();
+error InvalidId();
 error BadAmount(uint amount);
 error Nondeductible(uint amount, uint disposable);
 error ValueOverflow();
+
+struct Value {
+    uint use;
+    uint _disposable;
+}
+
+function msgValue() view returns (Value memory) {
+    return Value({use: 0, _disposable: msg.value});
+}
+
+function build(address addr, uint32 selector, uint32 chain, uint32 head) pure returns (uint) {
+    uint id = uint(uint160(addr));
+    id |= uint(selector) << 160;
+    id |= uint(chain) << 192;
+    id |= uint(head << 224);
+    return id;
+}
+
+function difference(uint a, uint b) pure returns (uint) {
+    return a > b ? a - b : b - a;
+}
 
 function addrOr(address addr, address or) pure returns (address) {
     return addr == address(0) ? or : addr;
@@ -24,6 +55,79 @@ function ensureAddr(address addr) pure returns (address) {
         revert ZeroAddr();
     }
     return addr;
+}
+
+function ensureId(uint id) pure returns (uint) {
+    if (id == 0) {
+        revert ZeroId();
+    }
+    return id;
+}
+
+function isLocal(uint id) view returns (bool) {
+    return uint32(id >> 192) == block.chainid;
+}
+
+function toValueId() view returns (uint) {
+    return build(address(0), 0, uint32(max32(block.chainid)), VALUE);
+}
+
+function toAccountId(address addr) pure returns (uint) {
+    return build(addr, 0, 0, ACCOUNT);
+}
+
+function toHostId(address addr) view returns (uint) {
+    return build(addr, 0, uint32(max32(block.chainid)), HOST);
+}
+
+function toEndpointId(address addr, bytes4 selector) view returns (uint) {
+    return build(addr, uint32(selector), uint32(max32(block.chainid)), ENDPOINT);
+}
+
+function toTokenId(address addr) view returns (uint) {
+    return build(addr, 0, uint32(max32(block.chainid)), TOKEN);
+}
+
+function anyAddr(uint id, bool onlyLocal) view returns (address) {
+    if (uint16(id >> 240) != ID || (onlyLocal && isLocal(id))) {
+        revert InvalidId();
+    }
+    return address(uint160(id));
+}
+
+function ensureAccount(uint id) pure returns (uint) {
+    if (uint32(id >> 224) != ACCOUNT) {
+        revert InvalidId();
+    }
+    return id;
+}
+
+function accountAddr(uint id) pure returns (address) {
+    if (uint32(id >> 224) != ACCOUNT) {
+        revert InvalidId();
+    }
+    return address(uint160(id));
+}
+
+function hostAddr(uint id, bool onlyLocal) view returns (address) {
+    if (uint32(id >> 224) != HOST || (onlyLocal && isLocal(id))) {
+        revert InvalidId();
+    }
+    return address(uint160(id));
+}
+
+function endpointAddr(uint id, bool onlyLocal) view returns (address) {
+    if (uint32(id >> 224) != ENDPOINT || (onlyLocal && isLocal(id))) {
+        revert InvalidId();
+    }
+    return address(uint160(id));
+}
+
+function tokenAddr(uint id, bool onlyLocal) view returns (address) {
+    if (uint32(id >> 224) != TOKEN || (onlyLocal && isLocal(id))) {
+        revert InvalidId();
+    }
+    return address(uint160(id));
 }
 
 function ensureAmount(uint amount) pure returns (uint) {
@@ -53,10 +157,6 @@ function deductFrom(uint amount, uint from) pure returns (uint) {
         revert Nondeductible(amount, from);
     }
     return from - amount;
-}
-
-function difference(uint a, uint b) pure returns (uint) {
-    return a > b ? a - b : b - a;
 }
 
 function max32(uint value) pure returns (uint) {
@@ -94,10 +194,6 @@ function max160(uint value) pure returns (uint) {
     return value;
 }
 
-/* function chainId() view returns (uint32) {
-    return uint32(max32(block.chainid));
-}
- */
 function pack(uint value, uint bounty) pure returns (uint) {
     return (max96(value) << 160) | max160(bounty);
 }
@@ -112,37 +208,8 @@ function reverse(uint amount, uint16 bps) pure returns (uint) {
     return (amount * DENOMINATOR) / (DENOMINATOR + bps);
 }
 
-/* function pack(value, bounty) {
-    // Pack: shift value left 160 bits, then OR with bounty
-    return (max96(value) << 160n) | max160(bounty);
+function encodeEntry(uint account) pure returns (bytes memory) {
+    return abi.encode(account, "");
 }
 
-// Helper functions that throw if values exceed bit limits
-function max96(value) {
-    const MAX_96 = (1n << 96n) - 1n; // 2^96 - 1
-    const val = BigInt(value);
-    if (val > MAX_96) {
-        throw new Error(`Value overflow: ${val} exceeds maximum ${MAX_96}`);
-    }
-    return val;
-}
 
-function max160(value) {
-    const MAX_160 = (1n << 160n) - 1n; // 2^160 - 1
-    const val = BigInt(value);
-    if (val > MAX_160) {
-        throw new Error(`Value overflow: ${val} exceeds maximum ${MAX_160}`);
-    }
-    return val;
-}
-
-// Usage:
-try {
-    const msgValue = 1000000000000000000n; // 1 ETH in wei
-    const bountyAmount = 5000000000000000000000n; // 5000 tokens
-    
-    const packed = pack(msgValue, bountyAmount);
-    console.log(packed.toString());
-} catch (error) {
-    console.error(error.message);
-} */

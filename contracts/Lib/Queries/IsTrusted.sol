@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Query} from "./Base.sol";
-import {Id} from "../Id.sol";
+import {hostAddr} from "../Utils.sol";
 
 string constant ABI = "function isTrusted(uint caller) external view returns (bool)";
 bytes4 constant SELECTOR = IIsTrusted.isTrusted.selector;
@@ -17,6 +17,6 @@ abstract contract IsTrusted is IIsTrusted, Query {
     }
 
     function isTrusted(uint caller) external view returns (bool) {
-        return isTrusted(Id.hostAddr(caller, true));
+        return isTrusted(hostAddr(caller, true));
     }
 }

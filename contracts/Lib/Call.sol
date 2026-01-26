@@ -9,6 +9,19 @@ error BadValue();
 
 struct Value {
     uint amount;
+    uint _disposable;
+}
+
+function msgValue() view returns (Value memory) {
+    return Value({amount: 0, _disposable: msg.value});
+}
+
+function useValue(Value memory value) pure returns (uint) {
+    if (value.amount > value._disposable) {
+        revert BadValue();
+    }
+    value._disposable -= value.amount;
+    return value.amount;
 }
 
 function useValue(Value memory total, uint amount) pure returns (uint) {
@@ -86,7 +99,16 @@ function getBlock(bytes4 target, uint offset, bytes calldata step) pure returns 
     }
 }
 
-library Call {
+/*     function encodeBlock(bytes4 key, bytes memory data) internal pure returns (bytes memory) {
+        uint32 len = uint32(data.length); // Just data length, not including header
+        return abi.encodePacked(key, len, data);
+    } */
+
+/*        function toKey(string memory p) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes(p)));
+    } */
+
+/* library Call {
     function encodeCall(
         bytes4 selector,
         uint account,
@@ -147,14 +169,7 @@ library Call {
         }
     }
 
-    /*     function encodeBlock(bytes4 key, bytes memory data) internal pure returns (bytes memory) {
-        uint32 len = uint32(data.length); // Just data length, not including header
-        return abi.encodePacked(key, len, data);
-    } */
 
-    /*        function toKey(string memory p) internal pure returns (bytes4) {
-        return bytes4(keccak256(bytes(p)));
-    } */
 
     function getParam(bytes4 target, uint offset, bytes calldata step) internal pure returns (bytes calldata result) {
         assembly {
@@ -196,3 +211,4 @@ library Call {
         }
     }
 }
+ */

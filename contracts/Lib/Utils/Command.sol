@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {ENTRY, NEXT} from "../Commands/Base.sol";
+import {ENTRY, NEXT, ADMIN} from "../Commands/Base.sol";
 import {SELECTOR as ACT} from "../Commands/Core/Act.sol";
 import {SELECTOR as ADD} from "../Commands/Core/Add.sol";
 import {SELECTOR as ALLOW} from "../Commands/Core/Allow.sol";
@@ -26,17 +26,18 @@ function isEntry(bytes4 s) pure returns (bool) {
         s == ACT ||
         s == ADD ||
         s == ALLOW ||
-        s == AUTHORIZE ||
         s == CREATE ||
         s == DENY ||
         s == INITIATE ||
         s == RELAY ||
-        s == RELOCATE ||
         s == REMOVE ||
         s == SET ||
         s == TRANSFER ||
-        s == UNAUTHORIZE ||
         s == UPDATE;
+}
+
+function isAdmin(bytes4 s) pure returns (bool) {
+    return s == ADMIN || s == AUTHORIZE || s == UNAUTHORIZE || s == RELOCATE || isEntry(s);
 }
 
 function isNext(bytes4 s) pure returns (bool) {
@@ -45,6 +46,12 @@ function isNext(bytes4 s) pure returns (bool) {
 
 function isMatch(bytes4 head, bytes4 step) pure returns (bool) {
     return head == step || (head == NEXT && isNext(step)) || (head == ENTRY && isEntry(step));
+}
+
+function ensureNext(bytes4 head) pure {
+    if (!isNext(head)) {
+        revert("Head is not a next");
+    }
 }
 
 function ensureMatch(bytes4 head, bytes4 step) pure {

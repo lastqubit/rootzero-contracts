@@ -3,15 +3,14 @@ pragma solidity ^0.8.33;
 
 import {Resolve} from "./Core/Resolve.sol";
 import {NextInput, decodeNext} from "./Base.sol";
-import {ensureAmount} from "../Utils.sol";
-import {Id} from "../Id.sol";
+import {ensureAmount, ensureAccount} from "../Utils.sol";
 
 string constant REQ = "creditTo(uint to)";
 
 abstract contract CreditTo is Resolve(REQ) {
     function resolveTo(uint account, bytes calldata req) private pure returns (uint) {
         if (req.length == 0) return account;
-        return Id.ensureAccount(abi.decode(req, (uint)));
+        return ensureAccount(abi.decode(req, (uint)));
     }
 
     function creditTo(uint account, uint id, uint amount) internal virtual returns (uint);

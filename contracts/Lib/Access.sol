@@ -2,8 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {AccessEvent} from "./Events/Node/Access.sol";
-import {Id} from "./Id.sol";
-import {addrOr} from "./Utils.sol";
+import {addrOr, toHostId, toAccountId} from "./Utils.sol";
 
 abstract contract AccessControl is AccessEvent {
     address internal immutable cmdr;
@@ -16,8 +15,8 @@ abstract contract AccessControl is AccessEvent {
 
     constructor(address commander) {
         cmdr = addrOr(commander, address(this));
-        admin = Id.account(cmdr);
-        hostId = Id.host(address(this));
+        admin = toAccountId(cmdr);
+        hostId = toHostId(address(this));
     }
 
     modifier onlyAdmin(uint account) {
@@ -36,8 +35,7 @@ abstract contract AccessControl is AccessEvent {
         _;
     }
 
-    function access(uint caller, bool allow) internal returns (address) {
-        address addr = Id.hostAddr(caller, true);
+    function access(address addr, bool allow) internal returns (address) {
         authorized[addr] = allow;
         emit Access(hostId, addr, allow);
         return addr;

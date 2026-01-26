@@ -10,6 +10,6 @@ abstract contract RouteEmitter is EventEmitter {
     event Route(uint indexed endpoint, uint chain);
 
     constructor() {
-        emit EventDefinition(false, address(this), block.number, TYPE, ABI);
+        emit EventDesc(false, TYPE, ABI);
     }
 }

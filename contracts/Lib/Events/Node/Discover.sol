@@ -15,6 +15,6 @@ abstract contract DiscoverEvent is EventEmitter {
     );
 
     constructor() {
-        emit EventDefinition(false, address(this), block.number, TYPE, ABI);
+        emit EventDesc(false, TYPE, ABI);
     }
 }

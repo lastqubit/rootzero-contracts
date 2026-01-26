@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import {Host} from "../Host.sol";
 import {getBlock} from "../Call.sol";
 
+bytes4 constant ADMIN = IPipeline.admin.selector;
 bytes4 constant ENTRY = IPipeline.entry.selector;
 bytes4 constant NEXT = IPipeline.next.selector;
 
@@ -18,6 +19,8 @@ function decodeNext(bytes memory data) pure returns (NextInput memory i) {
 }
 
 interface IPipeline {
+    function admin(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
+
     function entry(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
 
     function next(

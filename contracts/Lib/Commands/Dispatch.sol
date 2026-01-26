@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Utilize, ABI} from "./Core/Utilize.sol";
+import {Utilize} from "./Core/Utilize.sol";
+import {toResumeCall} from "./Entry/Resume.sol";
 
-string constant REQ = "dispatch(uint use)";
+string constant REQ = "dispatch(bytes[] steps)";
 
-struct DispatchReq {
-    uint use;
-    bytes config;
+struct DispatchRequest {
+    bytes[] steps;
 }
 
 abstract contract Dispatch is Utilize(REQ) {
-    function toDispatchReq(
-        bytes calldata step
-    ) public view returns (DispatchReq memory) {
-        return abi.decode(step, (DispatchReq));
+    function toDispatchReq(bytes calldata step) public view returns (DispatchRequest memory) {
+        return abi.decode(step, (DispatchRequest));
     }
+
+    function utilize(
+        uint account,
+        uint id,
+        uint amount,
+        bytes calldata,
+        bytes calldata step
+    ) external payable override onlyTrusted returns (bytes4, bytes memory) {}
 }
