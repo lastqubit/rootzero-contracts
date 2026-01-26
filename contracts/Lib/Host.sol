@@ -6,19 +6,13 @@ import {EndpointEvent} from "./Events/Node/Endpoint.sol";
 import {toValueId, toEndpointId} from "./Utils.sol";
 
 abstract contract Host is AccessControl, EndpointEvent {
+    uint public immutable block0 = block.number;
     uint public immutable valueId = toValueId();
 
     error FailedCall(address addr, bytes4 selector, bytes err);
-    error UnexpectedStage();
 
     function toEid(bytes4 selector) internal view returns (uint) {
         return toEndpointId(address(this), selector);
-    }
-
-    function ensureValidStage(uint eid, bytes calldata step) internal pure {
-        if (eid != uint(bytes32(step))) {
-            revert UnexpectedStage();
-        }
     }
 
     function callTo(address addr, uint value, bytes memory data) internal returns (bytes memory out) {

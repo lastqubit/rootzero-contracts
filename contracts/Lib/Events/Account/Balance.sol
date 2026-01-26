@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {EventEmitter} from "../Emitter.sol";
 
 string constant ABI = "event Balance(address indexed account, uint indexed eid, uint id, uint balance, uint change)";
-string constant TYPE = "balance";
 
 // check order on emit Balance
 abstract contract BalanceEvent is EventEmitter {
@@ -17,6 +16,6 @@ abstract contract BalanceEvent is EventEmitter {
     );
 
     constructor() {
-        emit EventDesc(false, TYPE, ABI);
+        emit EventDesc(ABI);
     }
 }

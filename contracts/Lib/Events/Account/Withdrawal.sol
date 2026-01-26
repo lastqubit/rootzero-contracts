@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {ActivityEmitter} from "../Activity.sol";
+import {EventEmitter} from "../Emitter.sol";
 
-string constant ABI = "event Withdrawal(uint indexed account, uint indexed eid, uint id, uint amount)";
+string constant ABI = "event Activity:Withdrawal(uint indexed account, uint indexed eid, uint id, uint amount)";
 
-abstract contract WithdrawalEvent is ActivityEmitter {
+abstract contract WithdrawalEvent is EventEmitter {
     event Withdrawal(
         uint indexed account,
         uint indexed eid,
@@ -14,6 +14,6 @@ abstract contract WithdrawalEvent is ActivityEmitter {
     );
 
     constructor() {
-        activityEvent(ABI);
+        emit EventDesc(ABI);
     }
 }

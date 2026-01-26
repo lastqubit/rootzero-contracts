@@ -35,10 +35,9 @@ abstract contract AccessControl is AccessEvent {
         _;
     }
 
-    function access(address addr, bool allow) internal returns (address) {
+    function access(address addr, bool allow) internal {
         authorized[addr] = allow;
         emit Access(hostId, addr, allow);
-        return addr;
     }
 
     function auth(address addr, bool allow) internal pure returns (address) {

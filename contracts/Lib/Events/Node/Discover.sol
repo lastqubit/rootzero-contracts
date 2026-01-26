@@ -3,18 +3,12 @@ pragma solidity ^0.8.33;
 
 import {EventEmitter} from "../Emitter.sol";
 
-string constant ABI = "event Discover(uint indexed host, address indexed origin, uint genesis, string name)";
-string constant TYPE = "discover";
+string constant ABI = "event Discover(uint indexed host, address indexed origin, uint block0, string name)";
 
 abstract contract DiscoverEvent is EventEmitter {
-    event Discover(
-        uint indexed host,
-        address indexed origin,
-        uint genesis,
-        string name
-    );
+    event Discover(uint indexed host, address indexed origin, uint block0, string name);
 
     constructor() {
-        emit EventDesc(false, TYPE, ABI);
+        emit EventDesc(ABI);
     }
 }

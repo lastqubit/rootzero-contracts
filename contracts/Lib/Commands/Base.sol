@@ -33,12 +33,20 @@ interface IPipeline {
 }
 
 abstract contract Command is Host {
+    error UnexpectedStage();
+
     function done() internal pure returns (bytes4, bytes memory) {
         return (0, "");
     }
 
     function next(uint account, uint id, uint amount) internal pure returns (bytes4, bytes memory) {
         return (NEXT, abi.encode(account, id, amount, "", ""));
+    }
+
+    function ensureValidStage(uint eid, bytes calldata step) internal pure {
+        if (eid != uint(bytes32(step))) {
+            revert UnexpectedStage();
+        }
     }
 
     function getRequest(bytes calldata step) internal pure returns (bytes calldata) {
