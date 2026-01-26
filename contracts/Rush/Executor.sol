@@ -7,7 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Node} from "../Lib/Node.sol";
 import {Validator} from "../Lib/Validation/Validator.sol";
 import {Value} from "../Lib/Utils.sol";
-import {isNext, isEntry} from "../Lib/Utils/Command.sol";
+import {isNext, isEntry} from "../Lib/Snippets/Commander.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
