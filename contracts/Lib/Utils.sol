@@ -116,7 +116,7 @@ function hostAddr(uint id, bool onlyLocal) view returns (address) {
     return address(uint160(id));
 }
 
-function ensureHostId(uint id, address addr) view returns (uint) {
+function ensureHost(uint id, address addr) view returns (uint) {
     if (id != toHostId(addr)) {
         revert InvalidId();
     }
