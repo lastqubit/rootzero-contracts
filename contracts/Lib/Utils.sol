@@ -208,8 +208,4 @@ function reverse(uint amount, uint16 bps) pure returns (uint) {
     return (amount * DENOMINATOR) / (DENOMINATOR + bps);
 }
 
-function encodeEntry(uint account) pure returns (bytes memory) {
-    return abi.encode(account, "");
-}
-
 

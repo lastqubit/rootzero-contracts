@@ -2,10 +2,10 @@
 pragma solidity ^0.8.33;
 
 import {Executor, Ownable} from "./Executor.sol";
+import {Node} from "../Lib/Node.sol";
 import {Discovery} from "../Lib/Snippets/Discovery.sol";
 import {ADMIN, ENTRY} from "../Lib/Commands/Base.sol";
-import {Node} from "../Lib/Node.sol";
-import {addrOr, toAccountId, encodeEntry, msgValue} from "../Lib/Utils.sol";
+import {addrOr, toAccountId, msgValue} from "../Lib/Utils.sol";
 
 contract Rush is Executor, Discovery {
     mapping(uint => bool) internal initial; /////
@@ -17,13 +17,13 @@ contract Rush is Executor, Discovery {
     }
 
     function inject(bytes[] calldata steps) external payable override onlyOwner returns (uint) {
-        return pipe(ADMIN, encodeEntry(admin), steps, msgValue());
+        return pipe(ADMIN, abi.encode(admin, ""), steps, msgValue());
     }
 
     // rush javascript -> pipe() factor() sign(steps).. or pipe.sign()
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
         uint account = toAccountId(validate(steps, signed));
-        return pipe(ENTRY, encodeEntry(account), steps, msgValue());
+        return pipe(ENTRY, abi.encode(account, ""), steps, msgValue());
     }
 
     function resume(
