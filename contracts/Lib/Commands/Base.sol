@@ -5,28 +5,35 @@ import {Host} from "../Host.sol";
 import {getBlock} from "../Utils.sol";
 
 bytes4 constant ADMIN = IPipeline.admin.selector;
-bytes4 constant ENTRY = IPipeline.entry.selector;
-bytes4 constant NEXT = IPipeline.next.selector;
+bytes4 constant SETUP = IPipeline.setup.selector;
+bytes4 constant OPERATE = IPipeline.operate.selector;
+bytes4 constant PROCESS = IPipeline.process.selector;
 
-struct NextInput {
+struct OpInput {
     uint account;
     uint id;
     uint amount;
 }
 
-function decodeNext(bytes memory data) pure returns (NextInput memory i) {
+function decodeOperate(bytes memory data) pure returns (OpInput memory i) {
     (i.account, i.id, i.amount) = abi.decode(data, (uint, uint, uint));
 }
 
 interface IPipeline {
     function admin(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
 
-    function entry(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
+    function setup(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
 
-    function next(
+    function operate(
         uint account,
         uint id,
         uint amount,
+        bytes calldata data,
+        bytes calldata step
+    ) external payable returns (bytes4, bytes memory);
+
+    function process(
+        uint account,
         bytes calldata data,
         bytes calldata step
     ) external payable returns (bytes4, bytes memory);
@@ -39,8 +46,16 @@ abstract contract Command is Host {
         return (0, "");
     }
 
+    function setup(uint account) internal pure returns (bytes4, bytes memory) {
+        return (SETUP, abi.encode(account, ""));
+    }
+
     function next(uint account, uint id, uint amount) internal pure returns (bytes4, bytes memory) {
-        return (NEXT, abi.encode(account, id, amount, "", ""));
+        return (OPERATE, abi.encode(account, id, amount, "", ""));
+    }
+
+    function supply(uint account, bytes memory data) internal pure returns (bytes4, bytes memory) {
+        return (PROCESS, abi.encode(account, data, ""));
     }
 
     function ensureValidStage(uint eid, bytes calldata step) internal pure {

@@ -7,7 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Node} from "../Lib/Node.sol";
 import {Validator} from "../Lib/Validation/Validator.sol";
 import {Value} from "../Lib/Utils.sol";
-import {isNext, isEntry} from "../Lib/Snippets/Commander.sol";
+import {isOperate, isSetup} from "../Lib/Snippets/Commander.sol";
 import {Endpoints} from "./Endpoints.sol";
 
 abstract contract Executor is Ownable, Node, Endpoints, Validator {
@@ -100,26 +100,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
         return abi.decode(callTo(addr, value, total, data), (uint, bytes));
     } */
 
-    /*     function call(
-        uint eid,
-        bytes memory call,
-        bytes calldata step,
-        Value memory value
-    ) private returns (bytes4, bytes memory) {
-        address addr = step.addr();
-        uint v;
-        return abi.decode(callTo(addr, v, value, call), (uint, bytes));
-    } */
-
-    /*     function toCall(
-        uint from,
-        bytes calldata step
-    ) private pure returns (bytes memory) {
-        bytes4 selector = step.selector();
-        return bytes.concat(selector, abi.encode(from, step));
-    } */
-
-    function callEndpoint(uint eid, bytes memory call, Value memory value) private returns (bytes4, bytes memory) {
+    function callTo(uint eid, bytes memory call, Value memory value) private returns (bytes4, bytes memory) {
         bytes4 selector;
         value.use = 0;
         // check eid for open flag to encoded (account, step)
@@ -133,9 +114,9 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     ) private returns (bytes4, bytes memory) {
         uint eid;
         if (eid == initiateId) return debitFrom(args, step);
-        if (eid == resolveId) return creditTo(args, step);
+        if (eid == sinkId) return creditTo(args, step);
         bytes memory call = encodeCall(selector, args, step);
-        return callEndpoint(eid, call, value);
+        return callTo(eid, call, value);
     }
 
     function pipe(bytes4 head, bytes memory args, bytes[] calldata steps, Value memory v) internal returns (uint) {

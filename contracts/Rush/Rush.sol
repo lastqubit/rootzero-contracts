@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Executor, Ownable} from "./Executor.sol";
 import {Node} from "../Lib/Node.sol";
 import {Discovery} from "../Lib/Snippets/Discovery.sol";
-import {ADMIN, ENTRY} from "../Lib/Commands/Base.sol";
+import {ADMIN, SETUP} from "../Lib/Commands/Base.sol";
 import {addrOr, toAccountId, msgValue} from "../Lib/Utils.sol";
 
 contract Rush is Executor, Discovery {
@@ -22,7 +22,7 @@ contract Rush is Executor, Discovery {
 
     function execute(bytes[] calldata steps, bytes calldata signed) external payable override returns (uint) {
         uint account = toAccountId(validate(steps, signed));
-        return pipe(ENTRY, abi.encode(account, ""), steps, msgValue());
+        return pipe(SETUP, abi.encode(account, ""), steps, msgValue());
     }
 
     function resume(

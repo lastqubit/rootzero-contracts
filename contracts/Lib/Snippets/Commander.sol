@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {ENTRY, NEXT, ADMIN} from "../Commands/Base.sol";
+import {SETUP, OPERATE, PROCESS, ADMIN} from "../Commands/Base.sol";
 import {SELECTOR as ACT} from "../Commands/Core/Act.sol";
 import {SELECTOR as ADD} from "../Commands/Core/Add.sol";
 import {SELECTOR as ALLOW} from "../Commands/Core/Allow.sol";
@@ -20,9 +20,9 @@ import {SELECTOR as RESOLVE} from "../Commands/Core/Resolve.sol";
 import {SELECTOR as TRANSFORM} from "../Commands/Core/Transform.sol";
 import {SELECTOR as UTILIZE} from "../Commands/Core/Utilize.sol";
 
-function isEntry(bytes4 s) pure returns (bool) {
+function isSetup(bytes4 s) pure returns (bool) {
     return
-        s == ENTRY ||
+        s == SETUP ||
         s == ACT ||
         s == ADD ||
         s == ALLOW ||
@@ -37,19 +37,23 @@ function isEntry(bytes4 s) pure returns (bool) {
 }
 
 function isAdmin(bytes4 s) pure returns (bool) {
-    return s == ADMIN || s == AUTHORIZE || s == UNAUTHORIZE || s == RELOCATE || isEntry(s);
+    return s == ADMIN || s == AUTHORIZE || s == UNAUTHORIZE || s == RELOCATE || isSetup(s);
 }
 
-function isNext(bytes4 s) pure returns (bool) {
-    return s == NEXT || s == RESOLVE || s == TRANSFORM || s == UTILIZE;
+function isOperate(bytes4 s) pure returns (bool) {
+    return s == OPERATE || s == RESOLVE || s == TRANSFORM || s == UTILIZE;
+}
+
+function isProcess(bytes4 s) pure returns (bool) {
+    return s == PROCESS;
 }
 
 function isMatch(bytes4 head, bytes4 step) pure returns (bool) {
-    return head == step || (head == NEXT && isNext(step)) || (head == ENTRY && isEntry(step));
+    return head == step || (head == OPERATE && isOperate(step)) || (head == SETUP && isSetup(step));
 }
 
 function ensureNext(bytes4 head) pure {
-    if (!isNext(head)) {
+    if (!isOperate(head)) {
         revert("Head is not a next");
     }
 }

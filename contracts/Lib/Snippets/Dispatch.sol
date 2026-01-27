@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {ENTRY, NEXT} from "../Commands/Base.sol";
+import {SETUP, OPERATE} from "../Commands/Base.sol";
 import {Initiate} from "../Commands/Core/Initiate.sol";
 import {Utilize} from "../Commands/Core/Utilize.sol";
 import {toResumeCall} from "../Commands/Entry/Resume.sol";
@@ -28,7 +28,7 @@ abstract contract Dispatch is Initiate(RELAY), Utilize(DISPATCH) {
         uint account,
         bytes calldata step
     ) external payable override onlyTrusted returns (bytes4, bytes memory) {
-        return publish(ENTRY, abi.encode(account, ""), toDispatchRequest(step));
+        return publish(SETUP, abi.encode(account, ""), toDispatchRequest(step));
     }
 
     function utilize(
@@ -38,6 +38,6 @@ abstract contract Dispatch is Initiate(RELAY), Utilize(DISPATCH) {
         bytes calldata,
         bytes calldata step
     ) external payable override onlyTrusted returns (bytes4, bytes memory) {
-        return publish(NEXT, abi.encode(account, id, amount, "", ""), toDispatchRequest(step));
+        return publish(OPERATE, abi.encode(account, id, amount, "", ""), toDispatchRequest(step));
     }
 }
