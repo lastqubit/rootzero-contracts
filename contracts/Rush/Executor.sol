@@ -114,7 +114,7 @@ abstract contract Executor is Ownable, Node, Endpoints, Validator {
     ) private returns (bytes4, bytes memory) {
         uint eid;
         if (eid == initiateId) return debitFrom(args, step);
-        if (eid == sinkId) return creditTo(args, step);
+        if (eid == sinkEid) return creditTo(args, step);
         bytes memory call = encodeCall(selector, args, step);
         return callTo(eid, call, value);
     }

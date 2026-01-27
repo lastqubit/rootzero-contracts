@@ -4,26 +4,20 @@ pragma solidity ^0.8.33;
 import {Host} from "../Host.sol";
 import {getBlock} from "../Utils.sol";
 
-bytes4 constant ADMIN = IPipeline.admin.selector;
-bytes4 constant SETUP = IPipeline.setup.selector;
-bytes4 constant OPERATE = IPipeline.operate.selector;
-bytes4 constant PROCESS = IPipeline.process.selector;
+bytes4 constant ADMIN = IAdmin.admin.selector;
+bytes4 constant SETUP = ISetup.setup.selector;
+bytes4 constant OPERATE = IOperate.operate.selector;
+bytes4 constant PROCESS = IProcess.process.selector;
 
-struct OpInput {
-    uint account;
-    uint id;
-    uint amount;
-}
-
-function decodeOperate(bytes memory data) pure returns (OpInput memory i) {
-    (i.account, i.id, i.amount) = abi.decode(data, (uint, uint, uint));
-}
-
-interface IPipeline {
+interface IAdmin {
     function admin(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
+}
 
+interface ISetup {
     function setup(uint account, bytes calldata step) external payable returns (bytes4, bytes memory);
+}
 
+interface IOperate {
     function operate(
         uint account,
         uint id,
@@ -31,7 +25,9 @@ interface IPipeline {
         bytes calldata data,
         bytes calldata step
     ) external payable returns (bytes4, bytes memory);
+}
 
+interface IProcess {
     function process(
         uint account,
         bytes calldata data,
@@ -50,7 +46,7 @@ abstract contract Command is Host {
         return (SETUP, abi.encode(account, ""));
     }
 
-    function next(uint account, uint id, uint amount) internal pure returns (bytes4, bytes memory) {
+    function operate(uint account, uint id, uint amount) internal pure returns (bytes4, bytes memory) {
         return (OPERATE, abi.encode(account, id, amount, "", ""));
     }
 

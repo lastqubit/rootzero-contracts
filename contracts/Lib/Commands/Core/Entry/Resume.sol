@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command} from "../Base.sol";
+import {Command} from "../../Base.sol";
 
 string constant ABI = "function resume(bytes4 head, bytes args, bytes[] steps) external payable returns(uint count)";
 bytes4 constant SELECTOR = IResume.resume.selector;

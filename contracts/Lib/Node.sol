@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {Host, AccessControl} from "./Host.sol"; ////
-import {Authorize} from "./Commands/Core/Authorize.sol";
-import {Unauthorize} from "./Commands/Core/Unauthorize.sol";
-import {Relocate} from "./Commands/Core/Relocate.sol";
+import {Authorize} from "./Commands/Core/Admin/Authorize.sol";
+import {Unauthorize} from "./Commands/Core/Admin/Unauthorize.sol";
+import {Relocate} from "./Commands/Core/Admin/Relocate.sol";
 import {IsTrusted} from "./Queries/IsTrusted.sol";
 
 interface INodeDiscovery {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Utilize} from "./Core/Utilize.sol";
-import {toResumeCall} from "./Entry/Resume.sol";
+import {Utilize} from "./Core/Operate/Utilize.sol";
+import {toResumeCall} from "./Core/Entry/Resume.sol";
 
 string constant REQ = "dispatch(bytes[] steps)";
 

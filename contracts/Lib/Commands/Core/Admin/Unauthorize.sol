@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command} from "../Base.sol";
-import {anyAddr} from "../../Utils.sol";
+import {Command} from "../../Base.sol";
+import {anyAddr} from "../../../Utils.sol";
 
 string constant ABI = "function unauthorize(uint account, bytes step) external payable returns (bytes4, bytes)";
 string constant REQ = "unauthorize(uint[] hosts)";

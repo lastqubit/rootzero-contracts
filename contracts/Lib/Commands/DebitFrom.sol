@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Initiate} from "./Core/Initiate.sol";
+import {Initiate} from "./Core/Setup/Initiate.sol";
 
 string constant REQ = "debitFrom(uint use, uint min, uint max, uint bounty)";
 
@@ -26,7 +26,7 @@ abstract contract DebitFrom is Initiate(REQ) {
         DebitRequest memory q = toDebitRequest(step);
         uint amount = debitFrom(account, q.use, q.min, q.max);
         uint out; // = collectBounty(q.use, q.bounty, amount);
-        return next(account, q.use, out);
+        return operate(account, q.use, out);
     }
 
     function debitFrom(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {

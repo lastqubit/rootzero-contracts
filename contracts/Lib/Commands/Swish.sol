@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Transfer} from "./Core/Transfer.sol";
+import {Transfer} from "./Core/Setup/Transfer.sol";
 
 string constant REQ = "swish(uint to, uint use, uint min, uint max, uint fee)";
 

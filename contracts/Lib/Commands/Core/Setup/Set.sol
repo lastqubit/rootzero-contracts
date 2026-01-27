@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command} from "../Base.sol";
+import {Command} from "../../Base.sol";
 
 string constant ABI = "function set(uint account, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant SELECTOR = ISet.set.selector;

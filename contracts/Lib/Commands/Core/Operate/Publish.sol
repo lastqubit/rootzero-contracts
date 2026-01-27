@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command} from "../Base.sol";
+import {Command} from "../../Base.sol";
 
-string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
-bytes4 constant SELECTOR = IResolve.resolve.selector;
+string constant ABI = "function publish(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
+bytes4 constant SELECTOR = IPublish.publish.selector;
 
-interface IResolve {
-    function resolve(
+interface IPublish {
+    function publish(
         uint account,
         uint id,
         uint amount,
@@ -16,14 +16,14 @@ interface IResolve {
     ) external payable returns (bytes4, bytes memory);
 }
 
-abstract contract Resolve is IResolve, Command {
-    uint internal immutable resolveId = toEid(SELECTOR);
+abstract contract Publish is IPublish, Command {
+    uint internal immutable publishEid = toEid(SELECTOR);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, resolveId, 0, ABI, params);
+        emit Endpoint(hostId, publishEid, 0, ABI, params);
     }
 
-    function resolve(
+    function publish(
         uint account,
         uint id,
         uint amount,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Utilize} from "./Core/Utilize.sol";
+import {Transform} from "./Core/Operate/Transform.sol";
 
 string constant REQ = "swap(uint use, uint accept)";
 
@@ -17,7 +17,7 @@ struct SwapFactor {
     uint rate;
 }
 
-abstract contract Swap is Utilize(REQ) {
+abstract contract Swap is Transform(REQ) {
     function getSwapRequest(
         bytes calldata ctx
     ) internal view returns (SwapRequest memory) {

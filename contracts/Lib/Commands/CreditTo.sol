@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Sink} from "./Core/Sink.sol";
-import {OpInput, decodeOperate} from "./Base.sol";
+import {Sink} from "./Core/Operate/Sink.sol";
+import {OpInput, decodeOperate} from "./Core/Operate/Operate.sol";
 import {ensureAmount, ensureAccount} from "../Utils.sol";
 
 string constant REQ = "creditTo(uint to)";
