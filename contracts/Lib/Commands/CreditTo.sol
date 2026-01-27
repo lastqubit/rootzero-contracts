@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Resolve} from "./Core/Resolve.sol";
-import {NextInput, decodeNext} from "./Base.sol";
+import {Sink} from "./Core/Sink.sol";
+import {OpInput, decodeOperate} from "./Base.sol";
 import {ensureAmount, ensureAccount} from "../Utils.sol";
 
 string constant REQ = "creditTo(uint to)";
 
-abstract contract CreditTo is Resolve(REQ) {
+abstract contract CreditTo is Sink(REQ) {
     function resolveTo(uint account, bytes calldata req) private pure returns (uint) {
         if (req.length == 0) return account;
         return ensureAccount(abi.decode(req, (uint)));
@@ -15,23 +15,18 @@ abstract contract CreditTo is Resolve(REQ) {
 
     function creditTo(uint account, uint id, uint amount) internal virtual returns (uint);
 
-    function creditTo(
-        uint account,
-        uint id,
-        uint amount,
-        bytes calldata step
-    ) internal returns (bytes4, bytes memory) {
+    function creditTo(uint account, uint id, uint amount, bytes calldata step) internal returns (bytes4, bytes memory) {
         uint to = resolveTo(account, getRequest(step));
         ensureAmount(creditTo(to, id, amount));
         return done();
     }
 
     function creditTo(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {
-        NextInput memory i = decodeNext(args);
+        OpInput memory i = decodeOperate(args);
         return creditTo(i.account, i.id, i.amount, step);
     }
 
-    function resolve(
+    function sink(
         uint account,
         uint id,
         uint amount,
