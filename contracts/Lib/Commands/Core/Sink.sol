@@ -3,11 +3,11 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
-bytes4 constant SELECTOR = IResolve.resolve.selector;
+string constant ABI = "function sink(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
+bytes4 constant SELECTOR = ISink.sink.selector;
 
-interface IResolve {
-    function resolve(
+interface ISink {
+    function sink(
         uint account,
         uint id,
         uint amount,
@@ -16,14 +16,15 @@ interface IResolve {
     ) external payable returns (bytes4, bytes memory);
 }
 
-abstract contract Resolve is IResolve, Command {
-    uint internal immutable resolveId = toEid(SELECTOR);
+
+abstract contract Sink is ISink, Command {
+    uint internal immutable sinkEid = toEid(SELECTOR);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, resolveId, 0, ABI, params);
+        emit Endpoint(hostId, sinkEid, 0, ABI, params);
     }
 
-    function resolve(
+    function sink(
         uint account,
         uint id,
         uint amount,
