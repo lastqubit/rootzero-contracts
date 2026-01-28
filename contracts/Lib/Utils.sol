@@ -30,11 +30,11 @@ function msgValue() view returns (Value memory) {
     return Value({use: 0, _disposable: msg.value});
 }
 
-function build(address addr, uint32 selector, uint32 chain, uint32 head) pure returns (uint) {
+function build(address addr, uint32 selector, uint32 chain, uint32 desc) pure returns (uint) {
     uint id = uint(uint160(addr));
-    id |= uint(selector) << 160;
-    id |= uint(chain) << 192;
-    id |= uint(head << 224);
+    id |= uint(chain) << 160;
+    id |= uint(desc) << 192;
+    id |= uint(selector << 224);
     return id;
 }
 
@@ -65,52 +65,52 @@ function ensureId(uint id) pure returns (uint) {
 }
 
 function isLocal(uint id) view returns (bool) {
-    return uint32(id >> 192) == block.chainid;
+    return uint32(id >> 160) == block.chainid;
 }
 
 function toValueId() view returns (uint) {
-    return build(address(0), 0, uint32(max32(block.chainid)), VALUE);
+    return build(address(0), uint32(max32(block.chainid)), VALUE, 0);
 }
 
 function toAccountId(address addr) pure returns (uint) {
-    return build(addr, 0, 0, ACCOUNT);
+    return build(addr, 0, ACCOUNT, 0);
 }
 
 function toHostId(address addr) view returns (uint) {
-    return build(addr, 0, uint32(max32(block.chainid)), HOST);
+    return build(addr, uint32(max32(block.chainid)), HOST, 0);
 }
 
 function toEndpointId(address addr, bytes4 selector) view returns (uint) {
-    return build(addr, uint32(selector), uint32(max32(block.chainid)), ENDPOINT);
+    return build(addr, uint32(max32(block.chainid)), ENDPOINT, uint32(selector));
 }
 
 function toTokenId(address addr) view returns (uint) {
-    return build(addr, 0, uint32(max32(block.chainid)), TOKEN);
+    return build(addr, uint32(max32(block.chainid)), TOKEN, 0);
 }
 
 function anyAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint16(id >> 240) != ID || (onlyLocal && isLocal(id))) {
+    if (uint16(id >> 208) != ID || (onlyLocal && isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
 }
 
 function ensureAccount(uint id) pure returns (uint) {
-    if (uint32(id >> 224) != ACCOUNT) {
+    if (uint32(id >> 192) != ACCOUNT) {
         revert InvalidId();
     }
     return id;
 }
 
 function accountAddr(uint id) pure returns (address) {
-    if (uint32(id >> 224) != ACCOUNT) {
+    if (uint32(id >> 192) != ACCOUNT) {
         revert InvalidId();
     }
     return address(uint160(id));
 }
 
 function hostAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 224) != HOST || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != HOST || (onlyLocal && isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
@@ -124,14 +124,14 @@ function ensureHost(uint id, address addr) view returns (uint) {
 }
 
 function endpointAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 224) != ENDPOINT || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != ENDPOINT || (onlyLocal && isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
 }
 
 function tokenAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 224) != TOKEN || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != TOKEN || (onlyLocal && isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
