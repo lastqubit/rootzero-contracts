@@ -13,14 +13,14 @@ abstract contract Balances is DebitFrom, CreditTo, Settle, BalanceEvent {
     function creditTo(uint account, uint id, uint amount) internal override returns (uint) {
         if (amount == 0 || account == 0) return 0;
         uint total = balances[account][id] += amount;
-        emit Balance(account, setupEid, id, total, amount);
+        emit Balance(account, setupId, id, total, amount);
         return amount;
     }
 
     function debitFrom(uint account, uint id, uint amount) internal returns (uint) {
         if (amount == 0 || account == 0) return 0;
         uint total = balances[account][id] -= amount;
-        emit Balance(account, setupEid, id, total, amount);
+        emit Balance(account, setupId, id, total, amount);
         return amount;
     }
 

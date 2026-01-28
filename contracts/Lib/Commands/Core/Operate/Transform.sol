@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command} from "../../Base.sol";
+import {Command} from "../Base.sol";
 
 string constant ABI = "function transform(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
-bytes4 constant SELECTOR = ITransform.transform.selector;
+bytes4 constant TRANSFORM = ITransform.transform.selector;
 
 interface ITransform {
     function transform(
@@ -17,7 +17,7 @@ interface ITransform {
 }
 
 abstract contract Transform is ITransform, Command {
-    uint internal immutable transformId = toEid(SELECTOR);
+    uint internal immutable transformId = toEid(TRANSFORM);
 
     constructor(string memory params) {
         emit Endpoint(hostId, transformId, 0, ABI, params);

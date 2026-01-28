@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import {Resolve} from "./Core/Operate/Resolve.sol";
 import {OpInput, decodeOperate} from "./Core/Operate/Operate.sol";
+import {done, getRequest} from "./Core/Base.sol";
 import {ensureAmount, ensureAccount} from "../Utils.sol";
 
 string constant REQ = "creditTo(uint to)";
@@ -20,6 +21,8 @@ abstract contract CreditTo is Resolve(REQ) {
         ensureAmount(creditTo(to, id, amount));
         return done();
     }
+
+    function creditTo(bytes4 head, bytes memory args) internal returns (bytes4, bytes memory) {}
 
     function creditTo(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {
         OpInput memory i = decodeOperate(args);

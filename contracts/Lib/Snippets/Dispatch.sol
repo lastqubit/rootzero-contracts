@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {SETUP, OPERATE} from "../Commands/Base.sol";
+import {done, SETUP, OPERATE} from "../Commands/Core/Base.sol";
 import {Setup} from "../Commands/Core/Setup/Setup.sol";
 import {Relay} from "../Commands/Core/Operate/Relay.sol";
 import {toResumeCall} from "../Commands/Core/Entry/Resume.sol";
@@ -22,7 +22,7 @@ abstract contract Dispatch is Setup(REQ), Relay(DISPATCH) {
     }
 
     function publish(bytes4 head, bytes memory args, DispatchRequest memory q) internal returns (bytes4, bytes memory) {
-        callTo(cmdr, 0, toResumeCall(head, args, q.steps));
+        callAddr(cmdr, 0, toResumeCall(head, args, q.steps));
         return done();
     }
 

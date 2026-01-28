@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Setup} from "./Core/Setup/Setup.sol";
+import {getRequest, nextOperate} from "./Core/Base.sol";
 
 string constant REQ = "debitFrom(uint use, uint min, uint max, uint bounty)";
 
@@ -26,7 +27,7 @@ abstract contract DebitFrom is Setup(REQ) {
         DebitRequest memory q = toDebitRequest(step);
         uint amount = debitFrom(account, q.use, q.min, q.max);
         uint out; // = collectBounty(q.use, q.bounty, amount);
-        return operate(account, q.use, out);
+        return nextOperate(account, q.use, out);
     }
 
     function debitFrom(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {

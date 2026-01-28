@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Command, IOperate, OPERATE} from "../../Base.sol";
+import {Command, IOperate, OPERATE} from "../Base.sol";
 
 string constant ABI = "function operate(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
 
@@ -16,10 +16,10 @@ function decodeOperate(bytes memory data) pure returns (OpInput memory i) {
 }
 
 abstract contract Operate is IOperate, Command {
-    uint internal immutable operateEid = toEid(OPERATE);
+    uint internal immutable operateId = toEid(OPERATE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, operateEid, 0, ABI, params);
+        emit Endpoint(hostId, operateId, 0, ABI, params);
     }
 
     function operate(

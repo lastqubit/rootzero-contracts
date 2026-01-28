@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Transfer} from "./Core/Setup/Transfer.sol";
+import {done, getRequest} from "./Core/Base.sol";
 
 string constant REQ = "swish(uint to, uint use, uint min, uint max, uint fee)";
 

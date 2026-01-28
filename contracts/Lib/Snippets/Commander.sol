@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {SETUP, OPERATE, PROCESS, ADMIN} from "../Commands/Base.sol";
+import {ADMIN, SETUP, OPERATE, TRANSACT, PROCESS} from "../Commands/Core/Base.sol";
+
+import {AUTHORIZE} from "../Commands/Core/Admin/Authorize.sol";
+import {UNAUTHORIZE} from "../Commands/Core/Admin/Unauthorize.sol";
+import {RELOCATE} from "../Commands/Core/Admin/Relocate.sol";
+
 import {SELECTOR as ADD} from "../Commands/Core/Setup/Add.sol";
 import {SELECTOR as ALLOW} from "../Commands/Core/Setup/Allow.sol";
-import {SELECTOR as AUTHORIZE} from "../Commands/Core/Admin/Authorize.sol";
 import {SELECTOR as CREATE} from "../Commands/Core/Setup/Create.sol";
 import {SELECTOR as DENY} from "../Commands/Core/Setup/Deny.sol";
-import {SELECTOR as RELOCATE} from "../Commands/Core/Admin/Relocate.sol";
 import {SELECTOR as REMOVE} from "../Commands/Core/Setup/Remove.sol";
 import {SELECTOR as SET} from "../Commands/Core/Setup/Set.sol";
 import {SELECTOR as TRANSFER} from "../Commands/Core/Setup/Transfer.sol";
-import {SELECTOR as UNAUTHORIZE} from "../Commands/Core/Admin/Unauthorize.sol";
 import {SELECTOR as UPDATE} from "../Commands/Core/Setup/Update.sol";
-import {SELECTOR as RESOLVE} from "../Commands/Core/Operate/Resolve.sol";
-import {SELECTOR as TRANSFORM} from "../Commands/Core/Operate/Transform.sol";
+
+import {OPERATE} from "../Commands/Core/Operate/Operate.sol";
+import {RELAY} from "../Commands/Core/Operate/Relay.sol";
+import {RESOLVE} from "../Commands/Core/Operate/Resolve.sol";
+import {TRANSFORM} from "../Commands/Core/Operate/Transform.sol";
 
 function isSetup(bytes4 s) pure returns (bool) {
     return
@@ -34,25 +39,37 @@ function isAdmin(bytes4 s) pure returns (bool) {
 }
 
 function isOperate(bytes4 s) pure returns (bool) {
-    return s == OPERATE || s == RESOLVE || s == TRANSFORM;
+    return s == OPERATE || s == RELAY || s == RESOLVE || s == TRANSFORM;
+}
+
+function isTransact(bytes4 s) pure returns (bool) {
+    return s == TRANSACT;
 }
 
 function isProcess(bytes4 s) pure returns (bool) {
     return s == PROCESS;
 }
 
-function isMatch(bytes4 head, bytes4 step) pure returns (bool) {
-    return head == step || (head == OPERATE && isOperate(step)) || (head == SETUP && isSetup(step));
+function canAdvance(bytes4 head, bytes4 next) pure returns (bool) {
+    if (head == 0) return false;
+    if (head == SETUP) return isSetup(next);
+    if (head == OPERATE) return isOperate(next);
+    if (head == TRANSACT) return isTransact(next);
+    if (head == PROCESS) return isProcess(next);
+    if (head == ADMIN) return isAdmin(next);
+    return head == next;
 }
 
-function ensureNext(bytes4 head) pure {
-    if (!isOperate(head)) {
-        revert("Head is not a operate");
+/* function ensureOperate(bytes4 head) pure {
+    if (isOperate(head) == false) {
+        revert PipelineAdvanceError();
     }
 }
-
-function ensureMatch(bytes4 head, bytes4 step) pure {
-    if (!isMatch(head, step)) {
-        revert("Head does not match step");
+ */
+/* function ensureAdvanceable(bytes4 head, uint eid) pure returns (bytes4) {
+    bytes4 next = bytes4(uint32(eid >> 160));
+    if (canAdvance(head, next) == false) {
+        revert PipelineAdvanceError();
     }
-}
+    return next;
+} */
