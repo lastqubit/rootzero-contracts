@@ -22,7 +22,12 @@ abstract contract CreditTo is Resolve(REQ) {
         return done();
     }
 
-    function creditTo(bytes4 head, bytes memory args) internal returns (bytes4, bytes memory) {}
+    // ensure head is operate ??
+    function creditTo(bytes4 head, bytes memory args) internal returns (bytes4, bytes memory) {
+        OpInput memory i = decodeOperate(args);
+        ensureAmount(creditTo(i.account, i.id, i.amount));
+        return done();
+    }
 
     function creditTo(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {
         OpInput memory i = decodeOperate(args);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Operate} from "./Core/Operate/Operate.sol";
+import {Relay} from "./Core/Operate/Relay.sol";
 import {toResumeCall} from "./Core/Entry/Resume.sol";
 
 string constant REQ = "dispatch(bytes[] steps)";
@@ -10,12 +10,12 @@ struct DispatchRequest {
     bytes[] steps;
 }
 
-abstract contract Dispatch is Operate(REQ) {
+abstract contract Dispatch is Relay(REQ) {
     function toDispatchReq(bytes calldata step) public view returns (DispatchRequest memory) {
         return abi.decode(step, (DispatchRequest));
     }
 
-    function operate(
+    function relay(
         uint account,
         uint id,
         uint amount,
