@@ -35,7 +35,7 @@ function build(address addr, uint32 selector, uint32 chain, uint32 desc) pure re
     uint id = uint(uint160(addr));
     id |= uint(chain) << 160;
     id |= uint(desc) << 192;
-    id |= uint(selector << 224);
+    id |= uint(selector) << 224;
     return id;
 }
 
@@ -77,27 +77,27 @@ function isLocal(uint id) view returns (bool) {
 }
 
 function toValueId() view returns (uint) {
-    return build(address(0), uint32(max32(block.chainid)), VALUE, 0);
+    return build(address(0), 0, uint32(max32(block.chainid)), VALUE);
 }
 
 function toAccountId(address addr) pure returns (uint) {
-    return build(addr, 0, ACCOUNT, 0);
+    return build(addr, 0, 0, ACCOUNT);
 }
 
 function toHostId(address addr) view returns (uint) {
-    return build(addr, uint32(max32(block.chainid)), HOST, 0);
+    return build(addr, 0, uint32(max32(block.chainid)), HOST);
 }
 
 function toEndpointId(address addr, bytes4 selector) view returns (uint) {
-    return build(addr, uint32(max32(block.chainid)), ENDPOINT, uint32(selector));
+    return build(addr, uint32(selector), uint32(max32(block.chainid)), ENDPOINT);
 }
 
 function toTokenId(address addr) view returns (uint) {
-    return build(addr, uint32(max32(block.chainid)), TOKEN, 0);
+    return build(addr, 0, uint32(max32(block.chainid)), TOKEN);
 }
 
 function anyAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint16(id >> 208) != ID || (onlyLocal && isLocal(id))) {
+    if (uint16(id >> 208) != ID || (onlyLocal && !isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
@@ -118,7 +118,7 @@ function accountAddr(uint id) pure returns (address) {
 }
 
 function hostAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 192) != HOST || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != HOST || (onlyLocal && !isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
@@ -132,14 +132,14 @@ function ensureHost(uint id, address addr) view returns (uint) {
 }
 
 function endpointAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 192) != ENDPOINT || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != ENDPOINT || (onlyLocal && !isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
 }
 
 function tokenAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 192) != TOKEN || (onlyLocal && isLocal(id))) {
+    if (uint32(id >> 192) != TOKEN || (onlyLocal && !isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
