@@ -20,6 +20,7 @@ error InvalidId();
 error BadAmount(uint amount);
 error Nondeductible(uint amount, uint disposable);
 error ValueOverflow();
+error Expired();
 
 struct Value {
     uint use;
@@ -62,6 +63,13 @@ function ensureId(uint id) pure returns (uint) {
         revert ZeroId();
     }
     return id;
+}
+
+function ensureNotExpired(uint deadline) view returns (uint) {
+    if (deadline < block.timestamp) {
+        revert Expired();
+    }
+    return deadline;
 }
 
 function isLocal(uint id) view returns (bool) {
