@@ -1,34 +1,36 @@
-import { Interface, AbiCoder } from "ethers";
+import { AbiCoder, FunctionFragment, dataLength, concat, zeroPadValue, toBeHex } from "ethers";
+import { getDefaultValue } from "./defaults";
+import { getSelector } from "./utils";
 
-function parseAndEncode(signature, paramValues) {
-    // Normalize signature - remove 'function' keyword if present
-    const normalizedSignature = signature.trim().replace(/^function\s+/, "");
+const abi = AbiCoder.defaultAbiCoder();
 
-    // Create interface and get fragment
-    const iface = new Interface([`function ${normalizedSignature}`]);
+function getDefault(input, allow = false) {}
 
-    // Extract function name from signature
-    const functionName = normalizedSignature.match(/^(\w+)\(/)[1];
-    const fragment = iface.getFunction(functionName);
-
-    // Extract parameter types from fragment.inputs
-    const paramTypes = fragment.inputs.map((input) => input.type);
-
-    // Encode using AbiCoder
-    const abiCoder = AbiCoder.defaultAbiCoder();
-    const encodedParams = abiCoder.encode(paramTypes, paramValues);
-
-    return {
-        fragment,
-        paramTypes,
-        encodedParams,
-    };
+function toHex(value, length) {
+    return zeroPadValue(toBeHex(value), length);
 }
 
-// Usage - works with or without 'function' keyword
-const sig1 = "debitFrom(uint use, uint min, uint max, uint bounty)";
-const sig2 = "function debitFrom(uint use, uint min, uint max, uint bounty)";
+function toValues(inputs, args = {}) {
+    return inputs.map((i) => args[i.name] ?? getDefaultValue(i.type));
+}
 
-const result = parseAndEncode(sig1, [100n, 50n, 200n, 10n]);
-console.log("Parameter types:", result.paramTypes);
-console.log("Encoded params:", result.encodedParams);
+export function encodeInputs(signature, args = {}) {
+    const { inputs } = FunctionFragment.from(signature);
+    return abi.encode(inputs, toValues(inputs, args));
+}
+
+export function encodeCall(signature, args = {}) {
+    const { inputs, selector } = FunctionFragment.from(signature);
+    return concat([selector, abi.encode(inputs, toValues(inputs, args))]);
+}
+
+export function encodeBlock(signature, args = {}) {
+    const key = getSelector(signature);
+    const data = encodeInputs(signature, args);
+    const len = toHex(dataLength(data), 4);
+    return concat([key, len, data]);
+}
+
+export function encodeStep(eid, value = 0n, ...blocks) {
+    return concat([toHex(eid, 32), toHex(value, 32), ...blocks]);
+}
