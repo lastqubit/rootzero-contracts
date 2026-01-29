@@ -2,35 +2,38 @@
 pragma solidity ^0.8.33;
 
 import {Crypto} from "./Crypto.sol";
-import {DeadlineNonces} from "./Nonce.sol";
+import {Nonces} from "./Nonce.sol";
 
-// signed -> signer(20):deadline(8):sig(65)
 // param -> data:eid(32):deadline(8):sig(65) // signer should be part of data
 // 40 bits is plenty for deadline,
 
-abstract contract Validator is DeadlineNonces, Crypto {
-    function validate(address from, bytes calldata data, bytes calldata sig) internal pure {
-        verify(keccak256(data), from, sig);
-    }
-
+abstract contract Validator is Nonces, Crypto {
     /**
-     * @param from expected signer of data.
-     * @param data data to be hashed and verified packed with sig at the end.
+     * @param signer signer of data.
+     * @param hash keccak256 of data.
+     * @param sig signature.
      */
-    function validatePacked(address from, bytes calldata data) internal pure {
-        uint sos = data.length - 65;
-        verify(keccak256(data[:sos]), from, data[sos:]);
+    function validate(address signer, bytes32 hash, bytes calldata sig) internal pure {
+        verify(hash, signer, sig);
     }
 
     /**
-     * @param data data to be hashed and verified.
-     * @param signed packed context: signer(bytes20):deadline(bytes8):sig(bytes65).
+     * @param signer signer of data.
+     * @param data packed (bytes data to keccak256, bytes65 sig).
+     */
+    function validatePacked(address signer, bytes calldata data) internal pure {
+        uint sos = data.length - 65;
+        verify(keccak256(data[:sos]), signer, data[sos:]);
+    }
+
+    /**
+     * @param hash keccak256 of data.
+     * @param signed packed (bytes20 signer, bytes65 sig).
      * @return address recovered signer address.
      */
-    function validateRecover(bytes memory data, bytes calldata signed) internal pure returns (address) {
-        address from = address(bytes20(signed));
-        uint sos = signed.length - 65;
-        verify(keccak256(data), from, signed[sos:]);
-        return from;
+    function validateRecover(bytes32 hash, bytes calldata signed) internal pure returns (address) {
+        address signer = address(bytes20(signed));
+        verify(hash, signer, signed[20:]);
+        return signer;
     }
 }
