@@ -1,9 +1,21 @@
 import { Interface, Contract, EventFragment } from "ethers";
 
-const EVENT = "event EventDesc(bool once, string category, string abi)";
+const EVENT = "event EventDesc(string abi)";
 
-export function parseEvent(signature) {
+function parseEvent(signature) {
     return EventFragment.from(signature.trim());
+}
+
+function toArgs(e) {
+    return e?.args?.toObject();
+}
+
+async function getLogs({ addr, fromBlock = 0, toBlock = "latest", topics, provider }) {
+    return provider.getLogs({ address: addr, fromBlock, toBlock, topics });
+}
+
+async function getBlockLogs({ addr, block, topics, provider }) {
+    return provider.getLogs({ address: addr, fromBlock: block, toBlock: block, topics });
 }
 
 export async function getEvents({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
@@ -19,17 +31,12 @@ export async function getEvents({ event, addr, provider, args = [], fromBlock = 
     }));
 }
 
-export async function getAllEvents(provider, contractAddress, eventSignatures, options = {}) {
+export async function getAllEvents(provider, addr, eventSignatures, options = {}) {
     // Create interface with all event signatures
     const iface = new Interface([eventSignatures]);
 
     // Get all logs for the address (no event filter)
-    const logs = await provider.getLogs({
-        address: contractAddress,
-        fromBlock: options.fromBlock || 0,
-        toBlock: options.toBlock || "latest",
-        topics: options.topics, // Optional: filter by specific topics
-    });
+    const logs = await getLogs({ addr, provider, ...options });
 
     // Decode logs based on their topic hash
     const decodedEvents = logs.map((log) => {
@@ -71,26 +78,20 @@ async function createHost(contractAddress, provider) {
     // Load event registry
     const host = new Contract(contractAddress, [EVENT], provider);
     const descEvents = await host.queryFilter(host.filters.EventDesc());
+    const descs = descEvents.map(toArgs);
 
     // Extract all event signatures
-    const eventSignatures = descEvents.map((e) => e.args.toObject().abi);
+    const eventSignatures = descs.map((e) => e.abi);
 
     // Create interface with all event signatures
     const iface = new Interface(eventSignatures);
 
     async function getEvents(category, options = {}) {
         // Get all logs for the address
-        const logs = await provider.getLogs({
-            address: contractAddress,
-            fromBlock: options.fromBlock || 0,
-            toBlock: options.toBlock || "latest",
-            topics: options.topics,
-        });
+        const logs = await getLogs({ addr: contractAddress, provider, ...options });
 
         // Decode and filter by category
-        const categorySet = new Set(
-            descEvents.filter((e) => e.args.toObject().category === category).map((e) => e.args.toObject().abi)
-        );
+        const categorySet = new Set(descs.filter((a) => a.category === category).map((a) => a.abi));
 
         return logs
             .map((log) => {
