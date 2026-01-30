@@ -3,7 +3,8 @@ import { Interface, Contract, EventFragment } from "ethers";
 const EVENT = "event EventDesc(string abi)";
 
 function parseEvent(signature) {
-    return EventFragment.from(signature.trim());
+    const fragment = EventFragment.from(signature);
+    return { name: fragment.name, fragment };
 }
 
 function toArgs(e) {
@@ -19,17 +20,29 @@ async function getBlockLogs({ addr, block, topics, provider }) {
 }
 
 export async function getEvents({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const fragment = parseEvent(event);
+    const { name, fragment } = parseEvent(event);
     const contract = new Contract(addr, [fragment], provider);
-    const filter = contract.filters[fragment.name](...args);
+    const filter = contract.filters[name](...args);
     const events = await contract.queryFilter(filter, fromBlock, toBlock);
-    return events.map((event) => ({
+    return { name, events };
+}
+
+export async function getEventValues({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
+    const { name, events } = await getEvents({ event, addr, provider, args, fromBlock, toBlock });
+    return { name, events: events.map((e) => e.args.toObject()) };
+}
+
+export async function getEventInterface({ addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
+    const { events } = await getEvents({ event: EVENT, addr, provider, args, fromBlock, toBlock });
+    return new Interface(events.map((e) => e.args.toObject().abi));
+}
+
+/*     return events.map((event) => ({
         name: fragment.name,
         blockNumber: event.blockNumber,
         transactionHash: event.transactionHash,
         args: event.args.toObject(), // Convert args to named object
-    }));
-}
+    })); */
 
 export async function getAllEvents(provider, addr, eventSignatures, options = {}) {
     // Create interface with all event signatures
