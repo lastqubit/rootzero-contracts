@@ -5,7 +5,7 @@ import {Command, done, getRequest} from "../Base.sol";
 import {resolveAmount, anyAddr} from "../../../Utils.sol";
 
 string constant ABI = "function relocate(uint account, bytes step) external payable returns (bytes4, bytes)";
-string constant REQ = "relocate(address to, uint min, uint max)";
+string constant REQ = "relocate(address to:nonzero, uint min, uint max:gte(min))";
 bytes4 constant RELOCATE = IRelocate.relocate.selector;
 
 struct RelocateRequest {

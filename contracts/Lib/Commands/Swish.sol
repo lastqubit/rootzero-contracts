@@ -4,14 +4,14 @@ pragma solidity ^0.8.33;
 import {Transfer} from "./Core/Setup/Transfer.sol";
 import {done, getRequest} from "./Core/Base.sol";
 
-string constant REQ = "swish(uint to, uint use, uint min, uint max, uint fee)";
+string constant REQ = "swish(uint to:nonzero, uint use:positive, uint min, uint max:gte(min), uint bounty)";
 
 struct SwishRequest {
     uint to;
     uint use;
     uint min;
     uint max;
-    uint fee;
+    uint bounty;
 }
 
 abstract contract DebitFrom is Transfer(REQ) {
@@ -27,7 +27,7 @@ abstract contract DebitFrom is Transfer(REQ) {
         uint id,
         uint min,
         uint max,
-        uint fee
+        uint bounty
     ) internal virtual returns (uint) {}
 
     function swish(
@@ -35,7 +35,7 @@ abstract contract DebitFrom is Transfer(REQ) {
         bytes calldata step
     ) internal returns (bytes4, bytes memory) {
         SwishRequest memory q = toSwishRequest(step);
-        uint amount = swish(from, q.to, q.use, q.min, q.max, q.fee);
+        uint amount = swish(from, q.to, q.use, q.min, q.max, q.bounty);
         //activity(from, q.use, amount, "swish", "");
         return done();
     }

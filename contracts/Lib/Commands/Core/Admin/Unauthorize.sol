@@ -5,7 +5,7 @@ import {Command, done, getRequest} from "../Base.sol";
 import {anyAddr} from "../../../Utils.sol";
 
 string constant ABI = "function unauthorize(uint account, bytes step) external payable returns (bytes4, bytes)";
-string constant REQ = "unauthorize(uint[] hosts)";
+string constant REQ = "unauthorize(uint[] hosts:nonempty)";
 bytes4 constant UNAUTHORIZE = IUnauthorize.unauthorize.selector;
 
 interface IUnauthorize {

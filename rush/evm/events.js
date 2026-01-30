@@ -1,14 +1,14 @@
 import { Interface, Contract, EventFragment } from "ethers";
+import { createEndpoint } from "./endpoint.js";
 
 const EVENT = "event EventDesc(string abi)";
 
-function parseEvent(signature) {
-    const fragment = EventFragment.from(signature);
-    return { name: fragment.name, fragment };
-}
-
 function toArgs(e) {
     return e?.args?.toObject();
+}
+
+function parseEvent(signature) {
+    return EventFragment.from(signature);
 }
 
 async function getLogs({ addr, fromBlock = 0, toBlock = "latest", topics, provider }) {
@@ -19,21 +19,21 @@ async function getBlockLogs({ addr, block, topics, provider }) {
     return provider.getLogs({ address: addr, fromBlock: block, toBlock: block, topics });
 }
 
-export async function getEvents({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { name, fragment } = parseEvent(event);
-    const contract = new Contract(addr, [fragment], provider);
-    const filter = contract.filters[name](...args);
+export async function getEvents({ signature, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
+    const e = parseEvent(signature);
+    const contract = new Contract(addr, [e], provider);
+    const filter = contract.filters[e.name](...args);
     const events = await contract.queryFilter(filter, fromBlock, toBlock);
-    return { name, events };
+    return { name: e.name, events };
 }
 
-export async function getEventValues({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { name, events } = await getEvents({ event, addr, provider, args, fromBlock, toBlock });
+export async function getEventValues({ signature, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
+    const { name, events } = await getEvents({ signature, addr, provider, args, fromBlock, toBlock });
     return { name, events: events.map((e) => e.args.toObject()) };
 }
 
 export async function getEventInterface({ addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { events } = await getEvents({ event: EVENT, addr, provider, args, fromBlock, toBlock });
+    const { events } = await getEvents({ signature: EVENT, addr, provider, args, fromBlock, toBlock });
     return new Interface(events.map((e) => e.args.toObject().abi));
 }
 
@@ -131,3 +131,10 @@ async function createHost(contractAddress, provider) {
 const manager = await createEventManager(provider, contractAddress);
 const balanceEvents = await manager.getEvents("balance");
  */
+
+const ENDPOINT_EVENT = "event Endpoint(uint indexed node, uint id, uint gas, string abi, string params)";
+
+export async function loadEndpoints(provider, addr, options = {}) {
+    const { events } = await getEventValues({ event: ENDPOINT_EVENT, addr, provider, ...options });
+    return events.map((e) => createEndpoint(e));
+}

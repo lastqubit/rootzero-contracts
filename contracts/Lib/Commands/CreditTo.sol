@@ -6,7 +6,7 @@ import {OpInput, decodeOperate} from "./Core/Operate/Operate.sol";
 import {done, getRequest} from "./Core/Base.sol";
 import {ensureAmount, ensureAccount} from "../Utils.sol";
 
-string constant REQ = "creditTo(uint to)";
+string constant REQ = "creditTo(uint to:nonzero)";
 
 abstract contract CreditTo is Resolve(REQ) {
     function resolveTo(uint account, bytes calldata req) private pure returns (uint) {

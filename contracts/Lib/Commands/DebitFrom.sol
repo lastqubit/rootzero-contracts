@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {Setup} from "./Core/Setup/Setup.sol";
 import {getRequest, nextOperate} from "./Core/Base.sol";
 
-string constant REQ = "debitFrom(uint use, uint min, uint max, uint bounty)";
+string constant REQ = "debitFrom(uint use:positive, uint min, uint max:gte(min), uint bounty:optional)";
 
 struct DebitRequest {
     uint use;

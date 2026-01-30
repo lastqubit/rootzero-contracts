@@ -27,8 +27,8 @@ export function encodeCall(signature, args = {}) {
 export function encodeBlock(signature, args = {}) {
     const key = getSelector(signature);
     const data = encodeInputs(signature, args);
-    const len = toHex(dataLength(data), 4);
-    return concat([key, len, data]);
+    const length = toHex(dataLength(data), 4);
+    return concat([key, length, data]);
 }
 
 export function encodeStep(eid, value = 0n, ...blocks) {

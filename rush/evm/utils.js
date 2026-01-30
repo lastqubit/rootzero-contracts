@@ -1,19 +1,16 @@
 import { id, Contract, EventFragment, FunctionFragment } from "ethers";
+import { parseParams } from "./schema.js";
 
 export function getSelector(signature) {
     return id(signature).slice(0, 10);
 }
 
 export function parseEvent(signature) {
-    return EventFragment.from(signature.trim());
+    return EventFragment.from(signature);
 }
 
 export function parseFunction(signature) {
-    return FunctionFragment.from(signature.trim());
-}
-
-function splitParams(params) {
-    return params.split(";").filter(Boolean);
+    return FunctionFragment.from(signature);
 }
 
 export function parseFunctions(signatures) {
@@ -22,8 +19,9 @@ export function parseFunctions(signatures) {
         .map((s) => s.trim())
         .filter(Boolean)
         .reduce((map, sig) => {
-            const f = FunctionFragment.from(sig);
-            map[f.name] = f;
+            const { clean, rules } = parseParams(sig);
+            const f = FunctionFragment.from(clean);
+            map[f.name] = { fragment: f, signature: clean, rules };
             return map;
         }, {});
 }

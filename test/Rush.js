@@ -1,7 +1,12 @@
 import { expect } from "chai";
 import { network } from "hardhat";
+import { writeFileSync, mkdirSync } from "fs";
 import { AbiCoder, FunctionFragment, Interface, Contract } from "ethers";
 import { encodeBlock, encodeStep, encodeCall } from "../rush/evm/encode.js";
+import { createEndpoint } from "../rush/evm/endpoint.js";
+import { generate } from "../rush/codegen.js";
+import { debitFrom } from "../rush/generated/rush.js";
+
 
 const { ethers } = await network.connect();
 const coder = AbiCoder.defaultAbiCoder();
@@ -386,6 +391,89 @@ describe("Rush Protocol", function () {
 
             const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: randomAccountId, ids: [unknownTokenId] });
             expect(balances[0]).to.equal(0n);
+        });
+    });
+
+    describe("Endpoint proxy", function () {
+        it("Should encode a block via proxy method", async function () {
+            const resolveEp = findEndpoint(rushEndpoints, "resolve");
+            const endpoint = createEndpoint(resolveEp);
+
+            // Use proxy to encode a creditTo block
+            const otherAccountId = toAccountId(other.address);
+            const proxyBlock = endpoint.creditTo({ to: otherAccountId });
+
+            // Compare with direct encodeBlock using the same signature from params
+            const directBlock = encodeBlock("creditTo(uint to)", { to: otherAccountId });
+            expect(proxyBlock).to.equal(directBlock);
+        });
+
+        it("Should execute a pipeline using proxy-encoded blocks", async function () {
+            const faucetSetupEp = findEndpoint(faucetEndpoints, "setup");
+            const rushResolveEp = findEndpoint(rushEndpoints, "resolve");
+
+            const setupEndpoint = createEndpoint(faucetSetupEp);
+            const resolveEndpoint = createEndpoint(rushResolveEp);
+
+            const dummyTokenAddr = "0x0000000000000000000000000000000000000004";
+            const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
+            const otherAccountId = toAccountId(other.address);
+
+            // Encode blocks via proxy
+            const debitBlock = setupEndpoint.debitFrom({ use: tokenId, min: 100n, max: 250n });
+            const debitStep = encodeStep(faucetSetupEp.id, 0n, debitBlock);
+
+            const creditBlock = resolveEndpoint.creditTo({ to: otherAccountId });
+            const creditStep = encodeStep(rushResolveEp.id, 0n, creditBlock);
+
+            const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+            await rush.connect(user).pipe(futureDeadline, [debitStep, creditStep], ZERO_BYTES);
+
+            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: otherAccountId, ids: [tokenId] });
+            expect(balances[0]).to.equal(250n);
+        });
+    });
+
+    describe("Codegen", function () {
+        it("Should generate JS source with JSDoc annotations from endpoint events", function () {
+            const source = generate(rushEndpoints, { name: "Rush" });
+
+            // Should have the generated header and import
+            expect(source).to.include("// @generated from Rush");
+            expect(source).to.include('import { encodeBlock, encodeStep } from "../evm/encode.js"');
+
+            // Should export endpoint IDs
+            expect(source).to.include("setupId");
+            expect(source).to.include("resolveId");
+            expect(source).to.include("authorizeId");
+
+            // Should generate block functions with JSDoc
+            expect(source).to.include("export function debitFrom(");
+            expect(source).to.include("export function creditTo(");
+            expect(source).to.include("export function authorize(");
+
+            // Should generate step functions
+            expect(source).to.include("export function debitFromStep(");
+            expect(source).to.include("export function creditToStep(");
+
+            // JSDoc should include param types
+            expect(source).to.include("@param");
+            expect(source).to.include("bigint");
+            expect(source).to.include("@returns {string}");
+        });
+
+        it("Should produce valid encodeBlock calls in generated source", function () {
+            const source = generate(rushEndpoints, { name: "Rush" });
+
+            // The generated debitFrom function should reference the clean signature
+            expect(source).to.include('encodeBlock("debitFrom(uint use, uint min, uint max, uint bounty)"');
+            expect(source).to.include('encodeBlock("creditTo(uint to)"');
+        });
+
+        it("Should write generated file to rush/generated/rush.js", function () {
+            const source = generate(rushEndpoints, { name: "Rush", addr: rushAddr });
+            mkdirSync("rush/generated", { recursive: true });
+            writeFileSync("rush/generated/rush.js", source);
         });
     });
 
