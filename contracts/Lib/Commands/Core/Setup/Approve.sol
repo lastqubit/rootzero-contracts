@@ -14,7 +14,7 @@ abstract contract Approve is IApprove, Command {
     uint internal immutable approveId = toEid(APPROVE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, approveId, 0, ABI, params);
+        emit Endpoint(nodeId, approveId, 0, ABI, params);
     }
 
     function approve(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

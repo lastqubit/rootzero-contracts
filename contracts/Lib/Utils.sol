@@ -7,7 +7,7 @@ uint16 constant DENOMINATOR = 10_000;
 uint16 constant ID = uint16(bytes2(0x0101));
 uint32 constant VALUE = uint32(bytes4(0x01010100));
 uint32 constant ACCOUNT = uint32(bytes4(0x01010200));
-uint32 constant HOST = uint32(bytes4(0x01010300));
+uint32 constant NODE = uint32(bytes4(0x01010300));
 uint32 constant ENDPOINT = uint32(bytes4(0x01010400));
 uint32 constant ASSET = uint32(bytes4(0x01010500));
 
@@ -84,8 +84,8 @@ function toAccountId(address addr) pure returns (uint) {
     return build(addr, 0, 0, ACCOUNT);
 }
 
-function toHostId(address addr) view returns (uint) {
-    return build(addr, 0, uint32(max32(block.chainid)), HOST);
+function toNodeId(address addr) view returns (uint) {
+    return build(addr, 0, uint32(max32(block.chainid)), NODE);
 }
 
 function toEndpointId(address addr, bytes4 selector) view returns (uint) {
@@ -117,15 +117,15 @@ function accountAddr(uint id) pure returns (address) {
     return address(uint160(id));
 }
 
-function hostAddr(uint id, bool onlyLocal) view returns (address) {
-    if (uint32(id >> 192) != HOST || (onlyLocal && !isLocal(id))) {
+function nodeAddr(uint id, bool onlyLocal) view returns (address) {
+    if (uint32(id >> 192) != NODE || (onlyLocal && !isLocal(id))) {
         revert InvalidId();
     }
     return address(uint160(id));
 }
 
-function ensureHost(uint id, address addr) view returns (uint) {
-    if (id != toHostId(addr)) {
+function ensureNode(uint id, address addr) view returns (uint) {
+    if (id != toNodeId(addr)) {
         revert InvalidId();
     }
     return id;

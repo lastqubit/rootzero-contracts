@@ -19,7 +19,7 @@ abstract contract Operate is IOperate, Command {
     uint internal immutable operateId = toEid(OPERATE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, operateId, 0, ABI, params);
+        emit Endpoint(nodeId, operateId, 0, ABI, params);
     }
 
     function operate(

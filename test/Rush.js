@@ -10,7 +10,7 @@ const ZERO_BYTES = "0x";
 // --- ID construction helpers (mirrors Utils.sol build function) ---
 
 const ACCOUNT = 0x01010200n;
-const HOST = 0x01010300n;
+const NODE = 0x01010300n;
 const ENDPOINT = 0x01010400n;
 
 async function getChainId() {
@@ -30,9 +30,9 @@ function toAccountId(addr) {
     return buildId(addr, 0n, 0n, ACCOUNT);
 }
 
-async function toHostId(addr) {
+async function toNodeId(addr) {
     const chainId = await getChainId();
-    return buildId(addr, 0n, chainId, HOST);
+    return buildId(addr, 0n, chainId, NODE);
 }
 
 async function toEndpointId(addr, selector) {
@@ -104,18 +104,18 @@ describe("Rush Protocol", function () {
             faucetAddr = await faucet.getAddress();
         });
 
-        it("Rush should have a valid hostId", async function () {
-            const hostId = await rush.hostId();
-            expect(hostId).to.not.equal(0n);
+        it("Rush should have a valid nodeId", async function () {
+            const nodeId = await rush.nodeId();
+            expect(nodeId).to.not.equal(0n);
             // Verify address is embedded in the lower 160 bits
-            const embeddedAddr = "0x" + (hostId & ((1n << 160n) - 1n)).toString(16).padStart(40, "0");
+            const embeddedAddr = "0x" + (nodeId & ((1n << 160n) - 1n)).toString(16).padStart(40, "0");
             expect(embeddedAddr.toLowerCase()).to.equal(rushAddr.toLowerCase());
         });
 
-        it("Faucet should have a valid hostId", async function () {
-            const hostId = await faucet.hostId();
-            expect(hostId).to.not.equal(0n);
-            const embeddedAddr = "0x" + (hostId & ((1n << 160n) - 1n)).toString(16).padStart(40, "0");
+        it("Faucet should have a valid nodeId", async function () {
+            const nodeId = await faucet.nodeId();
+            expect(nodeId).to.not.equal(0n);
+            const embeddedAddr = "0x" + (nodeId & ((1n << 160n) - 1n)).toString(16).padStart(40, "0");
             expect(embeddedAddr.toLowerCase()).to.equal(faucetAddr.toLowerCase());
         });
 
@@ -153,8 +153,8 @@ describe("Rush Protocol", function () {
 
     describe("Access Control", function () {
         it("Faucet should not be trusted by Rush before authorization", async function () {
-            const faucetHostId = await faucet.hostId();
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetHostId });
+            const faucetNodeId = await faucet.nodeId();
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
             expect(trusted).to.equal(false);
         });
 
@@ -195,12 +195,12 @@ describe("Rush Protocol", function () {
 
     describe("Authorization via inject", function () {
         it("Owner should authorize Faucet via inject pipeline", async function () {
-            const faucetHostId = await faucet.hostId();
+            const faucetNodeId = await faucet.nodeId();
             const authorizeEp = findEndpoint(rushEndpoints, "authorize");
             const authorizeEid = authorizeEp.id;
 
             // The request for authorize: abi.encode(uint[] hosts)
-            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetHostId] });
+            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetNodeId] });
 
             // Build the authorize step
             const step = encodeStep(authorizeEid, 0n, requestBlock);
@@ -226,8 +226,8 @@ describe("Rush Protocol", function () {
         });
 
         it("Faucet should be trusted by Rush after authorization", async function () {
-            const faucetHostId = await faucet.hostId();
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetHostId });
+            const faucetNodeId = await faucet.nodeId();
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
             expect(trusted).to.equal(true);
         });
     });
@@ -391,18 +391,18 @@ describe("Rush Protocol", function () {
 
     describe("Unauthorize", function () {
         it("Owner should be able to unauthorize Faucet via inject", async function () {
-            const faucetHostId = await faucet.hostId();
+            const faucetNodeId = await faucet.nodeId();
             const unauthorizeEp = findEndpoint(rushEndpoints, "unauthorize");
             const unauthorizeEid = unauthorizeEp.id;
 
-            const requestBlock = encodeBlock("unauthorize(uint256[] hosts)", { hosts: [faucetHostId] });
+            const requestBlock = encodeBlock("unauthorize(uint256[] hosts)", { hosts: [faucetNodeId] });
             const step = encodeStep(unauthorizeEid, 0n, requestBlock);
 
             const tx = await rush.connect(owner).inject([step]);
             await tx.wait();
 
             // Faucet should no longer be trusted
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetHostId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
             expect(trusted).to.equal(false);
         });
 
@@ -425,13 +425,13 @@ describe("Rush Protocol", function () {
         });
 
         it("Should re-authorize Faucet for subsequent tests", async function () {
-            const faucetHostId = await faucet.hostId();
+            const faucetNodeId = await faucet.nodeId();
             const authorizeEp = findEndpoint(rushEndpoints, "authorize");
-            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetHostId] });
+            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetNodeId] });
             const step = encodeStep(authorizeEp.id, 0n, requestBlock);
 
             await rush.connect(owner).inject([step]);
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetHostId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
             expect(trusted).to.equal(true);
         });
     });

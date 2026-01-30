@@ -12,7 +12,7 @@ interface IInject {
 
 abstract contract Inject is IInject, Command {
     constructor() {
-        emit Endpoint(hostId, toEid(SELECTOR), 0, ABI, "");
+        emit Endpoint(nodeId, toEid(SELECTOR), 0, ABI, "");
     }
 
     function inject(bytes[] calldata steps) external payable virtual returns (uint);

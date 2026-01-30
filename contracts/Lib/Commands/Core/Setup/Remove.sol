@@ -17,7 +17,7 @@ abstract contract Remove is IRemove, Command {
     uint internal immutable removeId = toEid(REMOVE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, removeId, 0, ABI, params);
+        emit Endpoint(nodeId, removeId, 0, ABI, params);
     }
 
     function remove(

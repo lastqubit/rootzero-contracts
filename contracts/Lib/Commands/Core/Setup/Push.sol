@@ -20,7 +20,7 @@ abstract contract Push is IPush, Command {
     uint internal immutable pushId = toEid(PUSH);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, pushId, 0, ABI, params);
+        emit Endpoint(nodeId, pushId, 0, ABI, params);
     }
 
     function push(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

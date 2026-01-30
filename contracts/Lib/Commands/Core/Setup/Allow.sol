@@ -17,7 +17,7 @@ abstract contract Allow is IAllow, Command {
     uint internal immutable allowEid = toEid(ALLOW);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, allowEid, 0, ABI, params);
+        emit Endpoint(nodeId, allowEid, 0, ABI, params);
     }
 
     function allow(

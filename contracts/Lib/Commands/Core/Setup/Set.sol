@@ -14,7 +14,7 @@ abstract contract Set is ISet, Command {
     uint internal immutable setId = toEid(SET);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, setId, 0, ABI, params);
+        emit Endpoint(nodeId, setId, 0, ABI, params);
     }
 
     function set(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

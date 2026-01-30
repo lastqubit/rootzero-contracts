@@ -1,21 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Host, AccessControl} from "./Host.sol"; ////
-import {Authorize} from "./Commands/Core/Admin/Authorize.sol";
-import {Unauthorize} from "./Commands/Core/Admin/Unauthorize.sol";
-import {Relocate} from "./Commands/Core/Admin/Relocate.sol";
-import {IsTrusted} from "./Queries/IsTrusted.sol";
+import {AccessControl} from "./Access.sol";
+import {AccessEvent} from "./Events/Node/Access.sol";
+import {EndpointEvent} from "./Events/Node/Endpoint.sol";
+import {toValueId, toNodeId, toEndpointId} from "./Utils.sol";
 
-interface INodeDiscovery {
-    function announce(uint id, uint block0, string calldata namespace) external;
-}
+abstract contract Node is AccessControl, AccessEvent, EndpointEvent {
+    uint public immutable nodeId = toNodeId(address(this));
+    uint public immutable valueId = toValueId();
 
-abstract contract Node is Host, Authorize, Unauthorize, Relocate, IsTrusted {
-    constructor(address cmdr, address discovery, string memory namespace) AccessControl(cmdr) {
-        if (discovery == address(0)) return;
-        INodeDiscovery(discovery).announce(hostId, block.number, namespace);
+    error FailedCall(address addr, bytes4 selector, bytes err);
+
+    function toEid(bytes4 selector) internal view returns (uint) {
+        return toEndpointId(address(this), selector);
     }
 
-    receive() external payable {}
+    function access(address addr, bool allow) internal {
+        authorized[addr] = allow;
+        emit Access(nodeId, addr, allow);
+    }
+
+    function callAddr(address addr, uint value, bytes memory data) internal returns (bytes memory out) {
+        bool success;
+        (success, out) = payable(ensureTrusted(addr)).call{value: value}(data);
+        if (success == false) {
+            revert FailedCall(addr, bytes4(data), out);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Host} from "../../Host.sol";
+import {Node} from "../../Node.sol";
 import {getBlock} from "../../Utils.sol";
 
 bytes4 constant ADMIN = IAdmin.admin.selector;
@@ -79,6 +79,6 @@ function getArgument(bytes4 key, bytes calldata step) pure returns (bytes callda
     return getBlock(key, 64, step);
 }
 
-abstract contract Command is Host {
+abstract contract Command is Node {
     error UnexpectedStage();
 }

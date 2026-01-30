@@ -2,11 +2,11 @@
 pragma solidity ^0.8.33;
 
 import {AnnouncedEvent} from "../Events/Node/Announced.sol";
-import {INodeDiscovery} from "../Node.sol";
-import {ensureHost} from "../Utils.sol";
+import {IHostDiscovery} from "../Host.sol";
+import {ensureNode} from "../Utils.sol";
 
-abstract contract Discovery is AnnouncedEvent, INodeDiscovery {
+abstract contract Discovery is AnnouncedEvent, IHostDiscovery {
     function announce(uint id, uint block0, string calldata namespace) external {
-        emit Announced(ensureHost(id, msg.sender), tx.origin, block0, namespace);
+        emit Announced(ensureNode(id, msg.sender), tx.origin, block0, namespace);
     }
 }

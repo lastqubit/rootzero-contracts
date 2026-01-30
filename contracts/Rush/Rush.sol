@@ -2,14 +2,14 @@
 pragma solidity ^0.8.33;
 
 import {Executor, Ownable} from "./Executor.sol";
-import {Node} from "../Lib/Node.sol";
+import {Host} from "../Lib/Host.sol";
 import {Discovery} from "../Lib/Snippets/Discovery.sol";
 import {Validator} from "../Lib/Validation/Validator.sol";
 import {ADMIN, SETUP} from "../Lib/Commands/Core/Base.sol";
 import {addrOr, toAccountId, ensureNotExpired, msgValue} from "../Lib/Utils.sol";
 
 contract Rush is Executor, Validator, Discovery {
-    constructor(address owner) Node(address(0), address(0), "admin") Ownable(addrOr(owner, msg.sender)) {}
+    constructor(address owner) Host(address(0), address(0), "admin") Ownable(addrOr(owner, msg.sender)) {}
 
     modifier notExpired(uint192 deadline) {
         ensureNotExpired(deadline);

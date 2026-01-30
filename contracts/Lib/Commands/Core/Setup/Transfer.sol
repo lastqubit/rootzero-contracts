@@ -17,7 +17,7 @@ abstract contract Transfer is ITransfer, Command {
     uint internal immutable actId = toEid(TRANSFER);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, actId, 0, ABI, params);
+        emit Endpoint(nodeId, actId, 0, ABI, params);
     }
 
     function transfer(

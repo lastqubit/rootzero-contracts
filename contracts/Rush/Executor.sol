@@ -4,12 +4,12 @@ pragma solidity ^0.8.33;
 import "hardhat/console.sol";
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Node} from "../Lib/Node.sol";
+import {Host} from "../Lib/Host.sol";
 import {Value, endpointAddr} from "../Lib/Utils.sol";
 import {canAdvance} from "../Lib/Snippets/Commander.sol";
 import {Endpoints} from "./Endpoints.sol";
 
-abstract contract Executor is Ownable, Node, Endpoints {
+abstract contract Executor is Ownable, Host, Endpoints {
     error PipelineAdvanceError();
 
     function ensureAdvanceable(bytes4 head, bytes calldata step) private pure returns (uint, bytes4) {

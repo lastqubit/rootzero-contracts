@@ -14,7 +14,7 @@ abstract contract Deny is IDeny, Command {
     uint internal immutable denyEid = toEid(DENY);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, denyEid, 0, ABI, params);
+        emit Endpoint(nodeId, denyEid, 0, ABI, params);
     }
 
     function deny(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

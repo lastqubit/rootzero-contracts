@@ -17,7 +17,7 @@ abstract contract Add is IAdd, Command {
     uint internal immutable addId = toEid(ADD);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, addId, 0, ABI, params);
+        emit Endpoint(nodeId, addId, 0, ABI, params);
     }
 
     function add(

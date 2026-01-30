@@ -14,7 +14,7 @@ abstract contract Create is ICreate, Command {
     uint internal immutable createId = toEid(CREATE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, createId, 0, ABI, params);
+        emit Endpoint(nodeId, createId, 0, ABI, params);
     }
 
     function create(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

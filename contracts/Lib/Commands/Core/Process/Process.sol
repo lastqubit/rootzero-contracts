@@ -9,7 +9,7 @@ abstract contract Process is IProcess, Command {
     uint internal immutable processId = toEid(PROCESS);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, processId, 0, ABI, params);
+        emit Endpoint(nodeId, processId, 0, ABI, params);
     }
 
     function process(

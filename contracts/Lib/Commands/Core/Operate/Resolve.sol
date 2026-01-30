@@ -21,7 +21,7 @@ abstract contract Resolve is IResolve, Command {
     uint internal immutable resolveId = toEid(RESOLVE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, resolveId, 0, ABI, params);
+        emit Endpoint(nodeId, resolveId, 0, ABI, params);
     }
 
     function resolve(

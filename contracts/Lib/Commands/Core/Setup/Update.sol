@@ -17,7 +17,7 @@ abstract contract Update is IUpdate, Command {
     uint internal immutable updateId = toEid(UPDATE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, updateId, 0, ABI, params);
+        emit Endpoint(nodeId, updateId, 0, ABI, params);
     }
 
     function update(

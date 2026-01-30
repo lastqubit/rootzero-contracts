@@ -9,7 +9,7 @@ abstract contract Transact is ITransact, Command {
     uint internal immutable transactId = toEid(TRANSACT);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, transactId, 0, ABI, params);
+        emit Endpoint(nodeId, transactId, 0, ABI, params);
     }
 
     function transact(

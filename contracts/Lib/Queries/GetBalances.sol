@@ -12,7 +12,7 @@ interface IGetBalances {
 
 abstract contract GetBalances is IGetBalances, Query {
     constructor() {
-        emit Endpoint(hostId, toEid(SELECTOR), 0, ABI, "");
+        emit Endpoint(nodeId, toEid(SELECTOR), 0, ABI, "");
     }
 
     function getBalance(uint account, uint id) internal view virtual returns (uint);

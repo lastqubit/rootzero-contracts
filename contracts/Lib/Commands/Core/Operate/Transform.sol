@@ -20,7 +20,7 @@ abstract contract Transform is ITransform, Command {
     uint internal immutable transformId = toEid(TRANSFORM);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, transformId, 0, ABI, params);
+        emit Endpoint(nodeId, transformId, 0, ABI, params);
     }
 
     function transform(

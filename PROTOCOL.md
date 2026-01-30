@@ -47,7 +47,7 @@ All identifiers are 256-bit unsigned integers with a fixed layout:
 
 ```
 bits 224-255: selector   (function selector for endpoints, 0 for other ID types)
-bits 192-223: descriptor (ACCOUNT, HOST, ENDPOINT, TOKEN, VALUE)
+bits 192-223: descriptor (ACCOUNT, NODE, ENDPOINT, TOKEN, VALUE)
 bits 160-191: chain      (chain ID, 0 for pure account IDs)
 bits   0-159: address    (contract or account address)
 ```
@@ -55,7 +55,7 @@ bits   0-159: address    (contract or account address)
 Descriptor constants:
 - `VALUE`    = `0x01010100`
 - `ACCOUNT`  = `0x01010200`
-- `HOST`     = `0x01010300`
+- `NODE`     = `0x01010300`
 - `ENDPOINT` = `0x01010400`
 - `ASSET`    = `0x01010500`
 - `TOKEN`    = `0x01010501`
@@ -131,7 +131,7 @@ Owner -> inject([authorizeStep])
               returns (0, "")
 ```
 
-The authorize command takes a request containing `uint[] hosts` (an array of host IDs to trust). It calls `access(addr, true)` for each, adding them to the `authorized` mapping.
+The authorize command takes a request containing `uint[] hosts` (an array of node IDs to trust). It calls `access(addr, true)` for each, adding them to the `authorized` mapping.
 
 ## Architecture
 
@@ -142,11 +142,11 @@ Rush (main entry point)
   +-- Executor        (pipeline loop, step routing)
   +-- Validator        (ECDSA signature recovery, nonce management)
   +-- Discovery        (node announcement registry)
-  +-- Node             (base: Host + Admin commands + IsTrusted query)
+  +-- Host             (base: Node + Admin commands + IsTrusted query)
   +-- Endpoints        (Inject, Pipe, Resume, Balances, GetBalances)
 
 Faucet (example external node)
-  +-- Node             (base)
+  +-- Host             (base)
   +-- Endpoints        (DebitFrom, CreditTo)
 ```
 
@@ -186,7 +186,7 @@ The `getBalances(account, ids[])` query function allows reading multiple balance
 A node is a contract that implements one or more command interfaces. When deployed, it:
 
 1. Sets its commander (`cmdr`) for access control
-2. Announces itself to a discovery contract via `announce(hostId, blockNumber, name)`
+2. Announces itself to a discovery contract via `announce(nodeId, blockNumber, namespace)`
 3. Emits `Endpoint` events for each command it supports, including the endpoint ID, ABI string, and params string
 
 To use a node in a pipeline, it must be authorized on the Rush contract via `inject([authorizeStep])`.

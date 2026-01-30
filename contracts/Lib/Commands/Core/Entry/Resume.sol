@@ -16,7 +16,7 @@ function toResumeCall(bytes4 head, bytes memory args, bytes[] memory steps) pure
 
 abstract contract Resume is IResume, Command {
     constructor() {
-        emit Endpoint(hostId, toEid(SELECTOR), 0, ABI, "");
+        emit Endpoint(nodeId, toEid(SELECTOR), 0, ABI, "");
     }
 
     function resume(bytes4 head, bytes memory args, bytes[] calldata steps) external payable virtual returns (uint);

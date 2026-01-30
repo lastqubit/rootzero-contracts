@@ -14,7 +14,7 @@ abstract contract Collect is ICollect, Command {
     uint internal immutable collectId = toEid(COLLECT);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, collectId, 0, ABI, params);
+        emit Endpoint(nodeId, collectId, 0, ABI, params);
     }
 
     function collect(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

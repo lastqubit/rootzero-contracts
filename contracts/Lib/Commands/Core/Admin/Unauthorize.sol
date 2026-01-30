@@ -14,7 +14,7 @@ interface IUnauthorize {
 
 abstract contract Unauthorize is IUnauthorize, Command {
     constructor() {
-        emit Endpoint(hostId, toEid(UNAUTHORIZE), 0, ABI, REQ);
+        emit Endpoint(nodeId, toEid(UNAUTHORIZE), 0, ABI, REQ);
     }
 
     function unauthorize(

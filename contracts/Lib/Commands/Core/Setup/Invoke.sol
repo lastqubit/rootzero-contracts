@@ -14,7 +14,7 @@ abstract contract Invoke is IInvoke, Command {
     uint internal immutable invokeEid = toEid(INVOKE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, invokeEid, 0, ABI, params);
+        emit Endpoint(nodeId, invokeEid, 0, ABI, params);
     }
 
     function invoke(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

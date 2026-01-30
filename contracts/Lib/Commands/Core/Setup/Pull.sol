@@ -20,7 +20,7 @@ abstract contract Pull is IPull, Command {
     uint internal immutable pullId = toEid(PULL);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, pullId, 0, ABI, params);
+        emit Endpoint(nodeId, pullId, 0, ABI, params);
     }
 
     function pull(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

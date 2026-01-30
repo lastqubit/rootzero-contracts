@@ -14,7 +14,7 @@ abstract contract Execute is IExecute, Command {
     uint internal immutable executeId = toEid(EXECUTE);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, executeId, 0, ABI, params);
+        emit Endpoint(nodeId, executeId, 0, ABI, params);
     }
 
     function execute(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

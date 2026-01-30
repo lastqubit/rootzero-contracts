@@ -20,7 +20,7 @@ abstract contract Relay is IRelay, Command {
     uint internal immutable relayId = toEid(RELAY);
 
     constructor(string memory params) {
-        emit Endpoint(hostId, relayId, 0, ABI, params);
+        emit Endpoint(nodeId, relayId, 0, ABI, params);
     }
 
     function relay(

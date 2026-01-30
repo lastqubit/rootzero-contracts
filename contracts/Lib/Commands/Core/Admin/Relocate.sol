@@ -20,7 +20,7 @@ interface IRelocate {
 
 abstract contract Relocate is IRelocate, Command {
     constructor() {
-        emit Endpoint(hostId, toEid(RELOCATE), 0, ABI, REQ);
+        emit Endpoint(nodeId, toEid(RELOCATE), 0, ABI, REQ);
     }
 
     function decodeRelocate(bytes calldata step) private pure returns (RelocateRequest memory q) {
