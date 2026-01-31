@@ -4,7 +4,9 @@ pragma solidity ^0.8.33;
 import {Tx, Transact} from "./Core/Transact/Transact.sol";
 import {done} from "./Core/Base.sol";
 
-abstract contract Settle is Transact("") {
+string constant REQ = "settle()";
+
+abstract contract Settle is Transact(REQ) {
     function settle(uint from, uint to, uint id, uint amount) internal virtual returns (uint);
 
     function settle(bytes memory args, bytes calldata step) internal returns (bytes4, bytes memory) {}
