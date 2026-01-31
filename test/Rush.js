@@ -1,7 +1,9 @@
 import { expect } from "chai";
 import { network } from "hardhat";
-import { AbiCoder, FunctionFragment, Interface, Contract } from "ethers";
-import { encodeBlock, encodeStep, encodeCall } from "../rush/evm/encode.js";
+import { AbiCoder, FunctionFragment } from "ethers";
+import { encodeStep, encodeCall } from "../rush/evm/encode.js";
+import { createEndpoint } from "../rush/evm/endpoint.js";
+import { getEventInterface, decodeEvents, decodeSignatures, getEvents } from "../rush/evm/events.js";
 
 const { ethers } = await network.connect();
 const coder = AbiCoder.defaultAbiCoder();
@@ -59,19 +61,8 @@ const BALANCE_EVENT = "event Balance(uint indexed account, uint indexed eid, uin
 
 async function getEndpointEvents(contract) {
     const addr = await contract.getAddress();
-    const iface = new Interface([ENDPOINT_EVENT]);
-    const c = new Contract(addr, [ENDPOINT_EVENT], ethers.provider);
-    const events = await c.queryFilter(c.filters.Endpoint());
-    return events.map((e) => {
-        const parsed = iface.parseLog(e);
-        return {
-            node: parsed.args[0],
-            id: parsed.args[1],
-            gas: parsed.args[2],
-            abi: parsed.args[3],
-            params: parsed.args[4],
-        };
-    });
+    const { events } = await getEvents({ signature: ENDPOINT_EVENT, addr, provider: ethers.provider });
+    return events.map((e) => e.args);
 }
 
 function findEndpoint(endpoints, fnName) {
@@ -139,6 +130,21 @@ describe("Rush Protocol", function () {
             expect(findEndpoint(faucetEndpoints, "resolve")).to.not.be.undefined;
         });
 
+        it("decodeEvents should return Endpoint events from the deployment block", async function () {
+            const receipt = await rush.deploymentTransaction().wait();
+            const block = receipt.blockNumber;
+            const iface = await getEventInterface({ addr: rushAddr, block, provider: ethers.provider });
+            const events = await decodeEvents({
+                addr: rushAddr,
+                iface,
+                block,
+                provider: ethers.provider,
+            });
+            console.info('Decoded event: ', events);
+            expect(events.length).to.be.greaterThan(0);
+            expect(events.some((e) => e.name === "Endpoint")).to.equal(true);
+        });
+
         it("Endpoint events should include params for commands with request objects", async function () {
             const setupEp = findEndpoint(rushEndpoints, "setup");
             expect(setupEp.params).to.include("debitFrom");
@@ -154,7 +160,9 @@ describe("Rush Protocol", function () {
     describe("Access Control", function () {
         it("Faucet should not be trusted by Rush before authorization", async function () {
             const faucetNodeId = await faucet.nodeId();
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", {
+                caller: faucetNodeId,
+            });
             expect(trusted).to.equal(false);
         });
 
@@ -163,33 +171,25 @@ describe("Rush Protocol", function () {
         });
 
         it("Non-authorized address should not be able to call resume", async function () {
-            await expect(
-                rush.connect(user).resume("0x00000000", "0x" + "00".repeat(64), [])
-            ).to.revert(ethers);
+            await expect(rush.connect(user).resume("0x00000000", "0x" + "00".repeat(64), [])).to.revert(ethers);
         });
 
         it("Non-trusted address should not be able to call Faucet setup directly", async function () {
             // Create a minimal step
             const step = "0x" + "00".repeat(96);
-            await expect(
-                faucet.connect(user).setup(0n, step)
-            ).to.revert(ethers);
+            await expect(faucet.connect(user).setup(0n, step)).to.revert(ethers);
         });
 
         it("Pipe should revert with expired deadline", async function () {
             const expiredDeadline = 1n; // timestamp in the past
-            await expect(
-                rush.connect(user).pipe(expiredDeadline, [], ZERO_BYTES)
-            ).to.revert(ethers);
+            await expect(rush.connect(user).pipe(expiredDeadline, [], ZERO_BYTES)).to.revert(ethers);
         });
 
         it("Pipe with no steps and valid deadline should revert (zero amount credit)", async function () {
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
             // With empty steps, pipe calls creditTo(head, args) with zero amount,
             // which reverts because ensureAmount rejects zero
-            await expect(
-                rush.connect(user).pipe(futureDeadline, [], ZERO_BYTES)
-            ).to.revert(ethers);
+            await expect(rush.connect(user).pipe(futureDeadline, [], ZERO_BYTES)).to.revert(ethers);
         });
     });
 
@@ -197,117 +197,91 @@ describe("Rush Protocol", function () {
         it("Owner should authorize Faucet via inject pipeline", async function () {
             const faucetNodeId = await faucet.nodeId();
             const authorizeEp = findEndpoint(rushEndpoints, "authorize");
-            const authorizeEid = authorizeEp.id;
 
-            // The request for authorize: abi.encode(uint[] hosts)
-            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetNodeId] });
-
-            // Build the authorize step
-            const step = encodeStep(authorizeEid, 0n, requestBlock);
+            const step = createEndpoint(authorizeEp)
+                .authorize({ hosts: [faucetNodeId] })
+                .step();
 
             const tx = await rush.connect(owner).inject([step]);
             const receipt = await tx.wait();
 
             // Verify the Access event was emitted
-            const accessIface = new Interface([ACCESS_EVENT]);
-            const accessLog = receipt.logs.find((log) => {
-                try {
-                    accessIface.parseLog(log);
-                    return true;
-                } catch {
-                    return false;
-                }
-            });
-            expect(accessLog).to.not.be.undefined;
+            const accessEvents = decodeSignatures(receipt.logs, [ACCESS_EVENT]);
+            expect(accessEvents.length).to.be.greaterThan(0);
 
-            const parsed = accessIface.parseLog(accessLog);
-            expect(parsed.args[1].toLowerCase()).to.equal(faucetAddr.toLowerCase()); // caller
-            expect(parsed.args[2]).to.equal(true); // trusted
+            const { args } = accessEvents[0];
+            expect(args.caller.toLowerCase()).to.equal(faucetAddr.toLowerCase());
+            expect(args.trusted).to.equal(true);
         });
 
         it("Faucet should be trusted by Rush after authorization", async function () {
             const faucetNodeId = await faucet.nodeId();
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", {
+                caller: faucetNodeId,
+            });
             expect(trusted).to.equal(true);
         });
     });
 
     describe("Pipeline: Faucet debit → Rush credit", function () {
         it("Should execute a debit from Faucet and credit to Rush balances", async function () {
-            // Get endpoint IDs
             const faucetSetupEp = findEndpoint(faucetEndpoints, "setup");
             const rushResolveEp = findEndpoint(rushEndpoints, "resolve");
-
-            const faucetSetupEid = faucetSetupEp.id;
-            const rushResolveEid = rushResolveEp.id;
 
             // Build a token ID to use (we'll use a dummy token address)
             const dummyTokenAddr = "0x0000000000000000000000000000000000000001";
             const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
 
             // Step 1: DebitFrom on Faucet
-            const debitBlock = encodeBlock("debitFrom(uint256 use, uint256 min, uint256 max, uint256 bounty)", {
-                use: tokenId, min: 100n, max: 500n, bounty: 0n,
-            });
-            const debitStep = encodeStep(faucetSetupEid, 0n, debitBlock);
+            const debitStep = createEndpoint(faucetSetupEp)
+                .debitFrom({ use: tokenId, min: 100n, max: 500n, bounty: 0n })
+                .step();
 
             // Step 2: CreditTo on Rush (credit to self)
-            // Empty request block = credit to the pipeline account (msg.sender)
-            const creditStep = encodeStep(rushResolveEid, 0n);
+            const creditStep = createEndpoint(rushResolveEp).step();
 
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
-            const tx = await rush.connect(user).pipe(
-                futureDeadline,
-                [debitStep, creditStep],
-                ZERO_BYTES
-            );
+            const tx = await rush.connect(user).pipe(futureDeadline, [debitStep, creditStep], ZERO_BYTES);
             const receipt = await tx.wait();
 
             // Verify Balance events were emitted
-            const balanceIface = new Interface([BALANCE_EVENT]);
-            const balanceLogs = receipt.logs.filter((log) => {
-                try {
-                    balanceIface.parseLog(log);
-                    return true;
-                } catch {
-                    return false;
-                }
-            });
-            expect(balanceLogs.length).to.be.greaterThan(0);
+            const balanceEvents = decodeSignatures(receipt.logs, [BALANCE_EVENT]);
+            expect(balanceEvents.length).to.be.greaterThan(0);
 
             // Check user's balance on Rush
             const userAccountId = toAccountId(user.address);
-            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: userAccountId, ids: [tokenId] });
+            const balances = await query(
+                rushAddr,
+                "function getBalances(uint account, uint[] ids) external view returns (uint[])",
+                { account: userAccountId, ids: [tokenId] }
+            );
             expect(balances[0]).to.equal(500n); // Faucet balance is 1000e18, max is 500
         });
 
         it("Should execute debit and auto-credit when pipeline ends without explicit resolve step", async function () {
-            // When pipeline runs out of steps without head=0, it calls creditTo(head, args)
             const faucetSetupEp = findEndpoint(faucetEndpoints, "setup");
-            const faucetSetupEid = faucetSetupEp.id;
 
             const dummyTokenAddr = "0x0000000000000000000000000000000000000002";
             const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
 
-            const debitBlock = encodeBlock("debitFrom(uint256 use, uint256 min, uint256 max, uint256 bounty)", {
-                use: tokenId, min: 50n, max: 200n, bounty: 0n,
-            });
-            const debitStep = encodeStep(faucetSetupEid, 0n, debitBlock);
+            const debitStep = createEndpoint(faucetSetupEp)
+                .debitFrom({ use: tokenId, min: 50n, max: 200n, bounty: 0n })
+                .step();
 
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
             // Only one step (debit), no resolve step
             // Pipeline should auto-credit via creditTo(head, args)
-            const tx = await rush.connect(user).pipe(
-                futureDeadline,
-                [debitStep],
-                ZERO_BYTES
-            );
+            const tx = await rush.connect(user).pipe(futureDeadline, [debitStep], ZERO_BYTES);
             await tx.wait();
 
             const userAccountId = toAccountId(user.address);
-            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: userAccountId, ids: [tokenId] });
+            const balances = await query(
+                rushAddr,
+                "function getBalances(uint account, uint[] ids) external view returns (uint[])",
+                { account: userAccountId, ids: [tokenId] }
+            );
             expect(balances[0]).to.equal(200n);
         });
     });
@@ -321,27 +295,27 @@ describe("Rush Protocol", function () {
             const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
 
             // Debit step
-            const debitBlock = encodeBlock("debitFrom(uint256 use, uint256 min, uint256 max, uint256 bounty)", {
-                use: tokenId, min: 100n, max: 300n, bounty: 0n,
-            });
-            const debitStep = encodeStep(faucetSetupEp.id, 0n, debitBlock);
+            const debitStep = createEndpoint(faucetSetupEp)
+                .debitFrom({ use: tokenId, min: 100n, max: 300n, bounty: 0n })
+                .step();
 
             // Credit step with redirection to 'other' account
             const otherAccountId = toAccountId(other.address);
-            const creditBlock = encodeBlock("creditTo(uint256 to)", { to: otherAccountId });
-            const creditStep = encodeStep(rushResolveEp.id, 0n, creditBlock);
+            const creditStep = createEndpoint(rushResolveEp)
+                .creditTo({ to: otherAccountId })
+                .step();
 
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
-            const tx = await rush.connect(user).pipe(
-                futureDeadline,
-                [debitStep, creditStep],
-                ZERO_BYTES
-            );
+            const tx = await rush.connect(user).pipe(futureDeadline, [debitStep, creditStep], ZERO_BYTES);
             await tx.wait();
 
             // Funds should be in 'other' account, not 'user'
-            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: otherAccountId, ids: [tokenId] });
+            const balances = await query(
+                rushAddr,
+                "function getBalances(uint account, uint[] ids) external view returns (uint[])",
+                { account: otherAccountId, ids: [tokenId] }
+            );
             expect(balances[0]).to.equal(300n);
         });
     });
@@ -358,9 +332,7 @@ describe("Rush Protocol", function () {
             const creditStep = encodeStep(rushResolveEp.id, 0n);
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
-            await expect(
-                rush.connect(user).pipe(futureDeadline, [creditStep], ZERO_BYTES)
-            ).to.revert(ethers);
+            await expect(rush.connect(user).pipe(futureDeadline, [creditStep], ZERO_BYTES)).to.revert(ethers);
         });
     });
 
@@ -371,7 +343,11 @@ describe("Rush Protocol", function () {
             const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
 
             // User should have balance from the earlier debit-credit test
-            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: userAccountId, ids: [tokenId] });
+            const balances = await query(
+                rushAddr,
+                "function getBalances(uint account, uint[] ids) external view returns (uint[])",
+                { account: userAccountId, ids: [tokenId] }
+            );
             expect(balances[0]).to.be.greaterThan(0n);
         });
 
@@ -384,7 +360,11 @@ describe("Rush Protocol", function () {
                 0n
             );
 
-            const balances = await query(rushAddr, "function getBalances(uint account, uint[] ids) external view returns (uint[])", { account: randomAccountId, ids: [unknownTokenId] });
+            const balances = await query(
+                rushAddr,
+                "function getBalances(uint account, uint[] ids) external view returns (uint[])",
+                { account: randomAccountId, ids: [unknownTokenId] }
+            );
             expect(balances[0]).to.equal(0n);
         });
     });
@@ -393,16 +373,18 @@ describe("Rush Protocol", function () {
         it("Owner should be able to unauthorize Faucet via inject", async function () {
             const faucetNodeId = await faucet.nodeId();
             const unauthorizeEp = findEndpoint(rushEndpoints, "unauthorize");
-            const unauthorizeEid = unauthorizeEp.id;
 
-            const requestBlock = encodeBlock("unauthorize(uint256[] hosts)", { hosts: [faucetNodeId] });
-            const step = encodeStep(unauthorizeEid, 0n, requestBlock);
+            const step = createEndpoint(unauthorizeEp)
+                .unauthorize({ hosts: [faucetNodeId] })
+                .step();
 
             const tx = await rush.connect(owner).inject([step]);
             await tx.wait();
 
             // Faucet should no longer be trusted
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", {
+                caller: faucetNodeId,
+            });
             expect(trusted).to.equal(false);
         });
 
@@ -411,27 +393,28 @@ describe("Rush Protocol", function () {
             const dummyTokenAddr = "0x0000000000000000000000000000000000000001";
             const tokenId = buildId(BigInt(dummyTokenAddr), chainId, 0x01010500n, 0n);
 
-            const debitBlock = encodeBlock("debitFrom(uint256 use, uint256 min, uint256 max, uint256 bounty)", {
-                use: tokenId, min: 100n, max: 500n, bounty: 0n,
-            });
-            const debitStep = encodeStep(faucetSetupEp.id, 0n, debitBlock);
+            const debitStep = createEndpoint(faucetSetupEp)
+                .debitFrom({ use: tokenId, min: 100n, max: 500n, bounty: 0n })
+                .step();
 
             const futureDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
             // Should fail because Faucet is no longer trusted
-            await expect(
-                rush.connect(user).pipe(futureDeadline, [debitStep], ZERO_BYTES)
-            ).to.revert(ethers);
+            await expect(rush.connect(user).pipe(futureDeadline, [debitStep], ZERO_BYTES)).to.revert(ethers);
         });
 
         it("Should re-authorize Faucet for subsequent tests", async function () {
             const faucetNodeId = await faucet.nodeId();
             const authorizeEp = findEndpoint(rushEndpoints, "authorize");
-            const requestBlock = encodeBlock("authorize(uint256[] hosts)", { hosts: [faucetNodeId] });
-            const step = encodeStep(authorizeEp.id, 0n, requestBlock);
+
+            const step = createEndpoint(authorizeEp)
+                .authorize({ hosts: [faucetNodeId] })
+                .step();
 
             await rush.connect(owner).inject([step]);
-            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", { caller: faucetNodeId });
+            const trusted = await query(rushAddr, "function isTrusted(uint caller) external view returns (bool)", {
+                caller: faucetNodeId,
+            });
             expect(trusted).to.equal(true);
         });
     });
