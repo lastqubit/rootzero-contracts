@@ -1,133 +1,67 @@
-import { Interface, Contract, EventFragment } from "ethers";
+import { Interface, Contract } from "ethers";
+import { ensureSignature } from "./utils";
 
-const EVENT = "event EventDesc(string abi)";
+const DESC = "event EventDesc(string abi)";
 
-function parseEvent(signature) {
-    const fragment = EventFragment.from(signature);
-    return { name: fragment.name, fragment };
+const lookup = {};
+
+function toLowerCase(value) {
+    return String(value).toLocaleLowerCase();
 }
 
-function toArgs(e) {
-    return e?.args?.toObject();
+function parseSignature(sig) {
+    const match = sig.match(/^(?:event\s+)?(\w+)(?::(\w+))?\s*\(/);
+    const name = match[1];
+    const category = match[2] || name;
+    const clean = match[2] ? sig.replace(`${name}:${category}`, name) : sig;
+    return { name, category, clean };
 }
 
-async function getLogs({ addr, fromBlock = 0, toBlock = "latest", topics, provider }) {
-    return provider.getLogs({ address: addr, fromBlock, toBlock, topics });
+function indexEvent(signature) {
+    const { name, category, clean } = parseSignature(ensureSignature(signature));
+    lookup[toLowerCase(name)] = toLowerCase(category);
+    return clean;
 }
 
-async function getBlockLogs({ addr, block, topics, provider }) {
-    return provider.getLogs({ address: addr, fromBlock: block, toBlock: block, topics });
+function toInterface(signatures = []) {
+    return new Interface(signatures.map((s) => indexEvent(s)));
 }
 
-export async function getEvents({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { name, fragment } = parseEvent(event);
-    const contract = new Contract(addr, [fragment], provider);
+function normalize(log, desc) {
+    const name = log.name || desc.name;
+    return {
+        ...log,
+        name,
+        category: lookup[toLowerCase(name)],
+        args: (log.args || desc.args)?.toObject(),
+    };
+}
+
+function decodeLogs(logs, iface) {
+    return logs.reduce((out, log) => {
+        const p = iface.parseLog(log);
+        if (p) out.push(normalize(log, p));
+        return out;
+    }, []);
+}
+
+export async function getLogs({ addr, topics, block, fromBlock = 0, toBlock = "latest", provider }) {
+    return provider.getLogs({ address: addr, fromBlock: block || fromBlock, toBlock: block || toBlock, topics });
+}
+
+export async function getEvents({ signature, addr, args = [], block, fromBlock = 0, toBlock = "latest", provider }) {
+    const { name, category, clean } = parseSignature(signature);
+    const contract = new Contract(addr, [clean], provider);
     const filter = contract.filters[name](...args);
-    const events = await contract.queryFilter(filter, fromBlock, toBlock);
-    return { name, events };
+    const events = await contract.queryFilter(filter, block || fromBlock, block || toBlock);
+    return { category, name, events: events.map(normalize) };
 }
 
-export async function getEventValues({ event, addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { name, events } = await getEvents({ event, addr, provider, args, fromBlock, toBlock });
-    return { name, events: events.map((e) => e.args.toObject()) };
+export async function getEventInterface({ addr, block, provider }) {
+    const { events } = await getEvents({ signature: DESC, addr, block, provider });
+    return toInterface(events.map((e) => e.args.abi));
 }
 
-export async function getEventInterface({ addr, provider, args = [], fromBlock = 0, toBlock = "latest" }) {
-    const { events } = await getEvents({ event: EVENT, addr, provider, args, fromBlock, toBlock });
-    return new Interface(events.map((e) => e.args.toObject().abi));
+export async function decodeEvents({ addr, iface, block, fromBlock, toBlock, provider }) {
+    return decodeLogs(await getLogs({ addr, block, fromBlock, toBlock, provider }), iface);
 }
-
-/*     return events.map((event) => ({
-        name: fragment.name,
-        blockNumber: event.blockNumber,
-        transactionHash: event.transactionHash,
-        args: event.args.toObject(), // Convert args to named object
-    })); */
-
-export async function getAllEvents(provider, addr, eventSignatures, options = {}) {
-    // Create interface with all event signatures
-    const iface = new Interface([eventSignatures]);
-
-    // Get all logs for the address (no event filter)
-    const logs = await getLogs({ addr, provider, ...options });
-
-    // Decode logs based on their topic hash
-    const decodedEvents = logs.map((log) => {
-        try {
-            const parsed = iface.parseLog(log);
-            return {
-                eventName: parsed.name,
-                blockNumber: log.blockNumber,
-                transactionHash: log.transactionHash,
-                args: parsed.args.toObject(),
-                fragment: parsed.fragment,
-            };
-        } catch (error) {
-            // Log couldn't be decoded with any known signature
-            return {
-                eventName: "Unknown",
-                blockNumber: log.blockNumber,
-                transactionHash: log.transactionHash,
-                topics: log.topics,
-                data: log.data,
-            };
-        }
-    });
-
-    return decodedEvents;
-}
-
-/* // Usage
-const eventSigs = [
-  "event Balance(address indexed account, uint indexed eid, uint id, uint balance, uint change)",
-  "event Transfer(address indexed from, address indexed to, uint256 value)",
-  "event Approval(address indexed owner, address indexed spender, uint256 value)"
-];
-
-const allEvents = await getAllEvents(provider, contractAddress, eventSigs);
-console.log(allEvents); */
-
-async function createHost(contractAddress, provider) {
-    // Load event registry
-    const host = new Contract(contractAddress, [EVENT], provider);
-    const descEvents = await host.queryFilter(host.filters.EventDesc());
-    const descs = descEvents.map(toArgs);
-
-    // Extract all event signatures
-    const eventSignatures = descs.map((e) => e.abi);
-
-    // Create interface with all event signatures
-    const iface = new Interface(eventSignatures);
-
-    async function getEvents(category, options = {}) {
-        // Get all logs for the address
-        const logs = await getLogs({ addr: contractAddress, provider, ...options });
-
-        // Decode and filter by category
-        const categorySet = new Set(descs.filter((a) => a.category === category).map((a) => a.abi));
-
-        return logs
-            .map((log) => {
-                try {
-                    const parsed = iface.parseLog(log);
-                    return {
-                        eventName: parsed.name,
-                        blockNumber: log.blockNumber,
-                        transactionHash: log.transactionHash,
-                        args: parsed.args.toObject(),
-                        signature: parsed.fragment.format("sighash"),
-                    };
-                } catch {
-                    return null;
-                }
-            })
-            .filter((e) => e && categorySet.has(e.signature));
-    }
-
-    return { getEvents };
-}
-
-/* // Usage
-const manager = await createEventManager(provider, contractAddress);
-const balanceEvents = await manager.getEvents("balance");
- */
