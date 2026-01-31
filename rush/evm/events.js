@@ -24,6 +24,9 @@ function indexEvent(signature) {
 }
 
 function toInterface(signatures = []) {
+    if (signatures.length == 0) {
+        throw new Error("Event interface has no signatures");
+    }
     return new Interface(signatures.map((s) => indexEvent(s)));
 }
 
