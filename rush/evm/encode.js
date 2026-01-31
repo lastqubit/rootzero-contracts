@@ -1,6 +1,5 @@
 import { AbiCoder, FunctionFragment, dataLength, concat, zeroPadValue, toBeHex } from "ethers";
 import { getDefaultValue } from "./defaults";
-import { getSelector } from "./utils";
 
 const abi = AbiCoder.defaultAbiCoder();
 
@@ -14,8 +13,7 @@ function toValues(inputs, args = {}) {
     return inputs.map((i) => args[i.name] ?? getDefaultValue(i.type));
 }
 
-export function encodeInputs(signature, args = {}) {
-    const { inputs } = FunctionFragment.from(signature);
+export function encodeInputs(inputs, args = {}) {
     return abi.encode(inputs, toValues(inputs, args));
 }
 
@@ -24,13 +22,12 @@ export function encodeCall(signature, args = {}) {
     return concat([selector, abi.encode(inputs, toValues(inputs, args))]);
 }
 
-export function encodeBlock(signature, args = {}) {
-    const key = getSelector(signature);
-    const data = encodeInputs(signature, args);
-    const len = toHex(dataLength(data), 4);
-    return concat([key, len, data]);
+export function encodeBlock(key, inputs, args = {}) {
+    const data = encodeInputs(inputs, args);
+    const len = dataLength(data);
+    return concat([toHex(key, 4), toHex(len, 4), data]);
 }
 
 export function encodeStep(eid, value = 0n, ...blocks) {
-    return concat([toHex(eid, 32), toHex(value, 32), ...blocks]);
+    return concat([toHex(eid, 32), toHex(value, 32), ...blocks.flat(Infinity)]);
 }
