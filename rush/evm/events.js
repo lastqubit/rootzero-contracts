@@ -1,33 +1,12 @@
 import { Interface, Contract } from "ethers";
-import { ensureSignature } from "./utils";
+import { parseSignature, parseSignatures } from "./utils";
 
-const DESC = "event EventDesc(string abi)";
+const EVENTSIG = "event EventSignature(string abi)";
 
 const lookup = {};
 
 function toLowerCase(value) {
     return String(value).toLocaleLowerCase();
-}
-
-function parseSignature(sig) {
-    const match = sig.match(/^(?:event\s+)?(\w+)(?::(\w+))?\s*\(/);
-    const name = match[1];
-    const category = match[2] || name;
-    const clean = match[2] ? sig.replace(`${name}:${category}`, name) : sig;
-    return { name, category, clean };
-}
-
-function indexEvent(signature) {
-    const { name, category, clean } = parseSignature(ensureSignature(signature));
-    lookup[toLowerCase(name)] = toLowerCase(category);
-    return clean;
-}
-
-function toInterface(signatures = []) {
-    if (signatures.length == 0) {
-        throw new Error("Event interface has no signatures");
-    }
-    return new Interface(signatures.map((s) => indexEvent(s)));
 }
 
 function normalize(log, desc) {
@@ -40,7 +19,17 @@ function normalize(log, desc) {
     };
 }
 
-function decodeLogs(logs, iface) {
+function indexEvent(o) {
+    const { name, category, clean } = o;
+    lookup[toLowerCase(name)] = toLowerCase(category);
+    return clean;
+}
+
+export function toEventInterface(...signatures) {
+    return new Interface(parseSignatures(...signatures).map(indexEvent));
+}
+
+export function decodeLogs(logs, iface) {
     return logs.reduce((out, log) => {
         const p = iface.parseLog(log);
         if (p) out.push(normalize(log, p));
@@ -48,7 +37,11 @@ function decodeLogs(logs, iface) {
     }, []);
 }
 
-export async function getLogs({ addr, topics, block, fromBlock = 0, toBlock = "latest", provider }) {
+export function decodeSignatures(logs, ...signatures) {
+    return decodeLogs(logs, toEventInterface(signatures));
+}
+
+export async function getLogs({ addr, block, topics, fromBlock = 0, toBlock = "latest", provider }) {
     return provider.getLogs({ address: addr, fromBlock: block || fromBlock, toBlock: block || toBlock, topics });
 }
 
@@ -60,11 +53,18 @@ export async function getEvents({ signature, addr, args = [], block, fromBlock =
     return { category, name, events: events.map(normalize) };
 }
 
+export async function getEventSignatures({ addr, block, provider }) {
+    const { events } = await getEvents({ signature: EVENTSIG, addr, block, provider });
+    return events.map((e) => e.args.abi);
+}
+
 export async function getEventInterface({ addr, block, provider }) {
-    const { events } = await getEvents({ signature: DESC, addr, block, provider });
-    return toInterface(events.map((e) => e.args.abi));
+    const { events } = await getEvents({ signature: EVENTSIG, addr, block, provider });
+    return toEventInterface(events.map((e) => e.args.abi));
 }
 
 export async function decodeEvents({ addr, iface, block, fromBlock, toBlock, provider }) {
     return decodeLogs(await getLogs({ addr, block, fromBlock, toBlock, provider }), iface);
 }
+
+function createListener(addr, cursor, signatures = [], provider) {}
