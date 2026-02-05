@@ -14,7 +14,7 @@ abstract contract Pipe is IPipe, Command {
     uint internal immutable pipeId = toEid(SELECTOR);
 
     constructor() {
-        emit Endpoint(nodeId, pipeId, 0, ABI, "");
+        emit Entry(nodeId, pipeId, 0, ABI);
     }
 
     function pipe(

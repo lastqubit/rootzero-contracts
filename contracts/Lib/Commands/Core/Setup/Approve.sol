@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function approve(uint account, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant APPROVE = IApprove.approve.selector;
 
 interface IApprove {
@@ -14,7 +13,7 @@ abstract contract Approve is IApprove, Command {
     uint internal immutable approveId = toEid(APPROVE);
 
     constructor(string memory params) {
-        emit Endpoint(nodeId, approveId, 0, ABI, params);
+        emit Step(nodeId, approveId, 0, APPROVE, params);
     }
 
     function approve(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

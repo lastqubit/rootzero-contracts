@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {Command, done, getRequest} from "../Base.sol";
 import {anyAddr} from "../../../Utils.sol";
 
-string constant ABI = "function authorize(uint account, bytes step) external payable returns (bytes4, bytes)";
 string constant REQ = "authorize(uint[] hosts)";
 bytes4 constant AUTHORIZE = IAuthorize.authorize.selector;
 
@@ -14,7 +13,7 @@ interface IAuthorize {
 
 abstract contract Authorize is IAuthorize, Command {
     constructor() {
-        emit Endpoint(nodeId, toEid(AUTHORIZE), 0, ABI, REQ);
+        emit Step(nodeId, toEid(AUTHORIZE), 0, AUTHORIZE, REQ);
     }
 
     function authorize(

@@ -3,10 +3,12 @@ pragma solidity ^0.8.33;
 
 import {AccessControl} from "./Access.sol";
 import {AccessEvent} from "./Events/Node/Access.sol";
-import {EndpointEvent} from "./Events/Node/Endpoint.sol";
+import {QueryEvent} from "./Events/Node/Query.sol";
+import {StepEvent} from "./Events/Node/Step.sol";
+import {EntryEvent} from "./Events/Node/Entry.sol";
 import {toValueId, toNodeId, toEndpointId} from "./Utils.sol";
 
-abstract contract Node is AccessControl, AccessEvent, EndpointEvent {
+abstract contract Node is AccessControl, AccessEvent, QueryEvent, StepEvent, EntryEvent {
     uint public immutable nodeId = toNodeId(address(this));
     uint public immutable valueId = toValueId();
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function resolve(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant RESOLVE = IResolve.resolve.selector;
 
 interface IResolve {
@@ -21,7 +20,7 @@ abstract contract Resolve is IResolve, Command {
     uint internal immutable resolveId = toEid(RESOLVE);
 
     constructor(string memory params) {
-        emit Endpoint(nodeId, resolveId, 0, ABI, params);
+        emit Step(nodeId, resolveId, 0, RESOLVE, params);
     }
 
     function resolve(

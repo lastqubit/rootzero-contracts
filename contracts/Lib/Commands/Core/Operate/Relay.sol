@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function relay(uint account, uint id, uint amount, bytes data, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant RELAY = IRelay.relay.selector;
 
 interface IRelay {
@@ -20,7 +19,7 @@ abstract contract Relay is IRelay, Command {
     uint internal immutable relayId = toEid(RELAY);
 
     constructor(string memory params) {
-        emit Endpoint(nodeId, relayId, 0, ABI, params);
+        emit Step(nodeId, relayId, 0, RELAY, params);
     }
 
     function relay(

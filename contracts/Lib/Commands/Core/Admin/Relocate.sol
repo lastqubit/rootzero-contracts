@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {Command, done, getRequest} from "../Base.sol";
 import {resolveAmount, anyAddr} from "../../../Utils.sol";
 
-string constant ABI = "function relocate(uint account, bytes step) external payable returns (bytes4, bytes)";
 string constant REQ = "relocate(address to, uint min, uint max)";
 bytes4 constant RELOCATE = IRelocate.relocate.selector;
 
@@ -20,7 +19,7 @@ interface IRelocate {
 
 abstract contract Relocate is IRelocate, Command {
     constructor() {
-        emit Endpoint(nodeId, toEid(RELOCATE), 0, ABI, REQ);
+        emit Step(nodeId, toEid(RELOCATE), 0, RELOCATE, REQ);
     }
 
     function decodeRelocate(bytes calldata step) private pure returns (RelocateRequest memory q) {

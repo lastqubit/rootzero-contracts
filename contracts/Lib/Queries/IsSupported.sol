@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Query} from "./Base.sol";
+import {Node} from "../Node.sol";
 
 string constant ABI = "function isSupported(uint[] ids) external view returns (bool[])";
 bytes4 constant SELECTOR = IIsSupported.isSupported.selector;
@@ -10,9 +10,9 @@ interface IIsSupported {
     function isSupported(uint[] calldata ids) external view returns (bool[] memory);
 }
 
-abstract contract IsSupported is IIsSupported, Query {
+abstract contract IsSupported is IIsSupported, Node {
     constructor() {
-        emit Endpoint(nodeId, toEid(SELECTOR), 0, ABI, "");
+        emit Query(nodeId, toEid(SELECTOR), 0, ABI);
     }
 
     function isSupported(uint id) internal view virtual returns (bool);

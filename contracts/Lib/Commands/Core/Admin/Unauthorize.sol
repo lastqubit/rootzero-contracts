@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {Command, done, getRequest} from "../Base.sol";
 import {anyAddr} from "../../../Utils.sol";
 
-string constant ABI = "function unauthorize(uint account, bytes step) external payable returns (bytes4, bytes)";
 string constant REQ = "unauthorize(uint[] hosts)";
 bytes4 constant UNAUTHORIZE = IUnauthorize.unauthorize.selector;
 
@@ -14,7 +13,7 @@ interface IUnauthorize {
 
 abstract contract Unauthorize is IUnauthorize, Command {
     constructor() {
-        emit Endpoint(nodeId, toEid(UNAUTHORIZE), 0, ABI, REQ);
+        emit Step(nodeId, toEid(UNAUTHORIZE), 0, UNAUTHORIZE, REQ);
     }
 
     function unauthorize(

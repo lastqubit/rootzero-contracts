@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {Command} from "../Base.sol";
 
-string constant ABI = "function pull(uint account, bytes step) external payable returns (bytes4, bytes)";
 bytes4 constant PULL = IPull.pull.selector;
 
 /* Pull-based operations:
@@ -20,7 +19,7 @@ abstract contract Pull is IPull, Command {
     uint internal immutable pullId = toEid(PULL);
 
     constructor(string memory params) {
-        emit Endpoint(nodeId, pullId, 0, ABI, params);
+        emit Step(nodeId, pullId, 0, PULL, params);
     }
 
     function pull(uint account, bytes calldata step) external payable virtual returns (bytes4, bytes memory);

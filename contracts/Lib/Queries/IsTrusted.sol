@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {Query} from "./Base.sol";
+import {Node} from "../Node.sol";
 import {nodeAddr} from "../Utils.sol";
 
 string constant ABI = "function isTrusted(uint caller) external view returns (bool)";
@@ -11,9 +11,9 @@ interface IIsTrusted {
     function isTrusted(uint caller) external view returns (bool);
 }
 
-abstract contract IsTrusted is IIsTrusted, Query {
+abstract contract IsTrusted is IIsTrusted, Node {
     constructor() {
-        emit Endpoint(nodeId, toEid(SELECTOR), 0, ABI, "");
+        emit Query(nodeId, toEid(SELECTOR), 0, ABI);
     }
 
     function isTrusted(uint caller) external view returns (bool) {
