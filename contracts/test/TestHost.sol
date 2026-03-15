@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity ^0.8.33;
+
+import {Host} from "../core/Host.sol";
+import {Deposit} from "../commands/Deposit.sol";
+import {Withdraw} from "../commands/Withdraw.sol";
+import {Transfer} from "../commands/Transfer.sol";
+import {CreditTo} from "../commands/CreditTo.sol";
+import {DebitFrom} from "../commands/DebitFrom.sol";
+import {Settle} from "../commands/Settle.sol";
+import {Fund} from "../commands/Fund.sol";
+import {Provision} from "../commands/Provision.sol";
+import {Pipe} from "../commands/Pipe.sol";
+import {AllowAssets} from "../commands/admin/AllowAssets.sol";
+import {DenyAssets} from "../commands/admin/DenyAssets.sol";
+import {SetAllocations} from "../commands/admin/SetAllocations.sol";
+import {DataRef, Tx} from "../blocks/Schema.sol";
+
+contract TestHost is
+    Host,
+    Deposit,
+    Withdraw,
+    Transfer,
+    CreditTo,
+    DebitFrom,
+    Settle,
+    Fund,
+    Provision,
+    Pipe,
+    AllowAssets,
+    DenyAssets,
+    SetAllocations
+{
+    event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event WithdrawCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event TransferCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
+    event CreditToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
+    event DebitFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
+    event SettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
+    event FundCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event AllowAssetCalled(bytes32 asset, bytes32 meta);
+    event DenyAssetCalled(bytes32 asset, bytes32 meta);
+    event SetAllocationCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
+    event StepDispatched(uint target, uint stepIndex, uint value);
+
+    uint public stepCount;
+
+    constructor(address cmdr, address discovery)
+        Host(cmdr, discovery, 1, "test")
+        Deposit("")
+    {}
+
+    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount, DataRef memory)
+        internal override
+    {
+        emit DepositCalled(account, asset, meta, amount);
+    }
+
+    function withdraw(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit WithdrawCalled(account, asset, meta, amount);
+    }
+
+    function transfer(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount)
+        internal override
+    {
+        emit TransferCalled(from_, to_, asset, meta, amount);
+    }
+
+    function creditTo(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+        internal override
+        returns (uint)
+    {
+        emit CreditToCalled(account, asset, meta, amount, amount);
+        return amount;
+    }
+
+    function debitFrom(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+        internal override
+        returns (uint)
+    {
+        emit DebitFromCalled(account, asset, meta, amount, amount);
+        return amount;
+    }
+
+    function settle(Tx memory value) internal override {
+        emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
+    }
+
+    function fund(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+        internal override
+    {
+        emit FundCalled(host_, account, asset, meta, amount);
+    }
+
+    function provision(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+        internal override
+    {
+        emit ProvisionCalled(host_, account, asset, meta, amount);
+    }
+
+    function allowAsset(bytes32 asset, bytes32 meta) internal override {
+        emit AllowAssetCalled(asset, meta);
+    }
+
+    function denyAsset(bytes32 asset, bytes32 meta) internal override {
+        emit DenyAssetCalled(asset, meta);
+    }
+
+    function setAllocation(uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit SetAllocationCalled(host_, asset, meta, amount);
+    }
+
+    function dispatchStep(
+        uint target,
+        bytes32,
+        bytes memory state,
+        bytes calldata,
+        uint value
+    ) internal override returns (bytes memory) {
+        emit StepDispatched(target, stepCount++, value);
+        return state;
+    }
+
+    // Expose internal host/admin IDs for tests
+    function getDepositId() external view returns (uint) { return depositId; }
+    function getWithdrawId() external view returns (uint) { return withdrawId; }
+    function getTransferId() external view returns (uint) { return transferId; }
+    function getCreditToId() external view returns (uint) { return creditToId; }
+    function getDebitFromId() external view returns (uint) { return debitFromId; }
+    function getSettleId() external view returns (uint) { return settleId; }
+    function getFundId() external view returns (uint) { return fundId; }
+    function getProvisionId() external view returns (uint) { return provisionId; }
+    function getPipeId() external view returns (uint) { return pipeId; }
+    function getAuthorizeId() external view returns (uint) { return authorizeId; }
+    function getUnauthorizeId() external view returns (uint) { return unauthorizeId; }
+    function getRelocateId() external view returns (uint) { return relocateId; }
+    function getAllowAssetsId() external view returns (uint) { return allowAssetsId; }
+    function getDenyAssetsId() external view returns (uint) { return denyAssetsId; }
+    function getSetAllocationsId() external view returns (uint) { return setAllocationsId; }
+    function getAdminAccount() external view returns (bytes32) { return adminAccount; }
+    function getCommander() external view returns (address) { return commander; }
+    function isAuthorized(uint node) external view returns (bool) { return authorized[node]; }
+}
