@@ -21,6 +21,19 @@ Most consumers should start from the barrel files in `contracts/`:
 - `contracts/Utils.sol`: ids, assets, accounts, layout, strings, and value helpers
 - `contracts/Events.sol`: reusable event emitters and event contracts
 
+## Start Here
+
+If you are new to Rush, read [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) first.
+
+It walks through:
+
+- the host and command mental model
+- which built-in commands expect `request` vs `state`
+- a minimal host example
+- a built-in command example
+- a custom command example
+- simple TypeScript request encoding
+
 ## Typical Usage
 
 ### Build a Host
