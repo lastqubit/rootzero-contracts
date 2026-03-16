@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.33;
 
-import {ECDSA} from "solady/src/utils/ECDSA.sol";
+import {ECDSA} from "../utils/ECDSA.sol";
 
 abstract contract Validator {
     using ECDSA for bytes32;
@@ -12,7 +12,7 @@ abstract contract Validator {
 
     mapping(address account => mapping(uint192 key => uint64)) internal nonces;
 
-    function recover(bytes32 hash, bytes calldata sig) private view returns (address) {
+    function recover(bytes32 hash, bytes calldata sig) private pure returns (address) {
         return hash.toEthSignedMessageHash().tryRecoverCalldata(sig);
     }
 

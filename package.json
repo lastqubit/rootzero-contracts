@@ -9,8 +9,5 @@
   "devDependencies": {
     "hardhat": "^3.1.7",
     "typescript": "~5.8.0"
-  },
-  "dependencies": {
-    "solady": "^0.1.26"
   }
 }
