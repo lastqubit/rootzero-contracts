@@ -12,18 +12,16 @@ bytes32 constant NAME = "myCommand";
 contract ExampleHost is Host, MapBalance {
     uint immutable myCommandId = toCommandId(NAME, address(this));
 
-    constructor(address cmdr, address disc) Host(cmdr, disc, 1, "example") {
+    constructor(address rush) Host(rush, 1, "example") {
         emit Command(host, NAME, "", myCommandId, 0, 0);
     }
 
     function mapBalance(
         bytes32, // account
-        bytes32 asset,
-        bytes32 meta,
-        uint amount
-    ) internal pure override returns (bool keep, AssetAmount memory out) {
+        AssetAmount memory balance
+    ) internal pure override returns (AssetAmount memory out) {
         // explain map can return some other asset. transforming from one asset to another.
-        return (true, AssetAmount(asset, meta, amount / 2));
+        return (AssetAmount(balance.asset, balance.meta, balance.amount / 2));
     }
 
     function myCommand(

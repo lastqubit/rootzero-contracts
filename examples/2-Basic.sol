@@ -8,7 +8,7 @@ import {DebitFrom} from "../contracts/Commands.sol";
 contract ExampleHost is Host, DebitFrom {
     mapping(bytes32 account => mapping(bytes32 assetRef => uint amount)) internal balances;
 
-    constructor(address cmdr, address disc) Host(cmdr, disc, 1, "example") {}
+    constructor(address rush) Host(rush, 1, "example") {}
 
     // Most reusable command modules work by calling an internal hook like this one, which you override in your host.
     function debitFrom(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override returns (uint) {
