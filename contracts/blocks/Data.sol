@@ -80,23 +80,23 @@ library Data {
     }
 
     function ensure(DataRef memory ref, bytes4 key) internal pure {
-        if (key != ref.key) revert InvalidBlock();
+        if (key == 0 || key != ref.key) revert InvalidBlock();
     }
 
     function ensure(DataRef memory ref, bytes4 key, uint len) internal pure {
-        if (key != ref.key || len != (ref.bound - ref.i)) revert InvalidBlock();
+        if (key == 0 || key != ref.key || len != (ref.bound - ref.i)) revert InvalidBlock();
     }
 
     function ensure(DataRef memory ref, bytes4 key, uint min, uint max) internal pure {
         uint len = ref.bound - ref.i;
-        if (key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
+        if (key == 0 || key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
     }
 
     // ── *From ─────────────────────────────────────────────────────────────────
 
     function routeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
         (ref, next) = from(source, i);
-        ensure(ref, ROUTE_KEY, 1, 0);
+        ensure(ref, ROUTE_KEY);
     }
 
     function nodeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
@@ -184,11 +184,202 @@ library Data {
         ensure(ref, TX_KEY, 160);
     }
 
+    // ── inner* ────────────────────────────────────────────────────────────────
+
+    function innerRoute(DataRef memory parent) internal pure returns (bytes calldata data) {
+        return unpackRoute(childAt(parent, parent.bound));
+    }
+
+    function innerNode(DataRef memory parent) internal pure returns (uint id) {
+        return unpackNode(childAt(parent, parent.bound));
+    }
+
+    function innerRecipient(DataRef memory parent) internal pure returns (bytes32 account) {
+        return unpackRecipient(childAt(parent, parent.bound));
+    }
+
+    function innerParty(DataRef memory parent) internal pure returns (bytes32 account) {
+        return unpackParty(childAt(parent, parent.bound));
+    }
+
+    function innerRate(DataRef memory parent) internal pure returns (uint value) {
+        return unpackRate(childAt(parent, parent.bound));
+    }
+
+    function innerAsset(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta) {
+        return unpackAsset(childAt(parent, parent.bound));
+    }
+
+    function innerFunding(DataRef memory parent) internal pure returns (uint host, uint amount) {
+        return unpackFunding(childAt(parent, parent.bound));
+    }
+
+    function innerBounty(DataRef memory parent) internal pure returns (uint amount, bytes32 relayer) {
+        return unpackBounty(childAt(parent, parent.bound));
+    }
+
+    function innerAmount(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackAmount(childAt(parent, parent.bound));
+    }
+
+    function innerAmountValue(DataRef memory parent) internal pure returns (AssetAmount memory) {
+        return toAmountValue(childAt(parent, parent.bound));
+    }
+
+    function innerBalance(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackBalance(childAt(parent, parent.bound));
+    }
+
+    function innerMinimum(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackMinimum(childAt(parent, parent.bound));
+    }
+
+    function innerMaximum(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackMaximum(childAt(parent, parent.bound));
+    }
+
+    function innerListing(DataRef memory parent) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
+        return unpackListing(childAt(parent, parent.bound));
+    }
+
+    function innerStep(DataRef memory parent) internal pure returns (uint target, uint value, bytes calldata req) {
+        return unpackStep(childAt(parent, parent.bound));
+    }
+
+    function innerAuth(DataRef memory parent) internal pure returns (uint cid, uint deadline, bytes calldata proof) {
+        return unpackAuth(childAt(parent, parent.bound));
+    }
+
+    function innerCustody(DataRef memory parent) internal pure returns (HostAmount memory value) {
+        return toCustodyValue(childAt(parent, parent.bound));
+    }
+
+    function innerAllocation(DataRef memory parent) internal pure returns (HostAmount memory value) {
+        return toAllocationValue(childAt(parent, parent.bound));
+    }
+
+    function innerTx(DataRef memory parent) internal pure returns (Tx memory value) {
+        return toTxValue(childAt(parent, parent.bound));
+    }
+
+    // ── inner*At ──────────────────────────────────────────────────────────────
+
+    function innerRouteAt(DataRef memory parent, uint i) internal pure returns (bytes calldata data) {
+        return unpackRoute(childAt(parent, i));
+    }
+
+    function innerNodeAt(DataRef memory parent, uint i) internal pure returns (uint id) {
+        return unpackNode(childAt(parent, i));
+    }
+
+    function innerRecipientAt(DataRef memory parent, uint i) internal pure returns (bytes32 account) {
+        return unpackRecipient(childAt(parent, i));
+    }
+
+    function innerPartyAt(DataRef memory parent, uint i) internal pure returns (bytes32 account) {
+        return unpackParty(childAt(parent, i));
+    }
+
+    function innerRateAt(DataRef memory parent, uint i) internal pure returns (uint value) {
+        return unpackRate(childAt(parent, i));
+    }
+
+    function innerAssetAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta) {
+        return unpackAsset(childAt(parent, i));
+    }
+
+    function innerFundingAt(DataRef memory parent, uint i) internal pure returns (uint host, uint amount) {
+        return unpackFunding(childAt(parent, i));
+    }
+
+    function innerBountyAt(DataRef memory parent, uint i) internal pure returns (uint amount, bytes32 relayer) {
+        return unpackBounty(childAt(parent, i));
+    }
+
+    function innerAmountAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackAmount(childAt(parent, i));
+    }
+
+    function innerBalanceAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackBalance(childAt(parent, i));
+    }
+
+    function innerMinimumAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackMinimum(childAt(parent, i));
+    }
+
+    function innerMaximumAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return unpackMaximum(childAt(parent, i));
+    }
+
+    function innerListingAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
+        return unpackListing(childAt(parent, i));
+    }
+
+    function innerStepAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (uint target, uint value, bytes calldata req) {
+        return unpackStep(childAt(parent, i));
+    }
+
+    function innerAuthAt(
+        DataRef memory parent,
+        uint i
+    ) internal pure returns (uint cid, uint deadline, bytes calldata proof) {
+        return unpackAuth(childAt(parent, i));
+    }
+
+    function innerCustodyAt(DataRef memory parent, uint i) internal pure returns (HostAmount memory value) {
+        return toCustodyValue(childAt(parent, i));
+    }
+
+    function innerAllocationAt(DataRef memory parent, uint i) internal pure returns (HostAmount memory value) {
+        return toAllocationValue(childAt(parent, i));
+    }
+
+    function innerTxAt(DataRef memory parent, uint i) internal pure returns (Tx memory value) {
+        return toTxValue(childAt(parent, i));
+    }
+
     // ── unpack* ───────────────────────────────────────────────────────────────
 
     function unpackRoute(DataRef memory ref) internal pure returns (bytes calldata data) {
-        ensure(ref, ROUTE_KEY, 1, 0);
+        ensure(ref, ROUTE_KEY);
         return msg.data[ref.i:ref.bound];
+    }
+
+    function unpackRoute32(DataRef memory ref) internal pure returns (bytes32) {
+        ensure(ref, ROUTE_KEY, 32);
+        return bytes32(msg.data[ref.i:ref.i + 32]);
+    }
+
+    function unpackRoute64(DataRef memory ref) internal pure returns (bytes32 a, bytes32 b) {
+        ensure(ref, ROUTE_KEY, 64);
+        a = bytes32(msg.data[ref.i:ref.i + 32]);
+        b = bytes32(msg.data[ref.i + 32:ref.i + 64]);
+    }
+
+    function unpackRoute96(DataRef memory ref) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+        ensure(ref, ROUTE_KEY, 96);
+        a = bytes32(msg.data[ref.i:ref.i + 32]);
+        b = bytes32(msg.data[ref.i + 32:ref.i + 64]);
+        c = bytes32(msg.data[ref.i + 64:ref.i + 96]);
     }
 
     function unpackNode(DataRef memory ref) internal pure returns (uint id) {
@@ -337,153 +528,5 @@ library Data {
         value.asset = bytes32(msg.data[ref.i + 64:ref.i + 96]);
         value.meta = bytes32(msg.data[ref.i + 96:ref.i + 128]);
         value.amount = uint(bytes32(msg.data[ref.i + 128:ref.i + 160]));
-    }
-
-    // ── inner* ────────────────────────────────────────────────────────────────
-
-    function innerRoute(DataRef memory parent) internal pure returns (bytes calldata data) {
-        return unpackRoute(childAt(parent, parent.bound));
-    }
-
-    function innerNode(DataRef memory parent) internal pure returns (uint id) {
-        return unpackNode(childAt(parent, parent.bound));
-    }
-
-    function innerRecipient(DataRef memory parent) internal pure returns (bytes32 account) {
-        return unpackRecipient(childAt(parent, parent.bound));
-    }
-
-    function innerParty(DataRef memory parent) internal pure returns (bytes32 account) {
-        return unpackParty(childAt(parent, parent.bound));
-    }
-
-    function innerRate(DataRef memory parent) internal pure returns (uint value) {
-        return unpackRate(childAt(parent, parent.bound));
-    }
-
-    function innerAsset(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta) {
-        return unpackAsset(childAt(parent, parent.bound));
-    }
-
-    function innerFunding(DataRef memory parent) internal pure returns (uint host, uint amount) {
-        return unpackFunding(childAt(parent, parent.bound));
-    }
-
-    function innerBounty(DataRef memory parent) internal pure returns (uint amount, bytes32 relayer) {
-        return unpackBounty(childAt(parent, parent.bound));
-    }
-
-    function innerAmount(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAmount(childAt(parent, parent.bound));
-    }
-
-    function innerBalance(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackBalance(childAt(parent, parent.bound));
-    }
-
-    function innerMinimum(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackMinimum(childAt(parent, parent.bound));
-    }
-
-    function innerMaximum(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackMaximum(childAt(parent, parent.bound));
-    }
-
-    function innerListing(DataRef memory parent) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
-        return unpackListing(childAt(parent, parent.bound));
-    }
-
-    function innerStep(DataRef memory parent) internal pure returns (uint target, uint value, bytes calldata req) {
-        return unpackStep(childAt(parent, parent.bound));
-    }
-
-    function innerAuth(DataRef memory parent) internal pure returns (uint cid, uint deadline, bytes calldata proof) {
-        return unpackAuth(childAt(parent, parent.bound));
-    }
-
-    function innerCustody(DataRef memory parent) internal pure returns (HostAmount memory value) {
-        return toCustodyValue(childAt(parent, parent.bound));
-    }
-
-    function innerAllocation(DataRef memory parent) internal pure returns (HostAmount memory value) {
-        return toAllocationValue(childAt(parent, parent.bound));
-    }
-
-    function innerTx(DataRef memory parent) internal pure returns (Tx memory value) {
-        return toTxValue(childAt(parent, parent.bound));
-    }
-
-    // ── inner*At ──────────────────────────────────────────────────────────────
-
-    function innerRouteAt(DataRef memory parent, uint i) internal pure returns (bytes calldata data) {
-        return unpackRoute(childAt(parent, i));
-    }
-
-    function innerNodeAt(DataRef memory parent, uint i) internal pure returns (uint id) {
-        return unpackNode(childAt(parent, i));
-    }
-
-    function innerRecipientAt(DataRef memory parent, uint i) internal pure returns (bytes32 account) {
-        return unpackRecipient(childAt(parent, i));
-    }
-
-    function innerPartyAt(DataRef memory parent, uint i) internal pure returns (bytes32 account) {
-        return unpackParty(childAt(parent, i));
-    }
-
-    function innerRateAt(DataRef memory parent, uint i) internal pure returns (uint value) {
-        return unpackRate(childAt(parent, i));
-    }
-
-    function innerAssetAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta) {
-        return unpackAsset(childAt(parent, i));
-    }
-
-    function innerFundingAt(DataRef memory parent, uint i) internal pure returns (uint host, uint amount) {
-        return unpackFunding(childAt(parent, i));
-    }
-
-    function innerBountyAt(DataRef memory parent, uint i) internal pure returns (uint amount, bytes32 relayer) {
-        return unpackBounty(childAt(parent, i));
-    }
-
-    function innerAmountAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAmount(childAt(parent, i));
-    }
-
-    function innerBalanceAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackBalance(childAt(parent, i));
-    }
-
-    function innerMinimumAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackMinimum(childAt(parent, i));
-    }
-
-    function innerMaximumAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackMaximum(childAt(parent, i));
-    }
-
-    function innerListingAt(DataRef memory parent, uint i) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
-        return unpackListing(childAt(parent, i));
-    }
-
-    function innerStepAt(DataRef memory parent, uint i) internal pure returns (uint target, uint value, bytes calldata req) {
-        return unpackStep(childAt(parent, i));
-    }
-
-    function innerAuthAt(DataRef memory parent, uint i) internal pure returns (uint cid, uint deadline, bytes calldata proof) {
-        return unpackAuth(childAt(parent, i));
-    }
-
-    function innerCustodyAt(DataRef memory parent, uint i) internal pure returns (HostAmount memory value) {
-        return toCustodyValue(childAt(parent, i));
-    }
-
-    function innerAllocationAt(DataRef memory parent, uint i) internal pure returns (HostAmount memory value) {
-        return toAllocationValue(childAt(parent, i));
-    }
-
-    function innerTxAt(DataRef memory parent, uint i) internal pure returns (Tx memory value) {
-        return toTxValue(childAt(parent, i));
     }
 }

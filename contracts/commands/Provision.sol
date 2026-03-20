@@ -4,8 +4,6 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, CUSTODIES, SETUP} from "./Base.sol";
 import {HostAmount, AMOUNT, AMOUNT_KEY, NODE} from "../blocks/Schema.sol";
 import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
-import {toCommandId} from "../utils/Ids.sol";
-
 using Blocks for BlockRef;
 using Writers for Writer;
 
@@ -13,7 +11,7 @@ bytes32 constant NAME = "provision";
 string constant REQUEST = string.concat(AMOUNT, ">", NODE);
 
 abstract contract Provision is CommandBase {
-    uint internal immutable provisionId = toCommandId(NAME, address(this));
+    uint internal immutable provisionId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, REQUEST, provisionId, SETUP, CUSTODIES);

@@ -5,8 +5,8 @@ import {Host} from "../core/Host.sol";
 import {Deposit} from "../commands/Deposit.sol";
 import {Withdraw} from "../commands/Withdraw.sol";
 import {Transfer} from "../commands/Transfer.sol";
-import {CreditTo} from "../commands/CreditTo.sol";
-import {DebitFrom} from "../commands/DebitFrom.sol";
+import {CreditBalanceToAccount} from "../commands/CreditTo.sol";
+import {DebitAccountToBalance} from "../commands/DebitFrom.sol";
 import {Settle} from "../commands/Settle.sol";
 import {Fund} from "../commands/Fund.sol";
 import {Provision} from "../commands/Provision.sol";
@@ -21,8 +21,8 @@ contract TestHost is
     Deposit,
     Withdraw,
     Transfer,
-    CreditTo,
-    DebitFrom,
+    CreditBalanceToAccount,
+    DebitAccountToBalance,
     Settle,
     Fund,
     Provision,
@@ -67,7 +67,7 @@ contract TestHost is
         emit TransferCalled(from_, to_, asset, meta, amount);
     }
 
-    function creditTo(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+    function creditBalanceToAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
         internal override
         returns (uint)
     {
@@ -75,7 +75,7 @@ contract TestHost is
         return amount;
     }
 
-    function debitFrom(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
         internal override
         returns (uint)
     {
@@ -128,8 +128,8 @@ contract TestHost is
     function getDepositId() external view returns (uint) { return depositId; }
     function getWithdrawId() external view returns (uint) { return withdrawId; }
     function getTransferId() external view returns (uint) { return transferId; }
-    function getCreditToId() external view returns (uint) { return creditToId; }
-    function getDebitFromId() external view returns (uint) { return debitFromId; }
+    function getCreditBalanceToAccountId() external view returns (uint) { return creditBalanceToAccountId; }
+    function getDebitAccountToBalanceId() external view returns (uint) { return debitAccountToBalanceId; }
     function getSettleId() external view returns (uint) { return settleId; }
     function getFundId() external view returns (uint) { return fundId; }
     function getProvisionId() external view returns (uint) { return provisionId; }

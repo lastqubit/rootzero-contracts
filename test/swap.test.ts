@@ -1,22 +1,24 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner } from "./helpers/setup.js";
 import {
+  concat,
   encodeBalanceBlock,
   encodeRouteBlock,
-  concat,
+  encodeRouteBlockWithMinimum,
   pad32,
 } from "./helpers/blocks.js";
+import { deploy, getSigner } from "./helpers/setup.js";
+import "./helpers/matchers.js";
 
-describe("SwapExactIn", () => {
+describe("SwapExactBalanceToBalance", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const swapMethod = "swapExactIn((uint256,bytes32,bytes,bytes))";
+  const swapMethod = "swapExactBalanceToBalance((uint256,bytes32,bytes,bytes))";
 
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
-    host = await deploy("TestSwapHost", commander, ethers.ZeroAddress);
+    host = await deploy("TestSwapHost", commander);
 
     const USER_PREFIX = 0x20010202n;
     userAccount = ethers.zeroPadValue(
@@ -36,7 +38,7 @@ describe("SwapExactIn", () => {
 
   async function callAs(signerIndex: number, method: string, ...args: unknown[]) {
     const signer = await getSigner(signerIndex);
-    return (host.connect(signer) as any)[method](...args);
+    return (host.connect(signer) as ethers.Contract)[method](...args);
   }
 
   it("maps each BALANCE block using its paired ROUTE block", async () => {
@@ -54,7 +56,7 @@ describe("SwapExactIn", () => {
       encodeRouteBlock(route2)
     );
 
-    const result = await (host as any)[swapMethod].staticCall(ctx({ state, request }));
+    const result = await (host as ethers.Contract)[swapMethod].staticCall(ctx({ state, request }));
     expect(result).to.equal(concat(
       encodeBalanceBlock(asset1, pad32(2n), 12n),
       encodeBalanceBlock(asset2, pad32(3n), 23n)
@@ -99,6 +101,21 @@ describe("SwapExactIn", () => {
 
     await expect(callAs(0, swapMethod, ctx({ target, state, request })))
       .to.emit(host, "SwapMapped");
+  });
+
+  it("emits the minimum parsed from the route's child block", async () => {
+    const asset = ethers.zeroPadValue("0xb2", 32);
+    const meta = ethers.ZeroHash;
+    const minAsset = ethers.zeroPadValue("0xcc", 32);
+    const minMeta = ethers.zeroPadValue("0xdd", 32);
+    const minAmount = 500n;
+    const tx = await callAs(0, swapMethod, ctx({
+      state: encodeBalanceBlock(asset, meta, 10n),
+      request: encodeRouteBlockWithMinimum("0xab", minAsset, minMeta, minAmount),
+    }));
+
+    await expect(tx).to.emit(host, "SwapMinimum")
+      .withArgs(minAsset, minMeta, minAmount);
   });
 
   it("reverts UnauthorizedCaller for an untrusted caller", async () => {

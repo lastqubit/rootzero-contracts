@@ -5,7 +5,6 @@ import {CommandBase, CommandContext} from "./Base.sol";
 import {BlockRef, STEP, STEP_KEY} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 import {isAdminAccount, InvalidAccount} from "../utils/Accounts.sol";
-import {toCommandId} from "../utils/Ids.sol";
 import {msgValue, useValue, ValueBudget} from "../utils/Value.sol";
 
 using Blocks for BlockRef;
@@ -13,7 +12,7 @@ using Blocks for BlockRef;
 bytes32 constant NAME = "pipe";
 
 abstract contract Pipe is CommandBase {
-    uint internal immutable pipeId = toCommandId(NAME, address(this));
+    uint internal immutable pipeId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, STEP, pipeId, 0, 0);

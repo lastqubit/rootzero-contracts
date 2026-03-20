@@ -217,13 +217,13 @@ describe("Blocks", () => {
     it("resolveRecipient returns RECIPIENT block when present", async () => {
       const account = ethers.zeroPadValue("0x1234", 32);
       const data = encodeRecipientBlock(account);
-      const result = await helper.testResolveRecipient(data, 0n, ethers.ZeroHash);
+      const result = await helper.testResolveRecipient(data, 0n, BigInt(ethers.getBytes(data).length), ethers.ZeroHash);
       expect(result).to.equal(account);
     });
 
     it("resolveRecipient uses backup when no RECIPIENT block", async () => {
       const backup = ethers.zeroPadValue("0x9999", 32);
-      const result = await helper.testResolveRecipient("0x", 0n, backup);
+      const result = await helper.testResolveRecipient("0x", 0n, 0n, backup);
       expect(result).to.equal(backup);
     });
 
@@ -234,22 +234,34 @@ describe("Blocks", () => {
         encodeAmountBlock(asset, meta, amount),
         encodeRecipientBlock(recipient)
       );
-      const result = await helper.testResolveRecipient(data, 0n, backup);
+      const result = await helper.testResolveRecipient(data, 0n, BigInt(ethers.getBytes(data).length), backup);
       expect(result).to.equal(recipient);
     });
 
     it("resolveRecipient reverts ZeroRecipient when both are zero", async () => {
-      await expect(helper.testResolveRecipient("0x", 0n, ethers.ZeroHash))
+      await expect(helper.testResolveRecipient("0x", 0n, 0n, ethers.ZeroHash))
         .to.be.revertedWithCustomError(helper, "ZeroRecipient");
     });
 
+    it("resolveRecipient does not find block beyond limit", async () => {
+      const backup = ethers.zeroPadValue("0x9999", 32);
+      const recipient = ethers.zeroPadValue("0x1234", 32);
+      const data = concat(
+        encodeAmountBlock(asset, meta, amount),
+        encodeRecipientBlock(recipient)
+      );
+      const amountLen = BigInt(ethers.getBytes(encodeAmountBlock(asset, meta, amount)).length);
+      const result = await helper.testResolveRecipient(data, 0n, amountLen, backup);
+      expect(result).to.equal(backup);
+    });
+
     it("resolveNode uses backup when no NODE block", async () => {
-      const result = await helper.testResolveNode("0x", 0n, 42n);
+      const result = await helper.testResolveNode("0x", 0n, 0n, 42n);
       expect(result).to.equal(42n);
     });
 
     it("resolveNode reverts ZeroNode when backup is 0 and no block", async () => {
-      await expect(helper.testResolveNode("0x", 0n, 0n))
+      await expect(helper.testResolveNode("0x", 0n, 0n, 0n))
         .to.be.revertedWithCustomError(helper, "ZeroNode");
     });
 
@@ -258,7 +270,7 @@ describe("Blocks", () => {
         encodeAmountBlock(asset, meta, amount),
         encodeNodeBlock(42n)
       );
-      const result = await helper.testResolveNode(data, 0n, 0n);
+      const result = await helper.testResolveNode(data, 0n, BigInt(ethers.getBytes(data).length), 0n);
       expect(result).to.equal(42n);
     });
 
@@ -287,7 +299,7 @@ describe("Blocks", () => {
       expect(ethers.getBytes(data).length).to.equal(108);
     });
 
-    it("toBounty produces correct BOUNTY block", async () => {
+    it("toBountyBlock produces correct BOUNTY block", async () => {
       const relayer = ethers.zeroPadValue("0xdd", 32);
       const data: string = await helper.testToBounty(500n, relayer);
       expect(ethers.getBytes(data).length).to.equal(76);
@@ -315,7 +327,7 @@ describe("Blocks", () => {
       expect(v).to.equal(amount);
     });
 
-    it("unpackCustody from memory block", async () => {
+    it("toCustodyValue from memory block", async () => {
       const hostId = 99n;
       const data = encodeCustodyBlock(hostId, asset, meta, amount);
       const [h, a, m, v] = await helper.testMemParseCustody(data, 0n);

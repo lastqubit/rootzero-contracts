@@ -1,13 +1,17 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner } from "./helpers/setup.js";
-import { concat, encodeBalanceBlock, encodeCustodyBlock } from "./helpers/blocks.js";
+import { concat, encodeBalanceBlock, encodeRouteBlockWithAmount } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
-describe("Reclaim", () => {
+describe("ReclaimBalance", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const reclaimMethod = "reclaim((uint256,bytes32,bytes,bytes))";
+  const reclaimMethod = "reclaimBalance((uint256,bytes32,bytes,bytes))";
+
+  const ASSET  = ethers.zeroPadValue("0xa1", 32);
+  const META   = ethers.ZeroHash;
+  const AMOUNT = 500n;
 
   before(async () => {
     const signer = await getSigner(0);
@@ -19,6 +23,8 @@ describe("Reclaim", () => {
       ethers.toBeHex((USER_PREFIX << 224n) | (BigInt(commander) << 32n)),
       32
     );
+
+    await (host as any).setReturn(ASSET, META, AMOUNT);
   });
 
   function ctx(overrides: Partial<{ target: bigint; account: string; state: string; request: string }> = {}) {
@@ -37,77 +43,77 @@ describe("Reclaim", () => {
 
   // ── Happy path ─────────────────────────────────────────────────────────────
 
-  it("emits ReclaimCalled for a single CUSTODY block in state", async () => {
-    const remoteHost = 999n;
-    const asset = ethers.zeroPadValue("0xa1", 32);
-    const meta  = ethers.ZeroHash;
-    const state = encodeCustodyBlock(remoteHost, asset, meta, 100n);
-    const tx = await callAs(0, ctx({ state }));
+  it("emits ReclaimCalled with the account and embedded amount", async () => {
+    const route = "0x1234";
+    const request = encodeRouteBlockWithAmount(route, ASSET, META, 100n);
+    const tx = await callAs(0, ctx({ request }));
     await expect(tx).to.emit(host, "ReclaimCalled")
-      .withArgs(remoteHost, userAccount, asset, meta, 100n);
+      .withArgs(userAccount, ASSET, META, 100n, route);
   });
 
-  it("returns one BALANCE block for a single CUSTODY block", async () => {
-    const asset = ethers.zeroPadValue("0xb1", 32);
-    const meta  = ethers.ZeroHash;
-    const state = encodeCustodyBlock(42n, asset, meta, 200n);
-    const result: string = await (host as any)[reclaimMethod].staticCall(ctx({ state }));
-    expect(result).to.equal(encodeBalanceBlock(asset, meta, 200n));
+  it("returns one BALANCE block for a single ROUTE block", async () => {
+    const request = encodeRouteBlockWithAmount("0x01", ASSET, META, 100n);
+    const result: string = await (host as any)[reclaimMethod].staticCall(ctx({ request }));
+    expect(result).to.equal(encodeBalanceBlock(ASSET, META, AMOUNT));
   });
 
-  it("emits ReclaimCalled for each CUSTODY block when multiple are present", async () => {
-    const asset1 = ethers.zeroPadValue("0xc1", 32);
-    const asset2 = ethers.zeroPadValue("0xc2", 32);
-    const meta   = ethers.ZeroHash;
-    const state  = concat(
-      encodeCustodyBlock(1n, asset1, meta, 10n),
-      encodeCustodyBlock(2n, asset2, meta, 20n)
+  it("emits ReclaimCalled for each ROUTE block when multiple are present", async () => {
+    const asset1 = ethers.zeroPadValue("0xa1", 32);
+    const asset2 = ethers.zeroPadValue("0xa2", 32);
+    const request = concat(
+      encodeRouteBlockWithAmount("0xaaaa", asset1, META, 100n),
+      encodeRouteBlockWithAmount("0xbbbb", asset2, META, 200n),
     );
-    const tx = await callAs(0, ctx({ state }));
-    await expect(tx).to.emit(host, "ReclaimCalled").withArgs(1n, userAccount, asset1, meta, 10n);
-    await expect(tx).to.emit(host, "ReclaimCalled").withArgs(2n, userAccount, asset2, meta, 20n);
+    const tx = await callAs(0, ctx({ request }));
+    await expect(tx).to.emit(host, "ReclaimCalled").withArgs(userAccount, asset1, META, 100n, "0xaaaa");
+    await expect(tx).to.emit(host, "ReclaimCalled").withArgs(userAccount, asset2, META, 200n, "0xbbbb");
   });
 
-  it("returns one BALANCE block per CUSTODY block", async () => {
-    const asset1 = ethers.zeroPadValue("0xd1", 32);
-    const asset2 = ethers.zeroPadValue("0xd2", 32);
-    const meta   = ethers.ZeroHash;
-    const state  = concat(
-      encodeCustodyBlock(1n, asset1, meta, 10n),
-      encodeCustodyBlock(2n, asset2, meta, 20n)
+  it("returns one BALANCE block per ROUTE block", async () => {
+    const request = concat(
+      encodeRouteBlockWithAmount("0x01", ASSET, META, 100n),
+      encodeRouteBlockWithAmount("0x02", ASSET, META, 200n),
     );
-    const result: string = await (host as any)[reclaimMethod].staticCall(ctx({ state }));
+    const result: string = await (host as any)[reclaimMethod].staticCall(ctx({ request }));
     expect(result).to.equal(concat(
-      encodeBalanceBlock(asset1, meta, 10n),
-      encodeBalanceBlock(asset2, meta, 20n)
+      encodeBalanceBlock(ASSET, META, AMOUNT),
+      encodeBalanceBlock(ASSET, META, AMOUNT),
     ));
+  });
+
+  it("reverts EmptyRequest when all reclaim outputs are zero", async () => {
+    await (host as any).setReturn(ASSET, META, 0n);
+    const request = encodeRouteBlockWithAmount("0x01", ASSET, META, 100n);
+    await expect(callAs(0, ctx({ request })))
+      .to.be.revertedWithCustomError(host, "EmptyRequest");
+    await (host as any).setReturn(ASSET, META, AMOUNT);
   });
 
   // ── Target / access guards ─────────────────────────────────────────────────
 
   it("accepts the explicit reclaim command id as the target", async () => {
-    const target = await host.getReclaimId();
-    const state  = encodeCustodyBlock(1n, ethers.zeroPadValue("0xe1", 32), ethers.ZeroHash, 1n);
-    const tx = await callAs(0, ctx({ target, state }));
+    const target = await (host as any).getReclaimBalanceId();
+    const request = encodeRouteBlockWithAmount("0x99", ASSET, META, 100n);
+    const tx = await callAs(0, ctx({ target, request }));
     await expect(tx).to.emit(host, "ReclaimCalled");
   });
 
   it("reverts UnexpectedEndpoint for a wrong non-zero target", async () => {
-    const state = encodeCustodyBlock(1n, ethers.zeroPadValue("0xf1", 32), ethers.ZeroHash, 1n);
-    await expect(callAs(0, ctx({ target: 999n, state })))
+    const request = encodeRouteBlockWithAmount("0x01", ASSET, META, 100n);
+    await expect(callAs(0, ctx({ target: 999n, request })))
       .to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
   });
 
   it("reverts UnauthorizedCaller for an untrusted caller", async () => {
-    const state = encodeCustodyBlock(1n, ethers.zeroPadValue("0xf2", 32), ethers.ZeroHash, 1n);
-    await expect(callAs(1, ctx({ state })))
+    const request = encodeRouteBlockWithAmount("0x01", ASSET, META, 100n);
+    await expect(callAs(1, ctx({ request })))
       .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
   });
 
   // ── Error cases ────────────────────────────────────────────────────────────
 
-  it("reverts InvalidBlock when state has no CUSTODY blocks", async () => {
+  it("reverts EmptyRequest when request has no ROUTE blocks", async () => {
     await expect(callAs(0, ctx()))
-      .to.be.revertedWithCustomError(host, "InvalidBlock");
+      .to.be.revertedWithCustomError(host, "EmptyRequest");
   });
 });

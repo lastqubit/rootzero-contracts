@@ -4,14 +4,12 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext, SETUP} from "../Base.sol";
 import {ASSET, ASSET_KEY, BlockRef} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
-import {toCommandId} from "../../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "denyAssets";
 
 abstract contract DenyAssets is CommandBase {
-    uint internal immutable denyAssetsId = toCommandId(NAME, address(this));
+    uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, ASSET, denyAssetsId, SETUP, SETUP);

@@ -98,8 +98,8 @@ describe("Mint", () => {
 
   // ── Error cases ────────────────────────────────────────────────────────────
 
-  it("reverts InvalidBlock when request has no ROUTE blocks", async () => {
+  it("reverts EmptyRequest when request has no ROUTE blocks", async () => {
     await expect(callAs(0, ctx()))
-      .to.be.revertedWithCustomError(host, "InvalidBlock");
+      .to.be.revertedWithCustomError(host, "EmptyRequest");
   });
 });

@@ -1,23 +1,84 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES} from "./Base.sol";
-import {MINIMUM} from "../blocks/Schema.sol";
-import {MapBalanceWithRequestRoute} from "../combinators/MapBalance.sol";
-import {toCommandId} from "../utils/Ids.sol";
+import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
+import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_EMPTY, ROUTE_KEY, MINIMUM} from "../blocks/Schema.sol";
+import {Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+using Blocks for BlockRef;
+using Data for DataRef;
+using Writers for Writer;
 
-bytes32 constant NAME = "swapExactIn";
+bytes32 constant SWAPBALANCETOBALANCE = "swapExactBalanceToBalance";
+bytes32 constant SWAPCUSTODYTOBALANCE = "swapExactCustodyToBalance";
 
-abstract contract SwapExactIn is CommandBase, MapBalanceWithRequestRoute {
-    uint internal immutable swapExactInId = toCommandId(NAME, address(this));
+abstract contract SwapExactBalanceToBalance is CommandBase {
+    uint internal immutable swapExactBalanceToBalanceId = commandId(SWAPBALANCETOBALANCE);
 
-    constructor(string memory route) {
-        emit Command(host, NAME, string.concat(route, ">", MINIMUM), swapExactInId, BALANCES, BALANCES);
+    constructor(string memory maybeRoute) {
+        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
+        emit Command(host, SWAPBALANCETOBALANCE, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
     }
 
-    function swapExactIn(
+    // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()
+    function swapExactBalanceToBalance(
+        bytes32 account,
+        AssetAmount memory balance,
+        DataRef memory rawRoute
+    ) internal virtual returns (AssetAmount memory out);
+
+    function swapExactBalanceToBalance(
         CommandContext calldata c
-    ) external payable onlyCommand(swapExactInId, c.target) returns (bytes memory) {
-        return mapBalancesWithRequestRoutes(c.state, c.request, 0, 0, c.account);
+    ) external payable onlyCommand(swapExactBalanceToBalanceId, c.target) returns (bytes memory) {
+        uint i = 0;
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, BALANCE_KEY);
+
+        while (i < end) {
+            DataRef memory route;
+            (route, q) = Data.routeFrom(c.request, q);
+            BlockRef memory ref = Blocks.balanceFrom(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            AssetAmount memory out = swapExactBalanceToBalance(c.account, balance, route);
+            if (out.amount > 0) writer.appendBalance(out);
+            i = ref.end;
+        }
+
+        return writer.finish();
+    }
+}
+
+abstract contract SwapExactCustodyToBalance is CommandBase {
+    uint internal immutable swapExactCustodyToBalanceId = commandId(SWAPCUSTODYTOBALANCE);
+
+    constructor(string memory maybeRoute) {
+        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
+        emit Command(host, SWAPCUSTODYTOBALANCE, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
+    }
+
+    // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()
+    function swapExactCustodyToBalance(
+        bytes32 account,
+        HostAmount memory custody,
+        DataRef memory rawRoute
+    ) internal virtual returns (AssetAmount memory out);
+
+    function swapExactCustodyToBalance(
+        CommandContext calldata c
+    ) external payable onlyCommand(swapExactCustodyToBalanceId, c.target) returns (bytes memory) {
+        uint i = 0;
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, CUSTODY_KEY);
+
+        while (i < end) {
+            DataRef memory route;
+            (route, q) = Data.routeFrom(c.request, q);
+            BlockRef memory ref = Blocks.custodyFrom(c.state, i);
+            HostAmount memory custody = ref.toCustodyValue(c.state);
+            AssetAmount memory out = swapExactCustodyToBalance(c.account, custody, route);
+            if (out.amount > 0) writer.appendBalance(out);
+            i = ref.end;
+        }
+
+        return writer.finish();
     }
 }

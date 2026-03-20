@@ -4,15 +4,13 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, SETUP} from "./Base.sol";
 import {AMOUNT, RECIPIENT, AMOUNT_KEY, BlockRef} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
-import {toCommandId} from "../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "transfer";
 string constant REQUEST = string.concat(AMOUNT, ">", RECIPIENT);
 
 abstract contract Transfer is CommandBase {
-    uint internal immutable transferId = toCommandId(NAME, address(this));
+    uint internal immutable transferId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, REQUEST, transferId, SETUP, SETUP);

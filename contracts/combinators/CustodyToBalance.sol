@@ -88,7 +88,7 @@ abstract contract CustodyToBalance {
             i = ref.end;
         }
 
-        return writer.done();
+        return writer.finish();
     }
 }
  */

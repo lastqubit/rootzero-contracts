@@ -3,14 +3,12 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext, BALANCES, SETUP} from "./Base.sol";
 import {Blocks, BlockRef} from "../Blocks.sol";
-import {toCommandId} from "../Utils.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "burn";
 
 abstract contract Burn is CommandBase {
-    uint internal immutable burnId = toCommandId(NAME, address(this));
+    uint internal immutable burnId = commandId(NAME);
 
     constructor(string memory route) {
         emit Command(host, NAME, route, burnId, BALANCES, SETUP);

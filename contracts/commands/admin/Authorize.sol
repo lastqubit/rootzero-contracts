@@ -4,14 +4,12 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext, SETUP} from "../Base.sol";
 import {BlockRef, NODE, NODE_KEY} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
-import {toCommandId} from "../../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "authorize";
 
 abstract contract Authorize is CommandBase {
-    uint internal immutable authorizeId = toCommandId(NAME, address(this));
+    uint internal immutable authorizeId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, NODE, authorizeId, SETUP, SETUP);

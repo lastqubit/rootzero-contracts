@@ -4,14 +4,12 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext, SETUP} from "../Base.sol";
 import {BlockRef, FUNDING, FUNDING_KEY} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
-import {toCommandId} from "../../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "relocate";
 
 abstract contract Relocate is CommandBase {
-    uint internal immutable relocateId = toCommandId(NAME, address(this));
+    uint internal immutable relocateId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, FUNDING, relocateId, SETUP, SETUP);

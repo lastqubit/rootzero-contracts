@@ -3,8 +3,6 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
 import {BALANCE_KEY, Blocks, BlockRef, NODE, Writers, Writer} from "../Blocks.sol";
-import {toCommandId} from "../utils/Ids.sol";
-
 using Blocks for BlockRef;
 using Writers for Writer;
 
@@ -12,7 +10,7 @@ bytes32 constant NAME = "fund";
 
 // @dev Converts BALANCE state into CUSTODY state for a destination host.
 abstract contract Fund is CommandBase {
-    uint internal immutable fundId = toCommandId(NAME, address(this));
+    uint internal immutable fundId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, NODE, fundId, BALANCES, CUSTODIES);
@@ -21,7 +19,7 @@ abstract contract Fund is CommandBase {
     function fund(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function fund(CommandContext calldata c) external payable onlyCommand(fundId, c.target) returns (bytes memory) {
-        uint h = Blocks.resolveNode(c.request, 0, 0);
+        uint h = Blocks.resolveNode(c.request, 0, c.request.length, 0);
         uint i = 0;
         (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.state, i, BALANCE_KEY);
 

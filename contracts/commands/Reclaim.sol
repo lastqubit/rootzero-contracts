@@ -1,43 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
-import {AssetAmount, HostAmount, CUSTODY_KEY, ROUTE_KEY} from "../Schema.sol";
-import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
-import {toCommandId} from "../utils/Ids.sol";
+import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
+import {AssetAmount, AMOUNT, ROUTE_EMPTY, ROUTE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-using Blocks for BlockRef;
+bytes32 constant NAME = "reclaimBalance";
+
+using Data for DataRef;
 using Writers for Writer;
 
-bytes32 constant NAME = "reclaim";
+abstract contract ReclaimBalance is CommandBase {
+    uint internal immutable reclaimBalanceId = commandId(NAME);
 
-abstract contract Reclaim is CommandBase {
-    uint internal immutable reclaimId = toCommandId(NAME, address(this));
-
-    constructor() {
-        emit Command(host, NAME, "", reclaimId, CUSTODIES, BALANCES);
+    constructor(string memory maybeRoute) {
+        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
+        emit Command(host, NAME, schema, reclaimBalanceId, SETUP, BALANCES);
     }
 
-    function reclaim(
-        uint host,
+    function reclaimBalance(
         bytes32 account,
-        bytes32 asset,
-        bytes32 meta,
-        uint amount
+        AssetAmount memory amount,
+        DataRef memory rawRoute
     ) internal virtual returns (AssetAmount memory);
 
-    function reclaim(
+    function reclaimBalance(
         CommandContext calldata c
-    ) external payable onlyCommand(reclaimId, c.target) returns (bytes memory) {
+    ) external payable onlyCommand(reclaimBalanceId, c.target) returns (bytes memory) {
         uint i = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, CUSTODY_KEY);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, ROUTE_KEY);
 
         while (i < end) {
-            BlockRef memory ref = Blocks.custodyFrom(c.state, i);
-            HostAmount memory v = ref.toCustodyValue(c.state);
-            AssetAmount memory out = reclaim(v.host, c.account, v.asset, v.meta, v.amount);
+            (DataRef memory route, uint next) = Data.routeFrom(c.request, i);
+            AssetAmount memory value = route.innerAmountValue();
+            AssetAmount memory out = reclaimBalance(c.account, value, route);
             if (out.amount > 0) writer.appendBalance(out);
-            i = ref.end;
+            i = next;
         }
 
         return writer.finish();

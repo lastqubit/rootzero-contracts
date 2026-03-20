@@ -104,6 +104,14 @@ export function encodeRouteBlock(data: string): string {
   return block(ROUTE_KEY, data);
 }
 
+export function encodeRouteBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
+  return blockWithChildren(ROUTE_KEY, data, encodeAmountBlock(asset, meta, amount));
+}
+
+export function encodeRouteBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
+  return blockWithChildren(ROUTE_KEY, data, encodeMinimumBlock(asset, meta, amount));
+}
+
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
   return block(AUTH_KEY, ethers.concat([pad32(cid), pad32(deadline), proof]));
 }

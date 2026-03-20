@@ -5,16 +5,15 @@ import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
 import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 import {Writers} from "../blocks/Writers.sol";
-import {toCommandId} from "../utils/Ids.sol";
 
 bytes32 constant NAME = "deposit";
 
 using Blocks for BlockRef;
 using Writers for Writer;
 
-// @dev Use `deposit` for externally sourced assets; use `debitFrom` for internal balance deductions.
+// @dev Use `deposit` for externally sourced assets; use `debitAccountToBalance` for internal balance deductions.
 abstract contract Deposit is CommandBase {
-    uint internal immutable depositId = toCommandId(NAME, address(this));
+    uint internal immutable depositId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, AMOUNT, depositId, SETUP, BALANCES);

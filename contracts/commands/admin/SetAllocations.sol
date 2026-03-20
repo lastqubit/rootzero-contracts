@@ -5,14 +5,12 @@ import {CommandBase, CommandContext, SETUP} from "../Base.sol";
 import {ALLOCATION, ALLOCATION_KEY, BlockRef, HostAmount} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
 import {ensureAssetRef} from "../../utils/Assets.sol";
-import {toCommandId} from "../../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "setAllocations";
 
 abstract contract SetAllocations is CommandBase {
-    uint internal immutable setAllocationsId = toCommandId(NAME, address(this));
+    uint internal immutable setAllocationsId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, ALLOCATION, setAllocationsId, SETUP, SETUP);

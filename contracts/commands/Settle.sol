@@ -4,14 +4,12 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, TRANSACTIONS, SETUP} from "./Base.sol";
 import {BlockRef, TX_KEY, Tx} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
-import {toCommandId} from "../utils/Ids.sol";
-
 using Blocks for BlockRef;
 
 bytes32 constant NAME = "settle";
 
 abstract contract Settle is CommandBase {
-    uint internal immutable settleId = toCommandId(NAME, address(this));
+    uint internal immutable settleId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, "", settleId, TRANSACTIONS, SETUP);

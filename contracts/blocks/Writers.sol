@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Blocks} from "./Readers.sol";
-import {InvalidBlock, MalformedBlocks} from "./Errors.sol";
+import {MalformedBlocks} from "./Errors.sol";
 import {
     AssetAmount,
     BALANCE_KEY,
@@ -15,6 +15,7 @@ import {
 
 error WriterOverflow();
 error IncompleteWriter();
+error EmptyRequest();
 
 uint constant BALANCE_BLOCK_LEN = 108;
 uint constant CUSTODY_BLOCK_LEN = 140;
@@ -53,7 +54,7 @@ library Writers {
         uint count;
         uint len;
         (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert InvalidBlock();
+        if (count == 0) revert EmptyRequest();
         len = count * BALANCE_BLOCK_LEN;
         writer = Writer({i: 0, end: len, dst: new bytes(len)});
     }
@@ -66,7 +67,7 @@ library Writers {
         uint count;
         uint len;
         (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert InvalidBlock();
+        if (count == 0) revert EmptyRequest();
         len = count * 2 * BALANCE_BLOCK_LEN;
         writer = Writer({i: 0, end: len, dst: new bytes(len)});
     }
@@ -79,7 +80,7 @@ library Writers {
         uint count;
         uint len;
         (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert InvalidBlock();
+        if (count == 0) revert EmptyRequest();
         len = count * TX_BLOCK_LEN;
         writer = Writer({i: 0, end: len, dst: new bytes(len)});
     }
@@ -92,7 +93,7 @@ library Writers {
         uint count;
         uint len;
         (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert InvalidBlock();
+        if (count == 0) revert EmptyRequest();
         len = count * CUSTODY_BLOCK_LEN;
         writer = Writer({i: 0, end: len, dst: new bytes(len)});
     }
@@ -165,6 +166,7 @@ library Writers {
     }
 
     function finish(Writer memory writer) internal pure returns (bytes memory out) {
+        if (writer.i == 0) revert EmptyRequest();
         if (writer.i > writer.dst.length) revert IncompleteWriter();
         out = writer.dst;
         assembly ("memory-safe") {

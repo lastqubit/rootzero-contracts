@@ -3,14 +3,12 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext, SETUP} from "./Base.sol";
 import {Data, DataRef, ROUTE_KEY} from "../Blocks.sol";
-import {toCommandId} from "../Utils.sol";
-
 using Data for DataRef;
 
 bytes32 constant NAME = "create";
 
 abstract contract Create is CommandBase {
-    uint internal immutable createId = toCommandId(NAME, address(this));
+    uint internal immutable createId = commandId(NAME);
 
     constructor(string memory route) {
         emit Command(host, NAME, route, createId, SETUP, SETUP);

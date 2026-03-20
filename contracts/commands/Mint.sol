@@ -4,14 +4,12 @@ pragma solidity ^0.8.33;
 import {BALANCES, CommandBase, CommandContext, SETUP} from "./Base.sol";
 import {ROUTE_KEY} from "../Schema.sol";
 import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
-import {toCommandId} from "../Utils.sol";
-
 using Writers for Writer;
 
 bytes32 constant NAME = "mint";
 
 abstract contract Mint is CommandBase {
-    uint internal immutable mintId = toCommandId(NAME, address(this));
+    uint internal immutable mintId = commandId(NAME);
 
     constructor(string memory route) {
         emit Command(host, NAME, route, mintId, SETUP, BALANCES);

@@ -107,10 +107,10 @@ describe("Commands", () => {
       ).to.be.revertedWithCustomError(host, "UnauthorizedCaller");
     });
 
-    it("reverts InvalidBlock when request has no AMOUNT blocks", async () => {
+    it("reverts EmptyRequest when request has no AMOUNT blocks", async () => {
       await expect(
         callAs(0, "deposit", ctx({ request: "0x" }))
-      ).to.be.revertedWithCustomError(host, "InvalidBlock");
+      ).to.be.revertedWithCustomError(host, "EmptyRequest");
     });
   });
 
@@ -179,13 +179,13 @@ describe("Commands", () => {
 
   // ── CreditTo ──────────────────────────────────────────────────────────────
 
-  describe("creditTo", () => {
+  describe("creditBalanceToAccount", () => {
     const asset = ethers.zeroPadValue("0x30", 32);
     const meta  = ethers.ZeroHash;
 
     it("emits CreditToCalled for BALANCE blocks in state", async () => {
       const state = encodeBalanceBlock(asset, meta, 300n);
-      const tx = await callAs(0, "creditTo", ctx({ state }));
+      const tx = await callAs(0, "creditBalanceToAccount", ctx({ state }));
       await expect(tx).to.emit(host, "CreditToCalled");
     });
 
@@ -193,39 +193,39 @@ describe("Commands", () => {
       const recipient = ethers.zeroPadValue("0xcafe", 32);
       const state = encodeBalanceBlock(asset, meta, 100n);
       const request = encodeRecipientBlock(recipient);
-      const tx = await callAs(0, "creditTo", ctx({ state, request }));
+      const tx = await callAs(0, "creditBalanceToAccount", ctx({ state, request }));
       await expect(tx).to.emit(host, "CreditToCalled")
         .withArgs(recipient, asset, meta, 100n, 100n);
     });
 
     it("reverts NoOperation for empty state", async () => {
-      await expect(callAs(0, "creditTo", ctx()))
+      await expect(callAs(0, "creditBalanceToAccount", ctx()))
         .to.be.revertedWithCustomError(host, "NoOperation");
     });
   });
 
   // ── DebitFrom ─────────────────────────────────────────────────────────────
 
-  describe("debitFrom", () => {
+  describe("debitAccountToBalance", () => {
     const asset = ethers.zeroPadValue("0x40", 32);
     const meta  = ethers.ZeroHash;
 
     it("emits DebitFromCalled and returns BALANCE blocks", async () => {
       const request = encodeAmountBlock(asset, meta, 400n);
-      const tx = await callAs(0, "debitFrom", ctx({ request }));
+      const tx = await callAs(0, "debitAccountToBalance", ctx({ request }));
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, asset, meta, 400n, 400n);
     });
 
     it("returns one BALANCE block per AMOUNT block", async () => {
       const request = encodeAmountBlock(asset, meta, 100n);
-      const result: string = await host.debitFrom.staticCall(ctx({ request }));
+      const result: string = await host.debitAccountToBalance.staticCall(ctx({ request }));
       expect(result).to.equal(encodeBalanceBlock(asset, meta, 100n));
     });
 
-    it("reverts InvalidBlock when request has no AMOUNT blocks", async () => {
-      await expect(callAs(0, "debitFrom", ctx()))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    it("reverts EmptyRequest when request has no AMOUNT blocks", async () => {
+      await expect(callAs(0, "debitAccountToBalance", ctx()))
+        .to.be.revertedWithCustomError(host, "EmptyRequest");
     });
   });
 
@@ -273,11 +273,11 @@ describe("Commands", () => {
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, meta, 600n));
     });
 
-    it("reverts InvalidBlock when state has no BALANCE blocks", async () => {
+    it("reverts EmptyRequest when state has no BALANCE blocks", async () => {
       const hostId = 123456n;
       const request = encodeNodeBlock(hostId);
       await expect(callAs(0, "fund", ctx({ request })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "EmptyRequest");
     });
 
     it("reverts ZeroNode when no NODE block and backup is 0", async () => {
@@ -309,11 +309,11 @@ describe("Commands", () => {
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, ethers.ZeroHash, 700n));
     });
 
-    it("reverts InvalidBlock when no AMOUNT blocks", async () => {
+    it("reverts EmptyRequest when no AMOUNT blocks", async () => {
       const hostId = 654321n;
       const request = encodeNodeBlock(hostId);
       await expect(callAs(0, "provision", ctx({ request })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "EmptyRequest");
     });
   });
 

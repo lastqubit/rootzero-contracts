@@ -139,16 +139,16 @@ contract TestBlockHelper {
         return Blocks.count(source, i, key);
     }
 
-    function testResolveRecipient(bytes calldata source, uint i, bytes32 backup)
+    function testResolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup)
         external pure returns (bytes32)
     {
-        return Blocks.resolveRecipient(source, i, backup);
+        return Blocks.resolveRecipient(source, i, limit, backup);
     }
 
-    function testResolveNode(bytes calldata source, uint i, uint backup)
+    function testResolveNode(bytes calldata source, uint i, uint limit, uint backup)
         external pure returns (uint)
     {
-        return Blocks.resolveNode(source, i, backup);
+        return Blocks.resolveNode(source, i, limit, backup);
     }
 
     function testCreate32(bytes4 key, bytes32 value) external pure returns (bytes memory) {
@@ -164,7 +164,7 @@ contract TestBlockHelper {
     }
 
     function testToBounty(uint amount, bytes32 relayer) external pure returns (bytes memory) {
-        return Blocks.toBounty(amount, relayer);
+        return Blocks.toBountyBlock(amount, relayer);
     }
 
     // ── Mem (memory) ─────────────────────────────────────────────────────────
@@ -177,10 +177,10 @@ contract TestBlockHelper {
     }
 
     function testMemParseCustody(bytes memory source, uint i)
-        external pure returns (uint host_, bytes32 asset, bytes32 meta, uint amount)
+        external pure returns (HostAmount memory value)
     {
         MemRef memory ref = Mem.from(source, i);
-        return ref.unpackCustody(source);
+        return ref.toCustodyValue(source);
     }
 
     function testMemSlice(bytes memory source, uint start, uint end_)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {BALANCE_KEY, CUSTODY_KEY, MemRef, TX_KEY, Tx} from "./Schema.sol";
+import {BALANCE_KEY, CUSTODY_KEY, HostAmount, MemRef, TX_KEY, Tx} from "./Schema.sol";
 import {InvalidBlock, MalformedBlocks} from "./Errors.sol";
 
 library Mem {
@@ -63,16 +63,16 @@ library Mem {
     }
 
     function ensure(MemRef memory ref, bytes4 key) internal pure {
-        if (key != ref.key) revert InvalidBlock();
+        if (key == 0 || key != ref.key) revert InvalidBlock();
     }
 
     function ensure(MemRef memory ref, bytes4 key, uint len) internal pure {
-        if (key != ref.key || len != (ref.bound - ref.i)) revert InvalidBlock();
+        if (key == 0 || key != ref.key || len != (ref.bound - ref.i)) revert InvalidBlock();
     }
 
     function ensure(MemRef memory ref, bytes4 key, uint min, uint max) internal pure {
         uint len = ref.bound - ref.i;
-        if (key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
+        if (key == 0 || key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
     }
 
     function unpackBalance(
@@ -90,19 +90,19 @@ library Mem {
         }
     }
 
-    function unpackCustody(
+    function toCustodyValue(
         MemRef memory ref,
         bytes memory source
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    ) internal pure returns (HostAmount memory value) {
         ensure(ref, CUSTODY_KEY, 128);
         uint i = ref.i;
 
         assembly ("memory-safe") {
             let p := add(add(source, 0x20), i)
-            host := mload(p)
-            asset := mload(add(p, 0x20))
-            meta := mload(add(p, 0x40))
-            amount := mload(add(p, 0x60))
+            mstore(value, mload(p))
+            mstore(add(value, 0x20), mload(add(p, 0x20)))
+            mstore(add(value, 0x40), mload(add(p, 0x40)))
+            mstore(add(value, 0x60), mload(add(p, 0x60)))
         }
     }
 

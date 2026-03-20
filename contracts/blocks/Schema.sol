@@ -43,6 +43,7 @@ bytes4 constant MINIMUM_KEY = bytes4(keccak256("minimum(bytes32 asset, bytes32 m
 string constant MAXIMUM = "maximum(bytes32 asset, bytes32 meta, uint amount)";
 bytes4 constant MAXIMUM_KEY = bytes4(keccak256("maximum(bytes32 asset, bytes32 meta, uint amount)"));
 string constant ROUTE = "route(bytes data)";
+string constant ROUTE_EMPTY = "route()";
 bytes4 constant ROUTE_KEY = bytes4(keccak256("route(bytes data)"));
 string constant RATE = "rate(uint value)";
 bytes4 constant RATE_KEY = bytes4(keccak256("rate(uint value)"));
