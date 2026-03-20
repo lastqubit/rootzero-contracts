@@ -6,4 +6,4 @@ import {Balances} from "./core/Balances.sol";
 import {Host} from "./core/Host.sol";
 import {Validator} from "./core/Validator.sol";
 import {HostDiscovery} from "./discovery/HostDiscovery.sol";
-import {IHostDiscovery} from "./discovery/IHostDiscovery.sol";
+import {IHostDiscovery} from "./interfaces/IHostDiscovery.sol";
