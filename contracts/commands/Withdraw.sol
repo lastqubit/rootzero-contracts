@@ -6,7 +6,7 @@ import {BlockRef, RECIPIENT} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "withdraw";
+string constant NAME = "withdraw";
 
 // @dev Use `withdraw` for externally delivered assets; use `creditBalanceToAccount` for internal balance credits.
 abstract contract Withdraw is CommandBase {

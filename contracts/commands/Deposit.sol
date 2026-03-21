@@ -6,7 +6,7 @@ import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 import {Writers} from "../blocks/Writers.sol";
 
-bytes32 constant NAME = "deposit";
+string constant NAME = "deposit";
 
 using Blocks for BlockRef;
 using Writers for Writer;

@@ -6,7 +6,7 @@ import {BlockRef, FUNDING, FUNDING_KEY} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "relocate";
+string constant NAME = "relocate";
 
 abstract contract Relocate is CommandBase {
     uint internal immutable relocateId = commandId(NAME);

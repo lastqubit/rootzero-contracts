@@ -46,14 +46,9 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address rush)
-        Host(rush, 1, "test")
-        Deposit()
-    {}
+    constructor(address rush) Host(rush, 1, "test") Deposit() {}
 
-    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-    {
+    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);
     }
 
@@ -61,42 +56,33 @@ contract TestHost is
         emit WithdrawCalled(account, asset, meta, amount);
     }
 
-    function transfer(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-    {
+    function transfer(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit TransferCalled(from_, to_, asset, meta, amount);
     }
 
-    function creditBalanceToAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-        returns (uint)
-    {
+    function creditBalanceToAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit CreditToCalled(account, asset, meta, amount, amount);
-        return amount;
     }
 
-    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-        returns (uint)
-    {
+    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DebitFromCalled(account, asset, meta, amount, amount);
-        return amount;
     }
 
     function settle(Tx memory value) internal override {
         emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function fund(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-    {
+    function fund(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit FundCalled(host_, account, asset, meta, amount);
     }
 
-    function provision(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-        internal override
-        returns (HostAmount memory)
-    {
+    function provision(
+        uint host_,
+        bytes32 account,
+        bytes32 asset,
+        bytes32 meta,
+        uint amount
+    ) internal override returns (HostAmount memory) {
         emit ProvisionCalled(host_, account, asset, meta, amount);
         return HostAmount(host_, asset, meta, amount);
     }
@@ -125,22 +111,75 @@ contract TestHost is
     }
 
     // Expose internal host/admin IDs for tests
-    function getDepositId() external view returns (uint) { return depositId; }
-    function getWithdrawId() external view returns (uint) { return withdrawId; }
-    function getTransferId() external view returns (uint) { return transferId; }
-    function getCreditBalanceToAccountId() external view returns (uint) { return creditBalanceToAccountId; }
-    function getDebitAccountToBalanceId() external view returns (uint) { return debitAccountToBalanceId; }
-    function getSettleId() external view returns (uint) { return settleId; }
-    function getFundId() external view returns (uint) { return fundId; }
-    function getProvisionId() external view returns (uint) { return provisionId; }
-    function getPipeId() external view returns (uint) { return pipeId; }
-    function getAuthorizeId() external view returns (uint) { return authorizeId; }
-    function getUnauthorizeId() external view returns (uint) { return unauthorizeId; }
-    function getRelocateId() external view returns (uint) { return relocateId; }
-    function getAllowAssetsId() external view returns (uint) { return allowAssetsId; }
-    function getDenyAssetsId() external view returns (uint) { return denyAssetsId; }
-    function getSetAllocationsId() external view returns (uint) { return setAllocationsId; }
-    function getAdminAccount() external view returns (bytes32) { return adminAccount; }
-    function getCommander() external view returns (address) { return commander; }
-    function isAuthorized(uint node) external view returns (bool) { return authorized[node]; }
+    function getDepositId() external view returns (uint) {
+        return depositId;
+    }
+
+    function getWithdrawId() external view returns (uint) {
+        return withdrawId;
+    }
+
+    function getTransferId() external view returns (uint) {
+        return transferId;
+    }
+
+    function getCreditBalanceToAccountId() external view returns (uint) {
+        return creditBalanceToAccountId;
+    }
+
+    function getDebitAccountToBalanceId() external view returns (uint) {
+        return debitAccountToBalanceId;
+    }
+
+    function getSettleId() external view returns (uint) {
+        return settleId;
+    }
+
+    function getFundId() external view returns (uint) {
+        return fundId;
+    }
+
+    function getProvisionId() external view returns (uint) {
+        return provisionId;
+    }
+
+    function getPipeId() external view returns (uint) {
+        return pipeId;
+    }
+
+    function getAuthorizeId() external view returns (uint) {
+        return authorizeId;
+    }
+
+    function getUnauthorizeId() external view returns (uint) {
+        return unauthorizeId;
+    }
+
+    function getRelocateId() external view returns (uint) {
+        return relocateId;
+    }
+
+    function getAllowAssetsId() external view returns (uint) {
+        return allowAssetsId;
+    }
+
+    function getDenyAssetsId() external view returns (uint) {
+        return denyAssetsId;
+    }
+
+    function getSetAllocationsId() external view returns (uint) {
+        return setAllocationsId;
+    }
+
+    function getAdminAccount() external view returns (bytes32) {
+        return adminAccount;
+    }
+
+    function getCommander() external view returns (address) {
+        return commander;
+    }
+
+    function isAuthorized(uint node) external view returns (bool) {
+        return authorized[node];
+    }
 }

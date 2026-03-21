@@ -7,7 +7,7 @@ import {Blocks} from "../../blocks/Readers.sol";
 import {ensureAssetRef} from "../../utils/Assets.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "setAllocations";
+string constant NAME = "setAllocations";
 
 abstract contract SetAllocations is CommandBase {
     uint internal immutable setAllocationsId = commandId(NAME);

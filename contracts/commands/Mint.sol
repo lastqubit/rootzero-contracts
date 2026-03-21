@@ -6,7 +6,7 @@ import {ROUTE_KEY} from "../Schema.sol";
 import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
 using Writers for Writer;
 
-bytes32 constant NAME = "mint";
+string constant NAME = "mint";
 
 abstract contract Mint is CommandBase {
     uint internal immutable mintId = commandId(NAME);
@@ -21,12 +21,12 @@ abstract contract Mint is CommandBase {
     ) internal virtual returns (bytes32 asset, bytes32 meta, uint amount);
 
     function mint(CommandContext calldata c) external payable onlyCommand(mintId, c.target) returns (bytes memory) {
-        uint i = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, ROUTE_KEY);
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, q, ROUTE_KEY);
 
-        while (i < end) {
+        while (q < end) {
             DataRef memory route;
-            (route, i) = Data.routeFrom(c.request, i);
+            (route, q) = Data.routeFrom(c.request, q);
             (bytes32 asset, bytes32 meta, uint amount) = mint(c.account, route);
             if (amount > 0) writer.appendBalance(asset, meta, amount);
         }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {AccessControl} from "../core/Access.sol";
 import {CommandEvent} from "../events/Command.sol";
 import {toValueAsset} from "../utils/Assets.sol";
-import {localNodeAddr, toCommandId} from "../utils/Ids.sol";
+import {localNodeAddr, toCommandId, toCommandSelector} from "../utils/Ids.sol";
 
 // channels
 uint8 constant SETUP = 0x0001;
@@ -51,8 +51,8 @@ abstract contract CommandBase is AccessControl, CommandEvent {
         _;
     }
 
-    function commandId(bytes32 name) internal view returns (uint) {
-        return toCommandId(name, address(this));
+    function commandId(string memory name) internal view returns (uint) {
+        return toCommandId(toCommandSelector(name), address(this));
     }
 
     function done(uint start, uint end) internal pure returns (bytes memory) {

@@ -6,7 +6,7 @@ import {AMOUNT, RECIPIENT, AMOUNT_KEY, BlockRef} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "transfer";
+string constant NAME = "transfer";
 string constant REQUEST = string.concat(AMOUNT, ">", RECIPIENT);
 
 abstract contract Transfer is CommandBase {
@@ -19,17 +19,17 @@ abstract contract Transfer is CommandBase {
     function transfer(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        uint i = 0;
-        while (i < request.length) {
-            BlockRef memory ref = Blocks.from(request, i);
+        uint q = 0;
+        while (q < request.length) {
+            BlockRef memory ref = Blocks.from(request, q);
             if (ref.key != AMOUNT_KEY) break;
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(request);
             bytes32 to = ref.innerRecipientAt(request, ref.bound);
             transfer(from, to, asset, meta, amount);
-            i = ref.end;
+            q = ref.end;
         }
 
-        return done(0, i);
+        return done(0, q);
     }
 
     function transfer(

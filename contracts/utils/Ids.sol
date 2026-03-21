@@ -24,13 +24,17 @@ function toHostId(address addr) view returns (uint) {
     return toLocalBase(HOST_PREFIX) | uint(uint160(addr));
 }
 
-function toCommandSelector(bytes32 name) pure returns (bytes4) {
-    return bytes4(keccak256(bytes.concat(bytes(bytes32ToString(name)), bytes(COMMAND_ARGS))));
+function toCommandSelector(string memory name) pure returns (bytes4) {
+    return bytes4(keccak256(bytes.concat(bytes(name), bytes(COMMAND_ARGS))));
 }
 
-function toCommandId(bytes32 name, address addr) view returns (uint) {
+function toCommandSelector(bytes32 name) pure returns (bytes4) {
+    return toCommandSelector(bytes32ToString(name));
+}
+
+function toCommandId(bytes4 selector, address addr) view returns (uint) {
     uint id = toLocalBase(COMMAND_PREFIX) | uint(uint160(addr));
-    id |= uint(uint32(toCommandSelector(name))) << 160;
+    id |= uint(uint32(selector)) << 160;
     return id;
 }
 

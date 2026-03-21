@@ -4,19 +4,19 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
 import {AssetAmount, HostAmount, AMOUNT, ROUTE_EMPTY, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-bytes32 constant BORROWAGAINSTBALANCETOBALANCE = "borrowAgainstBalanceToBalance";
-bytes32 constant BORROWAGAINSTCUSTODYTOBALANCE = "borrowAgainstCustodyToBalance";
+string constant BABTB = "borrowAgainstBalanceToBalance";
+string constant BACTB = "borrowAgainstCustodyToBalance";
 
 using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
 abstract contract BorrowAgainstCustodyToBalance is CommandBase {
-    uint internal immutable borrowAgainstCustodyToBalanceId = commandId(BORROWAGAINSTCUSTODYTOBALANCE);
+    uint internal immutable borrowAgainstCustodyToBalanceId = commandId(BACTB);
 
     constructor(string memory maybeRoute) {
         string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
-        emit Command(host, BORROWAGAINSTCUSTODYTOBALANCE, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
+        emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
     // @dev implementation extracts the requested borrow amount from rawRoute.innerAmount()
@@ -48,11 +48,11 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
 }
 
 abstract contract BorrowAgainstBalanceToBalance is CommandBase {
-    uint internal immutable borrowAgainstBalanceToBalanceId = commandId(BORROWAGAINSTBALANCETOBALANCE);
+    uint internal immutable borrowAgainstBalanceToBalanceId = commandId(BABTB);
 
     constructor(string memory maybeRoute) {
         string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
-        emit Command(host, BORROWAGAINSTBALANCETOBALANCE, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
+        emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
     }
 
     // @dev implementation extracts the requested borrow amount from rawRoute.innerAmount()

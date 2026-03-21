@@ -9,7 +9,7 @@ import {msgValue, useValue, ValueBudget} from "../utils/Value.sol";
 
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "pipe";
+string constant NAME = "pipe";
 
 abstract contract Pipe is CommandBase {
     uint internal immutable pipeId = commandId(NAME);

@@ -6,7 +6,7 @@ import {ASSET, ASSET_KEY, BlockRef} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "allowAssets";
+string constant NAME = "allowAssets";
 
 abstract contract AllowAssets is CommandBase {
     uint internal immutable allowAssetsId = commandId(NAME);

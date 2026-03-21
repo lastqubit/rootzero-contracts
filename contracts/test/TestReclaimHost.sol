@@ -2,14 +2,14 @@
 pragma solidity ^0.8.33;
 
 import {Host} from "../core/Host.sol";
-import {ReclaimBalance} from "../commands/Reclaim.sol";
+import {ReclaimToBalance} from "../commands/Reclaim.sol";
 import {AssetAmount, DataRef} from "../blocks/Schema.sol";
 import {Data} from "../blocks/Data.sol";
 import {toHostId} from "../utils/Ids.sol";
 
 using Data for DataRef;
 
-contract TestReclaimHost is Host, ReclaimBalance {
+contract TestReclaimHost is Host, ReclaimToBalance {
     event ReclaimCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, bytes routeData);
 
     bytes32 public returnAsset;
@@ -18,7 +18,7 @@ contract TestReclaimHost is Host, ReclaimBalance {
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
-        ReclaimBalance("")
+        ReclaimToBalance("")
     {
         if (cmdr != address(0)) access(toHostId(cmdr), true);
     }
@@ -29,7 +29,7 @@ contract TestReclaimHost is Host, ReclaimBalance {
         returnAmount = amount;
     }
 
-    function reclaimBalance(
+    function reclaimToBalance(
         bytes32 account,
         AssetAmount memory amount,
         DataRef memory rawRoute
@@ -39,6 +39,6 @@ contract TestReclaimHost is Host, ReclaimBalance {
         return AssetAmount({asset: returnAsset, meta: returnMeta, amount: returnAmount});
     }
 
-    function getReclaimBalanceId() external view returns (uint) { return reclaimBalanceId; }
+    function getReclaimBalanceId() external view returns (uint) { return reclaimToBalanceId; }
     function getAdminAccount() external view returns (bytes32) { return adminAccount; }
 }

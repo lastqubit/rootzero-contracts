@@ -6,7 +6,7 @@ import {Blocks, AMOUNT} from "../contracts/Blocks.sol";
 
 bytes32 constant NAME = "myCommand";
 
-string constant SCHEMA = AMOUNT;
+string constant REQUEST = AMOUNT;
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
@@ -14,19 +14,15 @@ abstract contract MyCommand is CommandBase {
     event MyEvent(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, bytes out);
 
     constructor() {
-        emit Command(host, NAME, SCHEMA, myCommandId, SETUP, BALANCES);
-    }
-
-    function handle(bytes32 account, bytes32 asset, bytes32 meta, uint amount) private returns (bytes memory out) {
-        out = Blocks.toBalanceBlock(asset, meta, amount);
-        emit MyEvent(account, asset, meta, amount, out);
+        emit Command(host, NAME, REQUEST, myCommandId, SETUP, BALANCES);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
         (bytes32 asset, bytes32 meta, uint amount) = Blocks.unpackAmountAt(c.request, 0);
-        bytes memory out = handle(c.account, asset, meta, amount);
+        bytes memory out = Blocks.toBalanceBlock(asset, meta, amount);
+        emit MyEvent(c.account, asset, meta, amount, out);
         return out;
     }
 }

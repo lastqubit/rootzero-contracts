@@ -13,18 +13,18 @@ describe("Host Discovery", () => {
   it("announces host on construction when rush is set", async () => {
     const rush = await discovery.getAddress();
 
-    // Deploy host pointing to discovery — should emit HostRegistered during construction
+    // Deploy host pointing to discovery — should emit HostAnnounced during construction
     const artifact = await hre.artifacts.readArtifact("TestHost");
     const provider = await getProvider();
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, await provider.getSigner(0));
     const contract = await factory.deploy(rush);
     const receipt = await contract.deploymentTransaction()!.wait();
 
-    // Check discovery emitted HostRegistered
+    // Check discovery emitted HostAnnounced
     const discoveryIface = discovery.interface;
     const hostRegisteredLog = receipt!.logs.find((log: any) => {
       try {
-        return discoveryIface.parseLog(log)?.name === "HostRegistered";
+        return discoveryIface.parseLog(log)?.name === "HostAnnounced";
       } catch { return false; }
     });
     expect(hostRegisteredLog).to.not.be.undefined;
@@ -34,7 +34,7 @@ describe("Host Discovery", () => {
   });
 
   it("does NOT announce when rush is address(0)", async () => {
-    // No revert, no HostRegistered from discovery
+    // No revert, no HostAnnounced from discovery
     const host = await deploy("TestHost", ethers.ZeroAddress);
     expect(await host.getAddress()).to.not.equal(ethers.ZeroAddress);
   });
@@ -61,11 +61,11 @@ describe("Host Discovery", () => {
 
     await expect(
       discovery.connect(signer).announceHost(correctHostId, 1n, 1n, "manual")
-    ).to.emit(discovery, "HostRegistered")
+    ).to.emit(discovery, "HostAnnounced")
       .withArgs(correctHostId, 1n, 1n, "manual");
   });
 
-  it("HostRegistered event contains correct host, blocknum, version, namespace", async () => {
+  it("HostAnnounced event contains correct host, blocknum, version, namespace", async () => {
     const signer = await getSigner(0);
     const callerAddr = await signer.getAddress();
     const CHAIN_ID = 31337n;
@@ -76,7 +76,7 @@ describe("Host Discovery", () => {
     const blockNum = await provider.getBlockNumber();
     const tx = await discovery.connect(signer).announceHost(hostId, BigInt(blockNum), 2n, "v2");
     await expect(tx)
-      .to.emit(discovery, "HostRegistered")
+      .to.emit(discovery, "HostAnnounced")
       .withArgs(hostId, BigInt(blockNum), 2n, "v2");
   });
 });

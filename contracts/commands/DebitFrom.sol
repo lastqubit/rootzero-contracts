@@ -6,7 +6,7 @@ import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 import {Writers} from "../blocks/Writers.sol";
 
-bytes32 constant NAME = "debitAccountToBalance";
+string constant NAME = "debitAccountToBalance";
 
 using Blocks for BlockRef;
 using Writers for Writer;
@@ -18,7 +18,7 @@ abstract contract DebitAccountToBalance is CommandBase {
         emit Command(host, NAME, AMOUNT, debitAccountToBalanceId, SETUP, BALANCES);
     }
 
-    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual returns (uint);
+    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function debitAccountToBalance(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
         uint i = 0;

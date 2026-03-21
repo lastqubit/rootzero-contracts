@@ -4,37 +4,37 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
 import {AssetAmount, AMOUNT, ROUTE_EMPTY, ROUTE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-bytes32 constant NAME = "reclaimBalance";
+string constant NAME = "reclaimToBalance";
 
 using Data for DataRef;
 using Writers for Writer;
 
-abstract contract ReclaimBalance is CommandBase {
-    uint internal immutable reclaimBalanceId = commandId(NAME);
+abstract contract ReclaimToBalance is CommandBase {
+    uint internal immutable reclaimToBalanceId = commandId(NAME);
 
     constructor(string memory maybeRoute) {
         string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
-        emit Command(host, NAME, schema, reclaimBalanceId, SETUP, BALANCES);
+        emit Command(host, NAME, schema, reclaimToBalanceId, SETUP, BALANCES);
     }
 
-    function reclaimBalance(
+    function reclaimToBalance(
         bytes32 account,
         AssetAmount memory amount,
         DataRef memory rawRoute
-    ) internal virtual returns (AssetAmount memory);
+    ) internal virtual returns (AssetAmount memory out);
 
-    function reclaimBalance(
+    function reclaimToBalance(
         CommandContext calldata c
-    ) external payable onlyCommand(reclaimBalanceId, c.target) returns (bytes memory) {
-        uint i = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, ROUTE_KEY);
+    ) external payable onlyCommand(reclaimToBalanceId, c.target) returns (bytes memory) {
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, q, ROUTE_KEY);
 
-        while (i < end) {
-            (DataRef memory route, uint next) = Data.routeFrom(c.request, i);
+        while (q < end) {
+            DataRef memory route;
+            (route, q) = Data.routeFrom(c.request, q);
             AssetAmount memory value = route.innerAmountValue();
-            AssetAmount memory out = reclaimBalance(c.account, value, route);
+            AssetAmount memory out = reclaimToBalance(c.account, value, route);
             if (out.amount > 0) writer.appendBalance(out);
-            i = next;
         }
 
         return writer.finish();

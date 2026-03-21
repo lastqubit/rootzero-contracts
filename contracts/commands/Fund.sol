@@ -6,7 +6,7 @@ import {BALANCE_KEY, Blocks, BlockRef, NODE, Writers, Writer} from "../Blocks.so
 using Blocks for BlockRef;
 using Writers for Writer;
 
-bytes32 constant NAME = "fund";
+string constant NAME = "fund";
 
 // @dev Converts BALANCE state into CUSTODY state for a destination host.
 abstract contract Fund is CommandBase {

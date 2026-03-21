@@ -7,7 +7,7 @@ import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
 using Blocks for BlockRef;
 using Writers for Writer;
 
-bytes32 constant NAME = "provision";
+string constant NAME = "provision";
 string constant REQUEST = string.concat(AMOUNT, ">", NODE);
 
 abstract contract Provision is CommandBase {

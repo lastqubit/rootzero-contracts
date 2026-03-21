@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext, BALANCES, SETUP} from "./Base.sol";
 import {BlockRef, RECIPIENT} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
-bytes32 constant NAME = "creditBalanceToAccount";
+string constant NAME = "creditBalanceToAccount";
 
 using Blocks for BlockRef;
 
@@ -15,7 +15,7 @@ abstract contract CreditBalanceToAccount is CommandBase {
         emit Command(host, NAME, RECIPIENT, creditBalanceToAccountId, BALANCES, SETUP);
     }
 
-    function creditBalanceToAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual returns (uint);
+    function creditBalanceToAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function creditBalanceToAccount(
         CommandContext calldata c

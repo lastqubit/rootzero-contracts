@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, BALANCES} from "./Base.sol";
 import {AssetAmount, BALANCE_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-bytes32 constant NAME = "unstakeBalanceToBalance";
+string constant NAME = "unstakeBalanceToBalance";
 
 using Blocks for BlockRef;
 using Data for DataRef;

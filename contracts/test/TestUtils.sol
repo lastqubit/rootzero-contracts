@@ -66,7 +66,7 @@ contract TestUtils {
     }
 
     function testToCommandId(bytes32 name, address addr) external view returns (uint) {
-        return toCommandId(name, addr);
+        return toCommandId(toCommandSelector(name), addr);
     }
 
     function testToCommandSelector(bytes32 name) external pure returns (bytes4) {

@@ -8,15 +8,15 @@ using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
-bytes32 constant SWAPBALANCETOBALANCE = "swapExactBalanceToBalance";
-bytes32 constant SWAPCUSTODYTOBALANCE = "swapExactCustodyToBalance";
+string constant SEBTB = "swapExactBalanceToBalance";
+string constant SECTB = "swapExactCustodyToBalance";
 
 abstract contract SwapExactBalanceToBalance is CommandBase {
-    uint internal immutable swapExactBalanceToBalanceId = commandId(SWAPBALANCETOBALANCE);
+    uint internal immutable swapExactBalanceToBalanceId = commandId(SEBTB);
 
     constructor(string memory maybeRoute) {
         string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
-        emit Command(host, SWAPBALANCETOBALANCE, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
+        emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
     }
 
     // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()
@@ -48,11 +48,11 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
 }
 
 abstract contract SwapExactCustodyToBalance is CommandBase {
-    uint internal immutable swapExactCustodyToBalanceId = commandId(SWAPCUSTODYTOBALANCE);
+    uint internal immutable swapExactCustodyToBalanceId = commandId(SECTB);
 
     constructor(string memory maybeRoute) {
         string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
-        emit Command(host, SWAPCUSTODYTOBALANCE, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
+        emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
     // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()

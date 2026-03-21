@@ -4,10 +4,10 @@ import { deploy, getSigner } from "./helpers/setup.js";
 import { concat, encodeBalanceBlock, encodeRouteBlockWithAmount } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
-describe("ReclaimBalance", () => {
+describe("ReclaimToBalance", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const reclaimMethod = "reclaimBalance((uint256,bytes32,bytes,bytes))";
+  const reclaimMethod = "reclaimToBalance((uint256,bytes32,bytes,bytes))";
 
   const ASSET  = ethers.zeroPadValue("0xa1", 32);
   const META   = ethers.ZeroHash;

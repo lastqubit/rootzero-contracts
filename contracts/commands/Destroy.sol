@@ -5,7 +5,7 @@ import {CommandBase, CommandContext, SETUP} from "./Base.sol";
 import {Data, DataRef, ROUTE_KEY} from "../Blocks.sol";
 using Data for DataRef;
 
-bytes32 constant NAME = "destroy";
+string constant NAME = "destroy";
 
 abstract contract Destroy is CommandBase {
     uint internal immutable destroyId = commandId(NAME);

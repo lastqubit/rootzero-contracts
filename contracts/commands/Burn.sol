@@ -5,7 +5,7 @@ import {CommandBase, CommandContext, BALANCES, SETUP} from "./Base.sol";
 import {Blocks, BlockRef} from "../Blocks.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "burn";
+string constant NAME = "burn";
 
 abstract contract Burn is CommandBase {
     uint internal immutable burnId = commandId(NAME);

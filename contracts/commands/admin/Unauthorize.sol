@@ -6,7 +6,7 @@ import {BlockRef, NODE, NODE_KEY} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
 using Blocks for BlockRef;
 
-bytes32 constant NAME = "unauthorize";
+string constant NAME = "unauthorize";
 
 abstract contract Unauthorize is CommandBase {
     uint internal immutable unauthorizeId = commandId(NAME);

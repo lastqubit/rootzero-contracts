@@ -4,18 +4,18 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase, SETUP, BALANCES, CUSTODIES} from "./Base.sol";
 import {AssetAmount, HostAmount, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-bytes32 constant STAKECUSTODYTOBALANCE = "stakeCustodyToBalance";
-bytes32 constant STAKECUSTODYTOPOSITION = "stakeCustodyToPosition";
+string constant SCTB = "stakeCustodyToBalance";
+string constant SCTP = "stakeCustodyToPosition";
 
 using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
 abstract contract StakeCustodyToBalance is CommandBase {
-    uint internal immutable stakeCustodyToBalanceId = commandId(STAKECUSTODYTOBALANCE);
+    uint internal immutable stakeCustodyToBalanceId = commandId(SCTB);
 
     constructor(string memory route) {
-        emit Command(host, STAKECUSTODYTOBALANCE, route, stakeCustodyToBalanceId, CUSTODIES, BALANCES);
+        emit Command(host, SCTB, route, stakeCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
     function stakeCustodyToBalance(
@@ -44,10 +44,10 @@ abstract contract StakeCustodyToBalance is CommandBase {
 }
 
 abstract contract StakeCustodyToPosition is CommandBase {
-    uint internal immutable stakeCustodyToPositionId = commandId(STAKECUSTODYTOPOSITION);
+    uint internal immutable stakeCustodyToPositionId = commandId(SCTP);
 
     constructor(string memory route) {
-        emit Command(host, STAKECUSTODYTOPOSITION, route, stakeCustodyToPositionId, CUSTODIES, SETUP);
+        emit Command(host, SCTP, route, stakeCustodyToPositionId, CUSTODIES, SETUP);
     }
 
     function stakeCustodyToPosition(bytes32 account, HostAmount memory custody, DataRef memory rawRoute) internal virtual;

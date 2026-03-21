@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext, CUSTODIES, SETUP} from "./Base.sol";
 import {Blocks, BlockRef, HostAmount} from "../Blocks.sol";
-bytes32 constant NAME = "supply";
+string constant NAME = "supply";
 
 using Blocks for BlockRef;
 

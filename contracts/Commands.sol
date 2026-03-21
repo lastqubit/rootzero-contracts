@@ -12,7 +12,7 @@ import {Fund} from "./commands/Fund.sol";
 import {Mint} from "./commands/Mint.sol";
 import {Pipe} from "./commands/Pipe.sol";
 import {Provision} from "./commands/Provision.sol";
-import {ReclaimBalance} from "./commands/Reclaim.sol";
+import {ReclaimToBalance} from "./commands/Reclaim.sol";
 import {Settle} from "./commands/Settle.sol";
 import {SwapExactBalanceToBalance} from "./commands/Swap.sol";
 import {Transfer} from "./commands/Transfer.sol";
