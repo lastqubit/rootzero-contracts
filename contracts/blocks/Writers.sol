@@ -3,20 +3,13 @@ pragma solidity ^0.8.33;
 
 import {Blocks} from "./Readers.sol";
 import {MalformedBlocks} from "./Errors.sol";
-import {
-    AssetAmount,
-    BALANCE_KEY,
-    CUSTODY_KEY,
-    HostAmount,
-    TX_KEY,
-    Tx,
-    Writer
-} from "./Schema.sol";
+import {AssetAmount, BALANCE_KEY, CUSTODY_KEY, HostAmount, TX_KEY, Tx, Writer} from "./Schema.sol";
 
 error WriterOverflow();
 error IncompleteWriter();
 error EmptyRequest();
 
+uint constant ALLOC_SCALE = 10_000;
 uint constant BALANCE_BLOCK_LEN = 108;
 uint constant CUSTODY_BLOCK_LEN = 140;
 uint constant TX_BLOCK_LEN = 172;
@@ -37,11 +30,7 @@ library Writers {
         uint next = writer.i + data.length;
         if (next > writer.dst.length) revert WriterOverflow();
         assembly ("memory-safe") {
-            mcopy(
-                add(add(mload(add(writer, 0x40)), 0x20), mload(writer)),
-                add(data, 0x20),
-                mload(data)
-            )
+            mcopy(add(add(mload(add(writer, 0x40)), 0x20), mload(writer)), add(data, 0x20), mload(data))
         }
         writer.i = next;
     }
@@ -51,12 +40,7 @@ library Writers {
         uint i,
         bytes4 source
     ) internal pure returns (Writer memory writer, uint next) {
-        uint count;
-        uint len;
-        (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert EmptyRequest();
-        len = count * BALANCE_BLOCK_LEN;
-        writer = Writer({i: 0, end: len, dst: new bytes(len)});
+        return allocFromScaledCount(blocks, i, source, ALLOC_SCALE, BALANCE_BLOCK_LEN);
     }
 
     function allocPairedBalancesFrom(
@@ -64,12 +48,16 @@ library Writers {
         uint i,
         bytes4 source
     ) internal pure returns (Writer memory writer, uint next) {
-        uint count;
-        uint len;
-        (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert EmptyRequest();
-        len = count * 2 * BALANCE_BLOCK_LEN;
-        writer = Writer({i: 0, end: len, dst: new bytes(len)});
+        return allocFromScaledCount(blocks, i, source, ALLOC_SCALE * 2, BALANCE_BLOCK_LEN);
+    }
+
+    function allocScaledBalancesFrom(
+        bytes calldata blocks,
+        uint i,
+        bytes4 source,
+        uint scaledRatio
+    ) internal pure returns (Writer memory writer, uint next) {
+        return allocFromScaledCount(blocks, i, source, scaledRatio, BALANCE_BLOCK_LEN);
     }
 
     function allocTxsFrom(
@@ -77,12 +65,7 @@ library Writers {
         uint i,
         bytes4 source
     ) internal pure returns (Writer memory writer, uint next) {
-        uint count;
-        uint len;
-        (count, next) = Blocks.count(blocks, i, source);
-        if (count == 0) revert EmptyRequest();
-        len = count * TX_BLOCK_LEN;
-        writer = Writer({i: 0, end: len, dst: new bytes(len)});
+        return allocFromScaledCount(blocks, i, source, ALLOC_SCALE, TX_BLOCK_LEN);
     }
 
     function allocCustodiesFrom(
@@ -90,11 +73,22 @@ library Writers {
         uint i,
         bytes4 source
     ) internal pure returns (Writer memory writer, uint next) {
+        return allocFromScaledCount(blocks, i, source, ALLOC_SCALE, CUSTODY_BLOCK_LEN);
+    }
+
+    function allocFromScaledCount(
+        bytes calldata blocks,
+        uint i,
+        bytes4 source,
+        uint scaledRatio,
+        uint blockLen
+    ) internal pure returns (Writer memory writer, uint next) {
         uint count;
-        uint len;
         (count, next) = Blocks.count(blocks, i, source);
         if (count == 0) revert EmptyRequest();
-        len = count * CUSTODY_BLOCK_LEN;
+        uint scaledCount = count * scaledRatio;
+        if (scaledCount % ALLOC_SCALE != 0) revert MalformedBlocks();
+        uint len = (scaledCount / ALLOC_SCALE) * blockLen;
         writer = Writer({i: 0, end: len, dst: new bytes(len)});
     }
 

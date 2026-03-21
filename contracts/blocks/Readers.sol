@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, BlockRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
+import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, BlockPairRef, BlockRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
 import {InvalidBlock, MalformedBlocks, ZeroNode, ZeroRecipient} from "./Errors.sol";
 
 using Blocks for BlockRef;
@@ -23,6 +23,12 @@ library Blocks {
         ref.end = ref.i + uint32(bytes4(source[i + 8:ref.i]));
 
         if (ref.bound > ref.end || ref.end > eod) revert MalformedBlocks();
+    }
+
+    function twoFrom(bytes calldata source, uint i) internal pure returns (BlockPairRef memory ref) {
+        ref.a = from(source, i);
+        i = ref.a.end;
+        ref.b = from(source, i);
     }
 
     function childAt(
@@ -127,6 +133,16 @@ library Blocks {
         if (key == 0 || key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
     }
 
+    function ensure(BlockPairRef memory ref, bytes4 key, uint len) internal pure {
+        ensure(ref.a, key, len);
+        ensure(ref.b, key, len);
+    }
+
+    function ensure(BlockPairRef memory ref, bytes4 key, uint min, uint max) internal pure {
+        ensure(ref.a, key, min, max);
+        ensure(ref.b, key, min, max);
+    }
+
     function verifyAuth(
         BlockRef memory ref,
         bytes calldata source,
@@ -198,8 +214,18 @@ library Blocks {
         ensure(ref, AMOUNT_KEY, 96);
     }
 
+    function amountTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPairRef memory ref) {
+        ref = twoFrom(source, i);
+        ensure(ref, AMOUNT_KEY, 96);
+    }
+
     function balanceFrom(bytes calldata source, uint i) internal pure returns (BlockRef memory ref) {
         ref = from(source, i);
+        ensure(ref, BALANCE_KEY, 96);
+    }
+
+    function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPairRef memory ref) {
+        ref = twoFrom(source, i);
         ensure(ref, BALANCE_KEY, 96);
     }
 
@@ -230,6 +256,11 @@ library Blocks {
 
     function custodyFrom(bytes calldata source, uint i) internal pure returns (BlockRef memory ref) {
         ref = from(source, i);
+        ensure(ref, CUSTODY_KEY, 128);
+    }
+
+    function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPairRef memory ref) {
+        ref = twoFrom(source, i);
         ensure(ref, CUSTODY_KEY, 128);
     }
 

@@ -107,11 +107,21 @@ struct BlockRef {
     uint end;
 }
 
+struct BlockPairRef {
+    BlockRef a;
+    BlockRef b;
+}
+
 struct DataRef {
     bytes4 key;
     uint i;
     uint bound;
     uint end;
+}
+
+struct DataPairRef {
+    DataRef a;
+    DataRef b;
 }
 
 struct MemRef {

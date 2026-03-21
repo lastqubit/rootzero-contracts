@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
+import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, DataPairRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
 import {InvalidBlock, MalformedBlocks} from "./Errors.sol";
 
 using Data for DataRef;
@@ -51,6 +51,11 @@ library Data {
         next = i + (ref.end - ref.i) + 12;
     }
 
+    function twoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
+        (ref.a, i) = from(source, i);
+        (ref.b, next) = from(source, i);
+    }
+
     function childAt(DataRef memory parent, uint i) internal pure returns (DataRef memory ref) {
         if (i < parent.bound || i >= parent.end) revert MalformedBlocks();
         ref = at(i);
@@ -90,6 +95,16 @@ library Data {
     function ensure(DataRef memory ref, bytes4 key, uint min, uint max) internal pure {
         uint len = ref.bound - ref.i;
         if (key == 0 || key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
+    }
+
+    function ensure(DataPairRef memory ref, bytes4 key, uint len) internal pure {
+        ensure(ref.a, key, len);
+        ensure(ref.b, key, len);
+    }
+
+    function ensure(DataPairRef memory ref, bytes4 key, uint min, uint max) internal pure {
+        ensure(ref.a, key, min, max);
+        ensure(ref.b, key, min, max);
     }
 
     // ── *From ─────────────────────────────────────────────────────────────────
@@ -139,8 +154,18 @@ library Data {
         ensure(ref, AMOUNT_KEY, 96);
     }
 
+    function amountTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
+        (ref, next) = twoFrom(source, i);
+        ensure(ref, AMOUNT_KEY, 96);
+    }
+
     function balanceFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
         (ref, next) = from(source, i);
+        ensure(ref, BALANCE_KEY, 96);
+    }
+
+    function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
+        (ref, next) = twoFrom(source, i);
         ensure(ref, BALANCE_KEY, 96);
     }
 
@@ -171,6 +196,11 @@ library Data {
 
     function custodyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
         (ref, next) = from(source, i);
+        ensure(ref, CUSTODY_KEY, 128);
+    }
+
+    function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
+        (ref, next) = twoFrom(source, i);
         ensure(ref, CUSTODY_KEY, 128);
     }
 
