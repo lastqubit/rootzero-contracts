@@ -21,15 +21,15 @@ abstract contract DebitAccountToBalance is CommandBase {
     function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function debitAccountToBalance(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        uint i = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(request, i, AMOUNT_KEY);
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(request, q, AMOUNT_KEY);
 
-        while (i < end) {
-            BlockRef memory ref = Blocks.amountFrom(request, i);
+        while (q < end) {
+            BlockRef memory ref = Blocks.from(request, q);
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(request);
             debitAccountToBalance(from, asset, meta, amount);
             writer.appendBalance(asset, meta, amount);
-            i = ref.end;
+            q = ref.end;
         }
 
         return writer.done();

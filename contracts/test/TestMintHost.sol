@@ -2,11 +2,14 @@
 pragma solidity ^0.8.33;
 
 import {Host} from "../core/Host.sol";
-import {Mint} from "../commands/Mint.sol";
-import {DataRef} from "../blocks/Schema.sol";
+import {MintToBalances} from "../commands/Mint.sol";
+import {DataRef, Writer} from "../blocks/Schema.sol";
+import {Writers} from "../blocks/Writers.sol";
 import {toHostId} from "../utils/Ids.sol";
 
-contract TestMintHost is Host, Mint {
+using Writers for Writer;
+
+contract TestMintHost is Host, MintToBalances {
     event MintCalled(bytes32 account, bytes routeData);
 
     bytes32 public returnAsset;
@@ -15,7 +18,7 @@ contract TestMintHost is Host, Mint {
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
-        Mint("")
+        MintToBalances("", 10_000)
     {
         if (cmdr != address(0)) access(toHostId(cmdr), true);
     }
@@ -26,15 +29,12 @@ contract TestMintHost is Host, Mint {
         returnAmount = amount;
     }
 
-    function mint(bytes32 account, DataRef memory rawRoute)
-        internal override
-        returns (bytes32 asset, bytes32 meta, uint amount)
-    {
+    function mintToBalances(bytes32 account, DataRef memory rawRoute, Writer memory out) internal override {
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         emit MintCalled(account, routeData);
-        return (returnAsset, returnMeta, returnAmount);
+        if (returnAmount > 0) out.appendBalance(returnAsset, returnMeta, returnAmount);
     }
 
-    function getMintId() external view returns (uint) { return mintId; }
+    function getMintId() external view returns (uint) { return mintToBalancesId; }
     function getAdminAccount() external view returns (bytes32) { return adminAccount; }
 }

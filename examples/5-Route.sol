@@ -4,18 +4,17 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext} from "../contracts/Commands.sol";
 import {AssetAmount, AMOUNT} from "../contracts/Schema.sol";
 import {Data, DataRef} from "../contracts/Blocks.sol";
-import {toCommandId} from "../contracts/Utils.sol";
 
 using Data for DataRef;
 
-bytes32 constant NAME = "myCommand";
+string constant NAME = "myCommand";
 
 string constant ROUTE = "route(uint rate)";
 
 string constant SCHEMA = string.concat(ROUTE, ">", AMOUNT);
 
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = toCommandId(NAME, address(this));
+    uint internal immutable myCommandId = commandId(NAME);
 
     event MyEvent(bytes32 asset, bytes32 meta, uint amount, uint rate);
 

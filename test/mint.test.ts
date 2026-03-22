@@ -4,10 +4,10 @@ import { deploy, getSigner } from "./helpers/setup.js";
 import { concat, encodeBalanceBlock, encodeRouteBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
-describe("Mint", () => {
+describe("MintToBalances", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const mintMethod = "mint((uint256,bytes32,bytes,bytes))";
+  const mintMethod = "mintToBalances((uint256,bytes32,bytes,bytes))";
 
   const ASSET  = ethers.zeroPadValue("0xa1", 32);
   const META   = ethers.ZeroHash;

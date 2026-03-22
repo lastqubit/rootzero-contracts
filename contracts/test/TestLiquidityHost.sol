@@ -50,19 +50,19 @@ contract TestLiquidityHost is
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
-        AddLiquidityFromCustodiesToBalances("route(bytes data)")
-        RemoveLiquidityFromCustodyToBalances("route(bytes data)")
-        AddLiquidityFromBalancesToBalances("route(bytes data)")
-        RemoveLiquidityFromBalanceToBalances("route(bytes data)")
+        AddLiquidityFromCustodiesToBalances("route(bytes data)", 15_000)
+        RemoveLiquidityFromCustodyToBalances("route(bytes data)", 20_000)
+        AddLiquidityFromBalancesToBalances("route(bytes data)", 15_000)
+        RemoveLiquidityFromBalanceToBalances("route(bytes data)", 20_000)
     {
         if (cmdr != address(0)) access(toHostId(cmdr), true);
     }
 
     function addLiquidityFromCustodiesToBalances(
-        Writer memory out,
         bytes32 account,
         DataPairRef memory rawCustodies,
-        DataRef memory rawRoute
+        DataRef memory rawRoute,
+        Writer memory out
     ) internal override {
         HostAmount memory a = rawCustodies.a.toCustodyValue();
         HostAmount memory b = rawCustodies.b.toCustodyValue();
@@ -77,12 +77,11 @@ contract TestLiquidityHost is
     }
 
     function removeLiquidityFromCustodyToBalances(
-        Writer memory out,
         bytes32 account,
-        DataRef memory rawCustody,
-        DataRef memory rawRoute
+        HostAmount memory custody,
+        DataRef memory rawRoute,
+        Writer memory out
     ) internal override {
-        HostAmount memory custody = rawCustody.toCustodyValue();
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         uint routeLen = rawRoute.bound - rawRoute.i;
         emit RemoveCustodyMapped(account, custody.asset, custody.amount, routeData);
@@ -93,10 +92,10 @@ contract TestLiquidityHost is
     }
 
     function addLiquidityFromBalancesToBalances(
-        Writer memory out,
         bytes32 account,
         DataPairRef memory rawBalances,
-        DataRef memory rawRoute
+        DataRef memory rawRoute,
+        Writer memory out
     ) internal override {
         AssetAmount memory a = rawBalances.a.toBalanceValue();
         AssetAmount memory b = rawBalances.b.toBalanceValue();
@@ -111,12 +110,11 @@ contract TestLiquidityHost is
     }
 
     function removeLiquidityFromBalanceToBalances(
-        Writer memory out,
         bytes32 account,
-        DataRef memory rawBalance,
-        DataRef memory rawRoute
+        AssetAmount memory balance,
+        DataRef memory rawRoute,
+        Writer memory out
     ) internal override {
-        AssetAmount memory balance = rawBalance.toBalanceValue();
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         uint routeLen = rawRoute.bound - rawRoute.i;
         emit RemoveBalanceMapped(account, balance.asset, balance.amount, routeData);

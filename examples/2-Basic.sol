@@ -10,14 +10,8 @@ contract ExampleHost is Host, DebitAccountToBalance {
 
     constructor(address rush) Host(rush, 1, "example") {}
 
-    function debitAccountToBalance(
-        bytes32 account,
-        bytes32 asset,
-        bytes32 meta,
-        uint amount
-    ) internal override returns (uint) {
+    function debitAccountToBalance(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         bytes32 ref = ensureAssetRef(asset, meta);
         balances[account][ref] -= amount;
-        return amount;
     }
 }

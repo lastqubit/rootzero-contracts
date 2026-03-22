@@ -24,7 +24,7 @@ abstract contract Fund is CommandBase {
         (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.state, i, BALANCE_KEY);
 
         while (i < end) {
-            BlockRef memory ref = Blocks.balanceFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance(c.state);
             fund(h, c.account, asset, meta, amount);
             writer.appendCustody(h, asset, meta, amount);

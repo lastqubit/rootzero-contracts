@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {CommandBase, CommandContext, BALANCES, SETUP} from "../contracts/Commands.sol";
 import {Blocks, AMOUNT} from "../contracts/Blocks.sol";
 
-bytes32 constant NAME = "myCommand";
+string constant NAME = "myCommand";
 
 string constant REQUEST = AMOUNT;
 

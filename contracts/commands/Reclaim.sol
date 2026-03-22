@@ -2,39 +2,42 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
-import {AssetAmount, AMOUNT, ROUTE_EMPTY, ROUTE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, AMOUNT, ROUTE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {routeSchema1} from "../utils/Utils.sol";
 
-string constant NAME = "reclaimToBalance";
+string constant NAME = "reclaimToBalances";
 
 using Data for DataRef;
 using Writers for Writer;
 
-abstract contract ReclaimToBalance is CommandBase {
-    uint internal immutable reclaimToBalanceId = commandId(NAME);
+abstract contract ReclaimToBalances is CommandBase {
+    uint internal immutable reclaimToBalancesId = commandId(NAME);
+    uint internal immutable rtbOutScale;
 
-    constructor(string memory maybeRoute) {
-        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
-        emit Command(host, NAME, schema, reclaimToBalanceId, SETUP, BALANCES);
+    constructor(string memory maybeRoute, uint scaledRatio) {
+        rtbOutScale = scaledRatio;
+        string memory schema = routeSchema1(maybeRoute, AMOUNT);
+        emit Command(host, NAME, schema, reclaimToBalancesId, SETUP, BALANCES);
     }
 
-    function reclaimToBalance(
+    function reclaimToBalances(
         bytes32 account,
         AssetAmount memory amount,
-        DataRef memory rawRoute
-    ) internal virtual returns (AssetAmount memory out);
+        DataRef memory rawRoute,
+        Writer memory out
+    ) internal virtual;
 
-    function reclaimToBalance(
+    function reclaimToBalances(
         CommandContext calldata c
-    ) external payable onlyCommand(reclaimToBalanceId, c.target) returns (bytes memory) {
+    ) external payable onlyCommand(reclaimToBalancesId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, q, ROUTE_KEY);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, ROUTE_KEY, rtbOutScale);
 
         while (q < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
             AssetAmount memory value = route.innerAmountValue();
-            AssetAmount memory out = reclaimToBalance(c.account, value, route);
-            if (out.amount > 0) writer.appendBalance(out);
+            reclaimToBalances(c.account, value, route, writer);
         }
 
         return writer.finish();

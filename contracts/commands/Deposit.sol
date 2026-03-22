@@ -29,15 +29,15 @@ abstract contract Deposit is CommandBase {
     function deposit(
         CommandContext calldata c
     ) external payable onlyCommand(depositId, c.target) returns (bytes memory) {
-        uint i = 0;
-        (Writer memory writer, uint next) = Writers.allocBalancesFrom(c.request, i, AMOUNT_KEY);
+        uint q = 0;
+        (Writer memory writer, uint next) = Writers.allocBalancesFrom(c.request, q, AMOUNT_KEY);
 
-        while (i < next) {
-            BlockRef memory ref = Blocks.amountFrom(c.request, i);
+        while (q < next) {
+            BlockRef memory ref = Blocks.from(c.request, q);
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(c.request);
             deposit(c.account, asset, meta, amount);
             writer.appendBalance(asset, meta, amount);
-            i = ref.end;
+            q = ref.end;
         }
 
         return writer.done();

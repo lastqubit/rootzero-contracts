@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
+import {ROUTE_EMPTY} from "../blocks/Schema.sol";
+
 uint16 constant MAX_BPS = 10_000;
 
 error ValueOverflow();
@@ -104,4 +106,12 @@ function applyBps(uint amount, uint16 bps) pure returns (uint) {
 function beforeBps(uint amount, uint16 bps) pure returns (uint) {
     if (amount == 0 || bps == 0) return 0;
     return (amount * MAX_BPS) / (MAX_BPS + bps);
+}
+
+function routeSchema1(string memory maybeRoute, string memory a) pure returns (string memory) {
+    return string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", a);
+}
+
+function routeSchema2(string memory maybeRoute, string memory a, string memory b) pure returns (string memory) {
+    return string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", a, ">", b);
 }

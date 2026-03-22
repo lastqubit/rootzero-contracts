@@ -7,7 +7,7 @@ import {AssetAmount, Blocks, BlockRef, Writers, Writer, AMOUNT, AMOUNT_KEY} from
 using Blocks for BlockRef;
 using Writers for Writer;
 
-bytes32 constant NAME = "myCommand";
+string constant NAME = "myCommand";
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);

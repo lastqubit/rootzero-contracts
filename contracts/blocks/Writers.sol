@@ -76,6 +76,15 @@ library Writers {
         return allocFromScaledCount(blocks, i, source, ALLOC_SCALE, CUSTODY_BLOCK_LEN);
     }
 
+    function allocScaledCustodiesFrom(
+        bytes calldata blocks,
+        uint i,
+        bytes4 source,
+        uint scaledRatio
+    ) internal pure returns (Writer memory writer, uint next) {
+        return allocFromScaledCount(blocks, i, source, scaledRatio, CUSTODY_BLOCK_LEN);
+    }
+
     function allocFromScaledCount(
         bytes calldata blocks,
         uint i,

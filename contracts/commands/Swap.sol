@@ -2,8 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
-import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_EMPTY, ROUTE_KEY, MINIMUM} from "../blocks/Schema.sol";
+import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_KEY, MINIMUM} from "../blocks/Schema.sol";
 import {Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {routeSchema1} from "../utils/Utils.sol";
 using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
@@ -15,7 +16,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     uint internal immutable swapExactBalanceToBalanceId = commandId(SEBTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, MINIMUM);
         emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
     }
 
@@ -36,7 +37,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
         while (i < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.balanceFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
             AssetAmount memory balance = ref.toBalanceValue(c.state);
             AssetAmount memory out = swapExactBalanceToBalance(c.account, balance, route);
             if (out.amount > 0) writer.appendBalance(out);
@@ -51,7 +52,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     uint internal immutable swapExactCustodyToBalanceId = commandId(SECTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, MINIMUM);
         emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 

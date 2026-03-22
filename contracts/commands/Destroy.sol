@@ -17,14 +17,14 @@ abstract contract Destroy is CommandBase {
     function destroy(bytes32 account, DataRef memory rawRoute) internal virtual;
 
     function destroy(CommandContext calldata c) external payable onlyCommand(destroyId, c.target) returns (bytes memory) {
-        uint i = 0;
-        while (i < c.request.length) {
-            (DataRef memory ref, uint next) = Data.from(c.request, i);
+        uint q = 0;
+        while (q < c.request.length) {
+            (DataRef memory ref, uint next) = Data.from(c.request, q);
             if (ref.key != ROUTE_KEY) break;
             destroy(c.account, ref);
-            i = next;
+            q = next;
         }
 
-        return done(0, i);
+        return done(0, q);
     }
 }

@@ -44,5 +44,5 @@ import {
     toHostId
 } from "./utils/Ids.sol";
 import {bytes32ToString} from "./utils/Strings.sol";
-import {isFamily, isLocal, isLocalFamily, toLocalFamily} from "./utils/Utils.sol";
+import {isFamily, isLocal, isLocalFamily, routeSchema1, routeSchema2, toLocalFamily} from "./utils/Utils.sol";
 import {InsufficientValue, msgValue, useValue, ValueBudget} from "./utils/Value.sol";

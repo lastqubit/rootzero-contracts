@@ -2,7 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
-import {AssetAmount, HostAmount, AMOUNT, ROUTE_EMPTY, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, HostAmount, AMOUNT, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {routeSchema1} from "../utils/Utils.sol";
 
 string constant BABTB = "borrowAgainstBalanceToBalance";
 string constant BACTB = "borrowAgainstCustodyToBalance";
@@ -15,7 +16,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     uint internal immutable borrowAgainstCustodyToBalanceId = commandId(BACTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
+        string memory schema = routeSchema1(maybeRoute, AMOUNT);
         emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
@@ -36,7 +37,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
         while (i < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.custodyFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
             AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, route);
             if (out.amount > 0) writer.appendBalance(out);
@@ -51,7 +52,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
     uint internal immutable borrowAgainstBalanceToBalanceId = commandId(BABTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = string.concat(bytes(maybeRoute).length == 0 ? ROUTE_EMPTY : maybeRoute, ">", AMOUNT);
+        string memory schema = routeSchema1(maybeRoute, AMOUNT);
         emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
     }
 

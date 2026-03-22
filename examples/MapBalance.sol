@@ -7,10 +7,10 @@ import {AssetAmount} from "../contracts/Schema.sol";
 import {MapBalance} from "../contracts/combinators/MapBalance.sol";
 import {toCommandId} from "../contracts/Utils.sol";
 
-bytes32 constant NAME = "myCommand";
+string constant NAME = "myCommand";
 
 contract ExampleHost is Host, MapBalance {
-    uint immutable myCommandId = toCommandId(NAME, address(this));
+    uint immutable myCommandId = commandId(NAME);
 
     constructor(address rush) Host(rush, 1, "example") {
         emit Command(host, NAME, "", myCommandId, 0, 0);
@@ -21,7 +21,7 @@ contract ExampleHost is Host, MapBalance {
         AssetAmount memory balance
     ) internal pure override returns (AssetAmount memory out) {
         // explain map can return some other asset. transforming from one asset to another.
-        return (AssetAmount(balance.asset, balance.meta, balance.amount / 2));
+        return AssetAmount(balance.asset, balance.meta, balance.amount / 2);
     }
 
     function myCommand(

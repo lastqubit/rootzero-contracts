@@ -2,14 +2,16 @@
 pragma solidity ^0.8.33;
 
 import {Host} from "../core/Host.sol";
-import {ReclaimToBalance} from "../commands/Reclaim.sol";
-import {AssetAmount, DataRef} from "../blocks/Schema.sol";
+import {ReclaimToBalances} from "../commands/Reclaim.sol";
+import {AssetAmount, DataRef, Writer} from "../blocks/Schema.sol";
 import {Data} from "../blocks/Data.sol";
+import {Writers} from "../blocks/Writers.sol";
 import {toHostId} from "../utils/Ids.sol";
 
 using Data for DataRef;
+using Writers for Writer;
 
-contract TestReclaimHost is Host, ReclaimToBalance {
+contract TestReclaimHost is Host, ReclaimToBalances {
     event ReclaimCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, bytes routeData);
 
     bytes32 public returnAsset;
@@ -18,7 +20,7 @@ contract TestReclaimHost is Host, ReclaimToBalance {
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
-        ReclaimToBalance("")
+        ReclaimToBalances("", 10_000)
     {
         if (cmdr != address(0)) access(toHostId(cmdr), true);
     }
@@ -29,16 +31,17 @@ contract TestReclaimHost is Host, ReclaimToBalance {
         returnAmount = amount;
     }
 
-    function reclaimToBalance(
+    function reclaimToBalances(
         bytes32 account,
         AssetAmount memory amount,
-        DataRef memory rawRoute
-    ) internal override returns (AssetAmount memory) {
+        DataRef memory rawRoute,
+        Writer memory out
+    ) internal override {
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         emit ReclaimCalled(account, amount.asset, amount.meta, amount.amount, routeData);
-        return AssetAmount({asset: returnAsset, meta: returnMeta, amount: returnAmount});
+        if (returnAmount > 0) out.appendBalance(returnAsset, returnMeta, returnAmount);
     }
 
-    function getReclaimBalanceId() external view returns (uint) { return reclaimToBalanceId; }
+    function getReclaimBalanceId() external view returns (uint) { return reclaimToBalancesId; }
     function getAdminAccount() external view returns (bytes32) { return adminAccount; }
 }

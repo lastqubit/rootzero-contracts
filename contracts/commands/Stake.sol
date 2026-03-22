@@ -2,40 +2,81 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, SETUP, BALANCES, CUSTODIES} from "./Base.sol";
-import {AssetAmount, HostAmount, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-string constant SCTB = "stakeCustodyToBalance";
+string constant SBTB = "stakeBalanceToBalances";
+string constant SCTB = "stakeCustodyToBalances";
 string constant SCTP = "stakeCustodyToPosition";
 
 using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
-abstract contract StakeCustodyToBalance is CommandBase {
-    uint internal immutable stakeCustodyToBalanceId = commandId(SCTB);
+abstract contract StakeBalanceToBalances is CommandBase {
+    uint internal immutable stakeBalanceToBalancesId = commandId(SBTB);
+    uint internal immutable sbtbOutScale;
 
-    constructor(string memory route) {
-        emit Command(host, SCTB, route, stakeCustodyToBalanceId, CUSTODIES, BALANCES);
+    constructor(string memory route, uint scaledRatio) {
+        sbtbOutScale = scaledRatio;
+        emit Command(host, SBTB, route, stakeBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    function stakeCustodyToBalance(
+    function stakeBalanceToBalances(
         bytes32 account,
-        HostAmount memory custody,
-        DataRef memory rawRoute
-    ) internal virtual returns (AssetAmount memory);
+        AssetAmount memory balance,
+        DataRef memory rawRoute,
+        Writer memory out
+    ) internal virtual;
 
-    function stakeCustodyToBalance(CommandContext calldata c) external payable onlyCommand(stakeCustodyToBalanceId, c.target) returns (bytes memory) {
+    function stakeBalanceToBalances(
+        CommandContext calldata c
+    ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, CUSTODY_KEY);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, sbtbOutScale);
 
         while (i < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.custodyFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            stakeBalanceToBalances(c.account, balance, route, writer);
+            i = ref.end;
+        }
+
+        return writer.finish();
+    }
+}
+
+abstract contract StakeCustodyToBalances is CommandBase {
+    uint internal immutable stakeCustodyToBalancesId = commandId(SCTB);
+    uint internal immutable sctbOutScale;
+
+    constructor(string memory route, uint scaledRatio) {
+        sctbOutScale = scaledRatio;
+        emit Command(host, SCTB, route, stakeCustodyToBalancesId, CUSTODIES, BALANCES);
+    }
+
+    function stakeCustodyToBalances(
+        bytes32 account,
+        HostAmount memory custody,
+        DataRef memory rawRoute,
+        Writer memory out
+    ) internal virtual;
+
+    function stakeCustodyToBalances(
+        CommandContext calldata c
+    ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
+        uint i = 0;
+        uint q = 0;
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, sctbOutScale);
+
+        while (i < end) {
+            DataRef memory route;
+            (route, q) = Data.routeFrom(c.request, q);
+            BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
-            AssetAmount memory out = stakeCustodyToBalance(c.account, custody, route);
-            if (out.amount > 0) writer.appendBalance(out);
+            stakeCustodyToBalances(c.account, custody, route, writer);
             i = ref.end;
         }
 

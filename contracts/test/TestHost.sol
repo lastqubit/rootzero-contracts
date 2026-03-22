@@ -14,7 +14,10 @@ import {Pipe} from "../commands/Pipe.sol";
 import {AllowAssets} from "../commands/admin/AllowAssets.sol";
 import {DenyAssets} from "../commands/admin/DenyAssets.sol";
 import {SetAllocations} from "../commands/admin/SetAllocations.sol";
-import {HostAmount, Tx} from "../blocks/Schema.sol";
+import {Tx, Writer} from "../blocks/Schema.sol";
+import {Writers} from "../blocks/Writers.sol";
+
+using Writers for Writer;
 
 contract TestHost is
     Host,
@@ -46,7 +49,7 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address rush) Host(rush, 1, "test") Deposit() {}
+    constructor(address rush) Host(rush, 1, "test") Deposit() Provision(10_000) {}
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);
@@ -77,18 +80,20 @@ contract TestHost is
     }
 
     function provision(
-        uint host_,
         bytes32 account,
+        uint host_,
         bytes32 asset,
         bytes32 meta,
-        uint amount
-    ) internal override returns (HostAmount memory) {
+        uint amount,
+        Writer memory out
+    ) internal override {
         emit ProvisionCalled(host_, account, asset, meta, amount);
-        return HostAmount(host_, asset, meta, amount);
+        out.appendCustody(host_, asset, meta, amount);
     }
 
-    function allowAsset(bytes32 asset, bytes32 meta) internal override {
+    function allowAsset(bytes32 asset, bytes32 meta) internal override returns (bool) {
         emit AllowAssetCalled(asset, meta);
+        return true;
     }
 
     function denyAsset(bytes32 asset, bytes32 meta) internal override {
