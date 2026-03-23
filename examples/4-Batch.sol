@@ -23,7 +23,7 @@ abstract contract MyCommand is CommandBase {
         (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, AMOUNT_KEY);
 
         while (i < end) {
-            BlockRef memory ref = Blocks.amountFrom(c.request, i);
+            BlockRef memory ref = Blocks.from(c.request, i);
             AssetAmount memory value = ref.toAmountValue(c.request);
             writer.appendBalance(value);
             i = ref.end;

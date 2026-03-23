@@ -23,6 +23,7 @@ import {
     FUNDING,
     FUNDING_KEY,
     HostAmount,
+    UserAmount,
     LISTING,
     LISTING_KEY,
     Listing,

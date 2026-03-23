@@ -79,17 +79,24 @@ struct AssetAmount {
     uint amount;
 }
 
-struct Listing {
-    uint host;
-    bytes32 asset;
-    bytes32 meta;
-}
-
 struct HostAmount {
     uint host;
     bytes32 asset;
     bytes32 meta;
     uint amount;
+}
+
+struct UserAmount {
+    bytes32 account;
+    bytes32 asset;
+    bytes32 meta;
+    uint amount;
+}
+
+struct Listing {
+    uint host;
+    bytes32 asset;
+    bytes32 meta;
 }
 
 struct Tx {

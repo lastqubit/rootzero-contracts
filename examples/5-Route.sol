@@ -10,16 +10,13 @@ using Data for DataRef;
 string constant NAME = "myCommand";
 
 string constant ROUTE = "route(uint rate)";
-
-string constant SCHEMA = string.concat(ROUTE, ">", AMOUNT);
+string constant REQUEST = string.concat(ROUTE, ">", AMOUNT);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
-    event MyEvent(bytes32 asset, bytes32 meta, uint amount, uint rate);
-
     constructor() {
-        emit Command(host, NAME, SCHEMA, myCommandId, 0, 0);
+        emit Command(host, NAME, REQUEST, myCommandId, 0, 0);
     }
 
     function myCommand(
@@ -28,7 +25,6 @@ abstract contract MyCommand is CommandBase {
         (DataRef memory route, ) = Data.routeFrom(c.request, 0);
         uint rate = uint(route.unpackRoute32());
         (bytes32 asset, bytes32 meta, uint amount) = route.innerAmount();
-        emit MyEvent(asset, meta, amount, rate);
         return "";
     }
 }
