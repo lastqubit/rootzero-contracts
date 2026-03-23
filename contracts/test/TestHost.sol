@@ -11,8 +11,8 @@ import {Settle} from "../commands/Settle.sol";
 import {Fund} from "../commands/Fund.sol";
 import {Provision} from "../commands/Provision.sol";
 import {Pipe} from "../commands/Pipe.sol";
-import {AllowAssets} from "../commands/admin/AllowAssets.sol";
-import {DenyAssets} from "../commands/admin/DenyAssets.sol";
+import {AllowAssets} from "../commands/AllowAssets.sol";
+import {DenyAssets} from "../commands/DenyAssets.sol";
 import {SetAllocations} from "../commands/admin/SetAllocations.sol";
 import {Tx, Writer} from "../blocks/Schema.sol";
 import {Writers} from "../blocks/Writers.sol";
@@ -96,8 +96,9 @@ contract TestHost is
         return true;
     }
 
-    function denyAsset(bytes32 asset, bytes32 meta) internal override {
+    function denyAsset(bytes32 asset, bytes32 meta) internal override returns (bool) {
         emit DenyAssetCalled(asset, meta);
+        return true;
     }
 
     function setAllocation(uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {

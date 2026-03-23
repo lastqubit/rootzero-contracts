@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {BALANCES, CommandBase, CommandContext, CUSTODIES, NoOperation, PIPE, SETUP, TRANSACTIONS} from "./commands/Base.sol";
+import {CommandBase, CommandContext, NoOperation} from "./commands/Base.sol";
+import {BALANCES, CLAIMS, CUSTODIES, PIPE, SETUP, TRANSACTIONS} from "./utils/Channels.sol";
 import {Burn} from "./commands/Burn.sol";
 import {Create} from "./commands/Create.sol";
 import {CreditBalanceToAccount} from "./commands/CreditTo.sol";
@@ -17,9 +18,9 @@ import {Settle} from "./commands/Settle.sol";
 import {SwapExactBalanceToBalance} from "./commands/Swap.sol";
 import {Transfer} from "./commands/Transfer.sol";
 import {Withdraw} from "./commands/Withdraw.sol";
-import {AllowAssets} from "./commands/admin/AllowAssets.sol";
+import {AllowAssets} from "./commands/AllowAssets.sol";
 import {Authorize} from "./commands/admin/Authorize.sol";
-import {DenyAssets} from "./commands/admin/DenyAssets.sol";
+import {DenyAssets} from "./commands/DenyAssets.sol";
 import {Relocate} from "./commands/admin/Relocate.sol";
 import {SetAllocations} from "./commands/admin/SetAllocations.sol";
 import {Unauthorize} from "./commands/admin/Unauthorize.sol";

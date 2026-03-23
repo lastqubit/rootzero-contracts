@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, SETUP} from "../utils/Channels.sol";
 import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
 import {Writers} from "../blocks/Writers.sol";

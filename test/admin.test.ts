@@ -114,10 +114,12 @@ describe("Admin Commands", () => {
       await expect(tx).to.emit(host, "AllowAssetCalled").withArgs(a2, m);
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
-      const fakeAdmin = ethers.zeroPadValue("0x03", 32);
-      await expect(callAs(0, "allowAssets", userCtx(fakeAdmin, encodeAssetBlock(ethers.zeroPadValue("0x01", 32), ethers.ZeroHash))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+    it("allows non-admin accounts in the command context", async () => {
+      const user = ethers.zeroPadValue("0x03", 32);
+      const asset = ethers.zeroPadValue("0x01", 32);
+      await expect(callAs(0, "allowAssets", userCtx(user, encodeAssetBlock(asset, ethers.ZeroHash))))
+        .to.emit(host, "AllowAssetCalled")
+        .withArgs(asset, ethers.ZeroHash);
     });
 
     it("reverts NoOperation for empty request", async () => {
@@ -137,10 +139,12 @@ describe("Admin Commands", () => {
         .withArgs(asset, meta);
     });
 
-    it("reverts NotAdmin for non-admin", async () => {
-      const fakeAdmin = ethers.zeroPadValue("0x04", 32);
-      await expect(callAs(0, "denyAssets", userCtx(fakeAdmin, encodeAssetBlock(ethers.zeroPadValue("0x01", 32), ethers.ZeroHash))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+    it("allows non-admin accounts in the command context", async () => {
+      const user = ethers.zeroPadValue("0x04", 32);
+      const asset = ethers.zeroPadValue("0x01", 32);
+      await expect(callAs(0, "denyAssets", userCtx(user, encodeAssetBlock(asset, ethers.ZeroHash))))
+        .to.emit(host, "DenyAssetCalled")
+        .withArgs(asset, ethers.ZeroHash);
     });
 
     it("reverts NoOperation for empty request", async () => {
@@ -193,7 +197,7 @@ describe("Admin Commands", () => {
 
       // Compute host ID for target
       const CHAIN_ID = 31337n; // Hardhat default
-      const HOST_PREFIX = 0x20010303n;
+      const HOST_PREFIX = 0x20010201n;
       const targetHostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(targetAddr);
 
       // Authorize the target
@@ -224,7 +228,7 @@ describe("Admin Commands", () => {
       const rejectorAddr = await rejector.getAddress();
       const provider = await getProvider();
       const network = await provider.getNetwork();
-      const HOST_PREFIX = 0x20010303n;
+      const HOST_PREFIX = 0x20010201n;
       const rejectorHostId = (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(rejectorAddr);
 
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(rejectorHostId)));

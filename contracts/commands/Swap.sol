@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_KEY, MINIMUM} from "../blocks/Schema.sol";
 import {Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 import {routeSchema1} from "../utils/Utils.sol";
@@ -73,7 +74,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
         while (i < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.custodyFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
             AssetAmount memory out = swapExactCustodyToBalance(c.account, custody, route);
             if (out.amount > 0) writer.appendBalance(out);

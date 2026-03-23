@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, SETUP} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, SETUP} from "../utils/Channels.sol";
 import {AssetAmount, AMOUNT, ROUTE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 import {routeSchema1} from "../utils/Utils.sol";
 
@@ -12,10 +13,10 @@ using Writers for Writer;
 
 abstract contract ReclaimToBalances is CommandBase {
     uint internal immutable reclaimToBalancesId = commandId(NAME);
-    uint internal immutable rtbOutScale;
+    uint private immutable outScale;
 
     constructor(string memory maybeRoute, uint scaledRatio) {
-        rtbOutScale = scaledRatio;
+        outScale = scaledRatio;
         string memory schema = routeSchema1(maybeRoute, AMOUNT);
         emit Command(host, NAME, schema, reclaimToBalancesId, SETUP, BALANCES);
     }
@@ -31,7 +32,7 @@ abstract contract ReclaimToBalances is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(reclaimToBalancesId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, ROUTE_KEY, rtbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, ROUTE_KEY, outScale);
 
         while (q < end) {
             DataRef memory route;

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {BALANCES, CommandBase, CommandContext, SETUP} from "./Base.sol";
+import {CommandBase, CommandContext} from "./Base.sol";
+import {BALANCES, SETUP} from "../utils/Channels.sol";
 import {ROUTE_KEY} from "../Schema.sol";
 import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
 using Writers for Writer;
@@ -10,10 +11,10 @@ string constant NAME = "mintToBalances";
 
 abstract contract MintToBalances is CommandBase {
     uint internal immutable mintToBalancesId = commandId(NAME);
-    uint internal immutable mntOutScale;
+    uint private immutable outScale;
 
     constructor(string memory route, uint scaledRatio) {
-        mntOutScale = scaledRatio;
+        outScale = scaledRatio;
         emit Command(host, NAME, route, mintToBalancesId, SETUP, BALANCES);
     }
 
@@ -27,7 +28,7 @@ abstract contract MintToBalances is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(mintToBalancesId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, ROUTE_KEY, mntOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, ROUTE_KEY, outScale);
 
         while (q < end) {
             DataRef memory route;

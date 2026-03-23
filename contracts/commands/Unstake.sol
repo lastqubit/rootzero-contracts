@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES} from "../utils/Channels.sol";
 import {AssetAmount, BALANCE_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
 string constant UBTB = "unstakeBalanceToBalances";
@@ -12,10 +13,10 @@ using Writers for Writer;
 
 abstract contract UnstakeBalanceToBalances is CommandBase {
     uint internal immutable unstakeBalanceToBalancesId = commandId(UBTB);
-    uint internal immutable ubtbOutScale;
+    uint private immutable outScale;
 
     constructor(string memory route, uint scaledRatio) {
-        ubtbOutScale = scaledRatio;
+        outScale = scaledRatio;
         emit Command(host, UBTB, route, unstakeBalanceToBalancesId, BALANCES, BALANCES);
     }
 
@@ -32,7 +33,7 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
     ) external payable onlyCommand(unstakeBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, ubtbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;

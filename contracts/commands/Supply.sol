@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, CUSTODIES, SETUP} from "./Base.sol";
+import {CommandBase, CommandContext} from "./Base.sol";
+import {CUSTODIES, SETUP} from "../utils/Channels.sol";
 import {Blocks, BlockRef, HostAmount} from "../Blocks.sol";
 string constant NAME = "supply";
 

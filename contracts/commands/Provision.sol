@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, CUSTODIES, SETUP} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {CUSTODIES, SETUP} from "../utils/Channels.sol";
 import {HostAmount, AMOUNT, AMOUNT_KEY, NODE} from "../blocks/Schema.sol";
 import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
 using Blocks for BlockRef;
@@ -12,10 +13,10 @@ string constant REQUEST = string.concat(AMOUNT, ">", NODE);
 
 abstract contract Provision is CommandBase {
     uint internal immutable provisionId = commandId(NAME);
-    uint internal immutable prvOutScale;
+    uint private immutable outScale;
 
     constructor(uint scaledRatio) {
-        prvOutScale = scaledRatio;
+        outScale = scaledRatio;
         emit Command(host, NAME, REQUEST, provisionId, SETUP, CUSTODIES);
     }
 
@@ -32,7 +33,7 @@ abstract contract Provision is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(provisionId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledCustodiesFrom(c.request, q, AMOUNT_KEY, prvOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledCustodiesFrom(c.request, q, AMOUNT_KEY, outScale);
 
         while (q < end) {
             BlockRef memory ref = Blocks.from(c.request, q);

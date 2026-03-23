@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, BALANCES, SETUP} from "./Base.sol";
+import {CommandBase, CommandContext} from "./Base.sol";
+import {BALANCES, SETUP} from "../utils/Channels.sol";
 import {Blocks, BlockRef} from "../Blocks.sol";
 using Blocks for BlockRef;
 

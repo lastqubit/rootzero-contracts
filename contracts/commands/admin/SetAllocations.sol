@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, SETUP} from "../Base.sol";
+import {CommandBase, CommandContext} from "../Base.sol";
+import {SETUP} from "../../utils/Channels.sol";
 import {ALLOCATION, ALLOCATION_KEY, BlockRef, HostAmount} from "../../blocks/Schema.sol";
 import {Blocks} from "../../blocks/Readers.sol";
 import {ensureAssetRef} from "../../utils/Assets.sol";

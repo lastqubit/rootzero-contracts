@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, AMOUNT, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 import {routeSchema1} from "../utils/Utils.sol";
 
@@ -73,7 +74,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
         while (i < end) {
             DataRef memory route;
             (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.balanceFrom(c.state, i);
+            BlockRef memory ref = Blocks.from(c.state, i);
             AssetAmount memory balance = ref.toBalanceValue(c.state);
             AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, route);
             if (out.amount > 0) writer.appendBalance(out);

@@ -56,7 +56,7 @@ describe("Host Discovery", () => {
 
     // Compute correct host ID for caller
     const CHAIN_ID = 31337n;
-    const HOST_PREFIX = 0x20010303n;
+    const HOST_PREFIX = 0x20010201n;
     const correctHostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(callerAddr);
 
     await expect(
@@ -69,7 +69,7 @@ describe("Host Discovery", () => {
     const signer = await getSigner(0);
     const callerAddr = await signer.getAddress();
     const CHAIN_ID = 31337n;
-    const HOST_PREFIX = 0x20010303n;
+    const HOST_PREFIX = 0x20010201n;
     const hostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(callerAddr);
 
     const provider = await getProvider();

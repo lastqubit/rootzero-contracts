@@ -224,7 +224,7 @@ describe("Utils", () => {
     });
 
     it("localHostAddr reverts for a foreign-chain host id", async () => {
-      const foreignHostId = (0x20010303n << 224n) | (999n << 192n) | BigInt(signerAddress);
+      const foreignHostId = (0x20010201n << 224n) | (999n << 192n) | BigInt(signerAddress);
       await expect(utils.testLocalHostAddr(foreignHostId)).to.be.revertedWithCustomError(utils, "InvalidId");
     });
   });
@@ -271,10 +271,10 @@ describe("Utils", () => {
 
     it("isFamily matches family prefix", async () => {
       // Build a value with a known family prefix
-      // EVM32 = 0x2001, ACCOUNT = 0x02 -> family = (0x2001 << 8) | 0x02 = 0x200102
-      const family = 0x200102n;
+      // EVM32 = 0x2001, ACCOUNT = 0x01 -> family = (0x2001 << 8) | 0x01 = 0x200101
+      const family = 0x200101n;
       const value = (family << 232n) | (1n << 191n); // some filler
-      expect(await utils.testIsFamily(value, 0x200102)).to.be.true;
+      expect(await utils.testIsFamily(value, 0x200101)).to.be.true;
     });
 
     it("isLocal returns true for current chainId", async () => {

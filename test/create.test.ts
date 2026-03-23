@@ -14,7 +14,7 @@ describe("Create", () => {
     const commander = await signer.getAddress();
     host = await deploy("TestCreateHost", commander);
 
-    const USER_PREFIX = 0x20010202n;
+    const USER_PREFIX = 0x20010102n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (BigInt(commander) << 32n)),
       32

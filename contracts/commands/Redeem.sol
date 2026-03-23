@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Data, DataRef, Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
 
 string constant RDBTB = "redeemFromBalanceToBalances";
@@ -13,12 +14,12 @@ using Writers for Writer;
 
 abstract contract RedeemFromBalanceToBalances is CommandBase {
     uint internal immutable redeemFromBalanceToBalancesId = commandId(RDBTB);
-    uint internal immutable rdbtbOutScale;
-    bool private immutable useRouteRdbtb;
+    uint private immutable outScale;
+    bool private immutable useRoute;
 
     constructor(string memory maybeRoute, uint scaledRatio) {
-        rdbtbOutScale = scaledRatio;
-        useRouteRdbtb = bytes(maybeRoute).length > 0;
+        outScale = scaledRatio;
+        useRoute = bytes(maybeRoute).length > 0;
         emit Command(host, RDBTB, maybeRoute, redeemFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
@@ -36,11 +37,11 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
     ) external payable onlyCommand(redeemFromBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, rdbtbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;
-            if (useRouteRdbtb) (route, q) = Data.routeFrom(c.request, q);
+            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
             BlockRef memory ref = Blocks.from(c.state, i);
             AssetAmount memory balance = ref.toBalanceValue(c.state);
             redeemFromBalanceToBalances(c.account, balance, route, writer);
@@ -53,12 +54,12 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
 
 abstract contract RedeemFromCustodyToBalances is CommandBase {
     uint internal immutable redeemFromCustodyToBalancesId = commandId(RDCTB);
-    uint internal immutable rdctbOutScale;
-    bool private immutable useRouteRdctb;
+    uint private immutable outScale;
+    bool private immutable useRoute;
 
     constructor(string memory maybeRoute, uint scaledRatio) {
-        rdctbOutScale = scaledRatio;
-        useRouteRdctb = bytes(maybeRoute).length > 0;
+        outScale = scaledRatio;
+        useRoute = bytes(maybeRoute).length > 0;
         emit Command(host, RDCTB, maybeRoute, redeemFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
@@ -76,11 +77,11 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
     ) external payable onlyCommand(redeemFromCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, rdctbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;
-            if (useRouteRdctb) (route, q) = Data.routeFrom(c.request, q);
+            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
             BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
             redeemFromCustodyToBalances(c.account, custody, route, writer);

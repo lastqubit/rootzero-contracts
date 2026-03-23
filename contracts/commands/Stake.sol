@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, SETUP, BALANCES, CUSTODIES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {SETUP, BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
 string constant SBTB = "stakeBalanceToBalances";
@@ -14,10 +15,10 @@ using Writers for Writer;
 
 abstract contract StakeBalanceToBalances is CommandBase {
     uint internal immutable stakeBalanceToBalancesId = commandId(SBTB);
-    uint internal immutable sbtbOutScale;
+    uint private immutable outScale;
 
     constructor(string memory route, uint scaledRatio) {
-        sbtbOutScale = scaledRatio;
+        outScale = scaledRatio;
         emit Command(host, SBTB, route, stakeBalanceToBalancesId, BALANCES, BALANCES);
     }
 
@@ -33,7 +34,7 @@ abstract contract StakeBalanceToBalances is CommandBase {
     ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, sbtbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;
@@ -50,10 +51,10 @@ abstract contract StakeBalanceToBalances is CommandBase {
 
 abstract contract StakeCustodyToBalances is CommandBase {
     uint internal immutable stakeCustodyToBalancesId = commandId(SCTB);
-    uint internal immutable sctbOutScale;
+    uint private immutable outScale;
 
     constructor(string memory route, uint scaledRatio) {
-        sctbOutScale = scaledRatio;
+        outScale = scaledRatio;
         emit Command(host, SCTB, route, stakeCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
@@ -69,7 +70,7 @@ abstract contract StakeCustodyToBalances is CommandBase {
     ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, sctbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;

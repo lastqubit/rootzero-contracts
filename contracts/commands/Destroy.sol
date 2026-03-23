@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, SETUP} from "./Base.sol";
+import {CommandBase, CommandContext} from "./Base.sol";
+import {SETUP} from "../utils/Channels.sol";
 import {Data, DataRef, ROUTE_KEY} from "../Blocks.sol";
 using Data for DataRef;
 

@@ -21,8 +21,8 @@ describe("Commands", () => {
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
-    // USER_PREFIX = (0x2001 << 16) | (0x02 << 8) | 0x02 = 0x20010202
-    const USER_PREFIX = 0x20010202n;
+    // USER_PREFIX = (0x2001 << 16) | (0x01 << 8) | 0x02 = 0x20010102
+    const USER_PREFIX = 0x20010102n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (addrBig << 32n)), 32
     );

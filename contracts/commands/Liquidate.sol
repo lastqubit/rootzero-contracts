@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, BALANCES, CUSTODIES} from "./Base.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Data, DataRef, Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
 
 string constant LFBTB = "liquidateFromBalanceToBalances";
@@ -13,12 +14,12 @@ using Writers for Writer;
 
 abstract contract LiquidateFromBalanceToBalances is CommandBase {
     uint internal immutable liquidateFromBalanceToBalancesId = commandId(LFBTB);
-    uint internal immutable lfbtbOutScale;
-    bool private immutable useRouteLfbtb;
+    uint private immutable outScale;
+    bool private immutable useRoute;
 
     constructor(string memory maybeRoute, uint scaledRatio) {
-        lfbtbOutScale = scaledRatio;
-        useRouteLfbtb = bytes(maybeRoute).length > 0;
+        outScale = scaledRatio;
+        useRoute = bytes(maybeRoute).length > 0;
         emit Command(host, LFBTB, maybeRoute, liquidateFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
@@ -36,11 +37,11 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
     ) external payable onlyCommand(liquidateFromBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, lfbtbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, BALANCE_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;
-            if (useRouteLfbtb) (route, q) = Data.routeFrom(c.request, q);
+            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
             BlockRef memory ref = Blocks.from(c.state, i);
             AssetAmount memory balance = ref.toBalanceValue(c.state);
             liquidateFromBalanceToBalances(c.account, balance, route, writer);
@@ -53,12 +54,12 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
 
 abstract contract LiquidateFromCustodyToBalances is CommandBase {
     uint internal immutable liquidateFromCustodyToBalancesId = commandId(LFCTB);
-    uint internal immutable lfctbOutScale;
-    bool private immutable useRouteLfctb;
+    uint private immutable outScale;
+    bool private immutable useRoute;
 
     constructor(string memory maybeRoute, uint scaledRatio) {
-        lfctbOutScale = scaledRatio;
-        useRouteLfctb = bytes(maybeRoute).length > 0;
+        outScale = scaledRatio;
+        useRoute = bytes(maybeRoute).length > 0;
         emit Command(host, LFCTB, maybeRoute, liquidateFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
@@ -76,11 +77,11 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
     ) external payable onlyCommand(liquidateFromCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, lfctbOutScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, CUSTODY_KEY, outScale);
 
         while (i < end) {
             DataRef memory route;
-            if (useRouteLfctb) (route, q) = Data.routeFrom(c.request, q);
+            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
             BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
             liquidateFromCustodyToBalances(c.account, custody, route, writer);
