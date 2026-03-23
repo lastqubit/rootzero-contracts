@@ -394,6 +394,11 @@ library Data {
         return msg.data[ref.i:ref.bound];
     }
 
+    function unpackRouteUint(DataRef memory ref) internal pure returns (uint) {
+        ensure(ref, ROUTE_KEY, 32);
+        return uint(bytes32(msg.data[ref.i:ref.i + 32]));
+    }
+
     function unpackRoute32(DataRef memory ref) internal pure returns (bytes32) {
         ensure(ref, ROUTE_KEY, 32);
         return bytes32(msg.data[ref.i:ref.i + 32]);

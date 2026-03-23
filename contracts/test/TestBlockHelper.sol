@@ -163,8 +163,16 @@ contract TestBlockHelper {
         return Blocks.create96(key, a, b, c);
     }
 
+    function testCreate128(bytes4 key, bytes32 a, bytes32 b, bytes32 c, bytes32 d) external pure returns (bytes memory) {
+        return Blocks.create128(key, a, b, c, d);
+    }
+
     function testToBounty(uint amount, bytes32 relayer) external pure returns (bytes memory) {
         return Blocks.toBountyBlock(amount, relayer);
+    }
+
+    function testToCustody(uint host_, bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
+        return Blocks.toCustodyBlock(host_, asset, meta, amount);
     }
 
     // ── Mem (memory) ─────────────────────────────────────────────────────────

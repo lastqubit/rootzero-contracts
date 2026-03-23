@@ -85,12 +85,20 @@ library Blocks {
         return bytes.concat(key, bytes4(uint32(0x60)), bytes4(uint32(0x60)), a, b, c);
     }
 
+    function create128(bytes4 key, bytes32 a, bytes32 b, bytes32 c, bytes32 d) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x80)), bytes4(uint32(0x80)), a, b, c, d);
+    }
+
     function toBountyBlock(uint bounty, bytes32 relayer) internal pure returns (bytes memory) {
         return create64(BOUNTY_KEY, bytes32(bounty), relayer);
     }
 
     function toBalanceBlock(bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
         return create96(BALANCE_KEY, asset, meta, bytes32(amount));
+    }
+
+    function toCustodyBlock(uint host, bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
+        return create128(CUSTODY_KEY, bytes32(host), asset, meta, bytes32(amount));
     }
 
     function isBalance(BlockRef memory ref) internal pure returns (bool) {
@@ -600,6 +608,11 @@ library Blocks {
     function unpackRoute(BlockRef memory ref, bytes calldata source) internal pure returns (bytes calldata data) {
         ensure(ref, ROUTE_KEY);
         return source[ref.i:ref.bound];
+    }
+
+    function unpackRouteUint(BlockRef memory ref, bytes calldata source) internal pure returns (uint) {
+        ensure(ref, ROUTE_KEY, 32);
+        return uint(bytes32(source[ref.i:ref.i + 32]));
     }
 
     function unpackRoute32(BlockRef memory ref, bytes calldata source) internal pure returns (bytes32) {

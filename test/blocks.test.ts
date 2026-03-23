@@ -341,11 +341,34 @@ describe("Blocks", () => {
       expect(ethers.getBytes(data).length).to.equal(108);
     });
 
+    it("create128 produces correct 140-byte block", async () => {
+      const key = CUSTODY_KEY;
+      const a = ethers.zeroPadValue("0x01", 32);
+      const b = ethers.zeroPadValue("0x02", 32);
+      const c = ethers.zeroPadValue("0x03", 32);
+      const d = ethers.zeroPadValue("0x04", 32);
+      const data: string = await helper.testCreate128(key, a, b, c, d);
+      expect(ethers.getBytes(data).length).to.equal(140);
+      expect(data.slice(0, 10)).to.equal(key);
+    });
+
     it("toBountyBlock produces correct BOUNTY block", async () => {
       const relayer = ethers.zeroPadValue("0xdd", 32);
       const data: string = await helper.testToBounty(500n, relayer);
       expect(ethers.getBytes(data).length).to.equal(76);
       expect(data.slice(0, 10)).to.equal(BOUNTY_KEY);
+    });
+
+    it("toCustodyBlock produces correct CUSTODY block", async () => {
+      const hostId = 1234n;
+      const data: string = await helper.testToCustody(hostId, asset, meta, amount);
+      expect(ethers.getBytes(data).length).to.equal(140);
+      expect(data.slice(0, 10)).to.equal(CUSTODY_KEY);
+      const [h, a, m, v] = await helper.testUnpackCustody(data, 0n);
+      expect(h).to.equal(hostId);
+      expect(a).to.equal(asset);
+      expect(m).to.equal(meta);
+      expect(v).to.equal(amount);
     });
 
     it("count returns 0 for empty source", async () => {
