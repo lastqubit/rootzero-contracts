@@ -89,6 +89,14 @@ describe("Utils", () => {
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(token.toLowerCase());
     });
 
+    it("toErc721Asset embeds collection address", async () => {
+      const collection = signerAddress;
+      const asset: string = await utils.testToErc721Asset(collection);
+      const val = BigInt(asset);
+      const embedded = (val >> 32n) & ((1n << 160n) - 1n);
+      expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
+    });
+
     it("isAsset32 returns true when first byte is 0x20", async () => {
       const asset = await utils.testToValueAsset();
       expect(await utils.testIsAsset32(asset)).to.be.true;
@@ -156,9 +164,21 @@ describe("Utils", () => {
       expect(extracted.toLowerCase()).to.equal(token.toLowerCase());
     });
 
+    it("localErc721Issuer extracts collection address from ERC721 asset", async () => {
+      const collection = signerAddress;
+      const asset = await utils.testToErc721Asset(collection);
+      const extracted = await utils.testLocalErc721Issuer(asset);
+      expect(extracted.toLowerCase()).to.equal(collection.toLowerCase());
+    });
+
     it("localErc20Addr reverts InvalidAsset for value asset", async () => {
       const asset = await utils.testToValueAsset();
       await expect(utils.testLocalErc20Addr(asset)).to.be.revertedWithCustomError(utils, "InvalidAsset");
+    });
+
+    it("localErc721Issuer reverts InvalidAsset for value asset", async () => {
+      const asset = await utils.testToValueAsset();
+      await expect(utils.testLocalErc721Issuer(asset)).to.be.revertedWithCustomError(utils, "InvalidAsset");
     });
   });
 

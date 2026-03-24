@@ -14,6 +14,7 @@ export const NODE_KEY     = blockKey("node(uint id)");
 export const FUNDING_KEY  = blockKey("funding(uint host, uint amount)");
 export const ASSET_KEY    = blockKey("asset(bytes32 asset, bytes32 meta)");
 export const ALLOCATION_KEY = blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)");
+export const QUANTITY_KEY = blockKey("quantity(uint amount)");
 export const STEP_KEY     = blockKey("step(uint target, uint value, bytes request)");
 export const TX_KEY       = blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)");
 export const MINIMUM_KEY  = blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)");
@@ -86,6 +87,10 @@ export function encodeFundingBlock(host: bigint, amount: bigint): string {
 
 export function encodeAssetBlock(asset: string, meta: string): string {
   return block(ASSET_KEY, ethers.concat([pad32(asset), pad32(meta)]));
+}
+
+export function encodeQuantityBlock(amount: bigint): string {
+  return block(QUANTITY_KEY, pad32(amount));
 }
 
 export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {

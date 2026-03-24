@@ -36,6 +36,8 @@ import {
     MemRef,
     NODE,
     NODE_KEY,
+    QUANTITY,
+    QUANTITY_KEY,
     PARTY,
     PARTY_KEY,
     RATE,

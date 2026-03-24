@@ -13,8 +13,10 @@ import {Provision} from "../commands/Provision.sol";
 import {Pipe} from "../commands/Pipe.sol";
 import {AllowAssets} from "../commands/admin/AllowAssets.sol";
 import {DenyAssets} from "../commands/admin/DenyAssets.sol";
-import {SetAllocations} from "../commands/admin/SetAllocations.sol";
-import {Tx, Writer} from "../blocks/Schema.sol";
+import {Destroy} from "../commands/admin/Destroy.sol";
+import {Init} from "../commands/admin/Init.sol";
+import {Allocate} from "../commands/admin/Allocate.sol";
+import {DataRef, Tx, Writer} from "../blocks/Schema.sol";
 import {Writers} from "../blocks/Writers.sol";
 
 using Writers for Writer;
@@ -30,9 +32,11 @@ contract TestHost is
     Fund,
     Provision,
     Pipe,
+    Init,
+    Destroy,
     AllowAssets,
     DenyAssets,
-    SetAllocations
+    Allocate
 {
     event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event WithdrawCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
@@ -42,14 +46,16 @@ contract TestHost is
     event SettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
     event FundCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event InitCalled(bytes routeData);
+    event DestroyCalled(bytes routeData);
     event AllowAssetCalled(bytes32 asset, bytes32 meta);
     event DenyAssetCalled(bytes32 asset, bytes32 meta);
-    event SetAllocationCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
+    event AllocateCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
     event StepDispatched(uint target, uint stepIndex, uint value);
 
     uint public stepCount;
 
-    constructor(address rush) Host(rush, 1, "test") Deposit() Provision(10_000) {}
+    constructor(address rush) Host(rush, 1, "test") Deposit() Provision(10_000) Init("") Destroy("") {}
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);
@@ -91,6 +97,16 @@ contract TestHost is
         out.appendCustody(host_, asset, meta, amount);
     }
 
+    function init(DataRef memory rawRoute) internal override {
+        bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
+        emit InitCalled(routeData);
+    }
+
+    function destroy(DataRef memory rawRoute) internal override {
+        bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
+        emit DestroyCalled(routeData);
+    }
+
     function allowAsset(bytes32 asset, bytes32 meta) internal override returns (bool) {
         emit AllowAssetCalled(asset, meta);
         return true;
@@ -101,8 +117,8 @@ contract TestHost is
         return true;
     }
 
-    function setAllocation(uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit SetAllocationCalled(host_, asset, meta, amount);
+    function allocate(uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit AllocateCalled(host_, asset, meta, amount);
     }
 
     function dispatchStep(
@@ -153,6 +169,14 @@ contract TestHost is
         return pipeId;
     }
 
+    function getInitId() external view returns (uint) {
+        return initId;
+    }
+
+    function getDestroyId() external view returns (uint) {
+        return destroyId;
+    }
+
     function getAuthorizeId() external view returns (uint) {
         return authorizeId;
     }
@@ -173,8 +197,8 @@ contract TestHost is
         return denyAssetsId;
     }
 
-    function getSetAllocationsId() external view returns (uint) {
-        return setAllocationsId;
+    function getAllocateId() external view returns (uint) {
+        return allocateId;
     }
 
     function getAdminAccount() external view returns (bytes32) {

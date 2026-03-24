@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, BlockPairRef, BlockRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
+import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, BlockPairRef, BlockRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, QUANTITY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
 import {InvalidBlock, MalformedBlocks, ZeroNode, ZeroRecipient} from "./Errors.sol";
 
 using Blocks for BlockRef;
@@ -202,6 +202,11 @@ library Blocks {
         ensure(ref, RATE_KEY, 32);
     }
 
+    function quantityFrom(bytes calldata source, uint i) internal pure returns (BlockRef memory ref) {
+        ref = from(source, i);
+        ensure(ref, QUANTITY_KEY, 32);
+    }
+
     function assetFrom(bytes calldata source, uint i) internal pure returns (BlockRef memory ref) {
         ref = from(source, i);
         ensure(ref, ASSET_KEY, 64);
@@ -284,6 +289,11 @@ library Blocks {
 
     // ── inner* ────────────────────────────────────────────────────────────────
 
+    function innerPair(BlockRef memory parent, bytes calldata source) internal pure returns (BlockPairRef memory ref) {
+        ref.a = childAt(parent, source, parent.bound);
+        ref.b = childAt(parent, source, ref.a.end);
+    }
+
     function innerRoute(BlockRef memory parent, bytes calldata source) internal pure returns (bytes calldata data) {
         return unpackRoute(childAt(parent, source, parent.bound), source);
     }
@@ -302,6 +312,10 @@ library Blocks {
 
     function innerRate(BlockRef memory parent, bytes calldata source) internal pure returns (uint value) {
         return unpackRate(childAt(parent, source, parent.bound), source);
+    }
+
+    function innerQuantity(BlockRef memory parent, bytes calldata source) internal pure returns (uint amount) {
+        return unpackQuantity(childAt(parent, source, parent.bound), source);
     }
 
     function innerAsset(
@@ -394,6 +408,15 @@ library Blocks {
 
     // ── inner*At ──────────────────────────────────────────────────────────────
 
+    function innerPairAt(
+        BlockRef memory parent,
+        bytes calldata source,
+        uint i
+    ) internal pure returns (BlockPairRef memory ref) {
+        ref.a = childAt(parent, source, i);
+        ref.b = childAt(parent, source, ref.a.end);
+    }
+
     function innerRouteAt(
         BlockRef memory parent,
         bytes calldata source,
@@ -424,6 +447,10 @@ library Blocks {
 
     function innerRateAt(BlockRef memory parent, bytes calldata source, uint i) internal pure returns (uint value) {
         return unpackRate(childAt(parent, source, i), source);
+    }
+
+    function innerQuantityAt(BlockRef memory parent, bytes calldata source, uint i) internal pure returns (uint amount) {
+        return unpackQuantity(childAt(parent, source, i), source);
     }
 
     function innerAssetAt(
@@ -544,6 +571,10 @@ library Blocks {
         return unpackRate(from(source, i), source);
     }
 
+    function unpackQuantityAt(bytes calldata source, uint i) internal pure returns (uint amount) {
+        return unpackQuantity(from(source, i), source);
+    }
+
     function unpackAssetAt(bytes calldata source, uint i) internal pure returns (bytes32 asset, bytes32 meta) {
         return unpackAsset(from(source, i), source);
     }
@@ -653,6 +684,11 @@ library Blocks {
 
     function unpackRate(BlockRef memory ref, bytes calldata source) internal pure returns (uint value) {
         ensure(ref, RATE_KEY, 32);
+        return uint(bytes32(source[ref.i:ref.i + 32]));
+    }
+
+    function unpackQuantity(BlockRef memory ref, bytes calldata source) internal pure returns (uint amount) {
+        ensure(ref, QUANTITY_KEY, 32);
         return uint(bytes32(source[ref.i:ref.i + 32]));
     }
 

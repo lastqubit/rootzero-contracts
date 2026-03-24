@@ -122,6 +122,14 @@ library Writers {
         writer.i = writeBalanceBlock(writer.dst, writer.i, value);
     }
 
+    function appendNonZeroBalance(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        if (amount > 0) appendBalance(writer, asset, meta, amount);
+    }
+
+    function appendNonZeroBalance(Writer memory writer, AssetAmount memory value) internal pure {
+        if (value.amount > 0) appendBalance(writer, value);
+    }
+
     function writeCustodyBlock(bytes memory dst, uint i, HostAmount memory value) internal pure returns (uint next) {
         next = i + CUSTODY_BLOCK_LEN;
         if (next > dst.length) revert WriterOverflow();

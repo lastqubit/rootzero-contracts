@@ -17,7 +17,7 @@ abstract contract MapBalance {
             BlockRef memory ref = Blocks.from(state, i);
             AssetAmount memory balance = ref.toBalanceValue(state);
             AssetAmount memory out = mapBalance(account, balance);
-            if (out.amount > 0) writer.appendBalance(out);
+            writer.appendNonZeroBalance(out);
             i = ref.end;
         }
 

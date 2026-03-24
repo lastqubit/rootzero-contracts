@@ -18,7 +18,7 @@ abstract contract CustodyToBalance {
             BlockRef memory ref = Blocks.from(blocks, i);
             HostAmount memory custody = ref.toCustodyValue(blocks);
             AssetAmount memory out = custodyToBalance(account, custody);
-            if (out.amount > 0) writer.appendBalance(out);
+            writer.appendNonZeroBalance(out);
             i = ref.end;
         }
 

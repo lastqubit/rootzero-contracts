@@ -4,15 +4,15 @@ import { deploy, getSigner } from "./helpers/setup.js";
 import { concat, encodeRouteBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
-describe("Destroy", () => {
+describe("Remove", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const destroyMethod = "destroy((uint256,bytes32,bytes,bytes))";
+  const removeMethod = "remove((uint256,bytes32,bytes,bytes))";
 
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
-    host = await deploy("TestDestroyHost", commander);
+    host = await deploy("TestRemoveHost", commander);
 
     const USER_PREFIX = 0x20010102n;
     userAccount = ethers.zeroPadValue(
@@ -32,40 +32,40 @@ describe("Destroy", () => {
 
   async function callAs(signerIndex: number, ...args: unknown[]) {
     const signer = await getSigner(signerIndex);
-    return (host.connect(signer) as any)[destroyMethod](...args);
+    return (host.connect(signer) as any)[removeMethod](...args);
   }
 
   // ── Happy path ─────────────────────────────────────────────────────────────
 
-  it("emits DestroyCalled for a single ROUTE block", async () => {
+  it("emits RemoveCalled for a single ROUTE block", async () => {
     const route = "0xdead";
     const request = encodeRouteBlock(route);
     const tx = await callAs(0, ctx({ request }));
-    await expect(tx).to.emit(host, "DestroyCalled").withArgs(userAccount, route);
+    await expect(tx).to.emit(host, "RemoveCalled").withArgs(userAccount, route);
   });
 
-  it("emits DestroyCalled for each ROUTE block when multiple are present", async () => {
+  it("emits RemoveCalled for each ROUTE block when multiple are present", async () => {
     const route1 = "0x1111";
     const route2 = "0x2222";
     const request = concat(encodeRouteBlock(route1), encodeRouteBlock(route2));
     const tx = await callAs(0, ctx({ request }));
-    await expect(tx).to.emit(host, "DestroyCalled").withArgs(userAccount, route1);
-    await expect(tx).to.emit(host, "DestroyCalled").withArgs(userAccount, route2);
+    await expect(tx).to.emit(host, "RemoveCalled").withArgs(userAccount, route1);
+    await expect(tx).to.emit(host, "RemoveCalled").withArgs(userAccount, route2);
   });
 
   it("returns empty bytes after processing ROUTE blocks", async () => {
     const request = encodeRouteBlock("0x01");
-    const result: string = await (host as any)[destroyMethod].staticCall(ctx({ request }));
+    const result: string = await (host as any)[removeMethod].staticCall(ctx({ request }));
     expect(result).to.equal("0x");
   });
 
   // ── Target / access guards ─────────────────────────────────────────────────
 
-  it("accepts the explicit destroy command id as the target", async () => {
-    const target = await host.getDestroyId();
+  it("accepts the explicit remove command id as the target", async () => {
+    const target = await host.getRemoveId();
     const request = encodeRouteBlock("0x99");
     const tx = await callAs(0, ctx({ target, request }));
-    await expect(tx).to.emit(host, "DestroyCalled");
+    await expect(tx).to.emit(host, "RemoveCalled");
   });
 
   it("reverts UnexpectedEndpoint for a wrong non-zero target", async () => {

@@ -41,7 +41,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
             BlockRef memory ref = Blocks.from(c.state, i);
             HostAmount memory custody = ref.toCustodyValue(c.state);
             AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, route);
-            if (out.amount > 0) writer.appendBalance(out);
+            writer.appendNonZeroBalance(out);
             i = ref.end;
         }
 
@@ -77,7 +77,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
             BlockRef memory ref = Blocks.from(c.state, i);
             AssetAmount memory balance = ref.toBalanceValue(c.state);
             AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, route);
-            if (out.amount > 0) writer.appendBalance(out);
+            writer.appendNonZeroBalance(out);
             i = ref.end;
         }
 

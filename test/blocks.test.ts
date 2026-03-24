@@ -4,10 +4,10 @@ import { deploy } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   AMOUNT_KEY, BALANCE_KEY, CUSTODY_KEY, RECIPIENT_KEY, NODE_KEY,
-  FUNDING_KEY, ASSET_KEY, ALLOCATION_KEY, TX_KEY, BOUNTY_KEY,
+  FUNDING_KEY, ASSET_KEY, ALLOCATION_KEY, TX_KEY, BOUNTY_KEY, QUANTITY_KEY,
   encodeAmountBlock, encodeBalanceBlock, encodeCustodyBlock,
   encodeRecipientBlock, encodeNodeBlock, encodeFundingBlock,
-  encodeAssetBlock, encodeAllocationBlock, encodeTxBlock,
+  encodeAssetBlock, encodeAllocationBlock, encodeTxBlock, encodeQuantityBlock, encodeMinimumBlock, encodeMaximumBlock,
   pad32, concat
 } from "./helpers/blocks.js";
 
@@ -216,6 +216,92 @@ describe("Blocks", () => {
       expect(result).to.equal(nodeId);
     });
 
+    it("unpackQuantity extracts scalar amount from QUANTITY block", async () => {
+      const data = encodeQuantityBlock(777n);
+      const result = await helper.testUnpackQuantity(data, 0n);
+      expect(result).to.equal(777n);
+    });
+
+    it("unpackQuantity reverts InvalidBlock for AMOUNT block", async () => {
+      const data = encodeAmountBlock(asset, meta, amount);
+      await expect(helper.testUnpackQuantity(data, 0n))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("expectMinimum returns only the minimum amount when asset/meta match", async () => {
+      const data = encodeMinimumBlock(asset, meta, amount);
+      const result = await helper.testExpectMinimum(data, 0n, asset, meta);
+      expect(result).to.equal(amount);
+    });
+
+    it("expectAmount returns only the amount when asset/meta match", async () => {
+      const data = encodeAmountBlock(asset, meta, amount);
+      const result = await helper.testExpectAmount(data, 0n, asset, meta);
+      expect(result).to.equal(amount);
+    });
+
+    it("expectBalance returns only the amount when asset/meta match", async () => {
+      const data = encodeBalanceBlock(asset, meta, amount);
+      const result = await helper.testExpectBalance(data, 0n, asset, meta);
+      expect(result).to.equal(amount);
+    });
+
+    it("expectMaximum returns only the maximum amount when asset/meta match", async () => {
+      const data = encodeMaximumBlock(asset, meta, amount);
+      const result = await helper.testExpectMaximum(data, 0n, asset, meta);
+      expect(result).to.equal(amount);
+    });
+
+    it("expectMinimum reverts UnexpectedAsset for wrong asset", async () => {
+      const data = encodeMinimumBlock(asset, meta, amount);
+      const otherAsset = ethers.zeroPadValue("0xAB", 32);
+      await expect(helper.testExpectMinimum(data, 0n, otherAsset, meta))
+        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+    });
+
+    it("expectMinimum reverts UnexpectedMeta for wrong meta", async () => {
+      const data = encodeMinimumBlock(asset, meta, amount);
+      const otherMeta = ethers.zeroPadValue("0xCC", 32);
+      await expect(helper.testExpectMinimum(data, 0n, asset, otherMeta))
+        .to.be.revertedWithCustomError(helper, "UnexpectedMeta");
+    });
+
+    it("expectAmount reverts UnexpectedAsset for wrong asset", async () => {
+      const data = encodeAmountBlock(asset, meta, amount);
+      const otherAsset = ethers.zeroPadValue("0xAB", 32);
+      await expect(helper.testExpectAmount(data, 0n, otherAsset, meta))
+        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+    });
+
+    it("expectBalance reverts UnexpectedMeta for wrong meta", async () => {
+      const data = encodeBalanceBlock(asset, meta, amount);
+      const otherMeta = ethers.zeroPadValue("0xCC", 32);
+      await expect(helper.testExpectBalance(data, 0n, asset, otherMeta))
+        .to.be.revertedWithCustomError(helper, "UnexpectedMeta");
+    });
+
+    it("expectMaximum reverts UnexpectedAsset for wrong asset", async () => {
+      const data = encodeMaximumBlock(asset, meta, amount);
+      const otherAsset = ethers.zeroPadValue("0xAB", 32);
+      await expect(helper.testExpectMaximum(data, 0n, otherAsset, meta))
+        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+    });
+
+    it("expectCustody returns AssetAmount when host matches", async () => {
+      const hostId = 42n;
+      const data = encodeCustodyBlock(hostId, asset, meta, amount);
+      const [a, m, v] = await helper.testExpectCustody(data, 0n, hostId);
+      expect(a).to.equal(asset);
+      expect(m).to.equal(meta);
+      expect(v).to.equal(amount);
+    });
+
+    it("expectCustody reverts UnexpectedHost for wrong host", async () => {
+      const data = encodeCustodyBlock(42n, asset, meta, amount);
+      await expect(helper.testExpectCustody(data, 0n, 99n))
+        .to.be.revertedWithCustomError(helper, "UnexpectedHost");
+    });
+
     it("unpackFunding extracts host/amount from FUNDING block", async () => {
       const hostId = 555n;
       const data = encodeFundingBlock(hostId, 100n);
@@ -317,7 +403,7 @@ describe("Blocks", () => {
     });
 
     it("create32 produces correct 44-byte block", async () => {
-      const key = RECIPIENT_KEY;
+      const key = QUANTITY_KEY;
       const val = ethers.zeroPadValue("0x0abc", 32);
       const data: string = await helper.testCreate32(key, val);
       expect(ethers.getBytes(data).length).to.equal(44);

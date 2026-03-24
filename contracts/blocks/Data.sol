@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, DataPairRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
-import {InvalidBlock, MalformedBlocks} from "./Errors.sol";
+import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, DataPairRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, QUANTITY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
+import {InvalidBlock, MalformedBlocks, UnexpectedAsset, UnexpectedHost, UnexpectedMeta} from "./Errors.sol";
 
 using Data for DataRef;
 
@@ -134,6 +134,11 @@ library Data {
         ensure(ref, RATE_KEY, 32);
     }
 
+    function quantityFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
+        (ref, next) = from(source, i);
+        ensure(ref, QUANTITY_KEY, 32);
+    }
+
     function assetFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
         (ref, next) = from(source, i);
         ensure(ref, ASSET_KEY, 64);
@@ -216,6 +221,11 @@ library Data {
 
     // ── inner* ────────────────────────────────────────────────────────────────
 
+    function innerPair(DataRef memory parent) internal pure returns (DataPairRef memory ref) {
+        ref.a = childAt(parent, parent.bound);
+        ref.b = childAt(parent, ref.a.end);
+    }
+
     function innerRoute(DataRef memory parent) internal pure returns (bytes calldata data) {
         return unpackRoute(childAt(parent, parent.bound));
     }
@@ -234,6 +244,10 @@ library Data {
 
     function innerRate(DataRef memory parent) internal pure returns (uint value) {
         return unpackRate(childAt(parent, parent.bound));
+    }
+
+    function innerQuantity(DataRef memory parent) internal pure returns (uint amount) {
+        return unpackQuantity(childAt(parent, parent.bound));
     }
 
     function innerAsset(DataRef memory parent) internal pure returns (bytes32 asset, bytes32 meta) {
@@ -294,6 +308,11 @@ library Data {
 
     // ── inner*At ──────────────────────────────────────────────────────────────
 
+    function innerPairAt(DataRef memory parent, uint i) internal pure returns (DataPairRef memory ref) {
+        ref.a = childAt(parent, i);
+        ref.b = childAt(parent, ref.a.end);
+    }
+
     function innerRouteAt(DataRef memory parent, uint i) internal pure returns (bytes calldata data) {
         return unpackRoute(childAt(parent, i));
     }
@@ -312,6 +331,10 @@ library Data {
 
     function innerRateAt(DataRef memory parent, uint i) internal pure returns (uint value) {
         return unpackRate(childAt(parent, i));
+    }
+
+    function innerQuantityAt(DataRef memory parent, uint i) internal pure returns (uint amount) {
+        return unpackQuantity(childAt(parent, i));
     }
 
     function innerAssetAt(DataRef memory parent, uint i) internal pure returns (bytes32 asset, bytes32 meta) {
@@ -437,6 +460,11 @@ library Data {
         return uint(bytes32(msg.data[ref.i:ref.i + 32]));
     }
 
+    function unpackQuantity(DataRef memory ref) internal pure returns (uint amount) {
+        ensure(ref, QUANTITY_KEY, 32);
+        return uint(bytes32(msg.data[ref.i:ref.i + 32]));
+    }
+
     function unpackAsset(DataRef memory ref) internal pure returns (bytes32 asset, bytes32 meta) {
         ensure(ref, ASSET_KEY, 64);
         return (bytes32(msg.data[ref.i:ref.i + 32]), bytes32(msg.data[ref.i + 32:ref.i + 64]));
@@ -501,6 +529,44 @@ library Data {
         cid = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         deadline = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
         proof = msg.data[ref.i + 64:ref.bound];
+    }
+
+    // ── expect* ───────────────────────────────────────────────────────────────
+
+    function expectAmount(DataRef memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
+        ensure(ref, AMOUNT_KEY, 96);
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectBalance(DataRef memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
+        ensure(ref, BALANCE_KEY, 96);
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectMinimum(DataRef memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
+        ensure(ref, MINIMUM_KEY, 96);
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectMaximum(DataRef memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
+        ensure(ref, MAXIMUM_KEY, 96);
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectCustody(DataRef memory ref, uint host) internal pure returns (AssetAmount memory value) {
+        ensure(ref, CUSTODY_KEY, 128);
+        if (uint(bytes32(msg.data[ref.i:ref.i + 32])) != host) revert UnexpectedHost();
+        value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
+        value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
+        value.amount = uint(bytes32(msg.data[ref.i + 96:ref.i + 128]));
     }
 
     // ── to*Value ──────────────────────────────────────────────────────────────

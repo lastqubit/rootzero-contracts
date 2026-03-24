@@ -17,3 +17,4 @@ uint8 constant PEER = 0x03;
 
 uint8 constant VALUE = 0x01;
 uint8 constant ERC20 = 0x02;
+uint8 constant ERC721 = 0x03;

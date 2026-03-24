@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
   encodeNodeBlock, encodeAssetBlock, encodeAllocationBlock,
-  encodeFundingBlock, concat
+  encodeFundingBlock, encodeRouteBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -61,6 +61,32 @@ describe("Admin Commands", () => {
 
     it("reverts NoOperation for empty request", async () => {
       await expect(callAs(0, "authorize", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "NoOperation");
+    });
+  });
+
+  describe("init", () => {
+    it("emits InitCalled for a single ROUTE block", async () => {
+      const route = "0x1234";
+      await expect(callAs(0, "init", adminCtx(encodeRouteBlock(route))))
+        .to.emit(host, "InitCalled")
+        .withArgs(route);
+    });
+
+    it("accepts the explicit init command id as the target", async () => {
+      const target = await host.getInitId();
+      await expect(callAs(0, "init", adminCtx(encodeRouteBlock("0xab"), target)))
+        .to.emit(host, "InitCalled");
+    });
+
+    it("reverts NotAdmin for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x11", 32);
+      await expect(callAs(0, "init", userCtx(fakeAdmin, encodeRouteBlock("0x01"))))
+        .to.be.revertedWithCustomError(host, "NotAdmin");
+    });
+
+    it("reverts NoOperation for empty request", async () => {
+      await expect(callAs(0, "init", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "NoOperation");
     });
   });
@@ -149,29 +175,29 @@ describe("Admin Commands", () => {
     });
   });
 
-  // ── SetAllocations ────────────────────────────────────────────────────────
+  // ── Allocate ─────────────────────────────────────────────────────────────
 
-  describe("setAllocations", () => {
-    it("emits SetAllocationCalled for each ALLOCATION block", async () => {
+  describe("allocate", () => {
+    it("emits AllocateCalled for each ALLOCATION block", async () => {
       const hostId = 9999n;
       const asset  = ethers.zeroPadValue("0x05", 32);
       const meta   = ethers.ZeroHash;
       const amount = 1000n;
       const request = encodeAllocationBlock(hostId, asset, meta, amount);
-      await expect(callAs(0, "setAllocations", adminCtx(request)))
-        .to.emit(host, "SetAllocationCalled")
+      await expect(callAs(0, "allocate", adminCtx(request)))
+        .to.emit(host, "AllocateCalled")
         .withArgs(hostId, asset, meta, amount);
     });
 
     it("reverts NotAdmin for non-admin", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x05", 32);
       const request = encodeAllocationBlock(1n, ethers.zeroPadValue("0x01", 32), ethers.ZeroHash, 1n);
-      await expect(callAs(0, "setAllocations", userCtx(fakeAdmin, request)))
+      await expect(callAs(0, "allocate", userCtx(fakeAdmin, request)))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 
     it("reverts NoOperation for empty request", async () => {
-      await expect(callAs(0, "setAllocations", adminCtx("0x")))
+      await expect(callAs(0, "allocate", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "NoOperation");
     });
   });
@@ -233,6 +259,32 @@ describe("Admin Commands", () => {
       await expect(
         callAs(0, "relocate", adminCtx(encodeFundingBlock(rejectorHostId, amount)), { value: amount })
       ).to.be.revertedWithCustomError(host, "FailedCall");
+    });
+  });
+
+  describe("destroy", () => {
+    it("emits DestroyCalled for a single ROUTE block", async () => {
+      const route = "0xdead";
+      await expect(callAs(0, "destroy", adminCtx(encodeRouteBlock(route))))
+        .to.emit(host, "DestroyCalled")
+        .withArgs(route);
+    });
+
+    it("accepts the explicit destroy command id as the target", async () => {
+      const target = await host.getDestroyId();
+      await expect(callAs(0, "destroy", adminCtx(encodeRouteBlock("0xcd"), target)))
+        .to.emit(host, "DestroyCalled");
+    });
+
+    it("reverts NotAdmin for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x12", 32);
+      await expect(callAs(0, "destroy", userCtx(fakeAdmin, encodeRouteBlock("0x01"))))
+        .to.be.revertedWithCustomError(host, "NotAdmin");
+    });
+
+    it("reverts NoOperation for empty request", async () => {
+      await expect(callAs(0, "destroy", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "NoOperation");
     });
   });
 });

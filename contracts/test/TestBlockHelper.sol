@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {AssetAmount, HostAmount, Tx, BlockRef, MemRef, Writer, BALANCE_KEY, CUSTODY_KEY, TX_KEY, AMOUNT_KEY, BOUNTY_KEY, RECIPIENT_KEY, NODE_KEY, FUNDING_KEY, ASSET_KEY, ALLOCATION_KEY, STEP_KEY} from "../blocks/Schema.sol";
+import {AssetAmount, HostAmount, Tx, BlockRef, DataRef, MemRef, Writer, BALANCE_KEY, CUSTODY_KEY, TX_KEY, AMOUNT_KEY, BOUNTY_KEY, RECIPIENT_KEY, NODE_KEY, FUNDING_KEY, ASSET_KEY, ALLOCATION_KEY, STEP_KEY, QUANTITY_KEY} from "../blocks/Schema.sol";
 import {Blocks} from "../blocks/Readers.sol";
+import {Data} from "../blocks/Data.sol";
 import {Mem} from "../blocks/Mem.sol";
-import {InvalidBlock, MalformedBlocks, ZeroRecipient, ZeroNode} from "../blocks/Errors.sol";
+import {InvalidBlock, MalformedBlocks, UnexpectedAsset, UnexpectedHost, UnexpectedMeta, ZeroRecipient, ZeroNode} from "../blocks/Errors.sol";
 import {Writers, BALANCE_BLOCK_LEN, CUSTODY_BLOCK_LEN, TX_BLOCK_LEN} from "../blocks/Writers.sol";
 
 using Blocks for BlockRef;
+using Data for DataRef;
 using Writers for Writer;
 using Mem for MemRef;
 
@@ -101,6 +103,49 @@ contract TestBlockHelper {
     {
         BlockRef memory ref = Blocks.from(source, i);
         return ref.unpackNode(source);
+    }
+
+    function testUnpackQuantity(bytes calldata source, uint i)
+        external pure returns (uint amount)
+    {
+        BlockRef memory ref = Blocks.quantityFrom(source, i);
+        return ref.unpackQuantity(source);
+    }
+
+    function testExpectMinimum(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
+        external pure returns (uint amount)
+    {
+        (DataRef memory ref, ) = Data.from(source, i);
+        return ref.expectMinimum(asset, meta);
+    }
+
+    function testExpectAmount(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
+        external pure returns (uint amount)
+    {
+        (DataRef memory ref, ) = Data.from(source, i);
+        return ref.expectAmount(asset, meta);
+    }
+
+    function testExpectBalance(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
+        external pure returns (uint amount)
+    {
+        (DataRef memory ref, ) = Data.from(source, i);
+        return ref.expectBalance(asset, meta);
+    }
+
+    function testExpectMaximum(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
+        external pure returns (uint amount)
+    {
+        (DataRef memory ref, ) = Data.from(source, i);
+        return ref.expectMaximum(asset, meta);
+    }
+
+    function testExpectCustody(bytes calldata source, uint i, uint host_)
+        external pure returns (bytes32 asset, bytes32 meta, uint amount)
+    {
+        (DataRef memory ref, ) = Data.from(source, i);
+        AssetAmount memory value = ref.expectCustody(host_);
+        return (value.asset, value.meta, value.amount);
     }
 
     function testUnpackFunding(bytes calldata source, uint i)

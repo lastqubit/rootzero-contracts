@@ -6,23 +6,23 @@ import {SETUP} from "../utils/Channels.sol";
 import {Data, DataRef, ROUTE_KEY} from "../Blocks.sol";
 using Data for DataRef;
 
-string constant NAME = "destroy";
+string constant NAME = "remove";
 
-abstract contract Destroy is CommandBase {
-    uint internal immutable destroyId = commandId(NAME);
+abstract contract Remove is CommandBase {
+    uint internal immutable removeId = commandId(NAME);
 
     constructor(string memory route) {
-        emit Command(host, NAME, route, destroyId, SETUP, SETUP);
+        emit Command(host, NAME, route, removeId, SETUP, SETUP);
     }
 
-    function destroy(bytes32 account, DataRef memory rawRoute) internal virtual;
+    function remove(bytes32 account, DataRef memory rawRoute) internal virtual;
 
-    function destroy(CommandContext calldata c) external payable onlyCommand(destroyId, c.target) returns (bytes memory) {
+    function remove(CommandContext calldata c) external payable onlyCommand(removeId, c.target) returns (bytes memory) {
         uint q = 0;
         while (q < c.request.length) {
             (DataRef memory ref, uint next) = Data.from(c.request, q);
             if (ref.key != ROUTE_KEY) break;
-            destroy(c.account, ref);
+            remove(c.account, ref);
             q = next;
         }
 

@@ -17,7 +17,7 @@ abstract contract AmountToBalance {
             BlockRef memory ref = Blocks.from(blocks, i);
             AssetAmount memory amount = ref.toAmountValue(blocks);
             AssetAmount memory out = amountToBalance(account, amount);
-            if (out.amount > 0) writer.appendBalance(out);
+            writer.appendNonZeroBalance(out);
             i = ref.end;
         }
 

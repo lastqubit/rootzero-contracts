@@ -22,7 +22,8 @@ pragma solidity ^0.8.33;
 // - primary / driving blocks should appear before auxiliary blocks
 // - `route(<fields...>)` is a reserved extensible schema form whose key is always `ROUTE_KEY`
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
-//   `minimum(...)` for result floors, and `maximum(...)` for spend ceilings
+//   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
+//   for plain scalar amounts
 // - `auth(uint cid, uint deadline, bytes proof)` is a proof-separator child and must be emitted last
 //
 // Signed blocks:
@@ -45,6 +46,8 @@ bytes4 constant MAXIMUM_KEY = bytes4(keccak256("maximum(bytes32 asset, bytes32 m
 string constant ROUTE = "route(bytes data)";
 string constant ROUTE_EMPTY = "route()";
 bytes4 constant ROUTE_KEY = bytes4(keccak256("route(bytes data)"));
+string constant QUANTITY = "quantity(uint amount)";
+bytes4 constant QUANTITY_KEY = bytes4(keccak256("quantity(uint amount)"));
 string constant RATE = "rate(uint value)";
 bytes4 constant RATE_KEY = bytes4(keccak256("rate(uint value)"));
 string constant PARTY = "party(bytes32 account)";
