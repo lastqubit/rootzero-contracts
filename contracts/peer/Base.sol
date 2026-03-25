@@ -5,8 +5,6 @@ import {OperationBase} from "../core/Operation.sol";
 import {PeerEvent} from "../events/Peer.sol";
 import {toPeerId, toPeerSelector} from "../utils/Ids.sol";
 
-error NoResponse();
-
 abstract contract PeerBase is OperationBase, PeerEvent {
     modifier onlyPeer() {
         enforceCaller(msg.sender);
