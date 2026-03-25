@@ -54,7 +54,15 @@ import {
 import {Blocks} from "./blocks/Readers.sol";
 import {Data} from "./blocks/Data.sol";
 import {Mem} from "./blocks/Mem.sol";
-import {InvalidBlock, MalformedBlocks, ZeroNode, ZeroRecipient} from "./blocks/Errors.sol";
+import {
+    InvalidBlock,
+    MalformedBlocks,
+    UnexpectedAsset,
+    UnexpectedHost,
+    UnexpectedMeta,
+    ZeroNode,
+    ZeroRecipient
+} from "./blocks/Errors.sol";
 import {
     BALANCE_BLOCK_LEN,
     CUSTODY_BLOCK_LEN,

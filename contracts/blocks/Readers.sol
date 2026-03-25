@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {ALLOCATION_KEY, AMOUNT_KEY, ASSET_KEY, AUTH_KEY, AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BALANCE_KEY, BOUNTY_KEY, CUSTODY_KEY, BlockPairRef, BlockRef, DataRef, FUNDING_KEY, Listing, LISTING_KEY, MAXIMUM_KEY, MINIMUM_KEY, NODE_KEY, PARTY_KEY, QUANTITY_KEY, RATE_KEY, RECIPIENT_KEY, ROUTE_KEY, STEP_KEY, TX_KEY, AssetAmount, HostAmount, Tx} from "./Schema.sol";
-import {InvalidBlock, MalformedBlocks, ZeroNode, ZeroRecipient} from "./Errors.sol";
+import {InvalidBlock, MalformedBlocks, UnexpectedAsset, UnexpectedHost, UnexpectedMeta, ZeroNode, ZeroRecipient} from "./Errors.sol";
 
 using Blocks for BlockRef;
 
@@ -646,6 +646,19 @@ library Blocks {
         return uint(bytes32(source[ref.i:ref.i + 32]));
     }
 
+    function unpackRoute2Uint(BlockRef memory ref, bytes calldata source) internal pure returns (uint a, uint b) {
+        ensure(ref, ROUTE_KEY, 64);
+        a = uint(bytes32(source[ref.i:ref.i + 32]));
+        b = uint(bytes32(source[ref.i + 32:ref.i + 64]));
+    }
+
+    function unpackRoute3Uint(BlockRef memory ref, bytes calldata source) internal pure returns (uint a, uint b, uint c) {
+        ensure(ref, ROUTE_KEY, 96);
+        a = uint(bytes32(source[ref.i:ref.i + 32]));
+        b = uint(bytes32(source[ref.i + 32:ref.i + 64]));
+        c = uint(bytes32(source[ref.i + 64:ref.i + 96]));
+    }
+
     function unpackRoute32(BlockRef memory ref, bytes calldata source) internal pure returns (bytes32) {
         ensure(ref, ROUTE_KEY, 32);
         return bytes32(source[ref.i:ref.i + 32]);
@@ -775,6 +788,59 @@ library Blocks {
         cid = uint(bytes32(source[ref.i:ref.i + 32]));
         deadline = uint(bytes32(source[ref.i + 32:ref.i + 64]));
         proof = source[ref.i + 64:ref.bound];
+    }
+
+    // ── expect* ───────────────────────────────────────────────────────────────
+
+    function expectAmount(BlockRef memory ref, bytes calldata source, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
+        ensure(ref, AMOUNT_KEY, 96);
+        if (bytes32(source[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(source[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(source[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectBalance(
+        BlockRef memory ref,
+        bytes calldata source,
+        bytes32 asset,
+        bytes32 meta
+    ) internal pure returns (uint amount) {
+        ensure(ref, BALANCE_KEY, 96);
+        if (bytes32(source[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(source[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(source[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectMinimum(
+        BlockRef memory ref,
+        bytes calldata source,
+        bytes32 asset,
+        bytes32 meta
+    ) internal pure returns (uint amount) {
+        ensure(ref, MINIMUM_KEY, 96);
+        if (bytes32(source[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(source[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(source[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectMaximum(
+        BlockRef memory ref,
+        bytes calldata source,
+        bytes32 asset,
+        bytes32 meta
+    ) internal pure returns (uint amount) {
+        ensure(ref, MAXIMUM_KEY, 96);
+        if (bytes32(source[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
+        if (bytes32(source[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        return uint(bytes32(source[ref.i + 64:ref.i + 96]));
+    }
+
+    function expectCustody(BlockRef memory ref, bytes calldata source, uint host) internal pure returns (AssetAmount memory value) {
+        ensure(ref, CUSTODY_KEY, 128);
+        if (uint(bytes32(source[ref.i:ref.i + 32])) != host) revert UnexpectedHost();
+        value.asset = bytes32(source[ref.i + 32:ref.i + 64]);
+        value.meta = bytes32(source[ref.i + 64:ref.i + 96]);
+        value.amount = uint(bytes32(source[ref.i + 96:ref.i + 128]));
     }
 
     // ── to*Value ──────────────────────────────────────────────────────────────
