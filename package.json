@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Solidity contracts and protocol building blocks for Fastish hosts and commands.",
   "private": false,
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "type": "module",
   "files": [
     "contracts/**/*.sol",

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
 import {ASSET, ERC20, ERC721, EVM32, VALUE} from "./Layout.sol";
