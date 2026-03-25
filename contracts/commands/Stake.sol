@@ -22,6 +22,8 @@ abstract contract StakeBalanceToBalances is CommandBase {
         emit Command(host, SBTB, route, stakeBalanceToBalancesId, BALANCES, BALANCES);
     }
 
+    /// @dev Override to stake a balance position and append resulting balances
+    /// to `out`.
     function stakeBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -58,6 +60,8 @@ abstract contract StakeCustodyToBalances is CommandBase {
         emit Command(host, SCTB, route, stakeCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
+    /// @dev Override to stake a custody position and append resulting balances
+    /// to `out`.
     function stakeCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,
@@ -92,6 +96,8 @@ abstract contract StakeCustodyToPosition is CommandBase {
         emit Command(host, SCTP, route, stakeCustodyToPositionId, CUSTODIES, SETUP);
     }
 
+    /// @dev Override to stake a custody position into a non-balance setup
+    /// target described by `rawRoute`.
     function stakeCustodyToPosition(bytes32 account, HostAmount memory custody, DataRef memory rawRoute) internal virtual;
 
     function stakeCustodyToPosition(

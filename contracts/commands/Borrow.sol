@@ -21,7 +21,9 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
         emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
-    // @dev implementation extracts the requested borrow amount from rawRoute.innerAmount()
+    /// @dev Override to borrow against a custody position.
+    /// Implementations extract the requested borrow amount from
+    /// `rawRoute.innerAmount()`.
     function borrowAgainstCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,
@@ -57,7 +59,9 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
         emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
     }
 
-    // @dev implementation extracts the requested borrow amount from rawRoute.innerAmount()
+    /// @dev Override to borrow against a balance position.
+    /// Implementations extract the requested borrow amount from
+    /// `rawRoute.innerAmount()`.
     function borrowAgainstBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,

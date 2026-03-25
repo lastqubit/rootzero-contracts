@@ -18,6 +18,8 @@ abstract contract MintToBalances is CommandBase {
         emit Command(host, NAME, route, mintToBalancesId, SETUP, BALANCES);
     }
 
+    /// @dev Override to mint balances described by `rawRoute` for `account`.
+    /// Implementations may append one or more BALANCE blocks to `out`.
     function mintToBalances(
         bytes32 account,
         DataRef memory rawRoute,

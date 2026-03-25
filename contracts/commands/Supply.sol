@@ -15,6 +15,8 @@ abstract contract Supply is CommandBase {
         emit Command(host, NAME, "", supplyId, CUSTODIES, SETUP);
     }
 
+    /// @dev Override to consume or supply a single custody position.
+    /// Called once per CUSTODY block in state.
     function supply(bytes32 account, HostAmount memory value) internal virtual;
 
     function supply(CommandContext calldata c) external payable onlyCommand(supplyId, c.target) returns (bytes memory) {

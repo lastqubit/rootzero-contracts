@@ -14,6 +14,7 @@ abstract contract Init is CommandBase {
         emit Command(host, NAME, route, initId, SETUP, SETUP);
     }
 
+    /// @dev Override to run host initialization logic using the decoded route.
     function init(DataRef memory rawRoute) internal virtual;
 
     function init(

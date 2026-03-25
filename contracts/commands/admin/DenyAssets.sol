@@ -16,6 +16,8 @@ abstract contract DenyAssets is CommandBase {
         emit Command(host, NAME, ASSET, denyAssetsId, SETUP, SETUP);
     }
 
+    /// @dev Override to deny a single asset/meta pair.
+    /// Called once per ASSET block in the request.
     function denyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     function denyAssets(

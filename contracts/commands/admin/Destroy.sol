@@ -14,6 +14,8 @@ abstract contract Destroy is CommandBase {
         emit Command(host, NAME, route, destroyId, SETUP, SETUP);
     }
 
+    /// @dev Override to run host teardown or destruction logic using the
+    /// decoded route.
     function destroy(DataRef memory rawRoute) internal virtual;
 
     function destroy(

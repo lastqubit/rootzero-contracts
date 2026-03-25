@@ -16,6 +16,8 @@ abstract contract Settle is CommandBase {
         emit Command(host, NAME, "", settleId, TRANSACTIONS, SETUP);
     }
 
+    /// @dev Override to settle a single transaction block.
+    /// Called once per TX block in state.
     function settle(Tx memory value) internal virtual;
 
     function settle(CommandContext calldata c) external payable onlyCommand(settleId, c.target) returns (bytes memory) {

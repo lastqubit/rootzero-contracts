@@ -23,8 +23,10 @@ abstract contract RepayFromBalanceToBalances is CommandBase {
         emit Command(host, RFBTB, maybeRoute, repayFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev `balance` is the offered repayment amount and may leave a returned remainder.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to repay debt using a balance amount.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append returned balances to
+    /// `out`.
     function repayFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -63,8 +65,10 @@ abstract contract RepayFromCustodyToBalances is CommandBase {
         emit Command(host, RFCTB, maybeRoute, repayFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
-    // @dev `custody` is the offered repayment amount and may leave a returned remainder.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to repay debt using a custody amount.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append returned balances to
+    /// `out`.
     function repayFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,

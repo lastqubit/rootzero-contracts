@@ -26,8 +26,10 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
         emit Command(host, ALFCTB, schema, addLiquidityFromCustodiesToBalancesId, CUSTODIES, BALANCES);
     }
 
-    // @dev implementation extracts the requested minimum liquidity output from rawRoute.innerMinimum()
-    // and may append up to three balances per custody pair: two refunds plus the liquidity receipt.
+    /// @dev Override to add liquidity from two custody inputs.
+    /// Implementations extract the requested minimum liquidity output from
+    /// `rawRoute.innerMinimum()` and may append up to three BALANCE blocks to
+    /// `out`: two refunds plus the liquidity receipt.
     function addLiquidityFromCustodiesToBalances(
         bytes32 account,
         DataPairRef memory rawCustodies,
@@ -64,8 +66,9 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
         emit Command(host, RLFCTB, schema, removeLiquidityFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
-    // @dev implementation extracts requested minimum outputs from rawRoute and
-    // may append up to two balances per custody input when removing liquidity.
+    /// @dev Override to remove liquidity from a custody position.
+    /// Implementations extract requested minimum outputs from `rawRoute` and
+    /// may append up to two BALANCE blocks to `out`.
     function removeLiquidityFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,
@@ -103,8 +106,10 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
         emit Command(host, ALFBTB, schema, addLiquidityFromBalancesToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev implementation extracts the requested minimum liquidity output from rawRoute.innerMinimum()
-    // and may append up to three balances per balance pair: two refunds plus the liquidity receipt.
+    /// @dev Override to add liquidity from two balance inputs.
+    /// Implementations extract the requested minimum liquidity output from
+    /// `rawRoute.innerMinimum()` and may append up to three BALANCE blocks to
+    /// `out`: two refunds plus the liquidity receipt.
     function addLiquidityFromBalancesToBalances(
         bytes32 account,
         DataPairRef memory rawBalances,
@@ -141,8 +146,9 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
         emit Command(host, RLFBTB, schema, removeLiquidityFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev implementation extracts requested minimum outputs from rawRoute and
-    // may append up to two balances per balance input when removing liquidity.
+    /// @dev Override to remove liquidity from a balance position.
+    /// Implementations extract requested minimum outputs from `rawRoute` and
+    /// may append up to two BALANCE blocks to `out`.
     function removeLiquidityFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,

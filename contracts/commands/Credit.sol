@@ -16,6 +16,8 @@ abstract contract CreditBalanceToAccount is CommandBase {
         emit Command(host, NAME, RECIPIENT, creditBalanceToAccountId, BALANCES, SETUP);
     }
 
+    /// @dev Override to credit externally managed funds to `account`.
+    /// Called once per BALANCE block in state.
     function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function creditBalanceToAccount(

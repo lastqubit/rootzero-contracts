@@ -15,6 +15,8 @@ abstract contract Create is CommandBase {
         emit Command(host, NAME, route, createId, SETUP, SETUP);
     }
 
+    /// @dev Override to create or initialize an object described by `rawRoute`.
+    /// Called once per ROUTE block in the request.
     function create(bytes32 account, DataRef memory rawRoute) internal virtual;
 
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {

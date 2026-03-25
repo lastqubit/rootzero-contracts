@@ -23,8 +23,10 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
         emit Command(host, RDBTB, maybeRoute, redeemFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev `balance` is the redeemable claim/share/position amount offered for redemption.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to redeem a balance position into balances.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append one or more BALANCE
+    /// blocks to `out`.
     function redeemFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -63,8 +65,10 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
         emit Command(host, RDCTB, maybeRoute, redeemFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
-    // @dev `custody` is the redeemable claim/share/position amount offered for redemption.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to redeem a custody position into balances.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append one or more BALANCE
+    /// blocks to `out`.
     function redeemFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,

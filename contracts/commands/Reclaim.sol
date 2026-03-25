@@ -21,6 +21,9 @@ abstract contract ReclaimToBalances is CommandBase {
         emit Command(host, NAME, schema, reclaimToBalancesId, SETUP, BALANCES);
     }
 
+    /// @dev Override to reclaim balances described by `rawRoute`.
+    /// `amount` is extracted from the route and implementations may append one
+    /// or more BALANCE blocks to `out`.
     function reclaimToBalances(
         bytes32 account,
         AssetAmount memory amount,

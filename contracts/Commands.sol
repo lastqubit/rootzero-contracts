@@ -7,11 +7,10 @@ import {BALANCES, CLAIMS, CUSTODIES, PIPE, SETUP, TRANSACTIONS} from "./utils/Ch
 import {BorrowAgainstBalanceToBalance, BorrowAgainstCustodyToBalance} from "./commands/Borrow.sol";
 import {Burn} from "./commands/Burn.sol";
 import {Create} from "./commands/Create.sol";
-import {CreditBalanceToAccount} from "./commands/CreditTo.sol";
-import {DebitAccountToBalance} from "./commands/DebitFrom.sol";
+import {CreditBalanceToAccount} from "./commands/Credit.sol";
+import {DebitAccountToBalance} from "./commands/Debit.sol";
 import {Deposit} from "./commands/Deposit.sol";
 import {Remove} from "./commands/Remove.sol";
-import {Fund} from "./commands/Fund.sol";
 import {
     AddLiquidityFromBalancesToBalances,
     AddLiquidityFromCustodiesToBalances,
@@ -21,7 +20,7 @@ import {
 import {LiquidateFromBalanceToBalances, LiquidateFromCustodyToBalances} from "./commands/Liquidate.sol";
 import {MintToBalances} from "./commands/Mint.sol";
 import {Pipe} from "./commands/Pipe.sol";
-import {Provision} from "./commands/Provision.sol";
+import {Provision, ProvisionFromBalance} from "./commands/Provision.sol";
 import {ReclaimToBalances} from "./commands/Reclaim.sol";
 import {RedeemFromBalanceToBalances, RedeemFromCustodyToBalances} from "./commands/Redeem.sol";
 import {RepayFromBalanceToBalances, RepayFromCustodyToBalances} from "./commands/Repay.sol";

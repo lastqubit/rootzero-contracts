@@ -15,6 +15,8 @@ abstract contract Burn is CommandBase {
         emit Command(host, NAME, route, burnId, BALANCES, SETUP);
     }
 
+    /// @dev Override to burn or consume the provided balance amount.
+    /// Called once per BALANCE block in state.
     function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual returns (uint);
 
     function burn(CommandContext calldata c) external payable onlyCommand(burnId, c.target) returns (bytes memory) {

@@ -15,6 +15,8 @@ abstract contract Remove is CommandBase {
         emit Command(host, NAME, route, removeId, SETUP, SETUP);
     }
 
+    /// @dev Override to remove or dismantle an object described by `rawRoute`.
+    /// Called once per ROUTE block in the request.
     function remove(bytes32 account, DataRef memory rawRoute) internal virtual;
 
     function remove(CommandContext calldata c) external payable onlyCommand(removeId, c.target) returns (bytes memory) {

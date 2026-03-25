@@ -20,6 +20,8 @@ abstract contract Deposit is CommandBase {
         emit Command(host, NAME, AMOUNT, depositId, SETUP, BALANCES);
     }
 
+    /// @dev Override to receive externally sourced funds for `account`.
+    /// Called once per AMOUNT block and followed by a matching BALANCE output.
     function deposit(
         bytes32 account,
         bytes32 asset,

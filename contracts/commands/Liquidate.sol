@@ -23,8 +23,10 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
         emit Command(host, LFBTB, maybeRoute, liquidateFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev `balance` is the offered liquidation repayment amount and may leave a returned remainder.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to liquidate using a balance repayment amount.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append returned balances to
+    /// `out`.
     function liquidateFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -63,8 +65,10 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
         emit Command(host, LFCTB, maybeRoute, liquidateFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
-    // @dev `custody` is the offered liquidation repayment amount and may leave a returned remainder.
-    // `rawRoute` is zero-initialized and should be ignored when `maybeRoute` is empty.
+    /// @dev Override to liquidate using a custody repayment amount.
+    /// `rawRoute` is zero-initialized and should be ignored when
+    /// `maybeRoute` is empty. Implementations may append returned balances to
+    /// `out`.
     function liquidateFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,

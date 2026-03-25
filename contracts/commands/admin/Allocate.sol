@@ -17,6 +17,8 @@ abstract contract Allocate is CommandBase {
         emit Command(host, NAME, ALLOCATION, allocateId, SETUP, SETUP);
     }
 
+    /// @dev Override to apply a single allocation entry.
+    /// Called once per ALLOCATION block in the request.
     function allocate(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function allocate(CommandContext calldata c) external payable onlyAdmin(c.account) onlyCommand(allocateId, c.target) returns (bytes memory) {

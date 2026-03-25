@@ -17,8 +17,13 @@ abstract contract Transfer is CommandBase {
         emit Command(host, NAME, REQUEST, transferId, SETUP, SETUP);
     }
 
+    /// @dev Override to transfer funds from `from` to `to`.
+    /// Called once per AMOUNT>RECIPIENT pair in the request.
     function transfer(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
+    /// @dev Override to customize request parsing or batching for transfers.
+    /// The default implementation iterates AMOUNT>RECIPIENT pairs and calls
+    /// `transfer(from, to, asset, meta, amount)` for each one.
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
         uint q = 0;
         while (q < request.length) {

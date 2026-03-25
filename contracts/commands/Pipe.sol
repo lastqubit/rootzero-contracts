@@ -18,6 +18,8 @@ abstract contract Pipe is CommandBase {
         emit Command(host, NAME, STEP, pipeId, 0, 0);
     }
 
+    /// @dev Override to execute a single STEP target and return the next
+    /// threaded state for the pipe.
     function dispatchStep(
         uint target,
         bytes32 account,

@@ -21,7 +21,9 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
         emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
     }
 
-    // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()
+    /// @dev Override to swap an exact balance input into a balance output.
+    /// Implementations extract the requested minimum from
+    /// `rawRoute.innerMinimum()`.
     function swapExactBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,
@@ -57,7 +59,9 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
         emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
-    // @dev implementation extracts the requested minimum from rawRoute.innerMinimum()
+    /// @dev Override to swap an exact custody input into a balance output.
+    /// Implementations extract the requested minimum from
+    /// `rawRoute.innerMinimum()`.
     function swapExactCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,

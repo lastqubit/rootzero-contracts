@@ -17,6 +17,8 @@ abstract contract Withdraw is CommandBase {
         emit Command(host, NAME, RECIPIENT, withdrawId, BALANCES, SETUP);
     }
 
+    /// @dev Override to send funds to `account`.
+    /// Called once per BALANCE block in state.
     function withdraw(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function withdraw(

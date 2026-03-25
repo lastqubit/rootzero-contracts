@@ -16,6 +16,8 @@ abstract contract AllowAssets is CommandBase {
         emit Command(host, NAME, ASSET, allowAssetsId, SETUP, SETUP);
     }
 
+    /// @dev Override to allow a single asset/meta pair.
+    /// Called once per ASSET block in the request.
     function allowAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     function allowAssets(

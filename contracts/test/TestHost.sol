@@ -5,21 +5,17 @@ import {Host} from "../core/Host.sol";
 import {Deposit} from "../commands/Deposit.sol";
 import {Withdraw} from "../commands/Withdraw.sol";
 import {Transfer} from "../commands/Transfer.sol";
-import {CreditBalanceToAccount} from "../commands/CreditTo.sol";
-import {DebitAccountToBalance} from "../commands/DebitFrom.sol";
+import {CreditBalanceToAccount} from "../commands/Credit.sol";
+import {DebitAccountToBalance} from "../commands/Debit.sol";
 import {Settle} from "../commands/Settle.sol";
-import {Fund} from "../commands/Fund.sol";
-import {Provision} from "../commands/Provision.sol";
+import {Provision, ProvisionFromBalance} from "../commands/Provision.sol";
 import {Pipe} from "../commands/Pipe.sol";
 import {AllowAssets} from "../commands/admin/AllowAssets.sol";
 import {DenyAssets} from "../commands/admin/DenyAssets.sol";
 import {Destroy} from "../commands/admin/Destroy.sol";
 import {Init} from "../commands/admin/Init.sol";
 import {Allocate} from "../commands/admin/Allocate.sol";
-import {DataRef, Tx, Writer} from "../blocks/Schema.sol";
-import {Writers} from "../blocks/Writers.sol";
-
-using Writers for Writer;
+import {DataRef, Tx} from "../blocks/Schema.sol";
 
 contract TestHost is
     Host,
@@ -29,8 +25,8 @@ contract TestHost is
     CreditBalanceToAccount,
     DebitAccountToBalance,
     Settle,
-    Fund,
     Provision,
+    ProvisionFromBalance,
     Pipe,
     Init,
     Destroy,
@@ -44,7 +40,6 @@ contract TestHost is
     event CreditToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
     event DebitFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
     event SettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
-    event FundCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event InitCalled(bytes routeData);
     event DestroyCalled(bytes routeData);
@@ -55,7 +50,7 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address fastish) Host(fastish, 1, "test") Deposit() Provision(10_000) Init("") Destroy("") {}
+    constructor(address fastish) Host(fastish, 1, "test") Deposit() Provision() Init("") Destroy("") {}
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);
@@ -81,20 +76,8 @@ contract TestHost is
         emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function fund(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit FundCalled(host_, account, asset, meta, amount);
-    }
-
-    function provision(
-        bytes32 account,
-        uint host_,
-        bytes32 asset,
-        bytes32 meta,
-        uint amount,
-        Writer memory out
-    ) internal override {
+    function provision(bytes32 account, uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit ProvisionCalled(host_, account, asset, meta, amount);
-        out.appendCustody(host_, asset, meta, amount);
     }
 
     function init(DataRef memory rawRoute) internal override {
@@ -157,8 +140,8 @@ contract TestHost is
         return settleId;
     }
 
-    function getFundId() external view returns (uint) {
-        return fundId;
+    function getProvisionFromBalanceId() external view returns (uint) {
+        return provisionFromBalanceId;
     }
 
     function getProvisionId() external view returns (uint) {

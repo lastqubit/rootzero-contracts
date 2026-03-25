@@ -20,7 +20,8 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
         emit Command(host, UBTB, route, unstakeBalanceToBalancesId, BALANCES, BALANCES);
     }
 
-    // @dev `balance` is the input stake/share/LP-style position being redeemed.
+    /// @dev Override to unstake or redeem a balance position.
+    /// Implementations may append one or more BALANCE blocks to `out`.
     function unstakeBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
