@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 import { Schemas } from "../blocks/Schema.sol";
 
@@ -20,7 +20,7 @@ abstract contract RepayFromBalanceToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, RFBTB, maybeRoute, repayFromBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, RFBTB, maybeRoute, repayFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to repay debt using a balance amount.
@@ -65,7 +65,7 @@ abstract contract RepayFromCustodyToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, RFCTB, maybeRoute, repayFromCustodyToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, RFCTB, maybeRoute, repayFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to repay debt using a custody amount.

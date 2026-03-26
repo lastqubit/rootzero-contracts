@@ -11,8 +11,11 @@ pragma solidity ^0.8.33;
 //   2. A Command event emitted in the constructor to announce the command to the protocol.
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller and target.
 
-import {CommandBase, CommandContext, BALANCES, SETUP} from "../contracts/Commands.sol";
-import {Blocks, AMOUNT} from "../contracts/Blocks.sol";
+import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
+import { Blocks, Block, Writer, Writers, BALANCE_BLOCK_LEN, Schemas } from "../contracts/Blocks.sol";
+
+using Blocks for Block;
+using Writers for Writer;
 
 // NAME is the human-readable command name. It is used to derive the command ID
 // and is published in the Command event so off-chain tooling can discover it.
@@ -27,7 +30,7 @@ abstract contract MyCommand is CommandBase {
         // Announce this command to the Fastish protocol.
         // Args: host id, command name, request schema, command id, input channel, output channel.
         // SETUP = no structured input channel; BALANCES = this command returns BALANCE blocks.
-        emit Command(host, NAME, AMOUNT, myCommandId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, myCommandId, Channels.Setup, Channels.Balances);
     }
 
     function myCommand(
@@ -37,9 +40,12 @@ abstract contract MyCommand is CommandBase {
         // c.target matches this command's ID (or is 0, meaning "any command").
 
         // Decode the first AMOUNT block from the request at offset 0.
-        (bytes32 asset, bytes32 meta, uint amount) = Blocks.unpackAmountAt(c.request, 0);
+        Block memory ref = Blocks.amountFrom(c.request, 0);
+        (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.
-        return Blocks.toBalanceBlock(asset, meta, amount);
+        Writer memory writer = Writers.alloc(BALANCE_BLOCK_LEN);
+        writer.appendBalance(asset, meta, amount);
+        return writer.done();
     }
 }

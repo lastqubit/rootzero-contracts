@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 import { Schemas } from "../blocks/Schema.sol";
 import { routeSchema1 } from "../utils/Utils.sol";
@@ -19,7 +19,7 @@ abstract contract ReclaimToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
-        emit Command(host, NAME, schema, reclaimToBalancesId, SETUP, BALANCES);
+        emit Command(host, NAME, schema, reclaimToBalancesId, Channels.Setup, Channels.Balances);
     }
 
     /// @dev Override to reclaim balances described by `rawRoute`.

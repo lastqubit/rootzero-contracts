@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CLAIMS, BALANCES, CUSTODIES, PIPE, SETUP, TRANSACTIONS } from "./utils/Channels.sol";
+import { Channels } from "./utils/Channels.sol";
 import { ACCOUNT_FAMILY, accountEvmAddr, accountPrefix, addrOr, ADMIN_PREFIX, ensureEvmAccount, InvalidAccount, isAdminAccount, toAdminAccount, toUserAccount, USER_PREFIX } from "./utils/Accounts.sol";
 import { BadAmount, ensureAmount, ensureAssetRef, ensureBalanceRef, ERC20_PREFIX, ERC721_PREFIX, InvalidAsset, isAsset32, localErc20Addr, localErc721Issuer, resolveAmount, toErc20Asset, toErc721Asset, toValueAsset, VALUE_PREFIX, ZeroAmount } from "./utils/Assets.sol";
 import { ECDSA } from "./utils/ECDSA.sol";

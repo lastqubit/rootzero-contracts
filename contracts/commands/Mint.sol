@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 using Writers for Writer;
 
@@ -14,7 +14,7 @@ abstract contract MintToBalances is CommandBase {
 
     constructor(string memory route, uint scaledRatio) {
         outScale = scaledRatio;
-        emit Command(host, NAME, route, mintToBalancesId, SETUP, BALANCES);
+        emit Command(host, NAME, route, mintToBalancesId, Channels.Setup, Channels.Balances);
     }
 
     /// @dev Override to mint balances described by `rawRoute` for `account`.

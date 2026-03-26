@@ -12,9 +12,9 @@ pragma solidity ^0.8.33;
 //   - calls `debitAccount` for each (your hook - deduct from your storage)
 //   - returns matching BALANCE blocks as the response
 
-import {Host} from "../contracts/Core.sol";
-import {DebitAccountToBalance} from "../contracts/Commands.sol";
-import {ensureAssetRef} from "../contracts/Utils.sol";
+import { Host } from "../contracts/Core.sol";
+import { DebitAccountToBalance } from "../contracts/Commands.sol";
+import { ensureAssetRef } from "../contracts/Utils.sol";
 
 contract ExampleHost is Host, DebitAccountToBalance {
     // Internal balance ledger: account -> asset key -> amount

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { TRANSACTIONS, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Tx } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Blocks, Block, Keys } from "../Blocks.sol";
@@ -14,7 +14,7 @@ abstract contract Settle is CommandBase {
     uint internal immutable settleId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, "", settleId, TRANSACTIONS, SETUP);
+        emit Command(host, NAME, "", settleId, Channels.Transactions, Channels.Setup);
     }
 
     /// @dev Override to settle a single transaction block.

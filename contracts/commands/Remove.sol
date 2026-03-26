@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "./Base.sol";
-import { SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Blocks, Block, Keys } from "../Blocks.sol";
 using Blocks for Block;
 
@@ -12,7 +12,7 @@ abstract contract Remove is CommandBase {
     uint internal immutable removeId = commandId(NAME);
 
     constructor(string memory route) {
-        emit Command(host, NAME, route, removeId, SETUP, SETUP);
+        emit Command(host, NAME, route, removeId, Channels.Setup, Channels.Setup);
     }
 
     /// @dev Override to remove or dismantle an object described by `rawRoute`.

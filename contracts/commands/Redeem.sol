@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 
 string constant RDBTB = "redeemFromBalanceToBalances";
@@ -19,7 +19,7 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, RDBTB, maybeRoute, redeemFromBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, RDBTB, maybeRoute, redeemFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to redeem a balance position into balances.
@@ -64,7 +64,7 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, RDCTB, maybeRoute, redeemFromCustodyToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, RDCTB, maybeRoute, redeemFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to redeem a custody position into balances.

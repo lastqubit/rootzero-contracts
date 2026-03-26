@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Writer } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
@@ -18,7 +18,7 @@ abstract contract DebitAccountToBalance is CommandBase {
     uint internal immutable debitAccountToBalanceId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, debitAccountToBalanceId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, debitAccountToBalanceId, Channels.Setup, Channels.Balances);
     }
 
     /// @dev Override to debit externally managed funds from `account`.

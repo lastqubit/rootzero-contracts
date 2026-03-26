@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 import { Schemas } from "../blocks/Schema.sol";
 import { routeSchema1 } from "../utils/Utils.sol";
@@ -18,7 +18,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
 
     constructor(string memory maybeRoute) {
         string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
-        emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
+        emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to borrow against a custody position.
@@ -57,7 +57,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
 
     constructor(string memory maybeRoute) {
         string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
-        emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
+        emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to borrow against a balance position.

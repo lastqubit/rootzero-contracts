@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "../Base.sol";
-import { SETUP } from "../../utils/Channels.sol";
+import { Channels } from "../../utils/Channels.sol";
 import { Keys } from "../../blocks/Keys.sol";
 import { Schemas } from "../../blocks/Schema.sol";
 import { Blocks, Block, Keys } from "../../Blocks.sol";
@@ -14,7 +14,7 @@ abstract contract Relocate is CommandBase {
     uint internal immutable relocateId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Funding, relocateId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Funding, relocateId, Channels.Setup, Channels.Setup);
     }
 
     function relocate(

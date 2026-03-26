@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
@@ -19,7 +19,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
 
     constructor(string memory maybeRoute) {
         string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
-        emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
+        emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to swap an exact balance input into a balance output.
@@ -58,7 +58,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
 
     constructor(string memory maybeRoute) {
         string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
-        emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
+        emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to swap an exact custody input into a balance output.

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "../Base.sol";
-import { SETUP } from "../../utils/Channels.sol";
+import { Channels } from "../../utils/Channels.sol";
 import { Keys } from "../../blocks/Keys.sol";
 import { Schemas } from "../../blocks/Schema.sol";
 import { Blocks, Block, Keys } from "../../Blocks.sol";
@@ -14,7 +14,7 @@ abstract contract AllowAssets is CommandBase {
     uint internal immutable allowAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Asset, allowAssetsId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Asset, allowAssetsId, Channels.Setup, Channels.Setup);
     }
 
     /// @dev Override to allow a single asset/meta pair.

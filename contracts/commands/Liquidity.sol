@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount, BlockPair } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
@@ -24,7 +24,7 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
-        emit Command(host, ALFCTB, schema, addLiquidityFromCustodiesToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, ALFCTB, schema, addLiquidityFromCustodiesToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to add liquidity from two custody inputs.
@@ -66,7 +66,7 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         string memory schema = routeSchema2(maybeRoute, Schemas.Minimum, Schemas.Minimum);
-        emit Command(host, RLFCTB, schema, removeLiquidityFromCustodyToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, RLFCTB, schema, removeLiquidityFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to remove liquidity from a custody position.
@@ -107,7 +107,7 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
-        emit Command(host, ALFBTB, schema, addLiquidityFromBalancesToBalancesId, BALANCES, BALANCES);
+        emit Command(host, ALFBTB, schema, addLiquidityFromBalancesToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to add liquidity from two balance inputs.
@@ -149,7 +149,7 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         string memory schema = routeSchema2(maybeRoute, Schemas.Minimum, Schemas.Minimum);
-        emit Command(host, RLFBTB, schema, removeLiquidityFromBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, RLFBTB, schema, removeLiquidityFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to remove liquidity from a balance position.

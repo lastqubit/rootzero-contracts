@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES } from "../utils/Channels.sol";
-import { AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
+import {CommandContext, CommandBase} from "./Base.sol";
+import {Channels} from "../utils/Channels.sol";
+import {AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys} from "../Blocks.sol";
 
 string constant LFBTB = "liquidateFromBalanceToBalances";
 string constant LFCTB = "liquidateFromCustodyToBalances";
@@ -19,7 +19,7 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, LFBTB, maybeRoute, liquidateFromBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, LFBTB, maybeRoute, liquidateFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to liquidate using a balance repayment amount.
@@ -64,7 +64,7 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
         useRoute = bytes(maybeRoute).length > 0;
-        emit Command(host, LFCTB, maybeRoute, liquidateFromCustodyToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, LFCTB, maybeRoute, liquidateFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to liquidate using a custody repayment amount.

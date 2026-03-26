@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "../Base.sol";
-import { SETUP } from "../../utils/Channels.sol";
+import { Channels } from "../../utils/Channels.sol";
 import { Keys } from "../../blocks/Keys.sol";
 import { Schemas } from "../../blocks/Schema.sol";
 import { Blocks, Block, Keys } from "../../Blocks.sol";
@@ -14,7 +14,7 @@ abstract contract DenyAssets is CommandBase {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Asset, denyAssetsId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Asset, denyAssetsId, Channels.Setup, Channels.Setup);
     }
 
     /// @dev Override to deny a single asset/meta pair.

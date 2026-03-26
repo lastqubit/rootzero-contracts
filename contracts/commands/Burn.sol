@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Blocks, Block, Keys } from "../Blocks.sol";
 using Blocks for Block;
 
@@ -12,7 +12,7 @@ abstract contract Burn is CommandBase {
     uint internal immutable burnId = commandId(NAME);
 
     constructor(string memory route) {
-        emit Command(host, NAME, route, burnId, BALANCES, SETUP);
+        emit Command(host, NAME, route, burnId, Channels.Balances, Channels.Setup);
     }
 
     /// @dev Override to burn or consume the provided balance amount.

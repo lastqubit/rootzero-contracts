@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Writer } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
@@ -19,7 +19,7 @@ abstract contract Deposit is CommandBase {
     uint internal immutable depositId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, depositId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, depositId, Channels.Setup, Channels.Balances);
     }
 
     /// @dev Override to receive externally sourced funds for `account`.

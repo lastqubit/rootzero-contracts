@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, CUSTODIES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
 import { Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
@@ -26,7 +26,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
     constructor() {
-        emit Command(host, PROVISION, REQUEST, provisionId, SETUP, CUSTODIES);
+        emit Command(host, PROVISION, REQUEST, provisionId, Channels.Setup, Channels.Custodies);
     }
 
     function provision(
@@ -53,7 +53,7 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     uint internal immutable provisionFromBalanceId = commandId(PFB);
 
     constructor() {
-        emit Command(host, PFB, Schemas.Node, provisionFromBalanceId, BALANCES, CUSTODIES);
+        emit Command(host, PFB, Schemas.Node, provisionFromBalanceId, Channels.Balances, Channels.Custodies);
     }
 
     function provisionFromBalance(

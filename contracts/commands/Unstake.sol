@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 
 string constant UBTB = "unstakeBalanceToBalances";
@@ -16,7 +16,7 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
 
     constructor(string memory route, uint scaledRatio) {
         outScale = scaledRatio;
-        emit Command(host, UBTB, route, unstakeBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, UBTB, route, unstakeBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to unstake or redeem a balance position.

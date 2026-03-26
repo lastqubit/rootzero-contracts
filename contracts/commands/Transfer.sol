@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
 import { Blocks, Block, Keys } from "../Blocks.sol";
@@ -15,7 +15,7 @@ abstract contract Transfer is CommandBase {
     uint internal immutable transferId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, REQUEST, transferId, SETUP, SETUP);
+        emit Command(host, NAME, REQUEST, transferId, Channels.Setup, Channels.Setup);
     }
 
     /// @dev Override to transfer funds from `from` to `to`.

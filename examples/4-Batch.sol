@@ -10,10 +10,10 @@ pragma solidity ^0.8.33;
 // Use Writers when you need to build the response incrementally rather than
 // returning a single pre-encoded block.
 
-import {CommandBase, CommandContext, BALANCES, SETUP} from "../contracts/Commands.sol";
-import {AssetAmount, Blocks, BlockRef, Writers, Writer, AMOUNT, AMOUNT_KEY} from "../contracts/Blocks.sol";
+import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
+import { AssetAmount, Blocks, Block, Writers, Writer, Keys, Schemas } from "../contracts/Blocks.sol";
 
-using Blocks for BlockRef;
+using Blocks for Block;
 using Writers for Writer;
 
 string constant NAME = "myCommand";
@@ -22,7 +22,7 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, AMOUNT, myCommandId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, myCommandId, Channels.Setup, Channels.Balances);
     }
 
     function myCommand(
@@ -32,21 +32,21 @@ abstract contract MyCommand is CommandBase {
 
         // Allocate a writer pre-sized for one BALANCE block per AMOUNT block in the request.
         // `end` is the offset past the last AMOUNT block so the loop knows when to stop.
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, AMOUNT_KEY);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.request, i, Keys.Amount);
 
         // Walk every AMOUNT block in the request.
         while (i < end) {
             // Read the block header at offset i to find its key, length, and end position.
-            BlockRef memory ref = Blocks.from(c.request, i);
+            Block memory ref = Blocks.from(c.request, i);
 
             // Unpack asset, meta, and amount from this block.
-            AssetAmount memory value = ref.toAmountValue(c.request);
+            AssetAmount memory value = ref.toAmountValue();
 
             // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
             writer.appendBalance(value);
 
             // Advance the cursor past this block.
-            i = ref.end;
+            i = ref.cursor;
         }
 
         // Finalize and return the encoded BALANCE blocks.

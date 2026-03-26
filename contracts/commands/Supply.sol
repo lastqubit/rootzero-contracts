@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "./Base.sol";
-import { CUSTODIES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Blocks, Block, HostAmount, Keys } from "../Blocks.sol";
 string constant NAME = "supply";
 
@@ -12,7 +12,7 @@ abstract contract Supply is CommandBase {
     uint internal immutable supplyId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, "", supplyId, CUSTODIES, SETUP);
+        emit Command(host, NAME, "", supplyId, Channels.Custodies, Channels.Setup);
     }
 
     /// @dev Override to consume or supply a single custody position.

@@ -14,11 +14,11 @@ pragma solidity ^0.8.33;
 // nested inside it. The command reads both, forwards the asset to the target host,
 // and returns a CUSTODY block confirming the held asset.
 
-import {CommandBase, CommandContext, CUSTODIES, SETUP} from "../contracts/Commands.sol";
-import {AMOUNT} from "../contracts/Schema.sol";
-import {Blocks, Data, DataRef} from "../contracts/Blocks.sol";
+import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
+import { Block, Blocks, CUSTODY_BLOCK_LEN, Schemas, Writer, Writers } from "../contracts/Blocks.sol";
 
-using Data for DataRef;
+using Blocks for Block;
+using Writers for Writer;
 
 string constant NAME = "myCommand";
 
@@ -27,14 +27,14 @@ string constant ROUTE = "route(uint host)";
 
 // REQUEST is the full request schema published with the Command event.
 // The ">" separator means: a ROUTE block containing an AMOUNT block as a child.
-string constant REQUEST = string.concat(ROUTE, ">", AMOUNT);
+string constant REQUEST = string.concat(ROUTE, ">", Schemas.Amount);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
         // CUSTODIES = this command returns CUSTODY blocks (assets held by another host).
-        emit Command(host, NAME, REQUEST, myCommandId, SETUP, CUSTODIES);
+        emit Command(host, NAME, REQUEST, myCommandId, Channels.Setup, Channels.Custodies);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.
@@ -44,7 +44,7 @@ abstract contract MyCommand is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
         // Read the outer route block from the request starting at offset 0.
-        (DataRef memory route, ) = Data.routeFrom(c.request, 0);
+        Block memory route = Blocks.routeFrom(c.request, 0);
 
         // Decode the `host` uint from the route payload.
         uint host = route.unpackRouteUint();
@@ -56,6 +56,8 @@ abstract contract MyCommand is CommandBase {
         sendToHost(host, asset, meta, amount);
 
         // Return a CUSTODY block recording that this asset is now held by `host`.
-        return Blocks.toCustodyBlock(host, asset, meta, amount);
+        Writer memory writer = Writers.alloc(CUSTODY_BLOCK_LEN);
+        writer.appendCustody(host, asset, meta, amount);
+        return writer.done();
     }
 }

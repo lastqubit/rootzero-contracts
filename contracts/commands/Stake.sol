@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { SETUP, BALANCES, CUSTODIES } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { AssetAmount, HostAmount, Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 
 string constant SBTB = "stakeBalanceToBalances";
@@ -18,7 +18,7 @@ abstract contract StakeBalanceToBalances is CommandBase {
 
     constructor(string memory route, uint scaledRatio) {
         outScale = scaledRatio;
-        emit Command(host, SBTB, route, stakeBalanceToBalancesId, BALANCES, BALANCES);
+        emit Command(host, SBTB, route, stakeBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to stake a balance position and append resulting balances
@@ -57,7 +57,7 @@ abstract contract StakeCustodyToBalances is CommandBase {
 
     constructor(string memory route, uint scaledRatio) {
         outScale = scaledRatio;
-        emit Command(host, SCTB, route, stakeCustodyToBalancesId, CUSTODIES, BALANCES);
+        emit Command(host, SCTB, route, stakeCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to stake a custody position and append resulting balances
@@ -94,7 +94,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
     uint internal immutable stakeCustodyToPositionId = commandId(SCTP);
 
     constructor(string memory route) {
-        emit Command(host, SCTP, route, stakeCustodyToPositionId, CUSTODIES, SETUP);
+        emit Command(host, SCTP, route, stakeCustodyToPositionId, Channels.Custodies, Channels.Setup);
     }
 
     /// @dev Override to stake a custody position into a non-balance setup

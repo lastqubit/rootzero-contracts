@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase } from "./Base.sol";
-import { BALANCES, SETUP } from "../utils/Channels.sol";
+import { Channels } from "../utils/Channels.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
 import { Blocks, Block, Keys } from "../Blocks.sol";
@@ -15,7 +15,7 @@ abstract contract Withdraw is CommandBase {
     uint internal immutable withdrawId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Recipient, withdrawId, BALANCES, SETUP);
+        emit Command(host, NAME, Schemas.Recipient, withdrawId, Channels.Balances, Channels.Setup);
     }
 
     /// @dev Override to send funds to `account`.

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext } from "../Base.sol";
-import { SETUP } from "../../utils/Channels.sol";
+import { Channels } from "../../utils/Channels.sol";
 import { Blocks, Block } from "../../Blocks.sol";
 
 string constant NAME = "destroy";
@@ -11,7 +11,7 @@ abstract contract Destroy is CommandBase {
     uint internal immutable destroyId = commandId(NAME);
 
     constructor(string memory route) {
-        emit Command(host, NAME, route, destroyId, SETUP, SETUP);
+        emit Command(host, NAME, route, destroyId, Channels.Setup, Channels.Setup);
     }
 
     /// @dev Override to run host teardown or destruction logic using the
