@@ -14,7 +14,7 @@ abstract contract Authorize is CommandBase {
     uint internal immutable authorizeId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.NODE, authorizeId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Node, authorizeId, SETUP, SETUP);
     }
 
     function authorize(
@@ -23,7 +23,7 @@ abstract contract Authorize is CommandBase {
         uint i = 0;
         while (i < c.request.length) {
             Block memory ref = Blocks.from(c.request, i);
-            if (ref.key != Keys.NODE) break;
+            if (ref.key != Keys.Node) break;
             uint node = ref.unpackNode();
             access(node, true);
             i = ref.cursor;

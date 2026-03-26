@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { BlockPair, Block, Listing, AssetAmount, HostAmount, Tx, Keys } from "./Schema.sol";
+import { BlockPair, Block, HostAsset, AssetAmount, HostAmount, Tx, Keys } from "./Schema.sol";
 import { InvalidBlock, MalformedBlocks, UnexpectedAsset, UnexpectedHost, UnexpectedMeta, ZeroNode, ZeroRecipient } from "./Errors.sol";
 
 using Blocks for Block;
@@ -96,14 +96,14 @@ library Blocks {
     }
 
     function resolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup) internal pure returns (bytes32) {
-        Block memory ref = findFrom(source, i, limit, Keys.RECIPIENT);
+        Block memory ref = findFrom(source, i, limit, Keys.Recipient);
         bytes32 to = ref.key != 0 ? ref.unpackRecipient() : backup;
         if (to == 0) revert ZeroRecipient();
         return to;
     }
 
     function resolveNode(bytes calldata source, uint i, uint limit, uint backup) internal pure returns (uint) {
-        Block memory ref = findFrom(source, i, limit, Keys.NODE);
+        Block memory ref = findFrom(source, i, limit, Keys.Node);
         uint node = ref.key != 0 ? ref.unpackNode() : backup;
         if (node == 0) revert ZeroNode();
         return node;
@@ -136,112 +136,112 @@ library Blocks {
 
     function routeFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.ROUTE);
+        ensure(ref, Keys.Route);
     }
 
     function nodeFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.NODE, 32);
+        ensure(ref, Keys.Node, 32);
     }
 
     function recipientFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.RECIPIENT, 32);
+        ensure(ref, Keys.Recipient, 32);
     }
 
     function partyFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.PARTY, 32);
+        ensure(ref, Keys.Party, 32);
     }
 
     function rateFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.RATE, 32);
+        ensure(ref, Keys.Rate, 32);
     }
 
     function quantityFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.QUANTITY, 32);
+        ensure(ref, Keys.Quantity, 32);
     }
 
     function assetFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.ASSET, 64);
+        ensure(ref, Keys.Asset, 64);
     }
 
     function fundingFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.FUNDING, 64);
+        ensure(ref, Keys.Funding, 64);
     }
 
     function bountyFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.BOUNTY, 64);
+        ensure(ref, Keys.Bounty, 64);
     }
 
     function amountFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.AMOUNT, 96);
+        ensure(ref, Keys.Amount, 96);
     }
 
     function amountTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
         ref = twoFrom(source, i);
-        ensure(ref, Keys.AMOUNT, 96);
+        ensure(ref, Keys.Amount, 96);
     }
 
     function balanceFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
     }
 
     function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
         ref = twoFrom(source, i);
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
     }
 
     function minimumFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.MINIMUM, 96);
+        ensure(ref, Keys.Minimum, 96);
     }
 
     function maximumFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.MAXIMUM, 96);
+        ensure(ref, Keys.Maximum, 96);
     }
 
     function listingFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.LISTING, 96);
+        ensure(ref, Keys.Listing, 96);
     }
 
     function stepFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.STEP, 64, 0);
+        ensure(ref, Keys.Step, 64, 0);
     }
 
     function authFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.AUTH, 149, 0);
+        ensure(ref, Keys.Auth, 149, 0);
     }
 
     function custodyFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.CUSTODY, 128);
+        ensure(ref, Keys.Custody, 128);
     }
 
     function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
         ref = twoFrom(source, i);
-        ensure(ref, Keys.CUSTODY, 128);
+        ensure(ref, Keys.Custody, 128);
     }
 
     function allocationFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.ALLOCATION, 128);
+        ensure(ref, Keys.Allocation, 128);
     }
 
     function txFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.TX, 160);
+        ensure(ref, Keys.Transaction, 160);
     }
 
     // ── inner* ────────────────────────────────────────────────────────────────
@@ -438,132 +438,132 @@ library Blocks {
     // ── unpack* ───────────────────────────────────────────────────────────────
 
     function unpackRoute(Block memory ref) internal pure returns (bytes calldata data) {
-        ensure(ref, Keys.ROUTE);
+        ensure(ref, Keys.Route);
         return msg.data[ref.i:ref.bound];
     }
 
     function unpackRouteUint(Block memory ref) internal pure returns (uint) {
-        ensure(ref, Keys.ROUTE, 32);
+        ensure(ref, Keys.Route, 32);
         return uint(bytes32(msg.data[ref.i:ref.i + 32]));
     }
 
     function unpackRoute2Uint(Block memory ref) internal pure returns (uint a, uint b) {
-        ensure(ref, Keys.ROUTE, 96);
+        ensure(ref, Keys.Route, 96);
         a = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         b = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
     }
 
     function unpackRoute3Uint(Block memory ref) internal pure returns (uint a, uint b, uint c) {
-        ensure(ref, Keys.ROUTE, 96);
+        ensure(ref, Keys.Route, 96);
         a = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         b = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
         c = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function unpackRoute32(Block memory ref) internal pure returns (bytes32) {
-        ensure(ref, Keys.ROUTE, 32);
+        ensure(ref, Keys.Route, 32);
         return bytes32(msg.data[ref.i:ref.i + 32]);
     }
 
     function unpackRoute64(Block memory ref) internal pure returns (bytes32 a, bytes32 b) {
-        ensure(ref, Keys.ROUTE, 64);
+        ensure(ref, Keys.Route, 64);
         a = bytes32(msg.data[ref.i:ref.i + 32]);
         b = bytes32(msg.data[ref.i + 32:ref.i + 64]);
     }
 
     function unpackRoute96(Block memory ref) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
-        ensure(ref, Keys.ROUTE, 96);
+        ensure(ref, Keys.Route, 96);
         a = bytes32(msg.data[ref.i:ref.i + 32]);
         b = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         c = bytes32(msg.data[ref.i + 64:ref.i + 96]);
     }
 
     function unpackNode(Block memory ref) internal pure returns (uint id) {
-        ensure(ref, Keys.NODE, 32);
+        ensure(ref, Keys.Node, 32);
         return uint(bytes32(msg.data[ref.i:ref.i + 32]));
     }
 
     function unpackRecipient(Block memory ref) internal pure returns (bytes32 account) {
-        ensure(ref, Keys.RECIPIENT, 32);
+        ensure(ref, Keys.Recipient, 32);
         return bytes32(msg.data[ref.i:ref.i + 32]);
     }
 
     function unpackParty(Block memory ref) internal pure returns (bytes32 account) {
-        ensure(ref, Keys.PARTY, 32);
+        ensure(ref, Keys.Party, 32);
         return bytes32(msg.data[ref.i:ref.i + 32]);
     }
 
     function unpackRate(Block memory ref) internal pure returns (uint value) {
-        ensure(ref, Keys.RATE, 32);
+        ensure(ref, Keys.Rate, 32);
         return uint(bytes32(msg.data[ref.i:ref.i + 32]));
     }
 
     function unpackQuantity(Block memory ref) internal pure returns (uint amount) {
-        ensure(ref, Keys.QUANTITY, 32);
+        ensure(ref, Keys.Quantity, 32);
         return uint(bytes32(msg.data[ref.i:ref.i + 32]));
     }
 
     function unpackAsset(Block memory ref) internal pure returns (bytes32 asset, bytes32 meta) {
-        ensure(ref, Keys.ASSET, 64);
+        ensure(ref, Keys.Asset, 64);
         return (bytes32(msg.data[ref.i:ref.i + 32]), bytes32(msg.data[ref.i + 32:ref.i + 64]));
     }
 
     function unpackFunding(Block memory ref) internal pure returns (uint host, uint amount) {
-        ensure(ref, Keys.FUNDING, 64);
+        ensure(ref, Keys.Funding, 64);
         host = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         amount = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
     }
 
     function unpackBounty(Block memory ref) internal pure returns (uint amount, bytes32 relayer) {
-        ensure(ref, Keys.BOUNTY, 64);
+        ensure(ref, Keys.Bounty, 64);
         amount = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         relayer = bytes32(msg.data[ref.i + 32:ref.i + 64]);
     }
 
     function unpackAmount(Block memory ref) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        ensure(ref, Keys.AMOUNT, 96);
+        ensure(ref, Keys.Amount, 96);
         asset = bytes32(msg.data[ref.i:ref.i + 32]);
         meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function unpackBalance(Block memory ref) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
         asset = bytes32(msg.data[ref.i:ref.i + 32]);
         meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function unpackMinimum(Block memory ref) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        ensure(ref, Keys.MINIMUM, 96);
+        ensure(ref, Keys.Minimum, 96);
         asset = bytes32(msg.data[ref.i:ref.i + 32]);
         meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function unpackMaximum(Block memory ref) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        ensure(ref, Keys.MAXIMUM, 96);
+        ensure(ref, Keys.Maximum, 96);
         asset = bytes32(msg.data[ref.i:ref.i + 32]);
         meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function unpackListing(Block memory ref) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
-        ensure(ref, Keys.LISTING, 96);
+        ensure(ref, Keys.Listing, 96);
         host = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
     }
 
     function unpackStep(Block memory ref) internal pure returns (uint target, uint value, bytes calldata req) {
-        ensure(ref, Keys.STEP, 64, 0);
+        ensure(ref, Keys.Step, 64, 0);
         target = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         value = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
         req = msg.data[ref.i + 64:ref.bound];
     }
 
     function unpackAuth(Block memory ref) internal pure returns (uint cid, uint deadline, bytes calldata proof) {
-        ensure(ref, Keys.AUTH, 149);
+        ensure(ref, Keys.Auth, 149);
         cid = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         deadline = uint(bytes32(msg.data[ref.i + 32:ref.i + 64]));
         proof = msg.data[ref.i + 64:ref.bound];
@@ -572,35 +572,35 @@ library Blocks {
     // ── expect* ───────────────────────────────────────────────────────────────
 
     function expectAmount(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        ensure(ref, Keys.AMOUNT, 96);
+        ensure(ref, Keys.Amount, 96);
         if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
         if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectBalance(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
         if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
         if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectMinimum(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        ensure(ref, Keys.MINIMUM, 96);
+        ensure(ref, Keys.Minimum, 96);
         if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
         if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectMaximum(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        ensure(ref, Keys.MAXIMUM, 96);
+        ensure(ref, Keys.Maximum, 96);
         if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
         if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectCustody(Block memory ref, uint host) internal pure returns (AssetAmount memory value) {
-        ensure(ref, Keys.CUSTODY, 128);
+        ensure(ref, Keys.Custody, 128);
         if (uint(bytes32(msg.data[ref.i:ref.i + 32])) != host) revert UnexpectedHost();
         value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
@@ -610,42 +610,42 @@ library Blocks {
     // ── to*Value ──────────────────────────────────────────────────────────────
 
     function toAmountValue(Block memory ref) internal pure returns (AssetAmount memory value) {
-        ensure(ref, Keys.AMOUNT, 96);
+        ensure(ref, Keys.Amount, 96);
         value.asset = bytes32(msg.data[ref.i:ref.i + 32]);
         value.meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function toBalanceValue(Block memory ref) internal pure returns (AssetAmount memory value) {
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
         value.asset = bytes32(msg.data[ref.i:ref.i + 32]);
         value.meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function toMinimumValue(Block memory ref) internal pure returns (AssetAmount memory value) {
-        ensure(ref, Keys.MINIMUM, 96);
+        ensure(ref, Keys.Minimum, 96);
         value.asset = bytes32(msg.data[ref.i:ref.i + 32]);
         value.meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function toMaximumValue(Block memory ref) internal pure returns (AssetAmount memory value) {
-        ensure(ref, Keys.MAXIMUM, 96);
+        ensure(ref, Keys.Maximum, 96);
         value.asset = bytes32(msg.data[ref.i:ref.i + 32]);
         value.meta = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.amount = uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
-    function toListingValue(Block memory ref) internal pure returns (Listing memory value) {
-        ensure(ref, Keys.LISTING, 96);
+    function toListingValue(Block memory ref) internal pure returns (HostAsset memory value) {
+        ensure(ref, Keys.Listing, 96);
         value.host = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
     }
 
     function toCustodyValue(Block memory ref) internal pure returns (HostAmount memory value) {
-        ensure(ref, Keys.CUSTODY, 128);
+        ensure(ref, Keys.Custody, 128);
         value.host = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
@@ -653,7 +653,7 @@ library Blocks {
     }
 
     function toAllocationValue(Block memory ref) internal pure returns (HostAmount memory value) {
-        ensure(ref, Keys.ALLOCATION, 128);
+        ensure(ref, Keys.Allocation, 128);
         value.host = uint(bytes32(msg.data[ref.i:ref.i + 32]));
         value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
@@ -661,7 +661,7 @@ library Blocks {
     }
 
     function toTxValue(Block memory ref) internal pure returns (Tx memory value) {
-        ensure(ref, Keys.TX, 160);
+        ensure(ref, Keys.Transaction, 160);
         value.from = bytes32(msg.data[ref.i:ref.i + 32]);
         value.to = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.asset = bytes32(msg.data[ref.i + 64:ref.i + 96]);

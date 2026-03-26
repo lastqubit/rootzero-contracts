@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BlockPair, Block, HostAmount, UserAmount, Listing, MemRef, Tx, Writer, AssetAmount } from "./blocks/Schema.sol";
+import { AUTH_PROOF_LEN, AUTH_TOTAL_LEN, BlockPair, Block, HostAmount, UserAmount, HostAsset, MemRef, Tx, Writer, AssetAmount } from "./blocks/Schema.sol";
 import { Keys } from "./blocks/Keys.sol";
 import { Schemas } from "./blocks/Schema.sol";
 import { Blocks } from "./blocks/Blocks.sol";

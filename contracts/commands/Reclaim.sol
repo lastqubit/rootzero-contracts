@@ -18,7 +18,7 @@ abstract contract ReclaimToBalances is CommandBase {
 
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
-        string memory schema = routeSchema1(maybeRoute, Schemas.AMOUNT);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
         emit Command(host, NAME, schema, reclaimToBalancesId, SETUP, BALANCES);
     }
 
@@ -36,7 +36,7 @@ abstract contract ReclaimToBalances is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(reclaimToBalancesId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, Keys.ROUTE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, Keys.Route, outScale);
 
         while (q < end) {
             Block memory route;

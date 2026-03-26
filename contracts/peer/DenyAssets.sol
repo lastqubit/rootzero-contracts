@@ -13,7 +13,7 @@ abstract contract PeerDenyAssets is PeerBase {
     uint internal immutable peerDenyAssetsId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.ASSET, peerDenyAssetsId);
+        emit Peer(host, NAME, Schemas.Asset, peerDenyAssetsId);
     }
 
     function peerDenyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
@@ -22,7 +22,7 @@ abstract contract PeerDenyAssets is PeerBase {
         uint q = 0;
         while (q < request.length) {
             Block memory ref = Blocks.from(request, q);
-            if (ref.key != Keys.ASSET) break;
+            if (ref.key != Keys.Asset) break;
             (bytes32 asset, bytes32 meta) = ref.unpackAsset();
             peerDenyAsset(asset, meta);
             q = ref.cursor;

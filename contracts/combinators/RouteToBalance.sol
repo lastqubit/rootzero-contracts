@@ -12,7 +12,7 @@ abstract contract RouteToBalance {
     ) internal virtual returns (bytes32 asset, bytes32 meta, uint amount);
 
     function routesToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(blocks, i, Keys.ROUTE);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(blocks, i, Keys.Route);
 
         while (i < end) {
             Block memory route;

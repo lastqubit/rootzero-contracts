@@ -29,7 +29,7 @@ abstract contract MintToBalances is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(mintToBalancesId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, Keys.ROUTE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.request, q, Keys.Route, outScale);
 
         while (q < end) {
             Block memory route;

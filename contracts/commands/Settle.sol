@@ -25,7 +25,7 @@ abstract contract Settle is CommandBase {
         uint i = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.TX) break;
+            if (ref.key != Keys.Transaction) break;
             Tx memory value = ref.toTxValue();
             settle(value);
             i = ref.cursor;

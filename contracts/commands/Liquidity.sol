@@ -23,7 +23,7 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
 
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
-        string memory schema = routeSchema1(maybeRoute, Schemas.MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
         emit Command(host, ALFCTB, schema, addLiquidityFromCustodiesToBalancesId, CUSTODIES, BALANCES);
     }
 
@@ -43,7 +43,7 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
     ) external payable onlyCommand(addLiquidityFromCustodiesToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.CUSTODY, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Custody, outScale);
 
         while (i < end) {
             Block memory route;
@@ -65,7 +65,7 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
 
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
-        string memory schema = routeSchema2(maybeRoute, Schemas.MINIMUM, Schemas.MINIMUM);
+        string memory schema = routeSchema2(maybeRoute, Schemas.Minimum, Schemas.Minimum);
         emit Command(host, RLFCTB, schema, removeLiquidityFromCustodyToBalancesId, CUSTODIES, BALANCES);
     }
 
@@ -84,7 +84,7 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
     ) external payable onlyCommand(removeLiquidityFromCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.CUSTODY, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Custody, outScale);
 
         while (i < end) {
             Block memory route;
@@ -106,7 +106,7 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
 
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
-        string memory schema = routeSchema1(maybeRoute, Schemas.MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
         emit Command(host, ALFBTB, schema, addLiquidityFromBalancesToBalancesId, BALANCES, BALANCES);
     }
 
@@ -126,7 +126,7 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
     ) external payable onlyCommand(addLiquidityFromBalancesToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.BALANCE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Balance, outScale);
 
         while (i < end) {
             Block memory route;
@@ -148,7 +148,7 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
 
     constructor(string memory maybeRoute, uint scaledRatio) {
         outScale = scaledRatio;
-        string memory schema = routeSchema2(maybeRoute, Schemas.MINIMUM, Schemas.MINIMUM);
+        string memory schema = routeSchema2(maybeRoute, Schemas.Minimum, Schemas.Minimum);
         emit Command(host, RLFBTB, schema, removeLiquidityFromBalanceToBalancesId, BALANCES, BALANCES);
     }
 
@@ -167,7 +167,7 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
     ) external payable onlyCommand(removeLiquidityFromBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.BALANCE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Balance, outScale);
 
         while (i < end) {
             Block memory route;

@@ -10,7 +10,7 @@ abstract contract CustodyToBalance {
     function custodyToBalance(bytes32 account, HostAmount memory custody) internal virtual returns (AssetAmount memory);
 
     function custodiesToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(blocks, i, Keys.CUSTODY);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(blocks, i, Keys.Custody);
 
         while (i < end) {
             Block memory ref = Blocks.from(blocks, i);

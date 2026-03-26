@@ -18,7 +18,7 @@ abstract contract DebitAccountToBalance is CommandBase {
     uint internal immutable debitAccountToBalanceId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.AMOUNT, debitAccountToBalanceId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, debitAccountToBalanceId, SETUP, BALANCES);
     }
 
     /// @dev Override to debit externally managed funds from `account`.
@@ -30,7 +30,7 @@ abstract contract DebitAccountToBalance is CommandBase {
     /// `debitAccount`, and emits matching BALANCE blocks.
     function debitAccountToBalance(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(request, q, Keys.AMOUNT);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(request, q, Keys.Amount);
 
         while (q < end) {
             Block memory ref = Blocks.from(request, q);

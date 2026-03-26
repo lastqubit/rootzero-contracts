@@ -39,7 +39,7 @@ abstract contract RepayFromBalanceToBalances is CommandBase {
     ) external payable onlyCommand(repayFromBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.BALANCE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Balance, outScale);
 
         while (i < end) {
             Block memory route;
@@ -84,7 +84,7 @@ abstract contract RepayFromCustodyToBalances is CommandBase {
     ) external payable onlyCommand(repayFromCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.CUSTODY, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Custody, outScale);
 
         while (i < end) {
             Block memory route;

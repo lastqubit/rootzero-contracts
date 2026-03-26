@@ -18,7 +18,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     uint internal immutable swapExactBalanceToBalanceId = commandId(SEBTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = routeSchema1(maybeRoute, Schemas.MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
         emit Command(host, SEBTB, schema, swapExactBalanceToBalanceId, BALANCES, BALANCES);
     }
 
@@ -36,7 +36,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     ) external payable onlyCommand(swapExactBalanceToBalanceId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.BALANCE);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.Balance);
 
         while (i < end) {
             Block memory route;
@@ -57,7 +57,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     uint internal immutable swapExactCustodyToBalanceId = commandId(SECTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = routeSchema1(maybeRoute, Schemas.MINIMUM);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Minimum);
         emit Command(host, SECTB, schema, swapExactCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
@@ -75,7 +75,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     ) external payable onlyCommand(swapExactCustodyToBalanceId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.CUSTODY);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.Custody);
 
         while (i < end) {
             Block memory route;

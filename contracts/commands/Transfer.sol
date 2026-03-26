@@ -9,7 +9,7 @@ import { Blocks, Block, Keys } from "../Blocks.sol";
 using Blocks for Block;
 
 string constant NAME = "transfer";
-string constant REQUEST = string.concat(Schemas.AMOUNT, ">", Schemas.RECIPIENT);
+string constant REQUEST = string.concat(Schemas.Amount, ">", Schemas.Recipient);
 
 abstract contract Transfer is CommandBase {
     uint internal immutable transferId = commandId(NAME);
@@ -29,7 +29,7 @@ abstract contract Transfer is CommandBase {
         uint q = 0;
         while (q < request.length) {
             Block memory ref = Blocks.from(request, q);
-            if (ref.key != Keys.AMOUNT) break;
+            if (ref.key != Keys.Amount) break;
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
             bytes32 to = ref.innerRecipientAt(ref.bound);
             transfer(from, to, asset, meta, amount);

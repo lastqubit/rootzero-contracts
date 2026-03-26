@@ -23,7 +23,7 @@ abstract contract Remove is CommandBase {
         uint q = 0;
         while (q < c.request.length) {
             Block memory ref = Blocks.from(c.request, q);
-            if (ref.key != Keys.ROUTE) break;
+            if (ref.key != Keys.Route) break;
             remove(c.account, ref);
             q = ref.cursor;
         }

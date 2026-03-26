@@ -23,7 +23,7 @@ abstract contract Burn is CommandBase {
         uint i = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.BALANCE) break;
+            if (ref.key != Keys.Balance) break;
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance();
             burn(c.account, asset, meta, amount);
             i = ref.cursor;

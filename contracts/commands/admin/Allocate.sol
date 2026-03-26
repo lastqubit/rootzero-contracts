@@ -16,7 +16,7 @@ abstract contract Allocate is CommandBase {
     uint internal immutable allocateId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.ALLOCATION, allocateId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Allocation, allocateId, SETUP, SETUP);
     }
 
     /// @dev Override to apply a single allocation entry.
@@ -27,7 +27,7 @@ abstract contract Allocate is CommandBase {
         uint i = 0;
         while (i < c.request.length) {
             Block memory ref = Blocks.from(c.request, i);
-            if (ref.key != Keys.ALLOCATION) break;
+            if (ref.key != Keys.Allocation) break;
             HostAmount memory v = ref.toAllocationValue();
             allocate(v.host, v.asset, v.meta, v.amount);
             i = ref.cursor;

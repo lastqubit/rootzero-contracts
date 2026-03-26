@@ -104,7 +104,7 @@ library Writers {
     function writeBalanceBlock(bytes memory dst, uint i, AssetAmount memory value) internal pure returns (uint next) {
         next = i + BALANCE_BLOCK_LEN;
         if (next > dst.length) revert WriterOverflow();
-        uint header = toBlockHeader(Keys.BALANCE, 96, 96);
+        uint header = toBlockHeader(Keys.Balance, 96, 96);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, header)
@@ -133,7 +133,7 @@ library Writers {
     function writeCustodyBlock(bytes memory dst, uint i, HostAmount memory value) internal pure returns (uint next) {
         next = i + CUSTODY_BLOCK_LEN;
         if (next > dst.length) revert WriterOverflow();
-        uint header = toBlockHeader(Keys.CUSTODY, 128, 128);
+        uint header = toBlockHeader(Keys.Custody, 128, 128);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, header)
@@ -155,7 +155,7 @@ library Writers {
     function writeTxBlock(bytes memory dst, uint i, Tx memory value) internal pure returns (uint next) {
         next = i + TX_BLOCK_LEN;
         if (next > dst.length) revert WriterOverflow();
-        uint header = toBlockHeader(Keys.TX, 160, 160);
+        uint header = toBlockHeader(Keys.Transaction, 160, 160);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, header)

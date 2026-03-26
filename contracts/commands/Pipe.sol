@@ -16,7 +16,7 @@ abstract contract Pipe is CommandBase {
     uint internal immutable pipeId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.STEP, pipeId, 0, 0);
+        emit Command(host, NAME, Schemas.Step, pipeId, 0, 0);
     }
 
     /// @dev Override to execute a single STEP target and return the next
@@ -38,7 +38,7 @@ abstract contract Pipe is CommandBase {
         uint i = 0;
         while (i < steps.length) {
             Block memory ref = Blocks.from(steps, i);
-            if (ref.key != Keys.STEP) break;
+            if (ref.key != Keys.Step) break;
             (uint target, uint value, bytes calldata request) = ref.unpackStep();
             uint spend = useValue(value, budget);
             state = dispatchStep(target, account, state, request, spend);

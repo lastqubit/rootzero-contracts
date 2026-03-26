@@ -9,7 +9,7 @@ abstract contract EachRoute {
     function forEachRoute(bytes calldata blocks, uint i) internal returns (uint) {
         while (i < blocks.length) {
             Block memory ref = Blocks.from(blocks, i);
-            if (ref.key != Keys.ROUTE) return i;
+            if (ref.key != Keys.Route) return i;
             eachRoute(ref);
             i = ref.cursor;
         }

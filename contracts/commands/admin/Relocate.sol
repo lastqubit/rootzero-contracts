@@ -14,7 +14,7 @@ abstract contract Relocate is CommandBase {
     uint internal immutable relocateId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.FUNDING, relocateId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Funding, relocateId, SETUP, SETUP);
     }
 
     function relocate(
@@ -23,7 +23,7 @@ abstract contract Relocate is CommandBase {
         uint i = 0;
         while (i < c.request.length) {
             Block memory ref = Blocks.from(c.request, i);
-            if (ref.key != Keys.FUNDING) break;
+            if (ref.key != Keys.Funding) break;
             (uint host, uint amount) = ref.unpackFunding();
             callTo(host, amount, "");
             i = ref.cursor;

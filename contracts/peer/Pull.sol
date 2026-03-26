@@ -20,7 +20,7 @@ abstract contract PeerPull is PeerBase {
         uint q = 0;
         while (q < request.length) {
             Block memory ref = Blocks.from(request, q);
-            if (ref.key != Keys.ROUTE) break;
+            if (ref.key != Keys.Route) break;
             peerPull(ref);
             q = ref.cursor;
         }

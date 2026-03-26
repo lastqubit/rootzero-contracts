@@ -14,7 +14,7 @@ abstract contract DenyAssets is CommandBase {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.ASSET, denyAssetsId, SETUP, SETUP);
+        emit Command(host, NAME, Schemas.Asset, denyAssetsId, SETUP, SETUP);
     }
 
     /// @dev Override to deny a single asset/meta pair.
@@ -27,7 +27,7 @@ abstract contract DenyAssets is CommandBase {
         uint i = 0;
         while (i < c.request.length) {
             Block memory ref = Blocks.from(c.request, i);
-            if (ref.key != Keys.ASSET) break;
+            if (ref.key != Keys.Asset) break;
             (bytes32 asset, bytes32 meta) = ref.unpackAsset();
             denyAsset(asset, meta);
             i = ref.cursor;

@@ -12,7 +12,7 @@ using Writers for Writer;
 string constant PROVISION = "provision";
 string constant PFB = "provisionFromBalance";
 
-string constant REQUEST = string.concat(Schemas.AMOUNT, ">", Schemas.NODE);
+string constant REQUEST = string.concat(Schemas.Amount, ">", Schemas.Node);
 
 abstract contract ProvisionHook {
     /// @dev Override this hook to send or provision funds to `host`.
@@ -33,7 +33,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
         CommandContext calldata c
     ) external payable onlyCommand(provisionId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.request, q, Keys.AMOUNT);
+        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.request, q, Keys.Amount);
 
         while (q < end) {
             Block memory ref = Blocks.from(c.request, q);
@@ -53,7 +53,7 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     uint internal immutable provisionFromBalanceId = commandId(PFB);
 
     constructor() {
-        emit Command(host, PFB, Schemas.NODE, provisionFromBalanceId, BALANCES, CUSTODIES);
+        emit Command(host, PFB, Schemas.Node, provisionFromBalanceId, BALANCES, CUSTODIES);
     }
 
     function provisionFromBalance(
@@ -61,7 +61,7 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     ) external payable onlyCommand(provisionFromBalanceId, c.target) returns (bytes memory) {
         uint toHost = Blocks.resolveNode(c.request, 0, c.request.length, 0);
         uint i = 0;
-        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.state, i, Keys.BALANCE);
+        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(c.state, i, Keys.Balance);
 
         while (i < end) {
             Block memory ref = Blocks.from(c.state, i);

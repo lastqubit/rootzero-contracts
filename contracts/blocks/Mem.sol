@@ -79,7 +79,7 @@ library Mem {
         MemRef memory ref,
         bytes memory source
     ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        ensure(ref, Keys.BALANCE, 96);
+        ensure(ref, Keys.Balance, 96);
         uint i = ref.i;
 
         assembly ("memory-safe") {
@@ -94,7 +94,7 @@ library Mem {
         MemRef memory ref,
         bytes memory source
     ) internal pure returns (HostAmount memory value) {
-        ensure(ref, Keys.CUSTODY, 128);
+        ensure(ref, Keys.Custody, 128);
         uint i = ref.i;
 
         assembly ("memory-safe") {
@@ -107,7 +107,7 @@ library Mem {
     }
 
     function toTxValue(MemRef memory ref, bytes memory source) internal pure returns (Tx memory value) {
-        ensure(ref, Keys.TX, 160);
+        ensure(ref, Keys.Transaction, 160);
         uint i = ref.i;
 
         assembly ("memory-safe") {

@@ -10,7 +10,7 @@ abstract contract MapBalance {
     function mapBalance(bytes32 account, AssetAmount memory balance) internal virtual returns (AssetAmount memory out);
 
     function mapBalances(bytes calldata state, uint i, bytes32 account) internal returns (bytes memory) {
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(state, i, Keys.BALANCE);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(state, i, Keys.Balance);
 
         while (i < end) {
             Block memory ref = Blocks.from(state, i);

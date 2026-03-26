@@ -14,7 +14,7 @@ abstract contract CreditBalanceToAccount is CommandBase {
     uint internal immutable creditBalanceToAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.RECIPIENT, creditBalanceToAccountId, BALANCES, SETUP);
+        emit Command(host, NAME, Schemas.Recipient, creditBalanceToAccountId, BALANCES, SETUP);
     }
 
     /// @dev Override to credit externally managed funds to `account`.
@@ -28,7 +28,7 @@ abstract contract CreditBalanceToAccount is CommandBase {
         uint i = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.BALANCE) break;
+            if (ref.key != Keys.Balance) break;
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance();
             creditAccount(to, asset, meta, amount);
             i = ref.cursor;

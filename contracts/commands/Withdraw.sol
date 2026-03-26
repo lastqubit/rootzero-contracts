@@ -15,7 +15,7 @@ abstract contract Withdraw is CommandBase {
     uint internal immutable withdrawId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.RECIPIENT, withdrawId, BALANCES, SETUP);
+        emit Command(host, NAME, Schemas.Recipient, withdrawId, BALANCES, SETUP);
     }
 
     /// @dev Override to send funds to `account`.
@@ -29,7 +29,7 @@ abstract contract Withdraw is CommandBase {
         uint i = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.BALANCE) break;
+            if (ref.key != Keys.Balance) break;
             (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance();
             withdraw(to, asset, meta, amount);
             i = ref.cursor;

@@ -25,7 +25,7 @@ describe("Blocks", () => {
     const amount = 12345n;
 
     it("toBlockHeader packs key/selfLen/totalLen into upper bits", async () => {
-      const key = Keys.BALANCE;
+      const key = Keys.Balance;
       const header: bigint = await helper.testBlockHeader(key, 96n, 96n);
       // Key in bits 224-255
       const keyFromHeader = (header >> 224n) & 0xffffffffn;
@@ -36,7 +36,7 @@ describe("Blocks", () => {
     });
 
     it("toBlockHeader reverts MalformedBlocks when selfLen > totalLen", async () => {
-      await expect(helper.testBlockHeader(Keys.BALANCE, 96n, 64n))
+      await expect(helper.testBlockHeader(Keys.Balance, 96n, 64n))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
     });
 
@@ -45,9 +45,9 @@ describe("Blocks", () => {
       expect(ethers.getBytes(data).length).to.equal(108);
     });
 
-    it("writeBalanceBlock starts with Keys.BALANCE", async () => {
+    it("writeBalanceBlock starts with Keys.Balance", async () => {
       const data: string = await helper.testWriteBalanceBlock(asset, meta, amount);
-      expect(data.slice(0, 10)).to.equal(Keys.BALANCE);
+      expect(data.slice(0, 10)).to.equal(Keys.Balance);
     });
 
     it("writeBalanceBlock encodes asset, meta, amount correctly", async () => {
@@ -115,7 +115,7 @@ describe("Blocks", () => {
     it("from parses block key, bound, end correctly", async () => {
       const data = encodeAmountBlock(asset, meta, amount);
       const [key, bound, end] = await helper.testParseBlock(data, 0n);
-      expect(key).to.equal(Keys.AMOUNT);
+      expect(key).to.equal(Keys.Amount);
       expect(end).to.equal(BigInt(ethers.getBytes(data).length));
       expect(bound).to.equal(end); // no children
     });
@@ -336,7 +336,7 @@ describe("Blocks", () => {
       const b2 = encodeAmountBlock(asset, meta, 2n);
       const b3 = encodeBalanceBlock(asset, meta, 3n); // different key
       const data = concat(b1, b2, b3);
-      const [count, next] = await helper.testCountBlocks(data, 0n, Keys.AMOUNT);
+      const [count, next] = await helper.testCountBlocks(data, 0n, Keys.Amount);
       expect(count).to.equal(2n);
       expect(next).to.equal(BigInt(ethers.getBytes(concat(b1, b2)).length));
     });
@@ -402,7 +402,7 @@ describe("Blocks", () => {
     });
 
     it("count returns 0 for empty source", async () => {
-      const [count] = await helper.testCountBlocks("0x", 0n, Keys.AMOUNT);
+      const [count] = await helper.testCountBlocks("0x", 0n, Keys.Amount);
       expect(count).to.equal(0n);
     });
 
@@ -486,7 +486,7 @@ describe("Blocks", () => {
       const b1 = encodeBalanceBlock(asset, meta, 1n);
       const b2 = encodeBalanceBlock(asset, meta, 2n);
       const combined = concat(b1, b2);
-      const [count] = await helper.testMemCount(combined, 0n, Keys.BALANCE);
+      const [count] = await helper.testMemCount(combined, 0n, Keys.Balance);
       expect(count).to.equal(2n);
     });
 

@@ -23,7 +23,7 @@ abstract contract Supply is CommandBase {
         uint i = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.CUSTODY) break;
+            if (ref.key != Keys.Custody) break;
             HostAmount memory value = ref.toCustodyValue();
             supply(c.account, value);
             i = ref.cursor;

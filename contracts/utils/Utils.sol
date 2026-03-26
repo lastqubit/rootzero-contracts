@@ -109,9 +109,9 @@ function beforeBps(uint amount, uint16 bps) pure returns (uint) {
 }
 
 function routeSchema1(string memory maybeRoute, string memory a) pure returns (string memory) {
-    return string.concat(bytes(maybeRoute).length == 0 ? Schemas.ROUTE_EMPTY : maybeRoute, ">", a);
+    return string.concat(bytes(maybeRoute).length == 0 ? Schemas.RouteEmpty : maybeRoute, ">", a);
 }
 
 function routeSchema2(string memory maybeRoute, string memory a, string memory b) pure returns (string memory) {
-    return string.concat(bytes(maybeRoute).length == 0 ? Schemas.ROUTE_EMPTY : maybeRoute, ">", a, ">", b);
+    return string.concat(bytes(maybeRoute).length == 0 ? Schemas.RouteEmpty : maybeRoute, ">", a, ">", b);
 }

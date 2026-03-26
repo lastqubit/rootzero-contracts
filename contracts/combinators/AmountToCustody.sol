@@ -21,7 +21,7 @@ abstract contract AmountToCustody {
         uint host,
         bytes32 account
     ) internal returns (bytes memory) {
-        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(blocks, i, Keys.AMOUNT);
+        (Writer memory writer, uint end) = Writers.allocCustodiesFrom(blocks, i, Keys.Amount);
 
         while (i < end) {
             Block memory ref = Blocks.from(blocks, i);

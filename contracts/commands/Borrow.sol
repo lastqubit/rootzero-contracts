@@ -17,7 +17,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     uint internal immutable borrowAgainstCustodyToBalanceId = commandId(BACTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = routeSchema1(maybeRoute, Schemas.AMOUNT);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
         emit Command(host, BACTB, schema, borrowAgainstCustodyToBalanceId, CUSTODIES, BALANCES);
     }
 
@@ -35,7 +35,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     ) external payable onlyCommand(borrowAgainstCustodyToBalanceId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.CUSTODY);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.Custody);
 
         while (i < end) {
             Block memory route;
@@ -56,7 +56,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
     uint internal immutable borrowAgainstBalanceToBalanceId = commandId(BABTB);
 
     constructor(string memory maybeRoute) {
-        string memory schema = routeSchema1(maybeRoute, Schemas.AMOUNT);
+        string memory schema = routeSchema1(maybeRoute, Schemas.Amount);
         emit Command(host, BABTB, schema, borrowAgainstBalanceToBalanceId, BALANCES, BALANCES);
     }
 
@@ -74,7 +74,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
     ) external payable onlyCommand(borrowAgainstBalanceToBalanceId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.BALANCE);
+        (Writer memory writer, uint end) = Writers.allocBalancesFrom(c.state, i, Keys.Balance);
 
         while (i < end) {
             Block memory route;

@@ -35,7 +35,7 @@ abstract contract StakeBalanceToBalances is CommandBase {
     ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.BALANCE, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Balance, outScale);
 
         while (i < end) {
             Block memory route;
@@ -74,7 +74,7 @@ abstract contract StakeCustodyToBalances is CommandBase {
     ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
         uint i = 0;
         uint q = 0;
-        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.CUSTODY, outScale);
+        (Writer memory writer, uint end) = Writers.allocScaledBalancesFrom(c.state, i, Keys.Custody, outScale);
 
         while (i < end) {
             Block memory route;
@@ -108,7 +108,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
         uint q = 0;
         while (i < c.state.length) {
             Block memory ref = Blocks.from(c.state, i);
-            if (ref.key != Keys.CUSTODY) break;
+            if (ref.key != Keys.Custody) break;
             HostAmount memory custody = ref.toCustodyValue();
             Block memory route;
             route = Blocks.routeFrom(c.request, q);

@@ -19,7 +19,7 @@ abstract contract Deposit is CommandBase {
     uint internal immutable depositId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.AMOUNT, depositId, SETUP, BALANCES);
+        emit Command(host, NAME, Schemas.Amount, depositId, SETUP, BALANCES);
     }
 
     /// @dev Override to receive externally sourced funds for `account`.
@@ -35,7 +35,7 @@ abstract contract Deposit is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(depositId, c.target) returns (bytes memory) {
         uint q = 0;
-        (Writer memory writer, uint next) = Writers.allocBalancesFrom(c.request, q, Keys.AMOUNT);
+        (Writer memory writer, uint next) = Writers.allocBalancesFrom(c.request, q, Keys.Amount);
 
         while (q < next) {
             Block memory ref = Blocks.from(c.request, q);
