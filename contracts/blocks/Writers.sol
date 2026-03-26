@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Blocks, Keys } from "./Blocks.sol";
+import { Blocks } from "./Blocks.sol";
 import { AssetAmount, HostAmount, Tx, Keys } from "./Schema.sol";
 
 struct Writer {
@@ -12,6 +12,7 @@ struct Writer {
 
 uint constant ALLOC_SCALE = 10_000;
 uint constant BALANCE_BLOCK_LEN = 108;
+uint constant BOUNTY_BLOCK_LEN = 76;
 uint constant CUSTODY_BLOCK_LEN = 140;
 uint constant TX_BLOCK_LEN = 172;
 
@@ -133,6 +134,22 @@ library Writers {
 
     function appendNonZeroBalance(Writer memory writer, AssetAmount memory value) internal pure {
         if (value.amount > 0) appendBalance(writer, value);
+    }
+
+    function writeBountyBlock(bytes memory dst, uint i, uint amount, bytes32 relayer) internal pure returns (uint next) {
+        next = i + BOUNTY_BLOCK_LEN;
+        if (next > dst.length) revert WriterOverflow();
+        uint header = toBlockHeader(Keys.Bounty, 64, 64);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, header)
+            mstore(add(p, 0x0c), amount)
+            mstore(add(p, 0x2c), relayer)
+        }
+    }
+
+    function appendBounty(Writer memory writer, uint amount, bytes32 relayer) internal pure {
+        writer.i = writeBountyBlock(writer.dst, writer.i, amount, relayer);
     }
 
     function writeCustodyBlock(bytes memory dst, uint i, HostAmount memory value) internal pure returns (uint next) {

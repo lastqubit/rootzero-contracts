@@ -220,6 +220,15 @@ contract TestBlockHelper {
         return Blocks.resolveNode(source, i, limit, backup);
     }
 
+    function testVerifyAuth(bytes calldata source, uint i, uint expectedCid)
+        external
+        pure
+        returns (bytes32 hash, uint deadline, bytes calldata proof)
+    {
+        Block memory ref = Blocks.from(source, i);
+        return Blocks.verifyAuth(ref, expectedCid);
+    }
+
     function testMemParseBalance(bytes memory source, uint i)
         external
         pure

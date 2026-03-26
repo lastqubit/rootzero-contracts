@@ -15,11 +15,9 @@ pragma solidity ^0.8.33;
 // and returns a CUSTODY block confirming the held asset.
 
 import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
-import { Block, Blocks, Schemas, Writer, Writers } from "../contracts/Blocks.sol";
-import { CUSTODY_BLOCK_LEN } from "../contracts/blocks/Writers.sol";
+import { Block, Blocks, Schemas } from "../contracts/Blocks.sol";
 
 using Blocks for Block;
-using Writers for Writer;
 
 string constant NAME = "myCommand";
 
@@ -57,8 +55,6 @@ abstract contract MyCommand is CommandBase {
         sendToHost(host, asset, meta, amount);
 
         // Return a CUSTODY block recording that this asset is now held by `host`.
-        Writer memory writer = Writers.alloc(CUSTODY_BLOCK_LEN);
-        writer.appendCustody(host, asset, meta, amount);
-        return writer.done();
+        return Blocks.toCustodyBlock(host, asset, meta, amount);
     }
 }

@@ -11,12 +11,10 @@ pragma solidity ^0.8.33;
 //   2. A Command event emitted in the constructor to announce the command to the protocol.
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller and target.
 
-import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
-import { Blocks, Block, Writer, Writers, Schemas } from "../contracts/Blocks.sol";
-import { BALANCE_BLOCK_LEN } from "../contracts/blocks/Writers.sol";
+import {CommandBase, CommandContext, Channels} from "../contracts/Commands.sol";
+import {Blocks, Block, Schemas} from "../contracts/Blocks.sol";
 
 using Blocks for Block;
-using Writers for Writer;
 
 // NAME is the human-readable command name. It is used to derive the command ID
 // and is published in the Command event so off-chain tooling can discover it.
@@ -45,8 +43,6 @@ abstract contract MyCommand is CommandBase {
         (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.
-        Writer memory writer = Writers.alloc(BALANCE_BLOCK_LEN);
-        writer.appendBalance(asset, meta, amount);
-        return writer.done();
+        return Blocks.toBalanceBlock(asset, meta, amount);
     }
 }

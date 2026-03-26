@@ -7,8 +7,21 @@ import {
   encodeAmountBlock, encodeBalanceBlock, encodeCustodyBlock,
   encodeRecipientBlock, encodeNodeBlock, encodeFundingBlock,
   encodeAssetBlock, encodeAllocationBlock, encodeTxBlock, encodeQuantityBlock, encodeMinimumBlock, encodeMaximumBlock,
+  encodeAuthBlock,
   pad32, concat
 } from "./helpers/blocks.js";
+
+function encodeUint32(value: number): string {
+  return ethers.toBeHex(value, 4);
+}
+
+function blockWithChildren(key: string, payload: string, children: string): string {
+  const payloadBytes = ethers.getBytes(payload);
+  const childrenBytes = ethers.getBytes(children);
+  const selfLen = payloadBytes.length;
+  const totalLen = selfLen + childrenBytes.length;
+  return ethers.concat([key, encodeUint32(selfLen), encodeUint32(totalLen), payload, children]);
+}
 
 describe("Blocks", () => {
   let helper: Awaited<ReturnType<typeof deploy>>;
@@ -399,6 +412,60 @@ describe("Blocks", () => {
       );
       const result = await helper.testResolveNode(data, 0n, BigInt(ethers.getBytes(data).length), 0n);
       expect(result).to.equal(42n);
+    });
+
+    it("verifyAuth returns hash, deadline, proof, and next for valid trailing AUTH", async () => {
+      const cid = 77n;
+      const deadline = 123456n;
+      const signer = "0x" + "11".repeat(20);
+      const sig = "0x" + "22".repeat(65);
+      const proof = ethers.concat([signer, sig]);
+      const auth = encodeAuthBlock(cid, deadline, proof);
+      const parent = blockWithChildren(
+        Keys.Amount,
+        ethers.concat([pad32(asset), pad32(meta), pad32(amount)]),
+        auth
+      );
+
+      const [hash, outDeadline, outProof] = await helper.testVerifyAuth(parent, 0n, cid);
+      expect(outDeadline).to.equal(deadline);
+      expect(outProof).to.equal(proof);
+
+      const parentBytes = ethers.getBytes(parent);
+      const expectedHash = ethers.keccak256(parentBytes.slice(0, parentBytes.length - 85));
+      expect(hash).to.equal(expectedHash);
+    });
+
+    it("verifyAuth reverts MalformedBlocks when cid mismatches", async () => {
+      const proof = ethers.concat(["0x" + "11".repeat(20), "0x" + "22".repeat(65)]);
+      const auth = encodeAuthBlock(77n, 123456n, proof);
+      const parent = blockWithChildren(
+        Keys.Amount,
+        ethers.concat([pad32(asset), pad32(meta), pad32(amount)]),
+        auth
+      );
+
+      await expect(helper.testVerifyAuth(parent, 0n, 88n))
+        .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+    });
+
+    it("verifyAuth reverts MalformedBlocks when trailing auth is missing", async () => {
+      const parent = encodeAmountBlock(asset, meta, amount);
+
+      await expect(helper.testVerifyAuth(parent, 0n, 77n))
+        .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+    });
+
+    it("verifyAuth reverts MalformedBlocks when trailing bytes are too short for AUTH", async () => {
+      const truncatedAuthTail = ethers.hexlify(ethers.getBytes(encodeAuthBlock(77n, 123456n, ethers.concat(["0x" + "11".repeat(20), "0x" + "22".repeat(65)]))).slice(0, 100));
+      const parent = blockWithChildren(
+        Keys.Amount,
+        ethers.concat([pad32(asset), pad32(meta), pad32(amount)]),
+        truncatedAuthTail
+      );
+
+      await expect(helper.testVerifyAuth(parent, 0n, 77n))
+        .to.be.revertedWithCustomError(helper, "MalformedBlocks");
     });
 
     it("count returns 0 for empty source", async () => {

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { HostAsset, AssetAmount, HostAmount, Tx, Keys } from "./Schema.sol";
+import {AUTH_PROOF_LEN, AUTH_TOTAL_LEN, HostAsset, AssetAmount, HostAmount, Tx, Keys} from "./Schema.sol";
+import {BALANCE_BLOCK_LEN, BOUNTY_BLOCK_LEN, CUSTODY_BLOCK_LEN, TX_BLOCK_LEN, Writer, Writers} from "./Writers.sol";
 
 struct Block {
     bytes4 key;
@@ -26,6 +27,7 @@ library Blocks {
     error UnexpectedHost();
     error UnexpectedAsset();
     error UnexpectedMeta();
+
     // ── infrastructure ────────────────────────────────────────────────────────
 
     function at(uint i) internal pure returns (Block memory ref) {
@@ -93,12 +95,7 @@ library Blocks {
         if (ref.end > parent.end) revert MalformedBlocks();
     }
 
-    function findFrom(
-        bytes calldata source,
-        uint i,
-        uint limit,
-        bytes4 key
-    ) internal pure returns (Block memory ref) {
+    function findFrom(bytes calldata source, uint i, uint limit, bytes4 key) internal pure returns (Block memory ref) {
         if (limit > source.length) revert MalformedBlocks();
         while (i < limit) {
             ref = from(source, i);
@@ -114,7 +111,48 @@ library Blocks {
         return findFrom(msg.data, parent.bound, parent.end, key);
     }
 
-    function resolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup) internal pure returns (bytes32) {
+    function create32(bytes4 key, bytes32 value) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x20)), bytes4(uint32(0x20)), value);
+    }
+
+    function create64(bytes4 key, bytes32 a, bytes32 b) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x40)), bytes4(uint32(0x40)), a, b);
+    }
+
+    function create96(bytes4 key, bytes32 a, bytes32 b, bytes32 c) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x60)), bytes4(uint32(0x60)), a, b, c);
+    }
+
+    function create128(bytes4 key, bytes32 a, bytes32 b, bytes32 c, bytes32 d) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x80)), bytes4(uint32(0x80)), a, b, c, d);
+    }
+
+    function toBountyBlock(uint bounty, bytes32 relayer) internal pure returns (bytes memory) {
+        return create64(Keys.Bounty, bytes32(bounty), relayer);
+    }
+
+    function toBalanceBlock(bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
+        return create96(Keys.Balance, asset, meta, bytes32(amount));
+    }
+
+    function toCustodyBlock(uint host, bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
+        return create128(Keys.Custody, bytes32(host), asset, meta, bytes32(amount));
+    }
+
+    function isBalance(Block memory ref) internal pure returns (bool) {
+        return ref.key == Keys.Balance;
+    }
+
+    function isCustody(Block memory ref) internal pure returns (bool) {
+        return ref.key == Keys.Custody;
+    }
+
+    function resolveRecipient(
+        bytes calldata source,
+        uint i,
+        uint limit,
+        bytes32 backup
+    ) internal pure returns (bytes32) {
         Block memory ref = findFrom(source, i, limit, Keys.Recipient);
         bytes32 to = ref.key != 0 ? ref.unpackRecipient() : backup;
         if (to == 0) revert ZeroRecipient();
@@ -126,6 +164,17 @@ library Blocks {
         uint node = ref.key != 0 ? ref.unpackNode() : backup;
         if (node == 0) revert ZeroNode();
         return node;
+    }
+
+    function verifyAuth(
+        Block memory ref,
+        uint expectedCid
+    ) internal pure returns (bytes32 hash, uint deadline, bytes calldata proof) {
+        if (ref.end - ref.bound < AUTH_TOTAL_LEN) revert MalformedBlocks();
+        uint cid;
+        (cid, deadline, proof) = innerAuthAt(ref, ref.end - AUTH_TOTAL_LEN);
+        if (cid != expectedCid) revert MalformedBlocks();
+        hash = keccak256(msg.data[ref.i - 12:ref.end - AUTH_PROOF_LEN]);
     }
 
     function ensure(Block memory ref, bytes4 key) internal pure {
@@ -452,6 +501,85 @@ library Blocks {
 
     function innerTxAt(Block memory parent, uint i) internal pure returns (Tx memory value) {
         return toTxValue(childAt(parent, i));
+    }
+
+    function unpackNodeAt(bytes calldata source, uint i) internal pure returns (uint id) {
+        return nodeFrom(source, i).unpackNode();
+    }
+
+    function unpackRecipientAt(bytes calldata source, uint i) internal pure returns (bytes32 account) {
+        return recipientFrom(source, i).unpackRecipient();
+    }
+
+    function unpackPartyAt(bytes calldata source, uint i) internal pure returns (bytes32 account) {
+        return partyFrom(source, i).unpackParty();
+    }
+
+    function unpackRateAt(bytes calldata source, uint i) internal pure returns (uint value) {
+        return rateFrom(source, i).unpackRate();
+    }
+
+    function unpackQuantityAt(bytes calldata source, uint i) internal pure returns (uint amount) {
+        return quantityFrom(source, i).unpackQuantity();
+    }
+
+    function unpackAssetAt(bytes calldata source, uint i) internal pure returns (bytes32 asset, bytes32 meta) {
+        return assetFrom(source, i).unpackAsset();
+    }
+
+    function unpackFundingAt(bytes calldata source, uint i) internal pure returns (uint host, uint amount) {
+        return fundingFrom(source, i).unpackFunding();
+    }
+
+    function unpackBountyAt(bytes calldata source, uint i) internal pure returns (uint amount, bytes32 relayer) {
+        return bountyFrom(source, i).unpackBounty();
+    }
+
+    function unpackAmountAt(
+        bytes calldata source,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return amountFrom(source, i).unpackAmount();
+    }
+
+    function unpackBalanceAt(
+        bytes calldata source,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return balanceFrom(source, i).unpackBalance();
+    }
+
+    function unpackMinimumAt(
+        bytes calldata source,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return minimumFrom(source, i).unpackMinimum();
+    }
+
+    function unpackMaximumAt(
+        bytes calldata source,
+        uint i
+    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+        return maximumFrom(source, i).unpackMaximum();
+    }
+
+    function unpackListingAt(
+        bytes calldata source,
+        uint i
+    ) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
+        return listingFrom(source, i).unpackListing();
+    }
+
+    function unpackCustodyAt(bytes calldata source, uint i) internal pure returns (HostAmount memory value) {
+        return custodyFrom(source, i).toCustodyValue();
+    }
+
+    function unpackAllocationAt(bytes calldata source, uint i) internal pure returns (HostAmount memory value) {
+        return allocationFrom(source, i).toAllocationValue();
+    }
+
+    function unpackTxAt(bytes calldata source, uint i) internal pure returns (Tx memory value) {
+        return txFrom(source, i).toTxValue();
     }
 
     // ── unpack* ───────────────────────────────────────────────────────────────
