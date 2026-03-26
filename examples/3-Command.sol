@@ -12,7 +12,8 @@ pragma solidity ^0.8.33;
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller and target.
 
 import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
-import { Blocks, Block, Writer, Writers, BALANCE_BLOCK_LEN, Schemas } from "../contracts/Blocks.sol";
+import { Blocks, Block, Writer, Writers, Schemas } from "../contracts/Blocks.sol";
+import { BALANCE_BLOCK_LEN } from "../contracts/blocks/Writers.sol";
 
 using Blocks for Block;
 using Writers for Writer;

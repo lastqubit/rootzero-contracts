@@ -15,7 +15,8 @@ pragma solidity ^0.8.33;
 // and returns a CUSTODY block confirming the held asset.
 
 import { CommandBase, CommandContext, Channels } from "../contracts/Commands.sol";
-import { Block, Blocks, CUSTODY_BLOCK_LEN, Schemas, Writer, Writers } from "../contracts/Blocks.sol";
+import { Block, Blocks, Schemas, Writer, Writers } from "../contracts/Blocks.sol";
+import { CUSTODY_BLOCK_LEN } from "../contracts/blocks/Writers.sol";
 
 using Blocks for Block;
 using Writers for Writer;
