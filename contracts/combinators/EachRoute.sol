@@ -9,10 +9,10 @@ abstract contract EachRoute {
 
     function forEachRoute(bytes calldata blocks, uint i) internal returns (uint) {
         while (i < blocks.length) {
-            (DataRef memory ref, uint next) = Data.from(blocks, i);
+            DataRef memory ref = Data.from(blocks, i);
             if (ref.key != ROUTE_KEY) return i;
             eachRoute(ref);
-            i = next;
+            i = ref.cursor;
         }
         return i;
     }

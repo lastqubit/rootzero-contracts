@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {CUSTODY_KEY, HostAmount} from "../Schema.sol";
-import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
+import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-using Blocks for BlockRef;
+using Data for DataRef;
 using Writers for Writer;
 
 abstract contract MapCustody {
@@ -14,11 +14,11 @@ abstract contract MapCustody {
         (Writer memory writer, uint end) = Writers.allocCustodiesFrom(state, i, CUSTODY_KEY);
 
         while (i < end) {
-            BlockRef memory ref = Blocks.from(state, i);
-            HostAmount memory custody = ref.toCustodyValue(state);
+            DataRef memory ref = Data.from(state, i);
+            HostAmount memory custody = ref.toCustodyValue();
             HostAmount memory out = mapCustody(account, custody);
             if (out.amount > 0) writer.appendCustody(out);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

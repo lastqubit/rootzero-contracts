@@ -34,7 +34,8 @@ abstract contract MintToBalances is CommandBase {
 
         while (q < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
             mintToBalances(c.account, route, writer);
         }
 

@@ -3,8 +3,8 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext} from "./Base.sol";
 import {BALANCES, SETUP} from "../utils/Channels.sol";
-import {Blocks, BlockRef} from "../Blocks.sol";
-using Blocks for BlockRef;
+import {BALANCE_KEY, Data, DataRef} from "../Blocks.sol";
+using Data for DataRef;
 
 string constant NAME = "burn";
 
@@ -22,11 +22,11 @@ abstract contract Burn is CommandBase {
     function burn(CommandContext calldata c) external payable onlyCommand(burnId, c.target) returns (bytes memory) {
         uint i = 0;
         while (i < c.state.length) {
-            BlockRef memory ref = Blocks.from(c.state, i);
-            if (!ref.isBalance()) break;
-            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance(c.state);
+            DataRef memory ref = Data.from(c.state, i);
+            if (ref.key != BALANCE_KEY) break;
+            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance();
             burn(c.account, asset, meta, amount);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return done(0, i);

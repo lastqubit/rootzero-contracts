@@ -115,35 +115,35 @@ contract TestBlockHelper {
     function testExpectMinimum(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
         external pure returns (uint amount)
     {
-        (DataRef memory ref, ) = Data.from(source, i);
+        DataRef memory ref = Data.from(source, i);
         return ref.expectMinimum(asset, meta);
     }
 
     function testExpectAmount(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
         external pure returns (uint amount)
     {
-        (DataRef memory ref, ) = Data.from(source, i);
+        DataRef memory ref = Data.from(source, i);
         return ref.expectAmount(asset, meta);
     }
 
     function testExpectBalance(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
         external pure returns (uint amount)
     {
-        (DataRef memory ref, ) = Data.from(source, i);
+        DataRef memory ref = Data.from(source, i);
         return ref.expectBalance(asset, meta);
     }
 
     function testExpectMaximum(bytes calldata source, uint i, bytes32 asset, bytes32 meta)
         external pure returns (uint amount)
     {
-        (DataRef memory ref, ) = Data.from(source, i);
+        DataRef memory ref = Data.from(source, i);
         return ref.expectMaximum(asset, meta);
     }
 
     function testExpectCustody(bytes calldata source, uint i, uint host_)
         external pure returns (bytes32 asset, bytes32 meta, uint amount)
     {
-        (DataRef memory ref, ) = Data.from(source, i);
+        DataRef memory ref = Data.from(source, i);
         AssetAmount memory value = ref.expectCustody(host_);
         return (value.asset, value.meta, value.amount);
     }

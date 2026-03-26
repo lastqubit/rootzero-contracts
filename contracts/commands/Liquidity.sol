@@ -4,10 +4,9 @@ pragma solidity ^0.8.33;
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
 import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, MINIMUM, DataPairRef} from "../blocks/Schema.sol";
-import {BlockRef, Blocks, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
 import {routeSchema1, routeSchema2} from "../utils/Utils.sol";
 
-using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
@@ -46,9 +45,11 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
             DataPairRef memory custodies;
-            (custodies, i) = Data.twoFrom(c.state, i);
+            custodies = Data.twoFrom(c.state, i);
+            i = custodies.b.cursor;
             addLiquidityFromCustodiesToBalances(c.account, custodies, route, writer);
         }
 
@@ -85,11 +86,12 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            HostAmount memory custody = ref.toCustodyValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            HostAmount memory custody = ref.toCustodyValue();
             removeLiquidityFromCustodyToBalances(c.account, custody, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();
@@ -126,9 +128,11 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
             DataPairRef memory balances;
-            (balances, i) = Data.twoFrom(c.state, i);
+            balances = Data.twoFrom(c.state, i);
+            i = balances.b.cursor;
             addLiquidityFromBalancesToBalances(c.account, balances, route, writer);
         }
 
@@ -165,11 +169,12 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             removeLiquidityFromBalanceToBalances(c.account, balance, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

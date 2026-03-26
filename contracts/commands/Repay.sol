@@ -3,12 +3,11 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
-import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_EMPTY, Data, DataRef, Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, ROUTE_EMPTY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
 string constant RFBTB = "repayFromBalanceToBalances";
 string constant RFCTB = "repayFromCustodyToBalances";
 
-using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
@@ -43,11 +42,14 @@ abstract contract RepayFromBalanceToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            if (useRoute) {
+                route = Data.routeFrom(c.request, q);
+                q = route.cursor;
+            }
+            DataRef memory ref = Data.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             repayFromBalanceToBalances(c.account, balance, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();
@@ -85,11 +87,14 @@ abstract contract RepayFromCustodyToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            if (useRoute) (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            HostAmount memory custody = ref.toCustodyValue(c.state);
+            if (useRoute) {
+                route = Data.routeFrom(c.request, q);
+                q = route.cursor;
+            }
+            DataRef memory ref = Data.from(c.state, i);
+            HostAmount memory custody = ref.toCustodyValue();
             repayFromCustodyToBalances(c.account, custody, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

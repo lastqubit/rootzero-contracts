@@ -11,7 +11,7 @@ library Data {
 
     function at(uint i) internal pure returns (DataRef memory ref) {
         uint eod = msg.data.length;
-        if (i == eod) return DataRef(bytes4(0), 0, 0, i);
+        if (i == eod) return DataRef(bytes4(0), 0, 0, i, i);
         if (i > eod) revert MalformedBlocks();
 
         unchecked {
@@ -25,14 +25,14 @@ library Data {
         if (ref.bound > ref.end || ref.end > eod) revert MalformedBlocks();
     }
 
-    function from(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
+    function from(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
         uint base;
         uint eod = source.length;
         assembly ("memory-safe") {
             base := source.offset
         }
 
-        if (i == eod) return (DataRef(bytes4(0), 0, 0, base + i), i);
+        if (i == eod) return DataRef(bytes4(0), 0, 0, base + i, i);
         if (i > eod) revert MalformedBlocks();
 
         uint start;
@@ -45,15 +45,15 @@ library Data {
         ref.i = base + start;
         ref.bound = ref.i + uint32(bytes4(source[i + 4:i + 8]));
         ref.end = ref.i + uint32(bytes4(source[i + 8:start]));
+        ref.cursor = i + (ref.end - ref.i) + 12;
 
         uint eos = base + eod;
         if (ref.bound > ref.end || ref.end > eos) revert MalformedBlocks();
-        next = i + (ref.end - ref.i) + 12;
     }
 
-    function twoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
-        (ref.a, i) = from(source, i);
-        (ref.b, next) = from(source, i);
+    function twoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref) {
+        ref.a = from(source, i);
+        ref.b = from(source, ref.a.cursor);
     }
 
     function childAt(DataRef memory parent, uint i) internal pure returns (DataRef memory ref) {
@@ -70,14 +70,13 @@ library Data {
     ) internal pure returns (DataRef memory ref) {
         if (limit > source.length) revert MalformedBlocks();
         while (i < limit) {
-            uint next;
-            (ref, next) = from(source, i);
-            if (next > limit) revert MalformedBlocks();
+            ref = from(source, i);
+            if (ref.cursor > limit) revert MalformedBlocks();
             if (ref.key == key) return ref;
-            i = next;
+            i = ref.cursor;
         }
 
-        return DataRef(bytes4(0), limit, limit, limit);
+        return DataRef(bytes4(0), limit, limit, limit, limit);
     }
 
     function findChild(DataRef memory parent, bytes4 key) internal pure returns (DataRef memory ref) {
@@ -109,113 +108,113 @@ library Data {
 
     // ── *From ─────────────────────────────────────────────────────────────────
 
-    function routeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function routeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, ROUTE_KEY);
     }
 
-    function nodeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function nodeFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, NODE_KEY, 32);
     }
 
-    function recipientFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function recipientFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, RECIPIENT_KEY, 32);
     }
 
-    function partyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function partyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, PARTY_KEY, 32);
     }
 
-    function rateFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function rateFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, RATE_KEY, 32);
     }
 
-    function quantityFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function quantityFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, QUANTITY_KEY, 32);
     }
 
-    function assetFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function assetFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, ASSET_KEY, 64);
     }
 
-    function fundingFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function fundingFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, FUNDING_KEY, 64);
     }
 
-    function bountyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function bountyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, BOUNTY_KEY, 64);
     }
 
-    function amountFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function amountFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, AMOUNT_KEY, 96);
     }
 
-    function amountTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
-        (ref, next) = twoFrom(source, i);
+    function amountTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref) {
+        ref = twoFrom(source, i);
         ensure(ref, AMOUNT_KEY, 96);
     }
 
-    function balanceFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function balanceFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, BALANCE_KEY, 96);
     }
 
-    function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
-        (ref, next) = twoFrom(source, i);
+    function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref) {
+        ref = twoFrom(source, i);
         ensure(ref, BALANCE_KEY, 96);
     }
 
-    function minimumFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function minimumFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, MINIMUM_KEY, 96);
     }
 
-    function maximumFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function maximumFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, MAXIMUM_KEY, 96);
     }
 
-    function listingFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function listingFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, LISTING_KEY, 96);
     }
 
-    function stepFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function stepFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, STEP_KEY, 64, 0);
     }
 
-    function authFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function authFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, AUTH_KEY, 149, 0);
     }
 
-    function custodyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function custodyFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, CUSTODY_KEY, 128);
     }
 
-    function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref, uint next) {
-        (ref, next) = twoFrom(source, i);
+    function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (DataPairRef memory ref) {
+        ref = twoFrom(source, i);
         ensure(ref, CUSTODY_KEY, 128);
     }
 
-    function allocationFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function allocationFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, ALLOCATION_KEY, 128);
     }
 
-    function txFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref, uint next) {
-        (ref, next) = from(source, i);
+    function txFrom(bytes calldata source, uint i) internal pure returns (DataRef memory ref) {
+        ref = from(source, i);
         ensure(ref, TX_KEY, 160);
     }
 

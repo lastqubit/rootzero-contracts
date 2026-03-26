@@ -3,11 +3,11 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext} from "./Base.sol";
 import {BALANCES, SETUP} from "../utils/Channels.sol";
-import {BlockRef, RECIPIENT} from "../blocks/Schema.sol";
-import {Blocks} from "../blocks/Readers.sol";
+import {RECIPIENT} from "../blocks/Schema.sol";
+import {BALANCE_KEY, Blocks, Data, DataRef} from "../Blocks.sol";
 string constant NAME = "creditBalanceToAccount";
 
-using Blocks for BlockRef;
+using Data for DataRef;
 
 abstract contract CreditBalanceToAccount is CommandBase {
     uint internal immutable creditBalanceToAccountId = commandId(NAME);
@@ -26,11 +26,11 @@ abstract contract CreditBalanceToAccount is CommandBase {
         bytes32 to = Blocks.resolveRecipient(c.request, 0, c.request.length, c.account);
         uint i = 0;
         while (i < c.state.length) {
-            BlockRef memory ref = Blocks.from(c.state, i);
-            if (!ref.isBalance()) break;
-            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance(c.state);
+            DataRef memory ref = Data.from(c.state, i);
+            if (ref.key != BALANCE_KEY) break;
+            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackBalance();
             creditAccount(to, asset, meta, amount);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return done(0, i);

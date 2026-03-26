@@ -21,8 +21,8 @@ abstract contract Destroy is CommandBase {
     function destroy(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(destroyId, c.target) returns (bytes memory) {
-        (DataRef memory route, uint q) = Data.routeFrom(c.request, 0);
+        DataRef memory route = Data.routeFrom(c.request, 0);
         destroy(route);
-        return done(0, q);
+        return done(0, route.cursor);
     }
 }

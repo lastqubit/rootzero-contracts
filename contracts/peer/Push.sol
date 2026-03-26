@@ -19,10 +19,10 @@ abstract contract PeerPush is PeerBase {
     function peerPush(bytes calldata request) external payable onlyPeer returns (bytes memory) {
         uint q = 0;
         while (q < request.length) {
-            (DataRef memory ref, uint next) = Data.from(request, q);
+            DataRef memory ref = Data.from(request, q);
             if (ref.key != ROUTE_KEY) break;
             peerPush(ref);
-            q = next;
+            q = ref.cursor;
         }
 
         return done(0, q);

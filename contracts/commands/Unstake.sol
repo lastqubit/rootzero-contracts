@@ -3,11 +3,10 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES} from "../utils/Channels.sol";
-import {AssetAmount, BALANCE_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, BALANCE_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
 string constant UBTB = "unstakeBalanceToBalances";
 
-using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
@@ -38,11 +37,12 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             unstakeBalanceToBalances(c.account, balance, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

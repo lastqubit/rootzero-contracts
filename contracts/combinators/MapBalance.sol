@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {AssetAmount, BALANCE_KEY} from "../Schema.sol";
-import {Blocks, BlockRef, Writers, Writer} from "../Blocks.sol";
+import {Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
-using Blocks for BlockRef;
+using Data for DataRef;
 using Writers for Writer;
 
 abstract contract MapBalance {
@@ -14,11 +14,11 @@ abstract contract MapBalance {
         (Writer memory writer, uint end) = Writers.allocBalancesFrom(state, i, BALANCE_KEY);
 
         while (i < end) {
-            BlockRef memory ref = Blocks.from(state, i);
-            AssetAmount memory balance = ref.toBalanceValue(state);
+            DataRef memory ref = Data.from(state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             AssetAmount memory out = mapBalance(account, balance);
             writer.appendNonZeroBalance(out);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

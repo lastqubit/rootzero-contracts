@@ -3,13 +3,13 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES, SETUP} from "../utils/Channels.sol";
-import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
-import {Blocks} from "../blocks/Readers.sol";
+import {AMOUNT, AMOUNT_KEY, Writer} from "../blocks/Schema.sol";
+import {Data, DataRef} from "../Blocks.sol";
 import {Writers} from "../blocks/Writers.sol";
 
 string constant NAME = "deposit";
 
-using Blocks for BlockRef;
+using Data for DataRef;
 using Writers for Writer;
 
 // @dev Use `deposit` for externally sourced assets; use `debitAccountToBalance` for internal balance deductions.
@@ -36,11 +36,11 @@ abstract contract Deposit is CommandBase {
         (Writer memory writer, uint next) = Writers.allocBalancesFrom(c.request, q, AMOUNT_KEY);
 
         while (q < next) {
-            BlockRef memory ref = Blocks.from(c.request, q);
-            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(c.request);
+            DataRef memory ref = Data.from(c.request, q);
+            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
             deposit(c.account, asset, meta, amount);
             writer.appendBalance(asset, meta, amount);
-            q = ref.end;
+            q = ref.cursor;
         }
 
         return writer.done();

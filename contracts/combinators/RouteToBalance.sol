@@ -17,7 +17,8 @@ abstract contract RouteToBalance {
 
         while (i < end) {
             DataRef memory route;
-            (route, i) = Data.routeFrom(blocks, i);
+            route = Data.routeFrom(blocks, i);
+            i = route.cursor;
             (bytes32 asset, bytes32 meta, uint amount) = routeToBalance(account, route);
             if (amount > 0) writer.appendBalance(asset, meta, amount);
         }

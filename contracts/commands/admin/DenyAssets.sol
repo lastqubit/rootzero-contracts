@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext} from "../Base.sol";
 import {SETUP} from "../../utils/Channels.sol";
-import {ASSET, ASSET_KEY, BlockRef} from "../../blocks/Schema.sol";
-import {Blocks} from "../../blocks/Readers.sol";
-using Blocks for BlockRef;
+import {ASSET, ASSET_KEY} from "../../blocks/Schema.sol";
+import {Data, DataRef} from "../../Blocks.sol";
+using Data for DataRef;
 
 string constant NAME = "denyAssets";
 
@@ -25,11 +25,11 @@ abstract contract DenyAssets is CommandBase {
     ) external payable onlyAdmin(c.account) onlyCommand(denyAssetsId, c.target) returns (bytes memory) {
         uint i = 0;
         while (i < c.request.length) {
-            BlockRef memory ref = Blocks.from(c.request, i);
+            DataRef memory ref = Data.from(c.request, i);
             if (ref.key != ASSET_KEY) break;
-            (bytes32 asset, bytes32 meta) = ref.unpackAsset(c.request);
+            (bytes32 asset, bytes32 meta) = ref.unpackAsset();
             denyAsset(asset, meta);
-            i = ref.end;
+            i = ref.cursor;
         }
         return done(0, i);
     }

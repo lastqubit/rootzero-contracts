@@ -3,13 +3,13 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES, SETUP} from "../utils/Channels.sol";
-import {AMOUNT, AMOUNT_KEY, BlockRef, Writer} from "../blocks/Schema.sol";
-import {Blocks} from "../blocks/Readers.sol";
+import {AMOUNT, AMOUNT_KEY, Writer} from "../blocks/Schema.sol";
+import {Data, DataRef} from "../Blocks.sol";
 import {Writers} from "../blocks/Writers.sol";
 
 string constant NAME = "debitAccountToBalance";
 
-using Blocks for BlockRef;
+using Data for DataRef;
 using Writers for Writer;
 
 abstract contract DebitAccountToBalance is CommandBase {
@@ -31,11 +31,11 @@ abstract contract DebitAccountToBalance is CommandBase {
         (Writer memory writer, uint end) = Writers.allocBalancesFrom(request, q, AMOUNT_KEY);
 
         while (q < end) {
-            BlockRef memory ref = Blocks.from(request, q);
-            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(request);
+            DataRef memory ref = Data.from(request, q);
+            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
             debitAccount(from, asset, meta, amount);
             writer.appendBalance(asset, meta, amount);
-            q = ref.end;
+            q = ref.cursor;
         }
 
         return writer.done();

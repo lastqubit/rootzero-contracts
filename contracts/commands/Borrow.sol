@@ -3,13 +3,12 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {BALANCES, CUSTODIES} from "../utils/Channels.sol";
-import {AssetAmount, HostAmount, AMOUNT, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, HostAmount, AMOUNT, BALANCE_KEY, CUSTODY_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 import {routeSchema1} from "../utils/Utils.sol";
 
 string constant BABTB = "borrowAgainstBalanceToBalance";
 string constant BACTB = "borrowAgainstCustodyToBalance";
 
-using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
@@ -39,12 +38,13 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            HostAmount memory custody = ref.toCustodyValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            HostAmount memory custody = ref.toCustodyValue();
             AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, route);
             writer.appendNonZeroBalance(out);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();
@@ -77,12 +77,13 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, route);
             writer.appendNonZeroBalance(out);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();

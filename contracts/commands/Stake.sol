@@ -3,13 +3,12 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {SETUP, BALANCES, CUSTODIES} from "../utils/Channels.sol";
-import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Blocks, BlockRef, Data, DataRef, Writers, Writer} from "../Blocks.sol";
+import {AssetAmount, HostAmount, BALANCE_KEY, CUSTODY_KEY, Data, DataRef, Writers, Writer} from "../Blocks.sol";
 
 string constant SBTB = "stakeBalanceToBalances";
 string constant SCTB = "stakeCustodyToBalances";
 string constant SCTP = "stakeCustodyToPosition";
 
-using Blocks for BlockRef;
 using Data for DataRef;
 using Writers for Writer;
 
@@ -40,11 +39,12 @@ abstract contract StakeBalanceToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            AssetAmount memory balance = ref.toBalanceValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            AssetAmount memory balance = ref.toBalanceValue();
             stakeBalanceToBalances(c.account, balance, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();
@@ -78,11 +78,12 @@ abstract contract StakeCustodyToBalances is CommandBase {
 
         while (i < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
-            BlockRef memory ref = Blocks.from(c.state, i);
-            HostAmount memory custody = ref.toCustodyValue(c.state);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
+            DataRef memory ref = Data.from(c.state, i);
+            HostAmount memory custody = ref.toCustodyValue();
             stakeCustodyToBalances(c.account, custody, route, writer);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return writer.finish();
@@ -106,13 +107,14 @@ abstract contract StakeCustodyToPosition is CommandBase {
         uint i = 0;
         uint q = 0;
         while (i < c.state.length) {
-            BlockRef memory ref = Blocks.from(c.state, i);
-            if (!ref.isCustody()) break;
-            HostAmount memory custody = ref.toCustodyValue(c.state);
+            DataRef memory ref = Data.from(c.state, i);
+            if (ref.key != CUSTODY_KEY) break;
+            HostAmount memory custody = ref.toCustodyValue();
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
             stakeCustodyToPosition(c.account, custody, route);
-            i = ref.end;
+            i = ref.cursor;
         }
 
         return done(0, i);

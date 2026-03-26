@@ -127,6 +127,7 @@ struct DataRef {
     uint i;
     uint bound;
     uint end;
+    uint cursor;
 }
 
 struct DataPairRef {

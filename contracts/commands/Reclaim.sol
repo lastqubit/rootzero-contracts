@@ -39,7 +39,8 @@ abstract contract ReclaimToBalances is CommandBase {
 
         while (q < end) {
             DataRef memory route;
-            (route, q) = Data.routeFrom(c.request, q);
+            route = Data.routeFrom(c.request, q);
+            q = route.cursor;
             AssetAmount memory value = route.innerAmountValue();
             reclaimToBalances(c.account, value, route, writer);
         }

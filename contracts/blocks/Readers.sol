@@ -173,6 +173,7 @@ library Blocks {
         out.i = base + ref.i;
         out.bound = base + ref.bound;
         out.end = base + ref.end;
+        out.cursor = ref.end;
     }
 
     // ── *From ─────────────────────────────────────────────────────────────────

@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase} from "./Base.sol";
 import {SETUP} from "../utils/Channels.sol";
-import {AMOUNT, RECIPIENT, AMOUNT_KEY, BlockRef} from "../blocks/Schema.sol";
-import {Blocks} from "../blocks/Readers.sol";
-using Blocks for BlockRef;
+import {AMOUNT, RECIPIENT, AMOUNT_KEY} from "../blocks/Schema.sol";
+import {Data, DataRef} from "../Blocks.sol";
+using Data for DataRef;
 
 string constant NAME = "transfer";
 string constant REQUEST = string.concat(AMOUNT, ">", RECIPIENT);
@@ -27,12 +27,12 @@ abstract contract Transfer is CommandBase {
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
         uint q = 0;
         while (q < request.length) {
-            BlockRef memory ref = Blocks.from(request, q);
+            DataRef memory ref = Data.from(request, q);
             if (ref.key != AMOUNT_KEY) break;
-            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount(request);
-            bytes32 to = ref.innerRecipientAt(request, ref.bound);
+            (bytes32 asset, bytes32 meta, uint amount) = ref.unpackAmount();
+            bytes32 to = ref.innerRecipientAt(ref.bound);
             transfer(from, to, asset, meta, amount);
-            q = ref.end;
+            q = ref.cursor;
         }
 
         return done(0, q);
