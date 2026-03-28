@@ -23,7 +23,8 @@ Most consumers should start from the package root entrypoints:
 
 ## Start Here
 
-If you are new to RootZero, read [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) first.
+If you are new to RootZero, start with the getting started guide in the repository:
+https://github.com/lastqubit/rootzero-contracts/blob/main/docs/GETTING_STARTED.md
 
 It walks through:
 

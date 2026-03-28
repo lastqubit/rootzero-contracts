@@ -15,7 +15,14 @@ await mkdir(outDir, { recursive: true });
 
 // Flatten the published package by copying the contents of contracts/ into
 // the package root while preserving relative imports inside the tree.
-await cp(contractsDir, outDir, { recursive: true });
+// Exclude internal test contracts from the published artifact.
+await cp(contractsDir, outDir, {
+  recursive: true,
+  filter(source) {
+    const relative = path.relative(contractsDir, source);
+    return relative === "" || (!relative.startsWith(`test${path.sep}`) && relative !== "test");
+  }
+});
 await cp(path.join(root, "README.md"), path.join(outDir, "README.md"));
 await cp(path.join(root, "LICENSE"), path.join(outDir, "LICENSE"));
 
