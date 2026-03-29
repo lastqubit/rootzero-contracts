@@ -7,6 +7,8 @@ library Keys {
     bytes4 constant Custody = bytes4(keccak256("custody(uint host, bytes32 asset, bytes32 meta, uint amount)"));
     bytes4 constant Minimum = bytes4(keccak256("minimum(bytes32 asset, bytes32 meta, uint amount)"));
     bytes4 constant Maximum = bytes4(keccak256("maximum(bytes32 asset, bytes32 meta, uint amount)"));
+    bytes4 constant Bundle = bytes4(keccak256("bundle(bytes data)"));
+    bytes4 constant BundleView = bytes4(keccak256("bundleView(bytes data)"));
     bytes4 constant Route = bytes4(keccak256("route(bytes data)"));
     bytes4 constant Quantity = bytes4(keccak256("quantity(uint amount)"));
     bytes4 constant Rate = bytes4(keccak256("rate(uint value)"));

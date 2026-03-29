@@ -12,11 +12,6 @@ struct Block {
     uint cursor;
 }
 
-struct BlockPair {
-    Block a;
-    Block b;
-}
-
 using Blocks for Block;
 
 library Blocks {
@@ -24,9 +19,7 @@ library Blocks {
     error InvalidBlock();
     error ZeroRecipient();
     error ZeroNode();
-    error UnexpectedHost();
-    error UnexpectedAsset();
-    error UnexpectedMeta();
+    error UnexpectedValue();
 
     // ── infrastructure ────────────────────────────────────────────────────────
 
@@ -72,9 +65,27 @@ library Blocks {
         if (ref.bound > ref.end || ref.end > eos) revert MalformedBlocks();
     }
 
-    function twoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
-        ref.a = from(source, i);
-        ref.b = from(source, ref.a.cursor);
+    function viewFrom(bytes calldata source, uint i, uint count_) internal pure returns (Block memory ref) {
+        if (count_ == 0) revert InvalidBlock();
+
+        uint next = i;
+        for (uint n; n < count_; ) {
+            next = from(source, next).cursor;
+            unchecked {
+                ++n;
+            }
+        }
+
+        uint base;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+
+        ref.key = Keys.BundleView;
+        ref.i = base + i;
+        ref.bound = base + next;
+        ref.end = ref.bound;
+        ref.cursor = next;
     }
 
     function count(bytes calldata source, uint i, bytes4 key) internal pure returns (uint count_, uint next) {
@@ -93,6 +104,31 @@ library Blocks {
         if (i < parent.bound || i >= parent.end) revert MalformedBlocks();
         ref = at(i);
         if (ref.end > parent.end) revert MalformedBlocks();
+    }
+
+    function memberAt(Block memory ref, uint i) internal pure returns (Block memory member) {
+        if (ref.key != Keys.Bundle && ref.key != Keys.BundleView) revert InvalidBlock();
+        if (i < ref.i || i >= ref.bound) revert MalformedBlocks();
+
+        member = at(i);
+        if (member.end > ref.bound) revert MalformedBlocks();
+    }
+
+    function member(Block memory ref, uint index) internal pure returns (Block memory member) {
+        if (ref.key != Keys.Bundle && ref.key != Keys.BundleView) revert InvalidBlock();
+
+        uint i = ref.i;
+        uint n = 0;
+        while (i < ref.bound) {
+            member = ref.memberAt(i);
+            if (n == index) return member;
+            i = member.cursor;
+            unchecked {
+                ++n;
+            }
+        }
+
+        revert MalformedBlocks();
     }
 
     function findFrom(bytes calldata source, uint i, uint limit, bytes4 key) internal pure returns (Block memory ref) {
@@ -190,21 +226,16 @@ library Blocks {
         if (key == 0 || key != ref.key || len < min || (max != 0 && len > max)) revert InvalidBlock();
     }
 
-    function ensure(BlockPair memory ref, bytes4 key, uint len) internal pure {
-        ensure(ref.a, key, len);
-        ensure(ref.b, key, len);
-    }
-
-    function ensure(BlockPair memory ref, bytes4 key, uint min, uint max) internal pure {
-        ensure(ref.a, key, min, max);
-        ensure(ref.b, key, min, max);
-    }
-
     // ── *From ─────────────────────────────────────────────────────────────────
 
     function routeFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
         ensure(ref, Keys.Route);
+    }
+
+    function bundleFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
+        ref = from(source, i);
+        ensure(ref, Keys.Bundle);
     }
 
     function nodeFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
@@ -252,18 +283,8 @@ library Blocks {
         ensure(ref, Keys.Amount, 96);
     }
 
-    function amountTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
-        ref = twoFrom(source, i);
-        ensure(ref, Keys.Amount, 96);
-    }
-
     function balanceFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
-        ensure(ref, Keys.Balance, 96);
-    }
-
-    function balanceTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
-        ref = twoFrom(source, i);
         ensure(ref, Keys.Balance, 96);
     }
 
@@ -297,11 +318,6 @@ library Blocks {
         ensure(ref, Keys.Custody, 128);
     }
 
-    function custodyTwoFrom(bytes calldata source, uint i) internal pure returns (BlockPair memory ref) {
-        ref = twoFrom(source, i);
-        ensure(ref, Keys.Custody, 128);
-    }
-
     function allocationFrom(bytes calldata source, uint i) internal pure returns (Block memory ref) {
         ref = from(source, i);
         ensure(ref, Keys.Allocation, 128);
@@ -314,9 +330,9 @@ library Blocks {
 
     // ── inner* ────────────────────────────────────────────────────────────────
 
-    function innerPair(Block memory parent) internal pure returns (BlockPair memory ref) {
-        ref.a = childAt(parent, parent.bound);
-        ref.b = childAt(parent, ref.a.end);
+    function innerBundle(Block memory parent) internal pure returns (Block memory ref) {
+        ref = childAt(parent, parent.bound);
+        ensure(ref, Keys.Bundle);
     }
 
     function innerRoute(Block memory parent) internal pure returns (bytes calldata data) {
@@ -401,9 +417,9 @@ library Blocks {
 
     // ── inner*At ──────────────────────────────────────────────────────────────
 
-    function innerPairAt(Block memory parent, uint i) internal pure returns (BlockPair memory ref) {
-        ref.a = childAt(parent, i);
-        ref.b = childAt(parent, ref.a.end);
+    function innerBundleAt(Block memory parent, uint i) internal pure returns (Block memory ref) {
+        ref = childAt(parent, i);
+        ensure(ref, Keys.Bundle);
     }
 
     function innerRouteAt(Block memory parent, uint i) internal pure returns (bytes calldata data) {
@@ -720,35 +736,35 @@ library Blocks {
 
     function expectAmount(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
         ensure(ref, Keys.Amount, 96);
-        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
-        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedValue();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectBalance(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
         ensure(ref, Keys.Balance, 96);
-        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
-        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedValue();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectMinimum(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
         ensure(ref, Keys.Minimum, 96);
-        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
-        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedValue();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectMaximum(Block memory ref, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
         ensure(ref, Keys.Maximum, 96);
-        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedAsset();
-        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedMeta();
+        if (bytes32(msg.data[ref.i:ref.i + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[ref.i + 32:ref.i + 64]) != meta) revert UnexpectedValue();
         return uint(bytes32(msg.data[ref.i + 64:ref.i + 96]));
     }
 
     function expectCustody(Block memory ref, uint host) internal pure returns (AssetAmount memory value) {
         ensure(ref, Keys.Custody, 128);
-        if (uint(bytes32(msg.data[ref.i:ref.i + 32])) != host) revert UnexpectedHost();
+        if (uint(bytes32(msg.data[ref.i:ref.i + 32])) != host) revert UnexpectedValue();
         value.asset = bytes32(msg.data[ref.i + 32:ref.i + 64]);
         value.meta = bytes32(msg.data[ref.i + 64:ref.i + 96]);
         value.amount = uint(bytes32(msg.data[ref.i + 96:ref.i + 128]));

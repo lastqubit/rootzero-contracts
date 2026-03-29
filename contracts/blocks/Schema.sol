@@ -49,11 +49,17 @@ library Schemas {
 // Schema DSL:
 // - `;` separates top-level sibling blocks
 // - `>` attaches child blocks to the preceding parent
+// - `&` bundles adjacent blocks into one bundle block
 // - repeated `>` adds more children to the same parent, not to the previous child
+// - bundled blocks preserve member order, so `a & b` differs from `b & a`
+// - a bundle block's self payload is an embedded normal block stream of its bundled members
+// - bundled members keep their ordinary block encoding, so dynamic blocks are allowed inside bundles
+// - a bundle block may still have ordinary child blocks after its bundled self payload
 // - `->` separates request and response shapes, appears at most once, and is omitted when no output is modeled
 // - top-level blocks of the same type should be grouped together
 // - primary / driving blocks should appear before auxiliary blocks
 // - `route(<fields...>)` is a reserved extensible schema form whose key is always `Keys.Route`
+// - `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
 //   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
 //   for plain scalar amounts

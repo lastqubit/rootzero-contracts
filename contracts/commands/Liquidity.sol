@@ -5,7 +5,7 @@ import { CommandContext, CommandBase, Channels } from "./Base.sol";
 import { AssetAmount, HostAmount } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Schemas } from "../blocks/Schema.sol";
-import { Blocks, Block, BlockPair, Writers, Writer, Keys } from "../Blocks.sol";
+import { Blocks, Block, Writers, Writer, Keys } from "../Blocks.sol";
 
 using Blocks for Block;
 using Writers for Writer;
@@ -31,7 +31,7 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
     /// `out`: two refunds plus the liquidity receipt.
     function addLiquidityFromCustodiesToBalances(
         bytes32 account,
-        BlockPair memory rawCustodies,
+        Block memory custodiesView,
         Block memory rawRoute,
         Writer memory out
     ) internal virtual;
@@ -47,9 +47,8 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
             Block memory route;
             route = Blocks.routeFrom(c.request, q);
             q = route.cursor;
-            BlockPair memory custodies;
-            custodies = Blocks.twoFrom(c.state, i);
-            i = custodies.b.cursor;
+            Block memory custodies = Blocks.viewFrom(c.state, i, 2);
+            i = custodies.cursor;
             addLiquidityFromCustodiesToBalances(c.account, custodies, route, writer);
         }
 
@@ -114,7 +113,7 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
     /// `out`: two refunds plus the liquidity receipt.
     function addLiquidityFromBalancesToBalances(
         bytes32 account,
-        BlockPair memory rawBalances,
+        Block memory balancesView,
         Block memory rawRoute,
         Writer memory out
     ) internal virtual;
@@ -130,9 +129,8 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
             Block memory route;
             route = Blocks.routeFrom(c.request, q);
             q = route.cursor;
-            BlockPair memory balances;
-            balances = Blocks.twoFrom(c.state, i);
-            i = balances.b.cursor;
+            Block memory balances = Blocks.viewFrom(c.state, i, 2);
+            i = balances.cursor;
             addLiquidityFromBalancesToBalances(c.account, balances, route, writer);
         }
 

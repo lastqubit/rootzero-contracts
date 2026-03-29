@@ -5,7 +5,7 @@ import { Host } from "../core/Host.sol";
 import { AddLiquidityFromCustodiesToBalances, RemoveLiquidityFromCustodyToBalances, AddLiquidityFromBalancesToBalances, RemoveLiquidityFromBalanceToBalances } from "../commands/Liquidity.sol";
 import { Blocks } from "../blocks/Blocks.sol";
 import { AssetAmount, HostAmount } from "../blocks/Schema.sol";
-import { Block, BlockPair, Writer } from "../Blocks.sol";
+import { Block, Writer } from "../Blocks.sol";
 import { Writers } from "../blocks/Writers.sol";
 import { Ids } from "../utils/Ids.sol";
 
@@ -56,12 +56,12 @@ contract TestLiquidityHost is
 
     function addLiquidityFromCustodiesToBalances(
         bytes32 account,
-        BlockPair memory rawCustodies,
+        Block memory custodiesView,
         Block memory rawRoute,
         Writer memory out
     ) internal override {
-        HostAmount memory a = rawCustodies.a.toCustodyValue();
-        HostAmount memory b = rawCustodies.b.toCustodyValue();
+        HostAmount memory a = custodiesView.member(0).toCustodyValue();
+        HostAmount memory b = custodiesView.member(1).toCustodyValue();
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         uint routeLen = rawRoute.bound - rawRoute.i;
         emit AddCustodiesMapped(account, a.asset, a.amount, b.asset, b.amount, routeData);
@@ -89,12 +89,12 @@ contract TestLiquidityHost is
 
     function addLiquidityFromBalancesToBalances(
         bytes32 account,
-        BlockPair memory rawBalances,
+        Block memory balancesView,
         Block memory rawRoute,
         Writer memory out
     ) internal override {
-        AssetAmount memory a = rawBalances.a.toBalanceValue();
-        AssetAmount memory b = rawBalances.b.toBalanceValue();
+        AssetAmount memory a = balancesView.member(0).toBalanceValue();
+        AssetAmount memory b = balancesView.member(1).toBalanceValue();
         bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
         uint routeLen = rawRoute.bound - rawRoute.i;
         emit AddBalancesMapped(account, a.asset, a.amount, b.asset, b.amount, routeData);
