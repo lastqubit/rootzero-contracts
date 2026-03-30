@@ -1,7 +1,7 @@
 {
-  "name": "@fastish/contracts",
+  "name": "@rootzero/contracts",
   "version": "0.2.0",
-  "description": "Solidity contracts and protocol building blocks for Fastish hosts and commands.",
+  "description": "Solidity contracts and protocol building blocks for rootzero hosts and commands.",
   "private": false,
   "license": "GPL-3.0-only",
   "type": "module",

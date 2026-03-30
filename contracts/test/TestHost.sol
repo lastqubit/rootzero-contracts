@@ -51,7 +51,7 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address fastish) Host(fastish, 1, "test") Deposit() Provision() Init("") Destroy("") {}
+    constructor(address rootzero) Host(rootzero, 1, "test") Deposit() Provision() Init("") Destroy("") {}
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);

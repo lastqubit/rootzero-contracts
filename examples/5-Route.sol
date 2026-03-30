@@ -4,9 +4,9 @@ pragma solidity ^0.8.33;
 // Example 5: Route Blocks
 //
 // Route blocks let a command accept arbitrary command-specific parameters
-// alongside standard protocol blocks, without breaking the Fastish wire format.
+// alongside standard protocol blocks, without breaking the rootzero wire format.
 //
-// A route block wraps command-specific parameters without breaking the Fastish
+// A route block wraps command-specific parameters without breaking the rootzero
 // wire format. It can also be bundled with standard protocol blocks.
 //
 // This example expects a bundle containing a ROUTE block carrying a `host` ID

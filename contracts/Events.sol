@@ -14,5 +14,5 @@ import { HostAnnouncedEvent } from "./events/HostAnnounced.sol";
 import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QuoteEvent } from "./events/Quote.sol";
-import { FastishEvent } from "./events/Fastish.sol";
+import { RootzeroEvent } from "./events/Rootzero.sol";
 import { WithdrawalEvent } from "./events/Withdraw.sol";

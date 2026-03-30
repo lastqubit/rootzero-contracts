@@ -1,16 +1,16 @@
-# Getting Started With Fastish
+# Getting Started With rootzero
 
-This guide is for developers who want to build on Fastish without reading the whole codebase first.
+This guide is for developers who want to build on rootzero without reading the whole codebase first.
 
 If you remember only one thing, remember this:
 
 - A `Host` is your application contract.
-- A command is an entrypoint the Fastish runtime is allowed to call.
+- A command is an entrypoint the rootzero runtime is allowed to call.
 - Requests and responses are passed around as typed byte blocks.
 
 ## The Mental Model
 
-Fastish moves data through a small command context:
+rootzero moves data through a small command context:
 
 ```solidity
 struct CommandContext {
@@ -36,28 +36,28 @@ Most built-in commands follow a simple pattern:
 
 ## Step 1: Start With A Host
 
-The smallest useful Fastish app is a host contract.
+The smallest useful rootzero app is a host contract.
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Host} from "@fastish/contracts/Core.sol";
+import {Host} from "@rootzero/contracts/Core.sol";
 
 contract ExampleHost is Host {
-    constructor(address fastish)
-        Host(fastish, 1, "example")
+    constructor(address rootzero)
+        Host(rootzero, 1, "example")
     {}
 }
 ```
 
 What the constructor arguments mean:
 
-- `fastish`: the trusted Fastish runtime allowed to call commands
+- `rootzero`: the trusted rootzero runtime allowed to call commands
 - `1`: your host version
 - `"example"`: your host namespace
 
-If `fastish` is a contract, the host announces itself there during deployment. If you pass `address(0)`, the host becomes self-managed and does not auto-register.
+If `rootzero` is a contract, the host announces itself there during deployment. If you pass `address(0)`, the host becomes self-managed and does not auto-register.
 
 ## Step 2: Reuse A Built-In Command
 
@@ -69,15 +69,15 @@ This example adds `DebitAccount`, which turns `AMOUNT` blocks in `request` into 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Host} from "@fastish/contracts/Core.sol";
-import {DebitAccount} from "@fastish/contracts/Commands.sol";
-import {ensureAssetRef} from "@fastish/contracts/Utils.sol";
+import {Host} from "@rootzero/contracts/Core.sol";
+import {DebitAccount} from "@rootzero/contracts/Commands.sol";
+import {ensureAssetRef} from "@rootzero/contracts/Utils.sol";
 
 contract ExampleHost is Host, DebitAccount {
     mapping(bytes32 account => mapping(bytes32 assetRef => uint amount)) internal balances;
 
-    constructor(address fastish)
-        Host(fastish, 1, "example")
+    constructor(address rootzero)
+        Host(rootzero, 1, "example")
     {}
 
     function debitAccount(
@@ -95,7 +95,7 @@ contract ExampleHost is Host, DebitAccount {
 Why this is a good first step:
 
 - you do not need to write block parsing yourself
-- you get the standard Fastish command surface
+- you get the standard rootzero command surface
 - you only implement the business rule that is unique to your app
 
 ## Step 3: Understand What Built-In Commands Consume
@@ -138,7 +138,7 @@ const amount = 100n;
 
 const ctx = {
   target: 0n,
-  account: "0x...", // 32-byte Fastish account id
+  account: "0x...", // 32-byte rootzero account id
   state: "0x",
   request: encodeAmountBlock(asset, meta, amount),
 };
@@ -160,9 +160,9 @@ When the built-in modules are not enough, add your own command entrypoint.
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Host} from "@fastish/contracts/Core.sol";
-import {CommandContext} from "@fastish/contracts/Commands.sol";
-import {toCommandId} from "@fastish/contracts/Utils.sol";
+import {Host} from "@rootzero/contracts/Core.sol";
+import {CommandContext} from "@rootzero/contracts/Commands.sol";
+import {toCommandId} from "@rootzero/contracts/Utils.sol";
 
 bytes32 constant NAME = "myCommand";
 string constant ROUTE = "route(uint foo, uint bar)";
@@ -170,8 +170,8 @@ string constant ROUTE = "route(uint foo, uint bar)";
 contract ExampleHost is Host {
     uint immutable myCommandId = toCommandId(NAME, address(this));
 
-    constructor(address fastish)
-        Host(fastish, 1, "example")
+    constructor(address rootzero)
+        Host(rootzero, 1, "example")
     {
         emit Command(host, NAME, ROUTE, myCommandId, 0, 0);
     }
@@ -199,7 +199,7 @@ If your request contains a `route(uint foo, uint bar)` block, your command can:
 
 - treat it as the command-specific payload
 - decode it however your app expects
-- keep the rest of the Fastish request format unchanged
+- keep the rest of the rootzero request format unchanged
 
 For simple projects, it is perfectly fine to:
 
@@ -215,8 +215,8 @@ When your command needs to build response blocks manually, use `Writers`.
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Writers} from "@fastish/contracts/Blocks.sol";
-import {Writer} from "@fastish/contracts/Schema.sol";
+import {Writers} from "@rootzero/contracts/Blocks.sol";
+import {Writer} from "@rootzero/contracts/Schema.sol";
 
 function buildBalances() internal pure returns (bytes memory) {
     Writer memory writer = Writers.alloc(108 * 2);
@@ -236,13 +236,13 @@ If you are only consuming built-in commands, you often will not need to touch wr
 
 ## A Tiny End-To-End Example
 
-Imagine you want a host that keeps internal balances and lets Fastish debit them.
+Imagine you want a host that keeps internal balances and lets rootzero debit them.
 
 1. Deploy a host that inherits `Host` and `DebitAccount`.
 2. Store balances in your own mapping.
 3. Implement `debitAccount(account, asset, meta, amount)`.
 4. Send `debitAccountToBalance` a request containing one or more `AMOUNT` blocks.
-5. Fastish returns `BALANCE` blocks representing the debited amounts.
+5. rootzero returns `BALANCE` blocks representing the debited amounts.
 
 That is already a valid and useful integration.
 

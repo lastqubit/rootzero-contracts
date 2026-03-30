@@ -11,8 +11,8 @@ contract TestSwapHost is Host, SwapExactBalanceToBalance {
     event SwapMapped(bytes32 account, bytes32 asset, bytes32 meta, uint amount, bytes inputData);
     event SwapMinimum(bytes32 asset, bytes32 meta, uint amount);
 
-    constructor(address fastish)
-        Host(fastish, 1, "test")
+    constructor(address rootzero)
+        Host(rootzero, 1, "test")
         SwapExactBalanceToBalance("route(bytes data)")
     {}
 

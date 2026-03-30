@@ -10,14 +10,14 @@ describe("Host Discovery", () => {
     discovery = await deploy("TestDiscovery");
   });
 
-  it("announces host on construction when the Fastish runtime is set", async () => {
-    const fastish = await discovery.getAddress();
+  it("announces host on construction when the rootzero runtime is set", async () => {
+    const rootzero = await discovery.getAddress();
 
     // Deploy host pointing to discovery — should emit HostAnnounced during construction
     const artifact = await hre.artifacts.readArtifact("TestHost");
     const provider = await getProvider();
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, await provider.getSigner(0));
-    const contract = await factory.deploy(fastish);
+    const contract = await factory.deploy(rootzero);
     const receipt = await contract.deploymentTransaction()!.wait();
 
     // Check discovery emitted HostAnnounced
@@ -33,7 +33,7 @@ describe("Host Discovery", () => {
     expect(parsed!.args.namespace).to.equal("test");
   });
 
-  it("does NOT announce when the Fastish runtime is address(0)", async () => {
+  it("does NOT announce when the rootzero runtime is address(0)", async () => {
     // No revert, no HostAnnounced from discovery
     const host = await deploy("TestHost", ethers.ZeroAddress);
     expect(await host.getAddress()).to.not.equal(ethers.ZeroAddress);
