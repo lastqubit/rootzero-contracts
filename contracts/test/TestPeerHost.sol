@@ -8,8 +8,8 @@ import { Block } from "../Blocks.sol";
 import { Ids } from "../utils/Ids.sol";
 
 contract TestPeerHost is Host, PeerPull, PeerPush {
-    event PeerPullCalled(bytes routeData);
-    event PeerPushCalled(bytes routeData);
+    event PeerPullCalled(bytes inputData);
+    event PeerPushCalled(bytes inputData);
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
@@ -19,14 +19,14 @@ contract TestPeerHost is Host, PeerPull, PeerPush {
         if (cmdr != address(0)) access(Ids.toHost(cmdr), true);
     }
 
-    function peerPull(Block memory rawRoute) internal override {
-        bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
-        emit PeerPullCalled(routeData);
+    function peerPull(Block memory rawInput) internal override {
+        bytes calldata inputData = msg.data[rawInput.i:rawInput.bound];
+        emit PeerPullCalled(inputData);
     }
 
-    function peerPush(Block memory rawRoute) internal override {
-        bytes calldata routeData = msg.data[rawRoute.i:rawRoute.bound];
-        emit PeerPushCalled(routeData);
+    function peerPush(Block memory rawInput) internal override {
+        bytes calldata inputData = msg.data[rawInput.i:rawInput.bound];
+        emit PeerPushCalled(inputData);
     }
 
     function getPeerPullId() external view returns (uint) { return peerPullId; }

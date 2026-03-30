@@ -10,8 +10,8 @@ string constant NAME = "burn";
 abstract contract Burn is CommandBase {
     uint internal immutable burnId = commandId(NAME);
 
-    constructor(string memory route) {
-        emit Command(host, NAME, route, burnId, Channels.Balances, Channels.Setup);
+    constructor() {
+        emit Command(host, NAME, "", burnId, Channels.Balances, Channels.Setup);
     }
 
     /// @dev Override to burn or consume the provided balance amount.

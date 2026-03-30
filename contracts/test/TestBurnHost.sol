@@ -10,7 +10,7 @@ contract TestBurnHost is Host, Burn {
 
     constructor(address cmdr)
         Host(address(0), 1, "test")
-        Burn("")
+        Burn()
     {
         if (cmdr != address(0)) access(Ids.toHost(cmdr), true);
     }
