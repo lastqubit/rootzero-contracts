@@ -22,6 +22,8 @@ export const Keys = {
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
   Auth: blockKey("auth(uint cid, uint deadline, bytes proof)"),
   Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
+  Bundle: blockKey("bundle(bytes data)"),
+  BundleView: blockKey("bundleView(bytes data)"),
   Route: blockKey("route(bytes data)"),
 } as const;
 
@@ -111,12 +113,20 @@ export function encodeRouteBlock(data: string): string {
   return block(Keys.Route, data);
 }
 
+export function encodeBundleBlock(...members: string[]): string {
+  return block(Keys.Bundle, concat(...members));
+}
+
 export function encodeRouteBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
   return blockWithChildren(Keys.Route, data, encodeAmountBlock(asset, meta, amount));
 }
 
 export function encodeRouteBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
   return blockWithChildren(Keys.Route, data, encodeMinimumBlock(asset, meta, amount));
+}
+
+export function encodeBundleBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
+  return encodeBundleBlock(encodeRouteBlock(data), encodeMinimumBlock(asset, meta, amount));
 }
 
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {

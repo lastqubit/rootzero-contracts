@@ -204,6 +204,58 @@ contract TestBlockHelper {
         return Blocks.count(source, i, key);
     }
 
+    function testBundleFrom(bytes calldata source, uint i)
+        external
+        pure
+        returns (bytes4 key, uint start, uint bound, uint end, uint cursor)
+    {
+        uint base;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+        Block memory ref = Blocks.bundleFrom(source, i);
+        return (ref.key, ref.i - base, ref.bound - base, ref.end - base, ref.cursor);
+    }
+
+    function testViewFrom(bytes calldata source, uint i, uint n)
+        external
+        pure
+        returns (bytes4 key, uint start, uint bound, uint end, uint cursor)
+    {
+        uint base;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+        Block memory ref = Blocks.viewFrom(source, i, n);
+        return (ref.key, ref.i - base, ref.bound - base, ref.end - base, ref.cursor);
+    }
+
+    function testMember(bytes calldata source, uint i, uint index)
+        external
+        pure
+        returns (bytes4 key, uint start, uint bound, uint end, uint cursor)
+    {
+        uint base;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+        Block memory ref = Blocks.bundleFrom(source, i).member(index);
+        return (ref.key, ref.i - base, ref.bound - base, ref.end - base, ref.cursor - base);
+    }
+
+    function testMemberAt(bytes calldata source, uint i, uint at_)
+        external
+        pure
+        returns (bytes4 key, uint start, uint bound, uint end, uint cursor)
+    {
+        uint base;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+        Block memory ref = Blocks.bundleFrom(source, i).memberAt(base + at_);
+        return (ref.key, ref.i - base, ref.bound - base, ref.end - base, ref.cursor - base);
+    }
+
     function testResolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup)
         external
         pure

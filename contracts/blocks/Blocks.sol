@@ -65,14 +65,14 @@ library Blocks {
         if (ref.bound > ref.end || ref.end > eos) revert MalformedBlocks();
     }
 
-    function viewFrom(bytes calldata source, uint i, uint count_) internal pure returns (Block memory ref) {
-        if (count_ == 0) revert InvalidBlock();
+    function viewFrom(bytes calldata source, uint i, uint n) internal pure returns (Block memory ref) {
+        if (n == 0) revert InvalidBlock();
 
         uint next = i;
-        for (uint n; n < count_; ) {
+        for (uint j; j < n; ) {
             next = from(source, next).cursor;
             unchecked {
-                ++n;
+                ++j;
             }
         }
 
@@ -100,29 +100,40 @@ library Blocks {
         }
     }
 
+    function count(bytes calldata source, uint i) internal pure returns (uint count_, uint next) {
+        next = i;
+        while (next < source.length) {
+            next = from(source, next).cursor;
+            unchecked {
+                ++count_;
+            }
+        }
+    }
+
     function childAt(Block memory parent, uint i) internal pure returns (Block memory ref) {
         if (i < parent.bound || i >= parent.end) revert MalformedBlocks();
         ref = at(i);
         if (ref.end > parent.end) revert MalformedBlocks();
     }
 
-    function memberAt(Block memory ref, uint i) internal pure returns (Block memory member) {
+    function memberAt(Block memory ref, uint i) internal pure returns (Block memory out) {
         if (ref.key != Keys.Bundle && ref.key != Keys.BundleView) revert InvalidBlock();
         if (i < ref.i || i >= ref.bound) revert MalformedBlocks();
 
-        member = at(i);
-        if (member.end > ref.bound) revert MalformedBlocks();
+        out = at(i);
+        if (out.end > ref.bound) revert MalformedBlocks();
+        out.cursor = out.end;
     }
 
-    function member(Block memory ref, uint index) internal pure returns (Block memory member) {
+    function member(Block memory ref, uint index) internal pure returns (Block memory out) {
         if (ref.key != Keys.Bundle && ref.key != Keys.BundleView) revert InvalidBlock();
 
         uint i = ref.i;
         uint n = 0;
         while (i < ref.bound) {
-            member = ref.memberAt(i);
-            if (n == index) return member;
-            i = member.cursor;
+            out = ref.memberAt(i);
+            if (n == index) return out;
+            i = out.cursor;
             unchecked {
                 ++n;
             }

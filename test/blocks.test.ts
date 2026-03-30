@@ -7,7 +7,7 @@ import {
   encodeAmountBlock, encodeBalanceBlock, encodeCustodyBlock,
   encodeRecipientBlock, encodeNodeBlock, encodeFundingBlock,
   encodeAssetBlock, encodeAllocationBlock, encodeTxBlock, encodeQuantityBlock, encodeMinimumBlock, encodeMaximumBlock,
-  encodeAuthBlock,
+  encodeAuthBlock, encodeBundleBlock, encodeRouteBlock,
   pad32, concat
 } from "./helpers/blocks.js";
 
@@ -264,39 +264,39 @@ describe("Blocks", () => {
       expect(result).to.equal(amount);
     });
 
-    it("expectMinimum reverts UnexpectedAsset for wrong asset", async () => {
+    it("expectMinimum reverts UnexpectedValue for wrong asset", async () => {
       const data = encodeMinimumBlock(asset, meta, amount);
       const otherAsset = ethers.zeroPadValue("0xAB", 32);
       await expect(helper.testExpectMinimum(data, 0n, otherAsset, meta))
-        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
-    it("expectMinimum reverts UnexpectedMeta for wrong meta", async () => {
+    it("expectMinimum reverts UnexpectedValue for wrong meta", async () => {
       const data = encodeMinimumBlock(asset, meta, amount);
       const otherMeta = ethers.zeroPadValue("0xCC", 32);
       await expect(helper.testExpectMinimum(data, 0n, asset, otherMeta))
-        .to.be.revertedWithCustomError(helper, "UnexpectedMeta");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
-    it("expectAmount reverts UnexpectedAsset for wrong asset", async () => {
+    it("expectAmount reverts UnexpectedValue for wrong asset", async () => {
       const data = encodeAmountBlock(asset, meta, amount);
       const otherAsset = ethers.zeroPadValue("0xAB", 32);
       await expect(helper.testExpectAmount(data, 0n, otherAsset, meta))
-        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
-    it("expectBalance reverts UnexpectedMeta for wrong meta", async () => {
+    it("expectBalance reverts UnexpectedValue for wrong meta", async () => {
       const data = encodeBalanceBlock(asset, meta, amount);
       const otherMeta = ethers.zeroPadValue("0xCC", 32);
       await expect(helper.testExpectBalance(data, 0n, asset, otherMeta))
-        .to.be.revertedWithCustomError(helper, "UnexpectedMeta");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
-    it("expectMaximum reverts UnexpectedAsset for wrong asset", async () => {
+    it("expectMaximum reverts UnexpectedValue for wrong asset", async () => {
       const data = encodeMaximumBlock(asset, meta, amount);
       const otherAsset = ethers.zeroPadValue("0xAB", 32);
       await expect(helper.testExpectMaximum(data, 0n, otherAsset, meta))
-        .to.be.revertedWithCustomError(helper, "UnexpectedAsset");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
     it("expectCustody returns AssetAmount when host matches", async () => {
@@ -308,10 +308,10 @@ describe("Blocks", () => {
       expect(v).to.equal(amount);
     });
 
-    it("expectCustody reverts UnexpectedHost for wrong host", async () => {
+    it("expectCustody reverts UnexpectedValue for wrong host", async () => {
       const data = encodeCustodyBlock(42n, asset, meta, amount);
       await expect(helper.testExpectCustody(data, 0n, 99n))
-        .to.be.revertedWithCustomError(helper, "UnexpectedHost");
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
     it("unpackFunding extracts host/amount from FUNDING block", async () => {
@@ -508,6 +508,73 @@ describe("Blocks", () => {
       const b1End = BigInt(ethers.getBytes(b1).length);
       await expect(helper.testParseBlock(truncated, b1End))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+    });
+
+    describe("bundle helpers", () => {
+      it("bundleFrom parses a BUNDLE block and preserves inner stream bounds", async () => {
+        const memberA = encodeRouteBlock("0x1234");
+        const memberB = encodeMinimumBlock(asset, meta, amount);
+        const bundle = encodeBundleBlock(memberA, memberB);
+        const [key, start, bound, end, cursor] = await helper.testBundleFrom(bundle, 0n);
+        expect(key).to.equal(Keys.Bundle);
+        expect(start).to.equal(12n);
+        expect(bound).to.equal(BigInt(ethers.getBytes(bundle).length));
+        expect(end).to.equal(bound);
+        expect(cursor).to.equal(BigInt(ethers.getBytes(bundle).length));
+      });
+
+      it("viewFrom creates a BundleView over n consecutive blocks", async () => {
+        const a = encodeBalanceBlock(asset, meta, 1n);
+        const b = encodeBalanceBlock(asset, meta, 2n);
+        const c = encodeBalanceBlock(asset, meta, 3n);
+        const source = concat(a, b, c);
+        const [key, start, bound, end, cursor] = await helper.testViewFrom(source, 0n, 2n);
+        expect(key).to.equal(Keys.BundleView);
+        expect(start).to.equal(0n);
+        expect(bound).to.equal(BigInt(ethers.getBytes(concat(a, b)).length));
+        expect(end).to.equal(bound);
+        expect(cursor).to.equal(bound);
+      });
+
+      it("member returns the indexed member inside a bundle", async () => {
+        const memberA = encodeRouteBlock("0x1234");
+        const memberB = encodeMinimumBlock(asset, meta, amount);
+        const bundle = encodeBundleBlock(memberA, memberB);
+        const [key, start, bound, end, cursor] = await helper.testMember(bundle, 0n, 1n);
+        const expectedBlockStart = BigInt(ethers.getBytes(memberA).length) + 12n;
+        const expectedStart = expectedBlockStart + 12n;
+        expect(key).to.equal(Keys.Minimum);
+        expect(start).to.equal(expectedStart);
+        expect(bound).to.equal(expectedStart + 96n);
+        expect(end).to.equal(bound);
+        expect(cursor).to.equal(bound);
+      });
+
+      it("memberAt returns the member at an exact inner position", async () => {
+        const memberA = encodeRouteBlock("0x1234");
+        const memberB = encodeMinimumBlock(asset, meta, amount);
+        const bundle = encodeBundleBlock(memberA, memberB);
+        const secondStart = BigInt(ethers.getBytes(memberA).length) + 12n;
+        const [key, start, bound, end, cursor] = await helper.testMemberAt(bundle, 0n, secondStart);
+        const expectedStart = secondStart + 12n;
+        expect(key).to.equal(Keys.Minimum);
+        expect(start).to.equal(expectedStart);
+        expect(bound).to.equal(expectedStart + 96n);
+        expect(end).to.equal(bound);
+        expect(cursor).to.equal(bound);
+      });
+
+      it("member reverts MalformedBlocks when the indexed member is out of range", async () => {
+        const bundle = encodeBundleBlock(encodeRouteBlock("0x1234"));
+        await expect(helper.testMember(bundle, 0n, 1n))
+          .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+      });
+
+      it("memberAt reverts InvalidBlock when called on a non-bundle block", async () => {
+        const amountBlock = encodeAmountBlock(asset, meta, amount);
+        await expect(helper.testMemberAt(amountBlock, 0n, 12n))
+          .to.be.revertedWithCustomError(helper, "InvalidBlock");
+      });
     });
   });
 
