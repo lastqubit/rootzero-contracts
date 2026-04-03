@@ -21,7 +21,10 @@ abstract contract StakeBalanceToBalances is CommandBase {
     }
 
     /// @dev Override to stake a balance position and append resulting balances
-    /// to `out`. Implementations validate and unpack `rawInput` as needed.
+    /// to `out`. `input` is the request cursor for the current iteration;
+    /// implementations validate and unpack it as needed and may append BALANCE
+    /// outputs within the capacity implied by this command's configured
+    /// `scaledRatio`.
     function stakeBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -56,7 +59,10 @@ abstract contract StakeCustodyToBalances is CommandBase {
     }
 
     /// @dev Override to stake a custody position and append resulting balances
-    /// to `out`. Implementations validate and unpack `rawInput` as needed.
+    /// to `out`. `input` is the request cursor for the current iteration;
+    /// implementations validate and unpack it as needed and may append BALANCE
+    /// outputs within the capacity implied by this command's configured
+    /// `scaledRatio`.
     function stakeCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,
@@ -89,7 +95,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
     }
 
     /// @dev Override to stake a custody position into a non-balance setup
-    /// target described by `rawInput`.
+    /// target described by `input`.
     function stakeCustodyToPosition(bytes32 account, HostAmount memory custody, Cursor memory input) internal virtual;
 
     function stakeCustodyToPosition(

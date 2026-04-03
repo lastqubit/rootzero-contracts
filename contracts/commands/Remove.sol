@@ -13,8 +13,8 @@ abstract contract Remove is CommandBase {
         emit Command(host, NAME, input, removeId, Channels.Setup, Channels.Setup);
     }
 
-    /// @dev Override to remove or dismantle an object described by `rawInput`.
-    /// Called once per input block in the request.
+    /// @dev Override to remove or dismantle an object described by `input`.
+    /// Called once per top-level request item.
     function remove(bytes32 account, Cursor memory input) internal virtual;
 
     function remove(CommandContext calldata c) external payable onlyCommand(removeId, c.target) returns (bytes memory) {

@@ -21,8 +21,9 @@ abstract contract ReclaimToBalances is CommandBase {
     /// @dev Override to reclaim balances described by the current `input`
     /// stream position.
     /// Implementations validate and unpack as needed, should advance `input`
-    /// past the consumed request blocks, and may append one or more BALANCE
-    /// blocks to `out`.
+    /// past the consumed request blocks, and may append BALANCE outputs to
+    /// `out` within the capacity implied by this command's configured
+    /// `scaledRatio`.
     function reclaimToBalances(
         bytes32 account,
         Cursor memory input,

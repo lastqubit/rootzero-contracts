@@ -18,7 +18,8 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     }
 
     /// @dev Override to borrow against a custody position.
-    /// Implementations validate and unpack `rawInput` as needed.
+    /// `input` is the request cursor for the current iteration; implementations
+    /// validate and unpack it as needed.
     function borrowAgainstCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,
@@ -51,7 +52,8 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
     }
 
     /// @dev Override to borrow against a balance position.
-    /// Implementations validate and unpack `rawInput` as needed.
+    /// `input` is the request cursor for the current iteration; implementations
+    /// validate and unpack it as needed.
     function borrowAgainstBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,

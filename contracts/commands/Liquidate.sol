@@ -22,9 +22,10 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
     }
 
     /// @dev Override to liquidate using a balance repayment amount.
-    /// `input` is zero-initialized and should be ignored when
-    /// `maybeInput` is empty. Implementations validate and unpack it as
-    /// needed, and may append returned balances to `out`.
+    /// `input` is zero-initialized and should be ignored when `maybeInput` is
+    /// empty. Implementations validate and unpack it as needed, and may append
+    /// BALANCE outputs to `out` within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function liquidateFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
@@ -63,9 +64,10 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
     }
 
     /// @dev Override to liquidate using a custody repayment amount.
-    /// `input` is zero-initialized and should be ignored when
-    /// `maybeInput` is empty. Implementations validate and unpack it as
-    /// needed, and may append returned balances to `out`.
+    /// `input` is zero-initialized and should be ignored when `maybeInput` is
+    /// empty. Implementations validate and unpack it as needed, and may append
+    /// BALANCE outputs to `out` within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function liquidateFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,

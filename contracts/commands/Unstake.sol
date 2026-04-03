@@ -19,8 +19,9 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
     }
 
     /// @dev Override to unstake or redeem a balance position.
-    /// Implementations validate and unpack `rawInput` as needed, and may
-    /// append BALANCE outputs to `out` within the capacity implied by this
+    /// `input` is the request cursor for the current iteration;
+    /// implementations validate and unpack it as needed, and may append
+    /// BALANCE outputs to `out` within the capacity implied by this
     /// command's configured `scaledRatio`.
     function unstakeBalanceToBalances(
         bytes32 account,

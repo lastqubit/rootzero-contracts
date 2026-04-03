@@ -17,7 +17,8 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     }
 
     /// @dev Override to swap an exact balance input into a balance output.
-    /// Implementations validate and unpack `rawInput` as needed.
+    /// `input` is the request cursor for the current iteration; implementations
+    /// validate and unpack it as needed.
     function swapExactBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,
@@ -50,7 +51,8 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     }
 
     /// @dev Override to swap an exact custody input into a balance output.
-    /// Implementations validate and unpack `rawInput` as needed.
+    /// `input` is the request cursor for the current iteration; implementations
+    /// validate and unpack it as needed.
     function swapExactCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,

@@ -13,8 +13,8 @@ abstract contract Create is CommandBase {
         emit Command(host, NAME, input, createId, Channels.Setup, Channels.Setup);
     }
 
-    /// @dev Override to create or initialize an object described by
-    /// `rawInput`. Called once per input block in the request.
+    /// @dev Override to create or initialize an object described by `input`.
+    /// Called once per top-level request item.
     function create(bytes32 account, Cursor memory input) internal virtual;
 
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {
