@@ -34,7 +34,7 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
         Cursor memory input;
 
         while (custodies.i < custodies.end) {
-            input = Cursors.openFrom(c.request, input.next);
+            input = Cursors.openBlock(c.request, input.next);
             HostAmount memory custody = custodies.unpackCustodyValue();
             AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, input);
             writer.appendNonZeroBalance(out);
@@ -68,7 +68,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
         Cursor memory input;
 
         while (balances.i < balances.end) {
-            input = Cursors.openFrom(c.request, input.next);
+            input = Cursors.openBlock(c.request, input.next);
             AssetAmount memory balance = balances.unpackBalanceValue();
             AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, input);
             writer.appendNonZeroBalance(out);
@@ -77,6 +77,7 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
         return writer.finish();
     }
 }
+
 
 
 

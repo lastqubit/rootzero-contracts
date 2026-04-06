@@ -38,7 +38,7 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
         Cursor memory input;
 
         while (balances.i < balances.end) {
-            input = Cursors.openFrom(c.request, input.next);
+            input = Cursors.openBlock(c.request, input.next);
             AssetAmount memory balance = balances.unpackBalanceValue();
             unstakeBalanceToBalances(c.account, balance, input, writer);
         }
@@ -46,6 +46,7 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
         return writer.finish();
     }
 }
+
 
 
 

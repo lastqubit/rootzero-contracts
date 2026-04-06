@@ -42,7 +42,7 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
 
         while (balances.i < balances.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.next);
+                input = Cursors.openBlock(c.request, input.next);
             }
             AssetAmount memory balance = balances.unpackBalanceValue();
             redeemFromBalanceToBalances(c.account, balance, input, writer);
@@ -84,7 +84,7 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
 
         while (custodies.i < custodies.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.next);
+                input = Cursors.openBlock(c.request, input.next);
             }
             HostAmount memory custody = custodies.unpackCustodyValue();
             redeemFromCustodyToBalances(c.account, custody, input, writer);
@@ -93,6 +93,7 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
         return writer.finish();
     }
 }
+
 
 
 

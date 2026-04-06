@@ -43,7 +43,7 @@ library Cursors {
         return openAt(0, i, msg.data.length);
     }
 
-    function openFrom(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {
+    function openBlock(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {
         uint base;
         assembly ("memory-safe") {
             base := source.offset
@@ -73,19 +73,6 @@ library Cursors {
         cur.next = next;
     }
 
-    function openStream(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {
-        uint base;
-        uint end = source.length;
-        assembly ("memory-safe") {
-            base := source.offset
-        }
-        if (i > end) revert MalformedBlocks();
-        cur.start = base + i;
-        cur.i = cur.start;
-        cur.end = base + end;
-        cur.next = end;
-    }
-
     function openKeyed(
         bytes calldata source,
         uint i,
@@ -101,6 +88,19 @@ library Cursors {
         cur.i = cur.start;
         cur.end = base + next;
         cur.next = next;
+    }
+
+    function openStream(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {
+        uint base;
+        uint end = source.length;
+        assembly ("memory-safe") {
+            base := source.offset
+        }
+        if (i > end) revert MalformedBlocks();
+        cur.start = base + i;
+        cur.i = cur.start;
+        cur.end = base + end;
+        cur.next = end;
     }
 
     function openInput(bytes calldata source, uint i) internal pure returns (Cursor memory cur, uint total) {
@@ -484,12 +484,9 @@ library Cursors {
 
     // cursor expect*
 
-    function expectAuth(
-        Cursor memory cur,
-        uint expectedCid
-    ) internal pure returns (uint deadline, bytes calldata proof) {
+    function expectAuth(Cursor memory cur, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
         (uint i, uint end) = expect(cur, Keys.Auth, 149, 0);
-        if (uint(bytes32(msg.data[i:i + 32])) != expectedCid) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[i:i + 32])) != cid) revert UnexpectedValue();
         deadline = uint(bytes32(msg.data[i + 32:i + 64]));
         proof = msg.data[i + 64:end];
         cur.i = end;
@@ -536,3 +533,4 @@ library Cursors {
         cur.i = end;
     }
 }
+

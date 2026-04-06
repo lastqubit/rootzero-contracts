@@ -18,7 +18,7 @@ abstract contract PeerPull is PeerBase {
     function peerPull(bytes calldata request) external payable onlyPeer returns (bytes memory) {
         uint q = 0;
         while (q < request.length) {
-            Cursor memory input = Cursors.openFrom(request, q);
+            Cursor memory input = Cursors.openBlock(request, q);
             peerPull(input);
             q = input.next;
         }
@@ -26,6 +26,7 @@ abstract contract PeerPull is PeerBase {
         return done(0, q);
     }
 }
+
 
 
 

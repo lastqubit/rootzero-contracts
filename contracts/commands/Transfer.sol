@@ -25,7 +25,7 @@ abstract contract Transfer is CommandBase {
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
         uint q = 0;
         while (q < request.length) {
-            Cursor memory cur = Cursors.openFrom(request, q);
+            Cursor memory cur = Cursors.openBlock(request, q);
             if (!cur.isAt(Keys.Amount)) break;
             (bytes32 asset, bytes32 meta, uint amount) = cur.unpackAmount();
             bytes32 to = cur.unpackRecipient();
@@ -42,6 +42,7 @@ abstract contract Transfer is CommandBase {
         return transfer(c.account, c.request);
     }
 }
+
 
 
 

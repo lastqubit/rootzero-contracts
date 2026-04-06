@@ -42,7 +42,7 @@ abstract contract MyCommand is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
         // Open the bundled request as a cursor over its member stream.
-        Cursor memory input = Cursors.openFrom(c.request, 0);
+        Cursor memory input = Cursors.openBlock(c.request, 0);
 
         // The first bundled member is the ROUTE block.
         uint host = input.unpackRouteUint();
@@ -57,6 +57,7 @@ abstract contract MyCommand is CommandBase {
         return Cursors.toCustodyBlock(host, asset, meta, amount);
     }
 }
+
 
 
 

@@ -39,13 +39,14 @@ abstract contract MyCommand is CommandBase {
         // c.target matches this command's ID (or is 0, meaning "any command").
 
         // Open the first request block as a cursor and decode the AMOUNT.
-        Cursor memory input = Cursors.openFrom(c.request, 0);
+        Cursor memory input = Cursors.openBlock(c.request, 0);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
+
 
 
 

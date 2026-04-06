@@ -20,13 +20,14 @@ abstract contract Create is CommandBase {
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {
         Cursor memory input;
         while (input.next < c.request.length) {
-            input = Cursors.openFrom(c.request, input.next);
+            input = Cursors.openBlock(c.request, input.next);
             create(c.account, input);
         }
 
         return done(0, input.next);
     }
 }
+
 
 
 

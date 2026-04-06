@@ -76,7 +76,7 @@ contract TestBlockHelper {
         pure
         returns (bytes32 asset, bytes32 meta, uint amount)
     {
-        Cursor memory input = Cursors.openFrom(source, i);
+        Cursor memory input = Cursors.openBlock(source, i);
         return input.unpackBalance();
     }
 
@@ -85,7 +85,7 @@ contract TestBlockHelper {
         pure
         returns (bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount)
     {
-        Cursor memory input = Cursors.openFrom(source, i);
+        Cursor memory input = Cursors.openBlock(source, i);
         Tx memory value = input.unpackTxValue();
         return (value.from, value.to, value.asset, value.meta, value.amount);
     }
@@ -103,7 +103,7 @@ contract TestBlockHelper {
         assembly ("memory-safe") {
             base := source.offset
         }
-        Cursor memory cur = Cursors.openFrom(source, i);
+        Cursor memory cur = Cursors.openBlock(source, i);
         return (cur.i - base, cur.end - base, cur.next);
     }
 
@@ -155,7 +155,7 @@ contract TestBlockHelper {
         pure
         returns (bytes32 hash, uint deadline, bytes calldata proof)
     {
-        Cursor memory input = Cursors.openFrom(source, i);
+        Cursor memory input = Cursors.openBlock(source, i);
         return Cursors.resolveAuth(input, expectedCid);
     }
 
@@ -189,6 +189,7 @@ contract TestBlockHelper {
         return Cursors.count(source, i, sourceKey);
     }
 }
+
 
 
 
