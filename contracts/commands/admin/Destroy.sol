@@ -22,9 +22,10 @@ abstract contract Destroy is CommandBase {
     ) external payable onlyAdmin(c.account) onlyCommand(destroyId, c.target) returns (bytes memory) {
         Cursor memory input = Cursors.openFrom(c.request, 0);
         destroy(input);
-        return done(0, input.cursor);
+        return done(0, input.next);
     }
 }
+
 
 
 

@@ -14,9 +14,10 @@ abstract contract EachInput {
             Cursor memory input = inputs.take();
             eachInput(input);
         }
-        return inputs.cursor;
+        return inputs.next;
     }
 }
+
 
 
 

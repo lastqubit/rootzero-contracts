@@ -104,7 +104,7 @@ contract TestBlockHelper {
             base := source.offset
         }
         Cursor memory cur = Cursors.openFrom(source, i);
-        return (cur.i - base, cur.end - base, cur.cursor);
+        return (cur.i - base, cur.end - base, cur.next);
     }
 
     function testCursorFromN(bytes calldata source, uint i, uint n)
@@ -117,7 +117,7 @@ contract TestBlockHelper {
             base := source.offset
         }
         Cursor memory cur = Cursors.openCount(source, i, n);
-        return (cur.i - base, cur.end - base, cur.cursor);
+        return (cur.i - base, cur.end - base, cur.next);
     }
 
     function testTake(bytes calldata source, uint i, uint n)
@@ -131,7 +131,7 @@ contract TestBlockHelper {
         }
         Cursor memory cur = Cursors.openCount(source, i, n);
         Cursor memory item = cur.take();
-        return (item.i - base, item.end - base, item.cursor, cur.i - base);
+        return (item.i - base, item.end - base, item.next, cur.i - base);
     }
 
     function testResolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup)
@@ -189,6 +189,7 @@ contract TestBlockHelper {
         return Cursors.count(source, i, sourceKey);
     }
 }
+
 
 
 

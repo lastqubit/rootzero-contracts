@@ -40,7 +40,7 @@ abstract contract StakeBalanceToBalances is CommandBase {
         Cursor memory input;
 
         while (balances.i < balances.end) {
-            input = Cursors.openFrom(c.request, input.cursor);
+            input = Cursors.openFrom(c.request, input.next);
             AssetAmount memory balance = balances.unpackBalanceValue();
             stakeBalanceToBalances(c.account, balance, input, writer);
         }
@@ -78,7 +78,7 @@ abstract contract StakeCustodyToBalances is CommandBase {
         Cursor memory input;
 
         while (custodies.i < custodies.end) {
-            input = Cursors.openFrom(c.request, input.cursor);
+            input = Cursors.openFrom(c.request, input.next);
             HostAmount memory custody = custodies.unpackCustodyValue();
             stakeCustodyToBalances(c.account, custody, input, writer);
         }
@@ -105,13 +105,14 @@ abstract contract StakeCustodyToPosition is CommandBase {
         Cursor memory input;
         while (custodies.i < custodies.end) {
             HostAmount memory custody = custodies.unpackCustodyValue();
-            input = Cursors.openFrom(c.request, input.cursor);
+            input = Cursors.openFrom(c.request, input.next);
             stakeCustodyToPosition(c.account, custody, input);
         }
 
         return done(custodies);
     }
 }
+
 
 
 

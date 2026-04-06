@@ -20,12 +20,13 @@ abstract contract PeerPull is PeerBase {
         while (q < request.length) {
             Cursor memory input = Cursors.openFrom(request, q);
             peerPull(input);
-            q = input.cursor;
+            q = input.next;
         }
 
         return done(0, q);
     }
 }
+
 
 
 

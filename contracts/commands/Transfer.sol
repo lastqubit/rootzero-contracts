@@ -30,7 +30,7 @@ abstract contract Transfer is CommandBase {
             (bytes32 asset, bytes32 meta, uint amount) = cur.unpackAmount();
             bytes32 to = cur.unpackRecipient();
             transfer(from, to, asset, meta, amount);
-            q = cur.cursor;
+            q = cur.next;
         }
 
         return done(0, q);
@@ -42,6 +42,7 @@ abstract contract Transfer is CommandBase {
         return transfer(c.account, c.request);
     }
 }
+
 
 
 

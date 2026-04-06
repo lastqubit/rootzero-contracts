@@ -13,9 +13,10 @@ abstract contract EachRoute {
         while (routes.i < routes.end) {
             eachRoute(routes.take());
         }
-        return routes.cursor;
+        return routes.next;
     }
 }
+
 
 
 

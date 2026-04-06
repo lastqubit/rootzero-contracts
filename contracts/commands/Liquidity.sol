@@ -46,7 +46,7 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
 
         while (custodies.i < custodies.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.cursor);
+                input = Cursors.openFrom(c.request, input.next);
             }
             addLiquidityFromCustodiesToBalances(c.account, custodies, input, writer);
         }
@@ -87,7 +87,7 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
 
         while (custodies.i < custodies.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.cursor);
+                input = Cursors.openFrom(c.request, input.next);
             }
             HostAmount memory custody = custodies.unpackCustodyValue();
             removeLiquidityFromCustodyToBalances(c.account, custody, input, writer);
@@ -131,7 +131,7 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
 
         while (balances.i < balances.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.cursor);
+                input = Cursors.openFrom(c.request, input.next);
             }
             addLiquidityFromBalancesToBalances(c.account, balances, input, writer);
         }
@@ -172,7 +172,7 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
 
         while (balances.i < balances.end) {
             if (useInput) {
-                input = Cursors.openFrom(c.request, input.cursor);
+                input = Cursors.openFrom(c.request, input.next);
             }
             AssetAmount memory balance = balances.unpackBalanceValue();
             removeLiquidityFromBalanceToBalances(c.account, balance, input, writer);
@@ -181,6 +181,7 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
         return writer.finish();
     }
 }
+
 
 
 

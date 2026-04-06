@@ -20,12 +20,13 @@ abstract contract PeerPush is PeerBase {
         while (q < request.length) {
             Cursor memory input = Cursors.openFrom(request, q);
             peerPush(input);
-            q = input.cursor;
+            q = input.next;
         }
 
         return done(0, q);
     }
 }
+
 
 
 
