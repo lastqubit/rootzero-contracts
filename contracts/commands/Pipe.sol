@@ -33,7 +33,7 @@ abstract contract Pipe is CommandBase {
         bytes calldata steps,
         Values.Budget memory budget
     ) internal returns (bytes memory) {
-        (Cursor memory stepsInput, ) = Cursors.openRun(steps, 0, Keys.Step);
+        Cursor memory stepsInput = Cursors.openRun(steps, 0, Keys.Step, 1);
         while (stepsInput.i < stepsInput.end) {
             (uint target, uint value, bytes calldata request) = stepsInput.unpackStep();
             uint spend = Values.use(budget, value);

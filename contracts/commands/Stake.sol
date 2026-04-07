@@ -101,7 +101,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
     function stakeCustodyToPosition(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToPositionId, c.target) returns (bytes memory) {
-        (Cursor memory custodies, ) = Cursors.openRun(c.state, 0, Keys.Custody);
+        Cursor memory custodies = Cursors.openRun(c.state, 0, Keys.Custody, 1);
         Cursor memory input;
         while (custodies.i < custodies.end) {
             HostAmount memory custody = custodies.unpackCustodyValue();

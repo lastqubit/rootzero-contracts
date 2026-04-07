@@ -21,7 +21,7 @@ abstract contract AllowAssets is CommandBase {
     function allowAssets(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(allowAssetsId, c.target) returns (bytes memory) {
-        (Cursor memory assets, ) = Cursors.openRun(c.request, 0, Keys.Asset);
+        Cursor memory assets = Cursors.openRun(c.request, 0, Keys.Asset, 1);
 
         while (assets.i < assets.end) {
             (bytes32 asset, bytes32 meta) = assets.unpackAsset();

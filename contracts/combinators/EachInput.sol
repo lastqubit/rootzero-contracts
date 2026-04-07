@@ -11,8 +11,7 @@ abstract contract EachInput {
     function forEachInput(bytes calldata blocks, uint i) internal returns (uint) {
         (Cursor memory inputs, ) = Cursors.openInput(blocks, i);
         while (inputs.i < inputs.end) {
-            Cursor memory input = inputs.take();
-            eachInput(input);
+            eachInput(inputs.take());
         }
         return inputs.next;
     }

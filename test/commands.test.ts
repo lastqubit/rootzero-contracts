@@ -202,11 +202,11 @@ describe("Commands", () => {
         .withArgs(userAccount, to, asset, meta, 200n);
     });
 
-    it("reverts NoOperation when no AMOUNT blocks", async () => {
+    it("reverts InvalidBlock when no AMOUNT blocks", async () => {
       const to = ethers.zeroPadValue("0xbeef", 32);
       const request = encodeRecipientBlock(to);
       await expect(callAs(0, "transfer", ctx({ request })))
-        .to.be.revertedWithCustomError(host, "NoOperation");
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
     it("reverts MalformedBlocks when bundled AMOUNT has no RECIPIENT block", async () => {

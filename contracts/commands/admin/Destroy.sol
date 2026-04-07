@@ -6,6 +6,8 @@ import { Cursors, Cursor } from "../../Cursors.sol";
 
 string constant NAME = "destroy";
 
+using Cursors for Cursor;
+
 abstract contract Destroy is CommandBase {
     uint internal immutable destroyId = commandId(NAME);
 
@@ -22,7 +24,7 @@ abstract contract Destroy is CommandBase {
     ) external payable onlyAdmin(c.account) onlyCommand(destroyId, c.target) returns (bytes memory) {
         Cursor memory input = Cursors.openBlock(c.request, 0);
         destroy(input);
-        return done(0, input.next);
+        return input.complete();
     }
 }
 

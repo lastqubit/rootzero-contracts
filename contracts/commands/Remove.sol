@@ -20,7 +20,7 @@ abstract contract Remove is CommandBase {
     function remove(bytes32 account, Cursor memory input) internal virtual;
 
     function remove(CommandContext calldata c) external payable onlyCommand(removeId, c.target) returns (bytes memory) {
-        (Cursor memory inputs, ) = Cursors.openInput(c.request, 0);
+        Cursor memory inputs = Cursors.openInput(c.request, 0, 1);
         while (inputs.i < inputs.end) {
             remove(c.account, inputs.take());
         }

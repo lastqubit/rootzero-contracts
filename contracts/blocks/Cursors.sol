@@ -95,12 +95,20 @@ library Cursors {
         uint total;
         (cur, total) = openRun(source, i, key);
         if (divisor == 0) revert ZeroCursor();
-        if (total == 0 || total % divisor != 0) revert MalformedBlocks();
+        if (total == 0) revert ZeroCursor();
+        if (total % divisor != 0) revert MalformedBlocks();
     }
 
     function openInput(bytes calldata source, uint i) internal pure returns (Cursor memory cur, uint total) {
         if (i == source.length) return (openStream(source, i), 0);
         return openRun(source, i, bytes4(source[i:i + 4]));
+    }
+
+    function openInput(bytes calldata source, uint i, uint divisor) internal pure returns (Cursor memory cur) {
+        uint total;
+        (cur, total) = openInput(source, i);
+        if (divisor == 0 || total == 0) revert ZeroCursor();
+        if (total % divisor != 0) revert MalformedBlocks();
     }
 
     function openStream(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {

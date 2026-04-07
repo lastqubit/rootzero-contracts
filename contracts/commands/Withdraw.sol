@@ -23,7 +23,7 @@ abstract contract Withdraw is CommandBase {
         CommandContext calldata c
     ) external payable onlyCommand(withdrawId, c.target) returns (bytes memory) {
         bytes32 to = Cursors.resolveRecipient(c.request, 0, c.request.length, c.account);
-        (Cursor memory balances, ) = Cursors.openRun(c.state, 0, Keys.Balance);
+        Cursor memory balances = Cursors.openRun(c.state, 0, Keys.Balance, 1);
         while (balances.i < balances.end) {
             (bytes32 asset, bytes32 meta, uint amount) = balances.unpackBalance();
             withdraw(to, asset, meta, amount);

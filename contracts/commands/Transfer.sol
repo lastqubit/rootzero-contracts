@@ -23,17 +23,14 @@ abstract contract Transfer is CommandBase {
     /// The default implementation iterates bundled AMOUNT/RECIPIENT pairs and calls
     /// `transfer(from, to, asset, meta, amount)` for each one.
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        uint q = 0;
-        while (q < request.length) {
-            Cursor memory input = Cursors.openBlock(request, q);
-            if (!input.isAt(Keys.Amount)) break;
+        Cursor memory inputs = Cursors.openInput(request, 0, 1);
+        while (inputs.i < inputs.end) {
+            Cursor memory input = inputs.take();
             (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
             bytes32 to = input.unpackRecipient();
             transfer(from, to, asset, meta, amount);
-            q = input.next;
         }
-
-        return done(0, q);
+        return inputs.complete();
     }
 
     function transfer(

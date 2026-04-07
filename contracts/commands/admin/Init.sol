@@ -6,6 +6,8 @@ import { Cursors, Cursor } from "../../Cursors.sol";
 
 string constant NAME = "init";
 
+using Cursors for Cursor;
+
 abstract contract Init is CommandBase {
     uint internal immutable initId = commandId(NAME);
 
@@ -21,7 +23,7 @@ abstract contract Init is CommandBase {
     ) external payable onlyAdmin(c.account) onlyCommand(initId, c.target) returns (bytes memory) {
         Cursor memory input = Cursors.openBlock(c.request, 0);
         init(input);
-        return done(0, input.next);
+        return input.complete();
     }
 }
 

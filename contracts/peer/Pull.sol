@@ -6,6 +6,8 @@ import { Cursors, Cursor } from "../Cursors.sol";
 
 string constant NAME = "peerPull";
 
+using Cursors for Cursor;
+
 abstract contract PeerPull is PeerBase {
     uint internal immutable peerPullId = peerId(NAME);
 
@@ -16,14 +18,11 @@ abstract contract PeerPull is PeerBase {
     function peerPull(Cursor memory input) internal virtual;
 
     function peerPull(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        uint q = 0;
-        while (q < request.length) {
-            Cursor memory input = Cursors.openBlock(request, q);
-            peerPull(input);
-            q = input.next;
+        Cursor memory inputs = Cursors.openInput(request, 0, 1);
+        while (inputs.i < inputs.end) {
+            peerPull(inputs.take());
         }
-
-        return done(0, q);
+        return inputs.complete();
     }
 }
 

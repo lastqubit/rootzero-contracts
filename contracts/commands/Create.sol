@@ -20,7 +20,7 @@ abstract contract Create is CommandBase {
     function create(bytes32 account, Cursor memory input) internal virtual;
 
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {
-        (Cursor memory inputs, ) = Cursors.openInput(c.request, 0);
+        Cursor memory inputs = Cursors.openInput(c.request, 0, 1);
         while (inputs.i < inputs.end) {
             create(c.account, inputs.take());
         }

@@ -19,7 +19,7 @@ abstract contract Supply is CommandBase {
     function supply(bytes32 account, HostAmount memory value) internal virtual;
 
     function supply(CommandContext calldata c) external payable onlyCommand(supplyId, c.target) returns (bytes memory) {
-        (Cursor memory custodies, ) = Cursors.openRun(c.state, 0, Keys.Custody);
+        Cursor memory custodies = Cursors.openRun(c.state, 0, Keys.Custody, 1);
         while (custodies.i < custodies.end) {
             HostAmount memory value = custodies.unpackCustodyValue();
             supply(c.account, value);
