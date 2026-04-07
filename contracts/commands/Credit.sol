@@ -28,7 +28,7 @@ abstract contract CreditAccount is CommandBase {
             creditAccount(to, asset, meta, amount);
         }
 
-        return done(balances);
+        return balances.complete();
     }
 }
 

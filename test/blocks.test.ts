@@ -281,6 +281,30 @@ describe("Cursors", () => {
         expect(cursor).to.equal(endOfSource);
         expect(next).to.equal(endOfSource);
       });
+
+      it("done reverts ZeroCursor for an empty cursor", async () => {
+        await expect(helper.testCursorDoneEmpty("0x"))
+          .to.be.revertedWithCustomError(helper, "ZeroCursor");
+      });
+
+      it("done reverts ZeroCursor when a cursor has not advanced and still has remaining input", async () => {
+        const a = encodeBalanceBlock(asset, meta, 1n);
+        await expect(helper.testCursorDoneOpen(a))
+          .to.be.revertedWithCustomError(helper, "ZeroCursor");
+      });
+
+      it("done reverts ZeroCursor when a cursor advanced but did not reach the end", async () => {
+        const a = encodeBalanceBlock(asset, meta, 1n);
+        const b = encodeBalanceBlock(asset, meta, 2n);
+        await expect(helper.testCursorDoneAdvanced(concat(a, b)))
+          .to.be.revertedWithCustomError(helper, "ZeroCursor");
+      });
+
+      it("done allows a cursor that fully consumed a non-empty range", async () => {
+        const a = encodeBalanceBlock(asset, meta, 1n);
+        const b = encodeBalanceBlock(asset, meta, 2n);
+        expect(await helper.testCursorDoneConsumed(concat(a, b))).to.equal(true);
+      });
     });
   });
 

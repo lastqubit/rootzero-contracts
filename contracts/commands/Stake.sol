@@ -109,7 +109,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
             stakeCustodyToPosition(c.account, custody, input);
         }
 
-        return done(custodies);
+        return custodies.complete();
     }
 }
 

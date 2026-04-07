@@ -23,7 +23,7 @@ abstract contract PeerAllowAssets is PeerBase {
             (bytes32 asset, bytes32 meta) = input.unpackAsset();
             peerAllowAsset(asset, meta);
         }
-        return done(input);
+        return input.complete();
     }
 }
 

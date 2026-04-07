@@ -24,7 +24,7 @@ abstract contract Settle is CommandBase {
             Tx memory value = txs.unpackTxValue();
             settle(value);
         }
-        return done(txs);
+        return txs.complete();
     }
 }
 

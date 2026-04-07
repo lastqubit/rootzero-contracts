@@ -36,13 +36,13 @@ describe("Access Control", () => {
 
   it("commander is trusted", async () => {
     // Commander can call trusted-only functions without reverting.
-    // We test by calling authorize with zero request from commander (should revert NoOperation, not Unauthorized).
+    // We test by calling authorize with zero request from commander (should revert ZeroCursor, not Unauthorized).
     const adminAccount: string = await host.getAdminAccount();
     const ctx = { target: 0n, account: adminAccount, state: "0x", request: "0x" };
     const signers = await getSigners(1);
     await expect(
       host.connect(signers[0]).authorize(ctx)
-    ).to.be.revertedWithCustomError(host, "NoOperation");
+    ).to.be.revertedWithCustomError(host, "ZeroCursor");
   });
 
   it("stranger is not trusted and gets UnauthorizedCaller", async () => {

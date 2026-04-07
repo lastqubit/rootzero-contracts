@@ -25,7 +25,7 @@ abstract contract Burn is CommandBase {
             burn(c.account, asset, meta, amount);
         }
 
-        return done(balances);
+        return balances.complete();
     }
 }
 

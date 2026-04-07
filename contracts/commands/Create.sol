@@ -6,6 +6,8 @@ import { Cursors, Cursor } from "../Cursors.sol";
 
 string constant NAME = "create";
 
+using Cursors for Cursor;
+
 abstract contract Create is CommandBase {
     uint internal immutable createId = commandId(NAME);
 
@@ -18,13 +20,11 @@ abstract contract Create is CommandBase {
     function create(bytes32 account, Cursor memory input) internal virtual;
 
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {
-        Cursor memory input;
-        while (input.next < c.request.length) {
-            input = Cursors.openBlock(c.request, input.next);
-            create(c.account, input);
+        (Cursor memory inputs, ) = Cursors.openInput(c.request, 0);
+        while (inputs.i < inputs.end) {
+            create(c.account, inputs.take());
         }
-
-        return done(0, input.next);
+        return inputs.complete();
     }
 }
 

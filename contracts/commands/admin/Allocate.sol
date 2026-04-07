@@ -19,14 +19,14 @@ abstract contract Allocate is CommandBase {
     function allocate(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function allocate(CommandContext calldata c) external payable onlyAdmin(c.account) onlyCommand(allocateId, c.target) returns (bytes memory) {
-        (Cursor memory input, ) = Cursors.openRun(c.request, 0, Keys.Allocation);
+        (Cursor memory allocations, ) = Cursors.openRun(c.request, 0, Keys.Allocation);
 
-        while (input.i < input.end) {
-            HostAmount memory v = input.unpackAllocationValue();
+        while (allocations.i < allocations.end) {
+            HostAmount memory v = allocations.unpackAllocationValue();
             allocate(v.host, v.asset, v.meta, v.amount);
         }
 
-        return done(input);
+        return allocations.complete();
     }
 }
 

@@ -29,7 +29,7 @@ abstract contract Withdraw is CommandBase {
             withdraw(to, asset, meta, amount);
         }
 
-        return done(balances);
+        return balances.complete();
     }
 }
 

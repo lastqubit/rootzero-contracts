@@ -25,7 +25,7 @@ abstract contract Supply is CommandBase {
             supply(c.account, value);
         }
 
-        return done(custodies);
+        return custodies.complete();
     }
 }
 

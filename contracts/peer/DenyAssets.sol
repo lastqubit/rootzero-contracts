@@ -23,7 +23,7 @@ abstract contract PeerDenyAssets is PeerBase {
             (bytes32 asset, bytes32 meta) = input.unpackAsset();
             peerDenyAsset(asset, meta);
         }
-        return done(input);
+        return input.complete();
     }
 }
 

@@ -134,6 +134,34 @@ contract TestBlockHelper {
         return (item.i - base, item.end - base, item.next, cur.i - base);
     }
 
+    function testCursorDoneEmpty(bytes calldata source) external pure returns (bool) {
+        Cursor memory cur = Cursors.openStream(source, 0);
+        cur.finish();
+        return true;
+    }
+
+    function testCursorDoneOpen(bytes calldata source) external pure returns (bool) {
+        Cursor memory cur = Cursors.openStream(source, 0);
+        cur.finish();
+        return true;
+    }
+
+    function testCursorDoneAdvanced(bytes calldata source) external pure returns (bool) {
+        Cursor memory cur = Cursors.openStream(source, 0);
+        cur.take();
+        cur.finish();
+        return true;
+    }
+
+    function testCursorDoneConsumed(bytes calldata source) external pure returns (bool) {
+        Cursor memory cur = Cursors.openStream(source, 0);
+        while (cur.i < cur.end) {
+            cur.take();
+        }
+        cur.finish();
+        return true;
+    }
+
     function testResolveRecipient(bytes calldata source, uint i, uint limit, bytes32 backup)
         external
         pure

@@ -76,9 +76,9 @@ describe("Remove", () => {
       .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
   });
 
-  it("reverts NoOperation when request is empty", async () => {
+  it("reverts ZeroCursor when request is empty", async () => {
     await expect(callAs(0, ctx()))
-      .to.be.revertedWithCustomError(host, "NoOperation");
+      .to.be.revertedWithCustomError(host, "ZeroCursor");
   });
 });
 

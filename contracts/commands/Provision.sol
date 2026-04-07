@@ -33,9 +33,9 @@ abstract contract Provision is CommandBase, ProvisionHook {
         Writer memory writer = Writers.allocCustodies(count);
 
         while (inputs.i < inputs.end) {
-            Cursor memory cur = inputs.take();
-            uint toHost = cur.unpackNode();
-            (bytes32 asset, bytes32 meta, uint amount) = cur.unpackAmount();
+            Cursor memory input = inputs.take();
+            uint toHost = input.unpackNode();
+            (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
             provision(c.account, toHost, asset, meta, amount);
             writer.appendCustody(toHost, asset, meta, amount);
         }

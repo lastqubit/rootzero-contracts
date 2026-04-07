@@ -73,11 +73,7 @@ library Cursors {
         cur.next = next;
     }
 
-    function openRun(
-        bytes calldata source,
-        uint i,
-        bytes4 key
-    ) internal pure returns (Cursor memory cur, uint total) {
+    function openRun(bytes calldata source, uint i, bytes4 key) internal pure returns (Cursor memory cur, uint total) {
         uint next;
         (total, next) = count(source, i, key);
         uint base;
@@ -88,6 +84,23 @@ library Cursors {
         cur.i = cur.start;
         cur.end = base + next;
         cur.next = next;
+    }
+
+    function openRun(
+        bytes calldata source,
+        uint i,
+        bytes4 key,
+        uint divisor
+    ) internal pure returns (Cursor memory cur) {
+        uint total;
+        (cur, total) = openRun(source, i, key);
+        if (divisor == 0) revert ZeroCursor();
+        if (total == 0 || total % divisor != 0) revert MalformedBlocks();
+    }
+
+    function openInput(bytes calldata source, uint i) internal pure returns (Cursor memory cur, uint total) {
+        if (i == source.length) return (openStream(source, i), 0);
+        return openRun(source, i, bytes4(source[i:i + 4]));
     }
 
     function openStream(bytes calldata source, uint i) internal pure returns (Cursor memory cur) {
@@ -101,11 +114,6 @@ library Cursors {
         cur.i = cur.start;
         cur.end = base + end;
         cur.next = end;
-    }
-
-    function openInput(bytes calldata source, uint i) internal pure returns (Cursor memory cur, uint total) {
-        if (i == source.length) return (openStream(source, i), 0);
-        return openRun(source, i, bytes4(source[i:i + 4]));
     }
 
     function isAt(Cursor memory cur, bytes4 key) internal pure returns (bool) {
@@ -181,6 +189,25 @@ library Cursors {
         out.next = out.end - base;
 
         cur.i = out.end;
+    }
+
+    function finish(Cursor memory cur) internal pure {
+        if (cur.i == cur.start || cur.i != cur.end) revert ZeroCursor();
+    }
+
+    function finish(Cursor memory a, Cursor memory b) internal pure {
+        if (a.i == a.start || a.i != a.end || b.i == b.start || b.i != b.end) revert ZeroCursor();
+    }
+
+    function complete(Cursor memory cur) internal pure returns (bytes memory) {
+        cur.finish();
+        return "";
+    }
+
+    function complete(Cursor memory a, Cursor memory b) internal pure returns (bytes memory) {
+        a.finish();
+        b.finish();
+        return "";
     }
 
     function expect(Cursor memory cur, bytes4 key, uint min, uint max) internal pure returns (uint i, uint end) {
@@ -533,5 +560,3 @@ library Cursors {
         cur.i = end;
     }
 }
-
-

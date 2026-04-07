@@ -149,9 +149,9 @@ describe("Commands", () => {
         .withArgs(recipient, asset, meta, 50n);
     });
 
-    it("reverts NoOperation for empty state", async () => {
+    it("reverts ZeroCursor for empty state", async () => {
       await expect(callAs(0, "withdraw", ctx()))
-        .to.be.revertedWithCustomError(host, "NoOperation");
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
 
     it("reverts ZeroRecipient when recipient resolves to zero", async () => {
@@ -281,9 +281,9 @@ describe("Commands", () => {
         .withArgs(recipient, asset, meta, 100n, 100n);
     });
 
-    it("reverts NoOperation for empty state", async () => {
+    it("reverts ZeroCursor for empty state", async () => {
       await expect(callAs(0, "creditAccount", ctx()))
-        .to.be.revertedWithCustomError(host, "NoOperation");
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });
 
@@ -357,9 +357,9 @@ describe("Commands", () => {
         .withArgs(from_, to_, asset, meta, 500n);
     });
 
-    it("reverts NoOperation for empty state", async () => {
+    it("reverts ZeroCursor for empty state", async () => {
       await expect(callAs(0, "settle", ctx()))
-        .to.be.revertedWithCustomError(host, "NoOperation");
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
 
     it("emits SettleCalled for each TX block in a batch state", async () => {
@@ -592,9 +592,9 @@ describe("Commands", () => {
       ).to.be.revertedWithCustomError(host, "InvalidAccount");
     });
 
-    it("reverts NoOperation when no STEP blocks", async () => {
+    it("reverts ZeroCursor when no STEP blocks", async () => {
       await expect(callAs(0, "pipe", ctx({ account: userAccount })))
-        .to.be.revertedWithCustomError(host, "NoOperation");
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
 
     it("tracks ETH value budget — reverts InsufficientValue when step requests too much", async () => {
