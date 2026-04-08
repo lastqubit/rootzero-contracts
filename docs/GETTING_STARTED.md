@@ -71,10 +71,10 @@ pragma solidity ^0.8.33;
 
 import {Host} from "@rootzero/contracts/Core.sol";
 import {DebitAccount} from "@rootzero/contracts/Commands.sol";
-import {ensureAssetRef} from "@rootzero/contracts/Utils.sol";
+import {Assets} from "@rootzero/contracts/Utils.sol";
 
 contract ExampleHost is Host, DebitAccount {
-    mapping(bytes32 account => mapping(bytes32 assetRef => uint amount)) internal balances;
+    mapping(bytes32 account => mapping(bytes32 assetKey => uint amount)) internal balances;
 
     constructor(address rootzero)
         Host(rootzero, 1, "example")
@@ -86,8 +86,8 @@ contract ExampleHost is Host, DebitAccount {
         bytes32 meta,
         uint amount
     ) internal override {
-        bytes32 ref = ensureAssetRef(asset, meta);
-        balances[account][ref] -= amount;
+        bytes32 key = Assets.key(asset, meta);
+        balances[account][key] -= amount;
     }
 }
 ```
@@ -106,16 +106,16 @@ The built-in commands are easiest to use when you know which blocks they expect.
 
 - `deposit`: reads `AMOUNT` blocks, returns `BALANCE`
 - `transfer`: reads `AMOUNT` plus `RECIPIENT`
-- `debitAccountToBalance`: reads `AMOUNT`, returns `BALANCE`
+- `debitAccount`: reads `AMOUNT`, returns `BALANCE`
 - `provision`: reads `AMOUNT` plus `NODE`, returns `CUSTODY`
 - `pipe`: reads `STEP` blocks and runs them in order
 
 ### Commands That Read `state`
 
 - `withdraw`: reads `BALANCE`, optionally reads `RECIPIENT` from `request`
-- `creditBalanceToAccount`: reads `BALANCE`, optionally reads `RECIPIENT` from `request`
+- `creditAccount`: reads `BALANCE`, optionally reads `RECIPIENT` from `request`
 - `settle`: reads `TX`
-- `fund`: reads `BALANCE` from `state` and `NODE` from `request`
+- `provisionFromBalance`: reads `BALANCE` from `state` and `NODE` from `request`
 
 This is the main pattern to keep in mind:
 
@@ -161,33 +161,30 @@ When the built-in modules are not enough, add your own command entrypoint.
 pragma solidity ^0.8.33;
 
 import {Host} from "@rootzero/contracts/Core.sol";
-import {CommandContext} from "@rootzero/contracts/Commands.sol";
-import {Blocks, Cursor, Schemas} from "@rootzero/contracts/Blocks.sol";
-import {toCommandId} from "@rootzero/contracts/Utils.sol";
+import {CommandBase, CommandContext, Channels} from "@rootzero/contracts/Commands.sol";
+import {Cursors, Cursor, Schemas} from "@rootzero/contracts/Cursors.sol";
 
-bytes32 constant NAME = "myCommand";
+using Cursors for Cursor;
+
+string constant NAME = "myCommand";
 string constant ROUTE = "route(uint foo, uint bar)";
 string constant INPUT = string.concat(ROUTE, "&", Schemas.Amount);
 
-using Blocks for Cursor;
+abstract contract MyCommand is CommandBase {
+    uint internal immutable myCommandId = commandId(NAME);
 
-contract ExampleHost is Host {
-    uint immutable myCommandId = toCommandId(NAME, address(this));
-
-    constructor(address rootzero)
-        Host(rootzero, 1, "example")
-    {
-        emit Command(host, NAME, INPUT, myCommandId, 0, 0);
+    constructor() {
+        emit Command(host, NAME, INPUT, myCommandId, Channels.Setup, Channels.Balances);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        Cursor memory input = Blocks.cursorFrom(c.request, 0);
-        uint foo = uint(input.unpackRoute32());
+        Cursor memory input = Cursors.openBlock(c.request, 0);
+        uint foo = input.unpackRouteUint();
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-        foo; asset; meta; amount;
-        return "";
+        foo;
+        return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
 ```
@@ -208,7 +205,7 @@ If your request contains a bundled input like:
 
 your command can:
 
-- open it with `Blocks.cursorFrom(...)`
+- open it with `Cursors.openBlock(...)`
 - consume the route first
 - then consume the amount
 - keep parsing in bundle/member order without indexing helpers
@@ -227,14 +224,15 @@ When your command needs to build response blocks manually, use `Writers`.
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Writers} from "@rootzero/contracts/Blocks.sol";
-import {Writer} from "@rootzero/contracts/Schema.sol";
+import {Writers, Writer} from "@rootzero/contracts/Cursors.sol";
+
+using Writers for Writer;
 
 function buildBalances() internal pure returns (bytes memory) {
-    Writer memory writer = Writers.alloc(108 * 2);
-    Writers.appendBalance(writer, bytes32(uint256(1)), bytes32(0), 50);
-    Writers.appendBalance(writer, bytes32(uint256(2)), bytes32(0), 75);
-    return Writers.done(writer);
+    Writer memory writer = Writers.allocBalances(2);
+    writer.appendBalance(bytes32(uint256(1)), bytes32(0), 50);
+    writer.appendBalance(bytes32(uint256(2)), bytes32(0), 75);
+    return writer.done();
 }
 ```
 
@@ -265,7 +263,8 @@ If you want to learn by example, these are the best files to read next:
 - `examples/1-Host.sol`: smallest host
 - `examples/2-Basic.sol`: host plus a built-in command hook
 - `examples/3-Command.sol`: custom command id and command event
-- `examples/MapBalance.sol`: transforming returned balance state
+- `examples/4-Batch.sol`: batching request input and building balance output
+- `examples/5-Route.sol`: bundled route input plus protocol blocks
 - `test/commands.test.ts`: concrete request and response examples
 - `test/helpers/blocks.ts`: block encoders you can reuse in off-chain tooling
 

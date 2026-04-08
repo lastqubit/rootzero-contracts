@@ -94,8 +94,7 @@ library Cursors {
     ) internal pure returns (Cursor memory cur) {
         uint total;
         (cur, total) = openRun(source, i, key);
-        if (divisor == 0) revert ZeroCursor();
-        if (total == 0) revert ZeroCursor();
+        if (divisor == 0 || total == 0) revert ZeroCursor();
         if (total % divisor != 0) revert MalformedBlocks();
     }
 
@@ -197,6 +196,12 @@ library Cursors {
         out.next = out.end - base;
 
         cur.i = out.end;
+    }
+
+    function drain(Cursor memory cur) internal pure returns (Cursor memory) {
+        if (cur.i == cur.start) revert ZeroCursor();
+        cur.i = cur.end;
+        return cur;
     }
 
     function finish(Cursor memory cur) internal pure {
