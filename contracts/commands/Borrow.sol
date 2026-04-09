@@ -2,13 +2,14 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { AssetAmount, HostAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, HostAmount, Cur, Cursors, Writer, Writers, Writers2 } from "../Cursors.sol";
 
 string constant BABTB = "borrowAgainstBalanceToBalance";
 string constant BACTB = "borrowAgainstCustodyToBalance";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
+using Writers2 for Cur;
 
 abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     uint internal immutable borrowAgainstCustodyToBalanceId = commandId(BACTB);
@@ -18,29 +19,27 @@ abstract contract BorrowAgainstCustodyToBalance is CommandBase {
     }
 
     /// @dev Override to borrow against a custody position.
-    /// `input` is the request cursor for the current iteration; implementations
-    /// validate and unpack it as needed.
+    /// `request` is the live auxiliary request cursor for this command;
+    /// implementations validate and unpack it as needed.
     function borrowAgainstCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,
-        Cursor memory input
+        Cur memory request
     ) internal virtual returns (AssetAmount memory);
 
     function borrowAgainstCustodyToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(borrowAgainstCustodyToBalanceId, c.target) returns (bytes memory) {
-        (Cursor memory custodies, uint count) = Cursors.openRun(c.state, 0, Keys.Custody);
-        Writer memory writer = Writers.allocBalances(count);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocBalances();
 
-        while (custodies.i < custodies.end) {
-            input = Cursors.openBlock(c.request, input.next);
-            HostAmount memory custody = custodies.unpackCustodyValue();
-            AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, input);
+        while (state.i < state.bound) {
+            HostAmount memory custody = state.unpackCustodyValue();
+            AssetAmount memory out = borrowAgainstCustodyToBalance(c.account, custody, request);
             writer.appendNonZeroBalance(out);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
 
@@ -52,31 +51,30 @@ abstract contract BorrowAgainstBalanceToBalance is CommandBase {
     }
 
     /// @dev Override to borrow against a balance position.
-    /// `input` is the request cursor for the current iteration; implementations
-    /// validate and unpack it as needed.
+    /// `request` is the live auxiliary request cursor for this command;
+    /// implementations validate and unpack it as needed.
     function borrowAgainstBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,
-        Cursor memory input
+        Cur memory request
     ) internal virtual returns (AssetAmount memory);
 
     function borrowAgainstBalanceToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(borrowAgainstBalanceToBalanceId, c.target) returns (bytes memory) {
-        (Cursor memory balances, uint count) = Cursors.openRun(c.state, 0, Keys.Balance);
-        Writer memory writer = Writers.allocBalances(count);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocBalances();
 
-        while (balances.i < balances.end) {
-            input = Cursors.openBlock(c.request, input.next);
-            AssetAmount memory balance = balances.unpackBalanceValue();
-            AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, input);
+        while (state.i < state.bound) {
+            AssetAmount memory balance = state.unpackBalanceValue();
+            AssetAmount memory out = borrowAgainstBalanceToBalance(c.account, balance, request);
             writer.appendNonZeroBalance(out);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
+
 
 
 

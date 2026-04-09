@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {OperationBase} from "../core/Operation.sol";
+import {Cur} from "../Cursors.sol";
 import {CommandEvent} from "../events/Command.sol";
 import {Channels} from "../utils/Channels.sol";
 import {Ids, Selectors} from "../utils/Ids.sol";
@@ -36,6 +37,14 @@ abstract contract CommandBase is OperationBase, CommandEvent {
 
     function commandId(string memory name) internal view returns (uint) {
         return Ids.toCommand(Selectors.command(name), address(this));
+    }
+
+    function cursors(
+        CommandContext calldata c,
+        uint sd,
+        uint rd
+    ) internal pure returns (Cur memory stateCur, Cur memory requestCur) {
+        return cursors(c.state, c.request, sd, rd);
     }
 }
 

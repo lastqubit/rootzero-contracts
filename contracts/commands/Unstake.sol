@@ -2,12 +2,13 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { AssetAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, Cur, Cursors, Writer, Writers, Writers2 } from "../Cursors.sol";
 
 string constant UBTB = "unstakeBalanceToBalances";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
+using Writers2 for Cur;
 
 abstract contract UnstakeBalanceToBalances is CommandBase {
     uint internal immutable unstakeBalanceToBalancesId = commandId(UBTB);
@@ -19,33 +20,32 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
     }
 
     /// @dev Override to unstake or redeem a balance position.
-    /// `input` is the request cursor for the current iteration;
+    /// `request` is the live auxiliary request cursor for this command;
     /// implementations validate and unpack it as needed, and may append
     /// BALANCE outputs to `out` within the capacity implied by this
     /// command's configured `scaledRatio`.
     function unstakeBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
-        Cursor memory input,
+        Cur memory request,
         Writer memory out
     ) internal virtual;
 
     function unstakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(unstakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory balances, uint count) = Cursors.openRun(c.state, 0, Keys.Balance);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocScaledBalances(outScale);
 
-        while (balances.i < balances.end) {
-            input = Cursors.openBlock(c.request, input.next);
-            AssetAmount memory balance = balances.unpackBalanceValue();
-            unstakeBalanceToBalances(c.account, balance, input, writer);
+        while (state.i < state.bound) {
+            AssetAmount memory balance = state.unpackBalanceValue();
+            unstakeBalanceToBalances(c.account, balance, request, writer);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
+
 
 
 

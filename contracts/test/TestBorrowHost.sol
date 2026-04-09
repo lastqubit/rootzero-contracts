@@ -4,11 +4,10 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { BorrowAgainstCustodyToBalance } from "../commands/Borrow.sol";
 import { AssetAmount, HostAmount } from "../blocks/Schema.sol";
-import { Cursor, Keys } from "../Cursors.sol";
-import { Cursors } from "../blocks/Cursors.sol";
+import { Cur, Cursors, Keys } from "../Cursors.sol";
 import { Ids } from "../utils/Ids.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 contract TestBorrowHost is Host, BorrowAgainstCustodyToBalance {
     event BorrowCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, bytes inputData);
@@ -30,10 +29,28 @@ contract TestBorrowHost is Host, BorrowAgainstCustodyToBalance {
     function borrowAgainstCustodyToBalance(
         bytes32 account,
         HostAmount memory custody,
-        Cursor memory input
+        Cur memory request
     ) internal override returns (AssetAmount memory) {
-        if (input.i < input.end) {
-            bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+        if (request.i < request.len) {
+            bytes calldata inputData;
+            (bytes4 key, uint len) = request.peek(request.i);
+            if (key == Keys.Bundle) {
+                Cur memory bundle = request.bundle();
+                (key, len) = bundle.peek(bundle.i);
+                if (key == Keys.Route) {
+                    inputData = bundle.unpackRoute();
+                } else {
+                    uint next = bundle.i + 8 + len;
+                    inputData = msg.data[bundle.offset + bundle.i:bundle.offset + next];
+                    bundle.i = next;
+                }
+            } else if (key == Keys.Route) {
+                inputData = request.unpackRoute();
+            } else {
+                uint next = request.i + 8 + len;
+                inputData = msg.data[request.offset + request.i:request.offset + next];
+                request.i = next;
+            }
             emit BorrowCalled(account, custody.asset, custody.meta, custody.amount, inputData);
         } else {
             emit BorrowCalled(account, custody.asset, custody.meta, custody.amount, "");
@@ -49,6 +66,7 @@ contract TestBorrowHost is Host, BorrowAgainstCustodyToBalance {
         return adminAccount;
     }
 }
+
 
 
 

@@ -2,11 +2,11 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Channels } from "./Base.sol";
-import { Cursors, Cursor } from "../Cursors.sol";
+import { Cursors, Cur } from "../Cursors.sol";
 
 string constant NAME = "remove";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 abstract contract Remove is CommandBase {
     uint internal immutable removeId = commandId(NAME);
@@ -17,16 +17,20 @@ abstract contract Remove is CommandBase {
 
     /// @dev Override to remove or dismantle an object described by `input`.
     /// Called once per top-level request item.
-    function remove(bytes32 account, Cursor memory input) internal virtual;
+    function remove(bytes32 account, Cur memory input) internal virtual;
 
     function remove(CommandContext calldata c) external payable onlyCommand(removeId, c.target) returns (bytes memory) {
-        Cursor memory inputs = Cursors.openInput(c.request, 0, 1);
-        while (inputs.i < inputs.end) {
-            remove(c.account, inputs.take());
+        Cur memory request = cursor(c.request, 1);
+
+        while (request.i < request.bound) {
+            remove(c.account, request);
         }
-        return inputs.complete();
+
+        request.complete();
+        return "";
     }
 }
+
 
 
 

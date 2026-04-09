@@ -85,9 +85,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts MalformedBlocks for empty request", async () => {
       await expect(callAs(0, "init", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "MalformedBlocks");
     });
   });
 
@@ -282,9 +282,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts MalformedBlocks for empty request", async () => {
       await expect(callAs(0, "destroy", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "MalformedBlocks");
     });
   });
 });

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Channels } from "../Base.sol";
-import { Cursors, Cursor, Keys, Schemas } from "../../Cursors.sol";
-using Cursors for Cursor;
+import { Cursors, Cur, Schemas } from "../../Cursors.sol";
+using Cursors for Cur;
 
 string constant NAME = "relocate";
 
@@ -17,16 +17,18 @@ abstract contract Relocate is CommandBase {
     function relocate(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(relocateId, c.target) returns (bytes memory) {
-        Cursor memory fundings = Cursors.openRun(c.request, 0, Keys.Funding, 1);
+        Cur memory request = cursor(c.request, 1);
 
-        while (fundings.i < fundings.end) {
-            (uint host, uint amount) = fundings.unpackFunding();
+        while (request.i < request.bound) {
+            (uint host, uint amount) = request.unpackFunding();
             callTo(host, amount, "");
         }
 
-        return fundings.complete();
+        request.complete();
+        return "";
     }
 }
+
 
 
 

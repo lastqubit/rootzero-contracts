@@ -2,14 +2,15 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { AssetAmount, HostAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, HostAmount, Cur, Cursors, Writer, Writers, Writers2 } from "../Cursors.sol";
 
 string constant SBTB = "stakeBalanceToBalances";
 string constant SCTB = "stakeCustodyToBalances";
 string constant SCTP = "stakeCustodyToPosition";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
+using Writers2 for Cur;
 
 abstract contract StakeBalanceToBalances is CommandBase {
     uint internal immutable stakeBalanceToBalancesId = commandId(SBTB);
@@ -21,31 +22,29 @@ abstract contract StakeBalanceToBalances is CommandBase {
     }
 
     /// @dev Override to stake a balance position and append resulting balances
-    /// to `out`. `input` is the request cursor for the current iteration;
-    /// implementations validate and unpack it as needed and may append BALANCE
-    /// outputs within the capacity implied by this command's configured
-    /// `scaledRatio`.
+    /// to `out`. `request` is the live auxiliary request cursor for this
+    /// command; implementations validate and unpack it as needed and may
+    /// append BALANCE outputs within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function stakeBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
-        Cursor memory input,
+        Cur memory request,
         Writer memory out
     ) internal virtual;
 
     function stakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory balances, uint count) = Cursors.openRun(c.state, 0, Keys.Balance);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocScaledBalances(outScale);
 
-        while (balances.i < balances.end) {
-            input = Cursors.openBlock(c.request, input.next);
-            AssetAmount memory balance = balances.unpackBalanceValue();
-            stakeBalanceToBalances(c.account, balance, input, writer);
+        while (state.i < state.bound) {
+            AssetAmount memory balance = state.unpackBalanceValue();
+            stakeBalanceToBalances(c.account, balance, request, writer);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
 
@@ -59,31 +58,29 @@ abstract contract StakeCustodyToBalances is CommandBase {
     }
 
     /// @dev Override to stake a custody position and append resulting balances
-    /// to `out`. `input` is the request cursor for the current iteration;
-    /// implementations validate and unpack it as needed and may append BALANCE
-    /// outputs within the capacity implied by this command's configured
-    /// `scaledRatio`.
+    /// to `out`. `request` is the live auxiliary request cursor for this
+    /// command; implementations validate and unpack it as needed and may
+    /// append BALANCE outputs within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function stakeCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,
-        Cursor memory input,
+        Cur memory request,
         Writer memory out
     ) internal virtual;
 
     function stakeCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory custodies, uint count) = Cursors.openRun(c.state, 0, Keys.Custody);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocScaledBalances(outScale);
 
-        while (custodies.i < custodies.end) {
-            input = Cursors.openBlock(c.request, input.next);
-            HostAmount memory custody = custodies.unpackCustodyValue();
-            stakeCustodyToBalances(c.account, custody, input, writer);
+        while (state.i < state.bound) {
+            HostAmount memory custody = state.unpackCustodyValue();
+            stakeCustodyToBalances(c.account, custody, request, writer);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
 
@@ -95,23 +92,24 @@ abstract contract StakeCustodyToPosition is CommandBase {
     }
 
     /// @dev Override to stake a custody position into a non-balance setup
-    /// target described by `input`.
-    function stakeCustodyToPosition(bytes32 account, HostAmount memory custody, Cursor memory input) internal virtual;
+    /// target described by `request`.
+    function stakeCustodyToPosition(bytes32 account, HostAmount memory custody, Cur memory request) internal virtual;
 
     function stakeCustodyToPosition(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToPositionId, c.target) returns (bytes memory) {
-        Cursor memory custodies = Cursors.openRun(c.state, 0, Keys.Custody, 1);
-        Cursor memory input;
-        while (custodies.i < custodies.end) {
-            HostAmount memory custody = custodies.unpackCustodyValue();
-            input = Cursors.openBlock(c.request, input.next);
-            stakeCustodyToPosition(c.account, custody, input);
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+
+        while (state.i < state.bound) {
+            HostAmount memory custody = state.unpackCustodyValue();
+            stakeCustodyToPosition(c.account, custody, request);
         }
 
-        return custodies.complete();
+        state.complete();
+        return "";
     }
 }
+
 
 
 

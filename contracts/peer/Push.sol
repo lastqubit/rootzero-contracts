@@ -2,11 +2,11 @@
 pragma solidity ^0.8.33;
 
 import { PeerBase } from "./Base.sol";
-import { Cursors, Cursor } from "../Cursors.sol";
+import { Cursors, Cur } from "../Cursors.sol";
 
 string constant NAME = "peerPush";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 abstract contract PeerPush is PeerBase {
     uint internal immutable peerPushId = peerId(NAME);
@@ -15,16 +15,20 @@ abstract contract PeerPush is PeerBase {
         emit Peer(host, NAME, input, peerPushId);
     }
 
-    function peerPush(Cursor memory input) internal virtual;
+    function peerPush(Cur memory input) internal virtual;
 
     function peerPush(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        Cursor memory inputs = Cursors.openInput(request, 0, 1);
-        while (inputs.i < inputs.end) {
-            peerPush(inputs.take());
+        Cur memory input = cursor(request, 1);
+
+        while (input.i < input.bound) {
+            peerPush(input);
         }
-        return inputs.complete();
+
+        input.complete();
+        return "";
     }
 }
+
 
 
 

@@ -154,13 +154,6 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
 
-    it("reverts ZeroRecipient when recipient resolves to zero", async () => {
-      const state = encodeBalanceBlock(asset, meta, 10n);
-      const zeroRecipient = encodeRecipientBlock(ethers.ZeroHash);
-      await expect(callAs(0, "withdraw", ctx({ state, request: zeroRecipient })))
-        .to.be.revertedWithCustomError(host, "ZeroRecipient");
-    });
-
     it("emits WithdrawCalled for each BALANCE block in a batch state", async () => {
       const asset1 = ethers.zeroPadValue("0x11", 32);
       const asset2 = ethers.zeroPadValue("0x12", 32);

@@ -9,6 +9,7 @@ library Schemas {
     string constant Custody = "custody(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
     string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Break = "break()";
     string constant Route = "route(bytes data)";
     string constant RouteEmpty = "route()";
     string constant Quantity = "quantity(uint amount)";

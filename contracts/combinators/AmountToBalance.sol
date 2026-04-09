@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AssetAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, Cursors, Cur, Writers, Writer } from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
 
 abstract contract AmountToBalance {
     function amountToBalance(bytes32 account, AssetAmount memory amount) internal virtual returns (AssetAmount memory);
 
     function amountsToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Cursor memory scan, uint count) = Cursors.openRun(blocks, i, Keys.Amount);
+        (Cur memory scan, , uint count) = Cursors.init(blocks[i:], 1);
         Writer memory writer = Writers.allocBalances(count);
 
-        while (scan.i < scan.end) {
+        while (scan.i < scan.bound) {
             AssetAmount memory amount = scan.unpackAmountValue();
             AssetAmount memory out = amountToBalance(account, amount);
             writer.appendNonZeroBalance(out);
@@ -22,6 +22,7 @@ abstract contract AmountToBalance {
         return writer.finish();
     }
 }
+
 
 
 

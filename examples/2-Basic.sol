@@ -8,8 +8,8 @@ pragma solidity ^0.8.33;
 // you only write the business logic specific to your app.
 //
 // DebitAccount:
-//   - reads one or more AMOUNT blocks from `request`
-//   - calls `debitAccount` for each (your hook - deduct from your storage)
+//   - creates a request cursor over the AMOUNT run in `request`
+//   - calls `debitAccount` for each block in that run
 //   - returns matching BALANCE blocks as the response
 
 import { Host } from "../contracts/Core.sol";

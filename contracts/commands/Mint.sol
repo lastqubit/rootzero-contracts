@@ -2,8 +2,9 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Channels } from "./Base.sol";
-import { Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
-using Cursors for Cursor;
+import { Cursors, Cur, Writers2, Writers, Writer } from "../Cursors.sol";
+using Cursors for Cur;
+using Writers2 for Cur;
 using Writers for Writer;
 
 string constant NAME = "mintToBalances";
@@ -24,24 +25,24 @@ abstract contract MintToBalances is CommandBase {
     /// capacity implied by this command's configured `scaledRatio`.
     function mintToBalances(
         bytes32 account,
-        Cursor memory input,
+        Cur memory input,
         Writer memory out
     ) internal virtual;
 
     function mintToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(mintToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory inputs, uint count) = Cursors.openInput(c.request, 0);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
+        Cur memory request = cursor(c.request, 1);
+        Writer memory writer = request.allocScaledBalances(outScale);
 
-        while (inputs.i < inputs.end) {
-            Cursor memory input = inputs.take();
-            mintToBalances(c.account, input, writer);
+        while (request.i < request.bound) {
+            mintToBalances(c.account, request, writer);
         }
 
-        return writer.finish();
+        return request.complete(writer);
     }
 }
+
 
 
 

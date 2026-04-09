@@ -4,10 +4,10 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { PeerPull } from "../peer/Pull.sol";
 import { PeerPush } from "../peer/Push.sol";
-import { Cursors, Cursor, Keys } from "../Cursors.sol";
+import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Ids } from "../utils/Ids.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 contract TestPeerHost is Host, PeerPull, PeerPush {
     event PeerPullCalled(bytes inputData);
@@ -21,19 +21,30 @@ contract TestPeerHost is Host, PeerPull, PeerPush {
         if (cmdr != address(0)) access(Ids.toHost(cmdr), true);
     }
 
-    function peerPull(Cursor memory input) internal override {
-        bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+    function peerPull(Cur memory input) internal override {
+        (bytes4 key, uint len) = input.peek(input.i);
+        uint next = input.i + 8 + len;
+        bytes calldata inputData = key == Keys.Route
+            ? input.unpackRoute()
+            : msg.data[input.offset + input.i:input.offset + next];
+        input.i = next;
         emit PeerPullCalled(inputData);
     }
 
-    function peerPush(Cursor memory input) internal override {
-        bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+    function peerPush(Cur memory input) internal override {
+        (bytes4 key, uint len) = input.peek(input.i);
+        uint next = input.i + 8 + len;
+        bytes calldata inputData = key == Keys.Route
+            ? input.unpackRoute()
+            : msg.data[input.offset + input.i:input.offset + next];
+        input.i = next;
         emit PeerPushCalled(inputData);
     }
 
     function getPeerPullId() external view returns (uint) { return peerPullId; }
     function getPeerPushId() external view returns (uint) { return peerPushId; }
 }
+
 
 
 

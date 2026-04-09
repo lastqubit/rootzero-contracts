@@ -16,9 +16,9 @@ import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
 import { Allocate } from "../commands/admin/Allocate.sol";
 import { Tx } from "../blocks/Schema.sol";
-import { Cursors, Cursor, Keys } from "../Cursors.sol";
+import { Cursors, Cursors, Cur, Keys } from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 contract TestHost is
     Host,
@@ -63,7 +63,10 @@ contract TestHost is
         emit WithdrawCalled(account, asset, meta, amount);
     }
 
-    function transfer(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount) internal override {
+    function transfer(bytes32 from_, Cur memory input) internal override {
+        Cur memory bundle = input.bundle();
+        (bytes32 asset, bytes32 meta, uint amount) = bundle.unpackAmount();
+        bytes32 to_ = bundle.unpackRecipient();
         emit TransferCalled(from_, to_, asset, meta, amount);
     }
 
@@ -83,13 +86,29 @@ contract TestHost is
         emit ProvisionCalled(host_, account, asset, meta, amount);
     }
 
-    function init(Cursor memory input) internal override {
-        bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+    function init(Cur memory input) internal override {
+        (bytes4 key, uint len) = input.peek(input.i);
+        bytes calldata inputData;
+        if (key == Keys.Route) {
+            inputData = input.unpackRoute();
+        } else {
+            uint next = input.i + 8 + len;
+            inputData = msg.data[input.offset + input.i:input.offset + next];
+            input.i = next;
+        }
         emit InitCalled(inputData);
     }
 
-    function destroy(Cursor memory input) internal override {
-        bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+    function destroy(Cur memory input) internal override {
+        (bytes4 key, uint len) = input.peek(input.i);
+        bytes calldata inputData;
+        if (key == Keys.Route) {
+            inputData = input.unpackRoute();
+        } else {
+            uint next = input.i + 8 + len;
+            inputData = msg.data[input.offset + input.i:input.offset + next];
+            input.i = next;
+        }
         emit DestroyCalled(inputData);
     }
 
@@ -199,6 +218,7 @@ contract TestHost is
         return authorized[node];
     }
 }
+
 
 
 

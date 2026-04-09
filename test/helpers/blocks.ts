@@ -20,6 +20,7 @@ export const Keys = {
   Transaction: blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
   Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
+  Break: blockKey("break()"),
   Auth: blockKey("auth(uint cid, uint deadline, bytes proof)"),
   Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
   Bundle: blockKey("bundle(bytes data)"),
@@ -105,6 +106,10 @@ export function encodeStepBlock(target: bigint, value: bigint, request: string):
 
 export function encodeRouteBlock(data: string): string {
   return block(Keys.Route, data);
+}
+
+export function encodeBreakBlock(): string {
+  return block(Keys.Break, "0x");
 }
 
 export function encodeBundleBlock(...members: string[]): string {

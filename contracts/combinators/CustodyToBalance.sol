@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AssetAmount, HostAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, HostAmount, Cursors, Cur, Writers, Writer } from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
 
 abstract contract CustodyToBalance {
     function custodyToBalance(bytes32 account, HostAmount memory custody) internal virtual returns (AssetAmount memory);
 
     function custodiesToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Cursor memory scan, uint count) = Cursors.openRun(blocks, i, Keys.Custody);
+        (Cur memory scan, , uint count) = Cursors.init(blocks[i:], 1);
         Writer memory writer = Writers.allocBalances(count);
 
-        while (scan.i < scan.end) {
+        while (scan.i < scan.bound) {
             HostAmount memory custody = scan.unpackCustodyValue();
             AssetAmount memory out = custodyToBalance(account, custody);
             writer.appendNonZeroBalance(out);
@@ -22,6 +22,7 @@ abstract contract CustodyToBalance {
         return writer.finish();
     }
 }
+
 
 
 

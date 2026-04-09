@@ -2,11 +2,12 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { AssetAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { Cursors, Cur, Writers2, Writers, Writer } from "../Cursors.sol";
 
 string constant NAME = "reclaimToBalances";
 
-using Cursors for Cursor;
+using Cursors for Cur;
+using Writers2 for Cur;
 using Writers for Writer;
 
 abstract contract ReclaimToBalances is CommandBase {
@@ -26,24 +27,24 @@ abstract contract ReclaimToBalances is CommandBase {
     /// `scaledRatio`.
     function reclaimToBalances(
         bytes32 account,
-        Cursor memory input,
+        Cur memory input,
         Writer memory out
     ) internal virtual;
 
     function reclaimToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(reclaimToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory inputs, uint count) = Cursors.openInput(c.request, 0);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
+        Cur memory request = cursor(c.request, 1);
+        Writer memory writer = request.allocScaledBalances(outScale);
 
-        while (inputs.i < inputs.end) {
-            Cursor memory input = inputs.take();
-            reclaimToBalances(c.account, input, writer);
+        while (request.i < request.bound) {
+            reclaimToBalances(c.account, request, writer);
         }
 
-        return writer.finish();
+        return request.complete(writer);
     }
 }
+
 
 
 

@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 uint16 constant MAX_BPS = 10_000;
 
 error ValueOverflow();
+error NotDivisible();
 
 function max8(uint value) pure returns (uint) {
     if (value > type(uint8).max) {
@@ -66,6 +67,10 @@ function max160(uint value) pure returns (uint) {
         revert ValueOverflow();
     }
     return value;
+}
+
+function divisible(uint n, uint divisor) pure {
+    if (divisor != 0 && n % divisor != 0) revert NotDivisible();
 }
 
 function addrOr(address addr, address or) pure returns (address) {

@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { SwapExactBalanceToBalance } from "../commands/Swap.sol";
-import { AssetAmount, Cursor, Cursors, Keys } from "../Cursors.sol";
+import { AssetAmount, Cur, Cursors, Cursors, Keys } from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 contract TestSwapHost is Host, SwapExactBalanceToBalance {
     event SwapMapped(bytes32 account, bytes32 asset, bytes32 meta, uint amount, bytes inputData);
@@ -19,17 +19,30 @@ contract TestSwapHost is Host, SwapExactBalanceToBalance {
     function swapExactBalanceToBalance(
         bytes32 account,
         AssetAmount memory balance,
-        Cursor memory input
+        Cur memory request
     ) internal override returns (AssetAmount memory out) {
-        if (input.i == input.end) revert Cursors.InvalidBlock();
+        if (request.i == request.len) revert Cursors.InvalidBlock();
 
-        bytes calldata inputData = input.isAt(Keys.Route) ? input.unpackRoute() : msg.data[input.i:input.end];
+        Cur memory input = request;
+        (bytes4 key, uint len) = request.peek(request.i);
+        if (key == Keys.Bundle) input = request.bundle();
+
+        bytes calldata inputData;
+        (key, len) = input.peek(input.i);
+        if (key == Keys.Route) {
+            inputData = input.unpackRoute();
+        } else {
+            uint next = input.i + 8 + len;
+            inputData = msg.data[input.offset + input.i:input.offset + next];
+            input.i = next;
+        }
         emit SwapMapped(account, balance.asset, balance.meta, balance.amount, inputData);
 
-        Cursor memory cur = input;
-        if (cur.isAt(Keys.Route)) cur.unpackRoute();
-        if (cur.i < cur.end && cur.isAt(Keys.Minimum)) {
-            (bytes32 minAsset, bytes32 minMeta, uint minAmount) = cur.unpackMinimum();
+        if (input.i < input.len) {
+            (key, ) = input.peek(input.i);
+        }
+        if (input.i < input.len && key == Keys.Minimum) {
+            (bytes32 minAsset, bytes32 minMeta, uint minAmount) = input.unpackMinimum();
             emit SwapMinimum(minAsset, minMeta, minAmount);
         }
 
@@ -48,6 +61,7 @@ contract TestSwapHost is Host, SwapExactBalanceToBalance {
         return adminAccount;
     }
 }
+
 
 
 

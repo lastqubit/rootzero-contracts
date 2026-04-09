@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Cursors, Cursor } from "../Cursors.sol";
+import { Cursors, Cur } from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 abstract contract EachInput {
-    function eachInput(Cursor memory input) internal virtual;
+    function eachInput(Cur memory input) internal virtual;
 
     function forEachInput(bytes calldata blocks, uint i) internal returns (uint) {
-        (Cursor memory inputs, ) = Cursors.openInput(blocks, i);
-        while (inputs.i < inputs.end) {
-            eachInput(inputs.take());
+        (Cur memory inputs, , ) = Cursors.init(blocks[i:], 1);
+        while (inputs.i < inputs.bound) {
+            eachInput(inputs);
         }
-        return inputs.next;
+        return i + inputs.bound;
     }
 }
+
 
 
 

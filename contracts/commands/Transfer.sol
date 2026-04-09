@@ -2,8 +2,8 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { Cursors, Cursor, Keys, Schemas } from "../Cursors.sol";
-using Cursors for Cursor;
+import { Cursors, Cur, Schemas } from "../Cursors.sol";
+using Cursors for Cur;
 
 string constant NAME = "transfer";
 string constant INPUT = string.concat(Schemas.Amount, "&", Schemas.Recipient);
@@ -17,20 +17,20 @@ abstract contract Transfer is CommandBase {
 
     /// @dev Override to transfer funds from `from` to `to`.
     /// Called once per bundled AMOUNT/RECIPIENT pair in the request.
-    function transfer(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function transfer(bytes32 from, Cur memory input) internal virtual;
 
     /// @dev Override to customize request parsing or batching for transfers.
     /// The default implementation iterates bundled AMOUNT/RECIPIENT pairs and calls
-    /// `transfer(from, to, asset, meta, amount)` for each one.
+    /// `transfer(from, input)` for each one.
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        Cursor memory inputs = Cursors.openInput(request, 0, 1);
-        while (inputs.i < inputs.end) {
-            Cursor memory input = inputs.take();
-            (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-            bytes32 to = input.unpackRecipient();
-            transfer(from, to, asset, meta, amount);
+        Cur memory input = cursor(request, 1);
+
+        while (input.i < input.bound) {
+            transfer(from, input);
         }
-        return inputs.complete();
+
+        input.complete();
+        return "";
     }
 
     function transfer(
@@ -39,6 +39,7 @@ abstract contract Transfer is CommandBase {
         return transfer(c.account, c.request);
     }
 }
+
 
 
 

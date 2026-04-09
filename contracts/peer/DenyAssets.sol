@@ -2,9 +2,9 @@
 pragma solidity ^0.8.33;
 
 import {PeerBase} from "./Base.sol";
-import {Cursors, Cursor, Keys, Schemas} from "../Cursors.sol";
+import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 string constant NAME = "peerDenyAssets";
 
@@ -18,14 +18,18 @@ abstract contract PeerDenyAssets is PeerBase {
     function peerDenyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     function peerDenyAssets(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        Cursor memory assets = Cursors.openRun(request, 0, Keys.Asset, 1);
-        while (assets.i < assets.end) {
+        Cur memory assets = cursor(request, 1);
+
+        while (assets.i < assets.bound) {
             (bytes32 asset, bytes32 meta) = assets.unpackAsset();
             peerDenyAsset(asset, meta);
         }
-        return assets.complete();
+
+        assets.complete();
+        return "";
     }
 }
+
 
 
 

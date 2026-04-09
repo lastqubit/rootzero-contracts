@@ -2,9 +2,10 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { Cursors, Cursor, Keys, Schemas, Writer, Writers } from "../Cursors.sol";
-using Cursors for Cursor;
+import { AssetAmount, Cursors, Cur, Keys, Schemas, Writer, Writers, Writers2 } from "../Cursors.sol";
+using Cursors for Cur;
 using Writers for Writer;
+using Writers2 for Cur;
 
 string constant PROVISION = "provision";
 string constant PFB = "provisionFromBalance";
@@ -29,18 +30,20 @@ abstract contract Provision is CommandBase, ProvisionHook {
     function provision(
         CommandContext calldata c
     ) external payable onlyCommand(provisionId, c.target) returns (bytes memory) {
-        (Cursor memory inputs, uint count) = Cursors.openRun(c.request, 0, Keys.Bundle);
-        Writer memory writer = Writers.allocCustodies(count);
+        Cur memory request = cursor(c.request, 1);
+        (bytes4 key, ) = request.peek(0);
+        if (key != Keys.Bundle) revert Writers.EmptyRequest();
+        Writer memory writer = request.allocCustodies();
 
-        while (inputs.i < inputs.end) {
-            Cursor memory input = inputs.take();
+        while (request.i < request.bound) {
+            Cur memory input = request.bundle();
             uint toHost = input.unpackNode();
             (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
             provision(c.account, toHost, asset, meta, amount);
             writer.appendCustody(toHost, asset, meta, amount);
         }
 
-        return writer.done();
+        return request.complete(writer);
     }
 }
 
@@ -55,19 +58,21 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     function provisionFromBalance(
         CommandContext calldata c
     ) external payable onlyCommand(provisionFromBalanceId, c.target) returns (bytes memory) {
-        uint toHost = Cursors.resolveNode(c.request, 0, c.request.length, 0);
-        (Cursor memory balances, uint count) = Cursors.openRun(c.state, 0, Keys.Balance);
-        Writer memory writer = Writers.allocCustodies(count);
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        uint toHost = request.nodeAfter(0);
+        if (toHost == 0) revert Cursors.ZeroNode();
+        Writer memory writer = state.allocCustodies();
 
-        while (balances.i < balances.end) {
-            (bytes32 asset, bytes32 meta, uint amount) = balances.unpackBalance();
-            provision(c.account, toHost, asset, meta, amount);
-            writer.appendCustody(toHost, asset, meta, amount);
+        while (state.i < state.bound) {
+            AssetAmount memory balance = state.unpackBalanceValue();
+            provision(c.account, toHost, balance.asset, balance.meta, balance.amount);
+            writer.appendCustody(toHost, balance.asset, balance.meta, balance.amount);
         }
 
-        return writer.done();
+        return state.complete(writer);
     }
 }
+
 
 
 

@@ -2,97 +2,87 @@
 pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Channels } from "./Base.sol";
-import { AssetAmount, HostAmount, Cursors, Cursor, Writers, Writer, Keys } from "../Cursors.sol";
+import { AssetAmount, HostAmount, Cur, Cursors, Writer, Writers, Writers2 } from "../Cursors.sol";
 
 string constant RDBTB = "redeemFromBalanceToBalances";
 string constant RDCTB = "redeemFromCustodyToBalances";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 using Writers for Writer;
+using Writers2 for Cur;
 
 abstract contract RedeemFromBalanceToBalances is CommandBase {
     uint internal immutable redeemFromBalanceToBalancesId = commandId(RDBTB);
     uint private immutable outScale;
-    bool private immutable useInput;
 
-    constructor(string memory maybeInput, uint scaledRatio) {
+    constructor(string memory input, uint scaledRatio) {
         outScale = scaledRatio;
-        useInput = bytes(maybeInput).length > 0;
-        emit Command(host, RDBTB, maybeInput, redeemFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
+        emit Command(host, RDBTB, input, redeemFromBalanceToBalancesId, Channels.Balances, Channels.Balances);
     }
 
     /// @dev Override to redeem a balance position into balances.
-    /// `input` is zero-initialized and should be ignored when
-    /// `maybeInput` is empty. Implementations validate and unpack it as
-    /// needed, and may append BALANCE outputs to `out` within the capacity
-    /// implied by this command's configured `scaledRatio`.
+    /// `request` is the live auxiliary request cursor for this command.
+    /// Implementations may consume it as needed or ignore it, and may append
+    /// BALANCE outputs to `out` within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function redeemFromBalanceToBalances(
         bytes32 account,
         AssetAmount memory balance,
-        Cursor memory input,
+        Cur memory request,
         Writer memory out
     ) internal virtual;
 
     function redeemFromBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(redeemFromBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory balances, uint count) = Cursors.openRun(c.state, 0, Keys.Balance);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocScaledBalances(outScale);
 
-        while (balances.i < balances.end) {
-            if (useInput) {
-                input = Cursors.openBlock(c.request, input.next);
-            }
-            AssetAmount memory balance = balances.unpackBalanceValue();
-            redeemFromBalanceToBalances(c.account, balance, input, writer);
+        while (state.i < state.bound) {
+            AssetAmount memory balance = state.unpackBalanceValue();
+            redeemFromBalanceToBalances(c.account, balance, request, writer);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
 
 abstract contract RedeemFromCustodyToBalances is CommandBase {
     uint internal immutable redeemFromCustodyToBalancesId = commandId(RDCTB);
     uint private immutable outScale;
-    bool private immutable useInput;
 
-    constructor(string memory maybeInput, uint scaledRatio) {
+    constructor(string memory input, uint scaledRatio) {
         outScale = scaledRatio;
-        useInput = bytes(maybeInput).length > 0;
-        emit Command(host, RDCTB, maybeInput, redeemFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
+        emit Command(host, RDCTB, input, redeemFromCustodyToBalancesId, Channels.Custodies, Channels.Balances);
     }
 
     /// @dev Override to redeem a custody position into balances.
-    /// `input` is zero-initialized and should be ignored when
-    /// `maybeInput` is empty. Implementations validate and unpack it as
-    /// needed, and may append BALANCE outputs to `out` within the capacity
-    /// implied by this command's configured `scaledRatio`.
+    /// `request` is the live auxiliary request cursor for this command.
+    /// Implementations may consume it as needed or ignore it, and may append
+    /// BALANCE outputs to `out` within the capacity implied by this command's
+    /// configured `scaledRatio`.
     function redeemFromCustodyToBalances(
         bytes32 account,
         HostAmount memory custody,
-        Cursor memory input,
+        Cur memory request,
         Writer memory out
     ) internal virtual;
 
     function redeemFromCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(redeemFromCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cursor memory custodies, uint count) = Cursors.openRun(c.state, 0, Keys.Custody);
-        Writer memory writer = Writers.allocScaledBalances(count, outScale);
-        Cursor memory input;
+        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        Writer memory writer = state.allocScaledBalances(outScale);
 
-        while (custodies.i < custodies.end) {
-            if (useInput) {
-                input = Cursors.openBlock(c.request, input.next);
-            }
-            HostAmount memory custody = custodies.unpackCustodyValue();
-            redeemFromCustodyToBalances(c.account, custody, input, writer);
+        while (state.i < state.bound) {
+            HostAmount memory custody = state.unpackCustodyValue();
+            redeemFromCustodyToBalances(c.account, custody, request, writer);
         }
 
-        return writer.finish();
+        return state.complete(writer);
     }
 }
+
 
 
 
