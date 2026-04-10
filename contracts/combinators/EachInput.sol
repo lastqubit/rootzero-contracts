@@ -9,7 +9,8 @@ abstract contract EachInput {
     function eachInput(Cur memory input) internal virtual;
 
     function forEachInput(bytes calldata blocks, uint i) internal returns (uint) {
-        (Cur memory inputs, , ) = Cursors.init(blocks[i:], 1);
+        Cur memory inputs = Cursors.open(blocks[i:]);
+        inputs.primeRun(1);
         while (inputs.i < inputs.bound) {
             eachInput(inputs);
         }

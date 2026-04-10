@@ -28,8 +28,9 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     function swapExactBalanceToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(swapExactBalanceToBalanceId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocBalances();
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocBalances(stateCount);
 
         while (state.i < state.bound) {
             AssetAmount memory balance = state.unpackBalanceValue();
@@ -60,8 +61,9 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     function swapExactCustodyToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(swapExactCustodyToBalanceId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocBalances();
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocBalances(stateCount);
 
         while (state.i < state.bound) {
             HostAmount memory custody = state.unpackCustodyValue();

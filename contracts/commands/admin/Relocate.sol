@@ -17,7 +17,7 @@ abstract contract Relocate is CommandBase {
     function relocate(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(relocateId, c.target) returns (bytes memory) {
-        Cur memory request = cursor(c.request, 1);
+        (Cur memory request, ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (uint host, uint amount) = request.unpackFunding();

@@ -44,7 +44,8 @@ abstract contract MyCommand is CommandBase {
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
         // Create a cursor for the request, then unwrap the bundle into a
         // second cursor over its member stream.
-        Cur memory input = cursor(c.request, 0).bundle();
+        Cur memory input = cursor(c.request);
+        input = input.bundle();
 
         // The first bundled member is the ROUTE block.
         uint host = input.unpackRouteUint();

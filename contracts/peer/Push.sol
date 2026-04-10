@@ -18,7 +18,7 @@ abstract contract PeerPush is PeerBase {
     function peerPush(Cur memory input) internal virtual;
 
     function peerPush(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        Cur memory input = cursor(request, 1);
+        (Cur memory input, ) = cursor(request, 1);
 
         while (input.i < input.bound) {
             peerPush(input);

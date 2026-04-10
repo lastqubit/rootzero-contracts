@@ -18,7 +18,7 @@ abstract contract PeerPull is PeerBase {
     function peerPull(Cur memory input) internal virtual;
 
     function peerPull(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        Cur memory input = cursor(request, 1);
+        (Cur memory input, ) = cursor(request, 1);
 
         while (input.i < input.bound) {
             peerPull(input);

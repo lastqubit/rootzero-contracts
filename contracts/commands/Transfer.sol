@@ -23,7 +23,7 @@ abstract contract Transfer is CommandBase {
     /// The default implementation iterates bundled AMOUNT/RECIPIENT pairs and calls
     /// `transfer(from, input)` for each one.
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        Cur memory input = cursor(request, 1);
+        (Cur memory input, ) = cursor(request, 1);
 
         while (input.i < input.bound) {
             transfer(from, input);

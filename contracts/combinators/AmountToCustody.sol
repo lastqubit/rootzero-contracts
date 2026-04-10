@@ -21,7 +21,8 @@ abstract contract AmountToCustody {
         uint host,
         bytes32 account
     ) internal returns (bytes memory) {
-        (Cur memory scan, , uint count) = Cursors.init(blocks[i:], 1);
+        Cur memory scan = Cursors.open(blocks[i:]);
+        (, uint count) = scan.primeRun(1);
         Writer memory writer = Writers.allocCustodies(count);
 
         while (scan.i < scan.bound) {

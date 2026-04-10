@@ -24,8 +24,8 @@ abstract contract DebitAccount is CommandBase {
     /// The default implementation iterates AMOUNT blocks, calls
     /// `debitAccount`, and emits matching BALANCE blocks.
     function debitAccount(bytes32 account, bytes calldata request) internal virtual returns (bytes memory) {
-        Cur memory input = cursor(request, 1);
-        Writer memory writer = input.allocBalances();
+        (Cur memory input, uint count) = cursor(request, 1);
+        Writer memory writer = Writers.allocBalances(count);
 
         while (input.i < input.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();

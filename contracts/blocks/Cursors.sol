@@ -17,6 +17,7 @@ library Cursors {
     error MalformedBlocks();
     error InvalidBlock();
     error ZeroCursor();
+    error ZeroGroup();
     error ZeroRecipient();
     error ZeroNode();
     error UnexpectedValue();
@@ -29,17 +30,6 @@ library Cursors {
         }
         cur.offset = offset;
         cur.len = source.length;
-    }
-
-    function init(
-        bytes calldata source,
-        uint primeGroup
-    ) internal pure returns (Cur memory cur, bytes4 key, uint count) {
-        cur = open(source);
-        if (primeGroup == 0) return (cur, 0, 0);
-        key = bytes4(source);
-        (count, cur.bound) = countRun(cur, key);
-        if (count % primeGroup != 0) revert BadRatio();
     }
 
     function seek(Cur memory cur, uint i) internal pure returns (Cur memory) {
@@ -70,32 +60,24 @@ library Cursors {
         if (len < min || (max != 0 && len > max)) revert InvalidBlock();
     }
 
-    function consume(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint abs) {
-        uint next;
-        (abs, next) = expect(cur, cur.i, key, min, max);
-        cur.i = next;
-    }
-
-    function bundle(Cur memory cur) internal pure returns (Cur memory out) {
-        (uint abs, uint next) = expect(cur, cur.i, Keys.Bundle, 0, 0);
-        uint len = next - (abs - cur.offset);
-        out.offset = abs;
-        out.len = len;
-        cur.i = next;
-    }
-
-    function countRun(Cur memory cur, bytes4 key) internal pure returns (uint total, uint next) {
-        next = cur.i;
+    function countRun(Cur memory cur, uint i, bytes4 key) internal pure returns (uint total, uint next) {
+        next = i;
         while (next < cur.len) {
             (bytes4 current, uint len) = peek(cur, next);
             if (current != key) break;
-
             next += 8 + len;
 
             unchecked {
                 ++total;
             }
         }
+    }
+
+    function primeRun(Cur memory cur, uint group) internal pure returns (bytes4 key, uint count) {
+        if (group == 0) revert ZeroGroup();
+        key = cur.len < 4 ? bytes4(0) : bytes4(msg.data[cur.offset:cur.offset + 4]);
+        (count, cur.bound) = countRun(cur, cur.i, key);
+        if (count % group != 0) revert BadRatio();
     }
 
     function find(Cur memory cur, uint i, bytes4 key) internal pure returns (uint) {
@@ -109,6 +91,20 @@ library Cursors {
 
     function find(Cur memory cur, bytes4 key) internal pure returns (uint) {
         return find(cur, cur.i, key);
+    }
+
+    function consume(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint abs) {
+        uint next;
+        (abs, next) = expect(cur, cur.i, key, min, max);
+        cur.i = next;
+    }
+
+    function bundle(Cur memory cur) internal pure returns (Cur memory out) {
+        (uint abs, uint next) = expect(cur, cur.i, Keys.Bundle, 0, 0);
+        uint len = next - (abs - cur.offset);
+        out.offset = abs;
+        out.len = len;
+        cur.i = next;
     }
 
     function complete(Cur memory cur) internal pure {
@@ -437,44 +433,4 @@ library Cursors {
         cur.i += 136;
     }
 
-    function alloc(Cur memory cur) internal pure returns (Writer memory writer) {
-        if (cur.i > cur.len) revert MalformedBlocks();
-        writer = Writer({i: 0, end: cur.len - cur.i, dst: new bytes(cur.len - cur.i)});
-    }
-
-    function allocBalances(Cur memory cur) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, ALLOC_SCALE, Sizes.Balance);
-    }
-
-    function allocPairedBalances(Cur memory cur) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, ALLOC_SCALE * 2, Sizes.Balance);
-    }
-
-    function allocScaledBalances(Cur memory cur, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, scaledRatio, Sizes.Balance);
-    }
-
-    function allocTxs(Cur memory cur) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, ALLOC_SCALE, Sizes.Transaction);
-    }
-
-    function allocCustodies(Cur memory cur) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, ALLOC_SCALE, Sizes.Custody);
-    }
-
-    function allocScaledCustodies(Cur memory cur, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(cur, scaledRatio, Sizes.Custody);
-    }
-
-    function allocFromScaledCount(
-        Cur memory cur,
-        uint scaledRatio,
-        uint blockLen
-    ) internal pure returns (Writer memory writer) {
-        bytes4 key = cur.len < 4 ? bytes4(0) : bytes4(msg.data[cur.offset:cur.offset + 4]);
-        if (key == 0) revert Writers.EmptyRequest();
-        cur.i = 0;
-        (uint count, ) = countRun(cur, key);
-        writer = Writers.allocFromScaledCount(count, scaledRatio, blockLen);
-    }
 }

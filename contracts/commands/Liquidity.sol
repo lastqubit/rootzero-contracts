@@ -38,8 +38,9 @@ abstract contract AddLiquidityFromCustodiesToBalances is CommandBase {
     function addLiquidityFromCustodiesToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(addLiquidityFromCustodiesToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             addLiquidityFromCustodiesToBalances(c.account, state, request, writer);
@@ -73,8 +74,9 @@ abstract contract RemoveLiquidityFromCustodyToBalances is CommandBase {
     function removeLiquidityFromCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(removeLiquidityFromCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             HostAmount memory custody = state.unpackCustodyValue();
@@ -110,8 +112,9 @@ abstract contract AddLiquidityFromBalancesToBalances is CommandBase {
     function addLiquidityFromBalancesToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(addLiquidityFromBalancesToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             addLiquidityFromBalancesToBalances(c.account, state, request, writer);
@@ -145,8 +148,9 @@ abstract contract RemoveLiquidityFromBalanceToBalances is CommandBase {
     function removeLiquidityFromBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(removeLiquidityFromBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             AssetAmount memory balance = state.unpackBalanceValue();

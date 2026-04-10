@@ -21,7 +21,7 @@ abstract contract Init is CommandBase {
     function init(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(initId, c.target) returns (bytes memory) {
-        Cur memory input = cursor(c.request, 0);
+        Cur memory input = cursor(c.request);
         init(input);
         return "";
     }

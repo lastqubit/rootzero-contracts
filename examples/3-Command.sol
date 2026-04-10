@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
 
         // Create a request cursor using the shared command helper and decode
         // the first AMOUNT block.
-        Cur memory input = cursor(c.request, 0);
+        Cur memory input = cursor(c.request);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.

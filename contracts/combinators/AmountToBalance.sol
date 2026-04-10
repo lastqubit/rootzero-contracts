@@ -10,7 +10,8 @@ abstract contract AmountToBalance {
     function amountToBalance(bytes32 account, AssetAmount memory amount) internal virtual returns (AssetAmount memory);
 
     function amountsToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Cur memory scan, , uint count) = Cursors.init(blocks[i:], 1);
+        Cur memory scan = Cursors.open(blocks[i:]);
+        (, uint count) = scan.primeRun(1);
         Writer memory writer = Writers.allocBalances(count);
 
         while (scan.i < scan.bound) {

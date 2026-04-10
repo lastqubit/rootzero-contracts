@@ -19,7 +19,7 @@ abstract contract Burn is CommandBase {
     function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual returns (uint);
 
     function burn(CommandContext calldata c) external payable onlyCommand(burnId, c.target) returns (bytes memory) {
-        Cur memory state = cursor(c.state, 1);
+        (Cur memory state, ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {
             AssetAmount memory balance = state.unpackBalanceValue();

@@ -30,8 +30,8 @@ abstract contract MyCommand is CommandBase {
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
         // Create the request cursor in the same way commands do, then derive
         // the writer capacity from that cursor.
-        Cur memory inputs = cursor(c.request, 1);
-        Writer memory writer = inputs.allocBalances();
+        (Cur memory inputs, uint count) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(count);
 
         // Walk every AMOUNT block in the prime run of the request.
         while (inputs.i < inputs.bound) {

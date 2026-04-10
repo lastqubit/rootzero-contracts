@@ -10,7 +10,8 @@ abstract contract CustodyToBalance {
     function custodyToBalance(bytes32 account, HostAmount memory custody) internal virtual returns (AssetAmount memory);
 
     function custodiesToBalances(bytes calldata blocks, uint i, bytes32 account) internal returns (bytes memory) {
-        (Cur memory scan, , uint count) = Cursors.init(blocks[i:], 1);
+        Cur memory scan = Cursors.open(blocks[i:]);
+        (, uint count) = scan.primeRun(1);
         Writer memory writer = Writers.allocBalances(count);
 
         while (scan.i < scan.bound) {

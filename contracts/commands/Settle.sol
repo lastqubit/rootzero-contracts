@@ -19,7 +19,7 @@ abstract contract Settle is CommandBase {
     function settle(Tx memory value) internal virtual;
 
     function settle(CommandContext calldata c) external payable onlyCommand(settleId, c.target) returns (bytes memory) {
-        Cur memory state = cursor(c.state, 1);
+        (Cur memory state, ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {
             Tx memory value = state.unpackTxValue();

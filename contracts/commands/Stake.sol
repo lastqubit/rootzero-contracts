@@ -35,8 +35,9 @@ abstract contract StakeBalanceToBalances is CommandBase {
     function stakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             AssetAmount memory balance = state.unpackBalanceValue();
@@ -71,8 +72,9 @@ abstract contract StakeCustodyToBalances is CommandBase {
     function stakeCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             HostAmount memory custody = state.unpackCustodyValue();
@@ -97,7 +99,8 @@ abstract contract StakeCustodyToPosition is CommandBase {
     function stakeCustodyToPosition(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToPositionId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
+        (Cur memory state, ) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
 
         while (state.i < state.bound) {
             HostAmount memory custody = state.unpackCustodyValue();

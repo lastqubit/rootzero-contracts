@@ -22,7 +22,7 @@ abstract contract Destroy is CommandBase {
     function destroy(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(destroyId, c.target) returns (bytes memory) {
-        Cur memory input = cursor(c.request, 0);
+        Cur memory input = cursor(c.request);
         destroy(input);
         return "";
     }

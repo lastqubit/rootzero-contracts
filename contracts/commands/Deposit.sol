@@ -29,8 +29,8 @@ abstract contract Deposit is CommandBase {
     function deposit(
         CommandContext calldata c
     ) external payable onlyCommand(depositId, c.target) returns (bytes memory) {
-        Cur memory request = cursor(c.request, 1);
-        Writer memory writer = request.allocBalances();
+        (Cur memory request, uint count) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(count);
 
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();

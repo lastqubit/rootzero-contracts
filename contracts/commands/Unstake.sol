@@ -33,8 +33,9 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
     function unstakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(unstakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, Cur memory request) = cursors(c, 1, 0);
-        Writer memory writer = state.allocScaledBalances(outScale);
+        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        Cur memory request = cursor(c.request);
+        Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
         while (state.i < state.bound) {
             AssetAmount memory balance = state.unpackBalanceValue();

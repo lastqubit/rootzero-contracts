@@ -10,7 +10,8 @@ abstract contract MapBalance {
     function mapBalance(bytes32 account, AssetAmount memory balance) internal virtual returns (AssetAmount memory out);
 
     function mapBalances(bytes calldata state, uint i, bytes32 account) internal returns (bytes memory) {
-        (Cur memory scan, , uint count) = Cursors.init(state[i:], 1);
+        Cur memory scan = Cursors.open(state[i:]);
+        (, uint count) = scan.primeRun(1);
         Writer memory writer = Writers.allocBalances(count);
 
         while (scan.i < scan.bound) {

@@ -75,12 +75,12 @@ describe("Cursors", () => {
     const meta = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
 
-    it("init sets key, count, len, and bound for a prime run", async () => {
+    it("primeRun sets key, count, len, and bound for a prime run", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
       const c = encodeBalanceBlock(asset, meta, 3n);
       const source = concat(a, b, c);
-      const [key, count, offset, i, len, bound] = await helper.testInit(source, 1n);
+      const [key, count, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
       expect(key).to.equal(Keys.Amount);
       expect(count).to.equal(2n);
       expect(offset).to.equal(0n);
@@ -89,14 +89,10 @@ describe("Cursors", () => {
       expect(bound).to.equal(BigInt(ethers.getBytes(concat(a, b)).length));
     });
 
-    it("init with primeGroup 0 opens without setting prime metadata", async () => {
+    it("primeRun reverts ZeroGroup when group is 0", async () => {
       const source = encodeAmountBlock(asset, meta, amount);
-      const [key, count, , i, len, bound] = await helper.testInit(source, 0n);
-      expect(key).to.equal("0x00000000");
-      expect(count).to.equal(0n);
-      expect(i).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(source).length));
-      expect(bound).to.equal(0n);
+      await expect(helper.testPrimeRun(source, 0n))
+        .to.be.revertedWithCustomError(helper, "ZeroGroup");
     });
 
     it("peek returns the next key and payload length", async () => {

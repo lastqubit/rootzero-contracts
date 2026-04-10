@@ -66,7 +66,7 @@ contract TestCursorHelper {
         return (value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function testInit(bytes calldata source, uint primeGroup)
+    function testPrimeRun(bytes calldata source, uint group)
         external
         pure
         returns (bytes4 key, uint count, uint offset, uint i, uint len, uint bound)
@@ -75,8 +75,8 @@ contract TestCursorHelper {
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
-        Cur memory cur;
-        (cur, key, count) = Cursors.init(source, primeGroup);
+        Cur memory cur = Cursors.open(source);
+        (key, count) = cur.primeRun(group);
         return (key, count, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
     }
 
@@ -86,8 +86,8 @@ contract TestCursorHelper {
     }
 
     function testCountRun(bytes calldata source, uint i, bytes4 key) external pure returns (uint total, uint next) {
-        Cur memory cur = Cursors.open(source).seek(i);
-        return cur.countRun(key);
+        Cur memory cur = Cursors.open(source);
+        return cur.countRun(i, key);
     }
 
     function testBundle(bytes calldata source) external pure returns (uint inputI, uint offset, uint len) {
@@ -122,33 +122,38 @@ contract TestCursorHelper {
         return (deadline, proof, cur.i);
     }
 
-    function testNodeAfter(bytes calldata source, uint primeGroup, uint backup) external pure returns (uint) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+    function testNodeAfter(bytes calldata source, uint group, uint backup) external pure returns (uint) {
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         return cur.nodeAfter(backup);
     }
 
-    function testRecipientAfter(bytes calldata source, uint primeGroup, bytes32 backup) external pure returns (bytes32) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+    function testRecipientAfter(bytes calldata source, uint group, bytes32 backup) external pure returns (bytes32) {
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         return cur.recipientAfter(backup);
     }
 
     function testAuthLast(
         bytes calldata source,
-        uint primeGroup,
+        uint group,
         uint cid
     ) external pure returns (bytes32 hash, uint deadline, bytes calldata proof) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         return cur.authLast(cid);
     }
 
-    function testCursorCompleteEmpty(bytes calldata source, uint primeGroup) external pure returns (bool) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+    function testCursorCompleteEmpty(bytes calldata source, uint group) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         cur.complete();
         return true;
     }
 
-    function testCursorCompletePartial(bytes calldata source, uint primeGroup) external pure returns (bool) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+    function testCursorCompletePartial(bytes calldata source, uint group) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         if (cur.bound > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
@@ -157,8 +162,9 @@ contract TestCursorHelper {
         return true;
     }
 
-    function testCursorCompleteConsumed(bytes calldata source, uint primeGroup) external pure returns (bool) {
-        (Cur memory cur, , ) = Cursors.init(source, primeGroup);
+    function testCursorCompleteConsumed(bytes calldata source, uint group) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        cur.primeRun(group);
         while (cur.i < cur.bound) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;

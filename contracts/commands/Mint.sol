@@ -31,8 +31,8 @@ abstract contract MintToBalances is CommandBase {
     function mintToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(mintToBalancesId, c.target) returns (bytes memory) {
-        Cur memory request = cursor(c.request, 1);
-        Writer memory writer = request.allocScaledBalances(outScale);
+        (Cur memory request, uint count) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocScaledBalances(count, outScale);
 
         while (request.i < request.bound) {
             mintToBalances(c.account, request, writer);

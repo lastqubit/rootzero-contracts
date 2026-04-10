@@ -18,7 +18,7 @@ abstract contract PeerDenyAssets is PeerBase {
     function peerDenyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     function peerDenyAssets(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        Cur memory assets = cursor(request, 1);
+        (Cur memory assets, ) = cursor(request, 1);
 
         while (assets.i < assets.bound) {
             (bytes32 asset, bytes32 meta) = assets.unpackAsset();

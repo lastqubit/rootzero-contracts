@@ -38,15 +38,4 @@ abstract contract CommandBase is OperationBase, CommandEvent {
     function commandId(string memory name) internal view returns (uint) {
         return Ids.toCommand(Selectors.command(name), address(this));
     }
-
-    function cursors(
-        CommandContext calldata c,
-        uint sd,
-        uint rd
-    ) internal pure returns (Cur memory stateCur, Cur memory requestCur) {
-        return cursors(c.state, c.request, sd, rd);
-    }
 }
-
-
-
