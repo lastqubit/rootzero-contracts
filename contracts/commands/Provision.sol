@@ -11,14 +11,22 @@ string constant PFB = "provisionFromBalance";
 
 string constant INPUT = string.concat(Schemas.Node, "&", Schemas.Amount);
 
+/// @notice Shared provision hook used by both `Provision` and `ProvisionFromBalance`.
 abstract contract ProvisionHook {
-    /// @dev Override this hook to send or provision funds to `host`.
-    /// Called by both `Provision` and `ProvisionFromBalance`.
-    /// Implementations should only perform the side effect and must not
-    /// encode or append output blocks.
+    /// @notice Override to send or provision funds to `host`.
+    /// Called once per provisioned asset. Implementations should perform only the
+    /// side effect (e.g. transfer or record); output blocks are written by the caller.
+    /// @param account Caller's account identifier.
+    /// @param host Destination host node ID.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    /// @param amount Amount to provision.
     function provision(bytes32 account, uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 }
 
+/// @title Provision
+/// @notice Command that provisions assets to remote hosts from bundled NODE+AMOUNT request blocks.
+/// Each bundle contains a target node ID and an amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
@@ -29,7 +37,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     function provision(
         CommandContext calldata c
     ) external payable onlyCommand(provisionId, c.target) returns (bytes memory) {
-        (Cur memory request, uint count) = cursor(c.request, 1);
+        (Cur memory request, uint count, ) = cursor(c.request, 1);
         (bytes4 key, ) = request.peek(0);
         if (key != Keys.Bundle) revert Writers.EmptyRequest();
         Writer memory writer = Writers.allocCustodies(count);
@@ -46,7 +54,9 @@ abstract contract Provision is CommandBase, ProvisionHook {
     }
 }
 
-// @dev Converts BALANCE state into CUSTODY state for a destination host.
+/// @title ProvisionFromBalance
+/// @notice Command that converts BALANCE state into CUSTODY state for a destination host.
+/// The destination node is read from an optional NODE trailing block; reverts if absent.
 abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     uint internal immutable provisionFromBalanceId = commandId(PFB);
 
@@ -57,7 +67,7 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     function provisionFromBalance(
         CommandContext calldata c
     ) external payable onlyCommand(provisionFromBalanceId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocCustodies(stateCount);
         uint toHost = request.nodeAfter(0);

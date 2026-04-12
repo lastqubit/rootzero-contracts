@@ -7,6 +7,9 @@ using Cursors for Cur;
 
 string constant NAME = "denyAssets";
 
+/// @title DenyAssets
+/// @notice Admin command that blocks a list of (asset, meta) pairs via a virtual hook.
+/// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
 abstract contract DenyAssets is CommandBase {
     uint internal immutable denyAssetsId = commandId(NAME);
 
@@ -21,7 +24,7 @@ abstract contract DenyAssets is CommandBase {
     function denyAssets(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(denyAssetsId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta) = request.unpackAsset();

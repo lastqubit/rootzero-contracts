@@ -7,6 +7,9 @@ using Cursors for Cur;
 
 string constant NAME = "allocate";
 
+/// @title Allocate
+/// @notice Admin command that applies cross-host allocation entries via a virtual hook.
+/// Each ALLOCATION block in the request calls `allocate`. Only callable by the admin account.
 abstract contract Allocate is CommandBase {
     uint internal immutable allocateId = commandId(NAME);
 
@@ -19,7 +22,7 @@ abstract contract Allocate is CommandBase {
     function allocate(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function allocate(CommandContext calldata c) external payable onlyAdmin(c.account) onlyCommand(allocateId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (uint host, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllocation();

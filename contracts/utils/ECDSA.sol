@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+/// @title ECDSA
+/// @notice Minimal ECDSA signature recovery helpers.
 library ECDSA {
+    /// @dev Upper bound for the `s` component that prevents signature malleability.
+    /// Signatures with `s > MALLEABILITY_THRESHOLD` are rejected.
     uint256 internal constant MALLEABILITY_THRESHOLD =
         0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
 
+    /// @notice Compute the Ethereum signed message hash for a 32-byte digest.
+    /// Prepends the standard `"\x19Ethereum Signed Message:\n32"` prefix before hashing,
+    /// matching the behaviour of `eth_sign` and most wallet signing flows.
+    /// @param hash Raw 32-byte message digest.
+    /// @return digest Prefixed and re-hashed digest suitable for `ecrecover`.
     function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32 digest) {
         assembly ("memory-safe") {
             mstore(0x00, "\x19Ethereum Signed Message:\n32")
@@ -13,6 +22,18 @@ library ECDSA {
         }
     }
 
+    /// @notice Recover the signer address from a calldata ECDSA signature.
+    /// Returns `address(0)` on any validation failure rather than reverting,
+    /// so callers must check the return value.
+    ///
+    /// Validation rules:
+    /// - Signature must be exactly 65 bytes (`r || s || v`).
+    /// - `v` is normalised to 27 or 28 (accepts raw 0/1 as well).
+    /// - `s` must not exceed `MALLEABILITY_THRESHOLD`.
+    ///
+    /// @param hash Message digest to recover from.
+    /// @param signature 65-byte ECDSA signature in `r || s || v` layout.
+    /// @return signer Recovered signer address, or `address(0)` if invalid.
     function tryRecoverCalldata(bytes32 hash, bytes calldata signature) internal pure returns (address signer) {
         if (signature.length != 65) return address(0);
 
@@ -20,6 +41,7 @@ library ECDSA {
         bytes32 s;
         uint8 v;
 
+        // Read r, s, v directly from calldata to avoid a memory copy.
         assembly ("memory-safe") {
             let offset := signature.offset
             r := calldataload(offset)
@@ -34,6 +56,3 @@ library ECDSA {
         return ecrecover(hash, v, r, s);
     }
 }
-
-
-

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+// Aggregator: re-exports all utility libraries (State, Accounts, Assets, ECDSA, Ids, Layout, Utils, Value).
+// Import this file to access the full utility surface without managing individual paths.
+
 import { State } from "./utils/State.sol";
 import { Accounts } from "./utils/Accounts.sol";
 import { Amounts, Assets } from "./utils/Assets.sol";

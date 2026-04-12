@@ -7,6 +7,10 @@ using Cursors for Cur;
 
 string constant NAME = "relocate";
 
+/// @title Relocate
+/// @notice Admin command that forwards native value (ETH) to one or more destination hosts.
+/// Each FUNDING block in the request specifies a target host node ID and an amount to forward.
+/// Only callable by the admin account.
 abstract contract Relocate is CommandBase {
     uint internal immutable relocateId = commandId(NAME);
 
@@ -17,7 +21,7 @@ abstract contract Relocate is CommandBase {
     function relocate(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(relocateId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (uint host, uint amount) = request.unpackFunding();

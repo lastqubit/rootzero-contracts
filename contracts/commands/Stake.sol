@@ -11,6 +11,9 @@ string constant SCTP = "stakeCustodyToPosition";
 using Cursors for Cur;
 using Writers for Writer;
 
+/// @title StakeBalanceToBalances
+/// @notice Command that stakes BALANCE state positions and emits BALANCE outputs.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract StakeBalanceToBalances is CommandBase {
     uint internal immutable stakeBalanceToBalancesId = commandId(SBTB);
     uint private immutable outScale;
@@ -35,7 +38,7 @@ abstract contract StakeBalanceToBalances is CommandBase {
     function stakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -48,6 +51,9 @@ abstract contract StakeBalanceToBalances is CommandBase {
     }
 }
 
+/// @title StakeCustodyToBalances
+/// @notice Command that stakes CUSTODY state positions and emits BALANCE outputs.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract StakeCustodyToBalances is CommandBase {
     uint internal immutable stakeCustodyToBalancesId = commandId(SCTB);
     uint private immutable outScale;
@@ -72,7 +78,7 @@ abstract contract StakeCustodyToBalances is CommandBase {
     function stakeCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -85,6 +91,9 @@ abstract contract StakeCustodyToBalances is CommandBase {
     }
 }
 
+/// @title StakeCustodyToPosition
+/// @notice Command that stakes CUSTODY state positions into a non-balance target
+/// described by the request stream. Produces no output state.
 abstract contract StakeCustodyToPosition is CommandBase {
     uint internal immutable stakeCustodyToPositionId = commandId(SCTP);
 
@@ -99,7 +108,7 @@ abstract contract StakeCustodyToPosition is CommandBase {
     function stakeCustodyToPosition(
         CommandContext calldata c
     ) external payable onlyCommand(stakeCustodyToPositionId, c.target) returns (bytes memory) {
-        (Cur memory state, ) = cursor(c.state, 1);
+        (Cur memory state, , ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
 
         while (state.i < state.bound) {
@@ -111,7 +120,6 @@ abstract contract StakeCustodyToPosition is CommandBase {
         return "";
     }
 }
-
 
 
 

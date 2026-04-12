@@ -8,6 +8,10 @@ string constant NAME = "create";
 
 using Cursors for Cur;
 
+/// @title Create
+/// @notice Generic command that creates or initializes objects via a virtual hook.
+/// The request schema is constructor-defined; `create` is called once per top-level group.
+/// Produces no output state.
 abstract contract Create is CommandBase {
     uint internal immutable createId = commandId(NAME);
 
@@ -20,7 +24,7 @@ abstract contract Create is CommandBase {
     function create(bytes32 account, Cur memory input) internal virtual;
 
     function create(CommandContext calldata c) external payable onlyCommand(createId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             create(c.account, request);
@@ -30,7 +34,6 @@ abstract contract Create is CommandBase {
         return "";
     }
 }
-
 
 
 

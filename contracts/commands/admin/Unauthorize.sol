@@ -7,6 +7,10 @@ using Cursors for Cur;
 
 string constant NAME = "unauthorize";
 
+/// @title Unauthorize
+/// @notice Admin command that revokes authorization from a list of node IDs.
+/// Each NODE block in the request is deauthorized on the host.
+/// Only callable by the admin account.
 abstract contract Unauthorize is CommandBase {
     uint internal immutable unauthorizeId = commandId(NAME);
 
@@ -17,7 +21,7 @@ abstract contract Unauthorize is CommandBase {
     function unauthorize(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(unauthorizeId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             uint node = request.unpackNode();

@@ -9,6 +9,9 @@ string constant UBTB = "unstakeBalanceToBalances";
 using Cursors for Cur;
 using Writers for Writer;
 
+/// @title UnstakeBalanceToBalances
+/// @notice Command that unstakes BALANCE state positions and emits BALANCE outputs.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract UnstakeBalanceToBalances is CommandBase {
     uint internal immutable unstakeBalanceToBalancesId = commandId(UBTB);
     uint private immutable outScale;
@@ -33,7 +36,7 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
     function unstakeBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(unstakeBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -45,7 +48,6 @@ abstract contract UnstakeBalanceToBalances is CommandBase {
         return state.complete(writer);
     }
 }
-
 
 
 

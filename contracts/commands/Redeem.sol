@@ -10,6 +10,9 @@ string constant RDCTB = "redeemFromCustodyToBalances";
 using Cursors for Cur;
 using Writers for Writer;
 
+/// @title RedeemFromBalanceToBalances
+/// @notice Command that redeems BALANCE state positions into BALANCE outputs.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract RedeemFromBalanceToBalances is CommandBase {
     uint internal immutable redeemFromBalanceToBalancesId = commandId(RDBTB);
     uint private immutable outScale;
@@ -34,7 +37,7 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
     function redeemFromBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(redeemFromBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -47,6 +50,9 @@ abstract contract RedeemFromBalanceToBalances is CommandBase {
     }
 }
 
+/// @title RedeemFromCustodyToBalances
+/// @notice Command that redeems CUSTODY state positions into BALANCE outputs.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract RedeemFromCustodyToBalances is CommandBase {
     uint internal immutable redeemFromCustodyToBalancesId = commandId(RDCTB);
     uint private immutable outScale;
@@ -71,7 +77,7 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
     function redeemFromCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(redeemFromCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -83,7 +89,6 @@ abstract contract RedeemFromCustodyToBalances is CommandBase {
         return state.complete(writer);
     }
 }
-
 
 
 

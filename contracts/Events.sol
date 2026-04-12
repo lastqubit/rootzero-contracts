@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+// Aggregator: re-exports all event contracts.
+// Import this file to get access to every event emitter in one import.
+
 import { AccessEvent } from "./events/Access.sol";
 import { AssetEvent } from "./events/Asset.sol";
 import { BalanceEvent } from "./events/Balance.sol";

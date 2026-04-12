@@ -7,6 +7,9 @@ using Cursors for Cur;
 
 string constant NAME = "allowAssets";
 
+/// @title AllowAssets
+/// @notice Admin command that permits a list of (asset, meta) pairs via a virtual hook.
+/// Each ASSET block in the request calls `allowAsset`. Only callable by the admin account.
 abstract contract AllowAssets is CommandBase {
     uint internal immutable allowAssetsId = commandId(NAME);
 
@@ -21,7 +24,7 @@ abstract contract AllowAssets is CommandBase {
     function allowAssets(
         CommandContext calldata c
     ) external payable onlyAdmin(c.account) onlyCommand(allowAssetsId, c.target) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta) = request.unpackAsset();

@@ -82,9 +82,10 @@ describe("Cursors", () => {
       const b = encodeAmountBlock(asset, meta, 2n);
       const c = encodeBalanceBlock(asset, meta, 3n);
       const source = concat(a, b, c);
-      const [key, count, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
+      const [key, count, quotient, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
       expect(key).to.equal(Keys.Amount);
       expect(count).to.equal(2n);
+      expect(quotient).to.equal(2n);
       expect(offset).to.equal(0n);
       expect(i).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(source).length));

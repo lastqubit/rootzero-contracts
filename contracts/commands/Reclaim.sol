@@ -9,6 +9,10 @@ string constant NAME = "reclaimToBalances";
 using Cursors for Cur;
 using Writers for Writer;
 
+/// @title ReclaimToBalances
+/// @notice Command that reclaims or recovers assets from a request stream into BALANCE outputs.
+/// The hook receives the request cursor and output writer directly for flexible parsing.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract ReclaimToBalances is CommandBase {
     uint internal immutable reclaimToBalancesId = commandId(NAME);
     uint private immutable outScale;
@@ -33,7 +37,7 @@ abstract contract ReclaimToBalances is CommandBase {
     function reclaimToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(reclaimToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory request, uint count) = cursor(c.request, 1);
+        (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocScaledBalances(count, outScale);
 
         while (request.i < request.bound) {

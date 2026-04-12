@@ -9,6 +9,9 @@ using Writers for Writer;
 string constant SEBTB = "swapExactBalanceToBalance";
 string constant SECTB = "swapExactCustodyToBalance";
 
+/// @title SwapExactBalanceToBalance
+/// @notice Command that swaps each BALANCE state block into a new BALANCE output
+/// using a virtual hook. Each state balance is passed individually to `swapExactBalanceToBalance`.
 abstract contract SwapExactBalanceToBalance is CommandBase {
     uint internal immutable swapExactBalanceToBalanceId = commandId(SEBTB);
 
@@ -28,7 +31,7 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     function swapExactBalanceToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(swapExactBalanceToBalanceId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocBalances(stateCount);
 
@@ -42,6 +45,9 @@ abstract contract SwapExactBalanceToBalance is CommandBase {
     }
 }
 
+/// @title SwapExactCustodyToBalance
+/// @notice Command that swaps each CUSTODY state block into a BALANCE output
+/// using a virtual hook. Each custody position is passed individually to `swapExactCustodyToBalance`.
 abstract contract SwapExactCustodyToBalance is CommandBase {
     uint internal immutable swapExactCustodyToBalanceId = commandId(SECTB);
 
@@ -61,7 +67,7 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
     function swapExactCustodyToBalance(
         CommandContext calldata c
     ) external payable onlyCommand(swapExactCustodyToBalanceId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocBalances(stateCount);
 
@@ -74,7 +80,6 @@ abstract contract SwapExactCustodyToBalance is CommandBase {
         return state.complete(writer);
     }
 }
-
 
 
 

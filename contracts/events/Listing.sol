@@ -5,7 +5,13 @@ import { EventEmitter } from "./Emitter.sol";
 
 string constant ABI = "event Listing(uint indexed host, bytes32 asset, bytes32 meta, bool active, bool created)";
 
+/// @notice Emitted when an asset listing is created or updated on a host.
 abstract contract ListingEvent is EventEmitter {
+    /// @param host Host node ID that manages this listing.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    /// @param active True if the listing is currently active.
+    /// @param created True if this is a new listing (false if it is an update).
     event Listing(uint indexed host, bytes32 asset, bytes32 meta, bool active, bool created);
 
     constructor() {

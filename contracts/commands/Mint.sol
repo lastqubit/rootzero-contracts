@@ -8,6 +8,11 @@ using Writers for Writer;
 
 string constant NAME = "mintToBalances";
 
+/// @title MintToBalances
+/// @notice Command that mints new BALANCE outputs from a request stream.
+/// The output-to-input ratio is set at construction via `scaledRatio`.
+/// The hook receives both the request cursor and output writer directly to allow
+/// flexible parsing patterns.
 abstract contract MintToBalances is CommandBase {
     uint internal immutable mintToBalancesId = commandId(NAME);
     uint private immutable outScale;
@@ -31,7 +36,7 @@ abstract contract MintToBalances is CommandBase {
     function mintToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(mintToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory request, uint count) = cursor(c.request, 1);
+        (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocScaledBalances(count, outScale);
 
         while (request.i < request.bound) {

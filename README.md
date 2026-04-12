@@ -2,17 +2,17 @@
 
 `rootzero` is the Solidity library for building hosts and commands for the rootzero protocol.
 
-It contains the reusable contracts, utilities, cursor parsers, and encoding helpers that rootzero applications compose on top of. If you are building a host, a command contract, or protocol tooling that needs to speak the protocol's id, asset, account, and block formats, this repo is the shared foundation.
+It contains the reusable contracts, utilities, cursor parsers, and encoding helpers that rootzero applications compose on top of. If you are building a host, a command contract, or protocol tooling that needs to speak the protocol's ID, asset, account, and block formats, this repo is the shared foundation.
 
 ## Main Entry Points
 
-Most consumers should start from the package root entrypoints:
+Most consumers should start from the package root entry points:
 
-- `@rootzero/contracts/Core.sol`: core host, access control, balances, and validator building blocks
-- `@rootzero/contracts/Commands.sol`: base command contract plus standard command mixins
-- `@rootzero/contracts/Cursors.sol`: cursor readers, schemas, keys, memory refs, and writers
-- `@rootzero/contracts/Utils.sol`: ids, assets, accounts, channels, layout, strings, and value helpers
-- `@rootzero/contracts/Events.sol`: reusable event emitters and event contracts
+- `@rootzero/contracts/Core.sol` — host, access control, balances, and validator building blocks
+- `@rootzero/contracts/Commands.sol` — command and peer base contracts plus all standard command mixins
+- `@rootzero/contracts/Cursors.sol` — cursor reader (`Cur`), block schemas, key constants, memory refs, and writers
+- `@rootzero/contracts/Utils.sol` — IDs, assets, accounts, state discriminants, layout, and value helpers
+- `@rootzero/contracts/Events.sol` — reusable event emitters and event contracts
 
 ## Start Here
 
@@ -27,6 +27,29 @@ It walks through:
 - a custom command example
 - simple TypeScript request encoding
 
+## Block Wire Format
+
+All request and response data is encoded as a binary block stream. Each block is:
+
+```
+[bytes4 key][bytes4 payloadLen][payload]
+```
+
+`key` is `bytes4(keccak256(schemaString))` — see `Keys` for the full set. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory; `Mem` parses in-memory streams for composed responses.
+
+## State Discriminants
+
+Every command declares its input and output state shape using constants from the `State` library:
+
+| Constant             | Meaning                           |
+|----------------------|-----------------------------------|
+| `State.Empty`        | No state (empty stream)           |
+| `State.Steps`        | STEP blocks (sub-command pipeline)|
+| `State.Balances`     | BALANCE blocks                    |
+| `State.Transactions` | TRANSACTION blocks                |
+| `State.Custodies`    | CUSTODY blocks                    |
+| `State.Claims`       | Claim records                     |
+
 ## Typical Usage
 
 ### Build a Host
@@ -37,7 +60,7 @@ Extend `Host` when you want a rootzero host contract with admin command support 
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Host} from "@rootzero/contracts/Core.sol";
+import { Host } from "@rootzero/contracts/Core.sol";
 
 contract ExampleHost is Host {
     constructor(address rootzero)
@@ -46,36 +69,37 @@ contract ExampleHost is Host {
 }
 ```
 
-`rootzero` is the trusted runtime. If it is a contract, the host also announces itself there during deployment. Use `address(0)` for a self-managed host that does not auto-register.
+`rootzero` is the trusted runtime address. If it implements `IHostDiscovery`, the host announces itself there during deployment. Use `address(0)` for a self-managed host that does not auto-register.
 
 ### Build a Command
 
-Extend `CommandBase` when you want a rootzero command mixin that runs inside the protocol's trusted call model. Commands are abstract contracts mixed into a host.
+Extend `CommandBase` to define a command mixin that runs inside the protocol's trusted call model. Commands are abstract contracts mixed into a host.
 
 ```solidity
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, Channels} from "@rootzero/contracts/Commands.sol";
-import {Cursors, Cursor, Schemas} from "@rootzero/contracts/Cursors.sol";
+import { CommandBase, CommandContext } from "@rootzero/contracts/Commands.sol";
+import { Cursors, Cur, Schemas } from "@rootzero/contracts/Cursors.sol";
+import { State } from "@rootzero/contracts/Utils.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 string constant NAME = "myCommand";
-string constant INPUT = Schemas.Amount;
 
 abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, INPUT, myCommandId, Channels.Setup, Channels.Balances);
+        emit Command(host, NAME, Schemas.Amount, myCommandId, State.Empty, State.Balances);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        Cursor memory input = Cursors.openBlock(c.request, 0);
+        (Cur memory input, , ) = cursor(c.request, 1);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
+        input.complete();
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
@@ -83,17 +107,16 @@ abstract contract ExampleCommand is CommandBase {
 
 ## Repo Layout
 
-- `contracts/core`: host, access control, balances, operation, and validation primitives
-- `contracts/commands`: standard command building blocks and admin commands
-- `contracts/peer`: peer protocol surfaces for inter-host asset flows
-- `contracts/blocks`: request/response schema, cursor parsing, memory refs, and writers
-- `contracts/utils`: shared protocol encoding helpers
-- `contracts/events`: protocol event contracts and emitters
-- `contracts/interfaces`: discovery interfaces and shared external protocol surfaces
-- `examples`: small host and command examples
-- `docs`: introductory documentation
+- `contracts/core` — host, access control, balances, operation base, and signature validation
+- `contracts/commands` — standard command building blocks and admin commands
+- `contracts/peer` — peer protocol surfaces for inter-host asset flows and asset allow/deny
+- `contracts/blocks` — block stream schema (`Schema`), cursor parsing (`Cursors`), memory refs (`Mem`), and writers (`Writers`)
+- `contracts/utils` — shared encoding helpers: IDs, assets, accounts, state discriminants, layout, ECDSA
+- `contracts/events` — protocol event contracts and emitters
+- `contracts/interfaces` — discovery interfaces and shared external protocol surfaces
+- `docs` — introductory documentation
 
-## Install And Compile
+## Install and Compile
 
 ```bash
 npm install @rootzero/contracts

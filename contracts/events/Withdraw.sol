@@ -5,7 +5,13 @@ import { EventEmitter } from "./Emitter.sol";
 
 string constant ABI = "event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint cid)";
 
+/// @notice Emitted when assets are withdrawn from an account.
 abstract contract WithdrawalEvent is EventEmitter {
+    /// @param account Source account identifier.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    /// @param amount Amount withdrawn.
+    /// @param cid Command ID that triggered the withdrawal.
     event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint cid);
 
     constructor() {

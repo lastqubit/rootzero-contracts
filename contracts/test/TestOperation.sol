@@ -13,9 +13,9 @@ contract TestOperation is OperationBase {
         bytes calldata request,
         uint requestGroup
     ) external pure returns (bool) {
-        (, uint stateCount) = cursor(state, stateGroup);
-        (, uint requestCount) = cursor(request, requestGroup);
-        checkRatio(stateCount, stateGroup, requestCount, requestGroup);
+        (, , uint stateQuotient) = cursor(state, stateGroup);
+        (, , uint requestQuotient) = cursor(request, requestGroup);
+        checkQuotient(stateQuotient, requestQuotient);
         return true;
     }
 }

@@ -8,6 +8,9 @@ string constant NAME = "init";
 
 using Cursors for Cur;
 
+/// @title Init
+/// @notice Admin command that runs host initialization logic via a virtual hook.
+/// The full request is passed to `init` as a cursor. Only callable by the admin account.
 abstract contract Init is CommandBase {
     uint internal immutable initId = commandId(NAME);
 
@@ -15,7 +18,8 @@ abstract contract Init is CommandBase {
         emit Command(host, NAME, input, initId, State.Empty, State.Empty);
     }
 
-    /// @dev Override to run host initialization logic using the decoded input.
+    /// @notice Override to run host initialization logic.
+    /// @param input Cursor over the full request byte stream.
     function init(Cur memory input) internal virtual;
 
     function init(

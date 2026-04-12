@@ -69,15 +69,15 @@ contract TestCursorHelper {
     function testPrimeRun(bytes calldata source, uint group)
         external
         pure
-        returns (bytes4 key, uint count, uint offset, uint i, uint len, uint bound)
+        returns (bytes4 key, uint count, uint quotient, uint offset, uint i, uint len, uint bound)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        (key, count) = cur.primeRun(group);
-        return (key, count, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
+        (key, count, quotient) = cur.primeRun(group);
+        return (key, count, quotient, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {

@@ -10,6 +10,9 @@ string constant LFCTB = "liquidateFromCustodyToBalances";
 using Cursors for Cur;
 using Writers for Writer;
 
+/// @title LiquidateFromBalanceToBalances
+/// @notice Command that liquidates BALANCE state positions into BALANCE outputs
+/// using a virtual hook. The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract LiquidateFromBalanceToBalances is CommandBase {
     uint internal immutable liquidateFromBalanceToBalancesId = commandId(LFBTB);
     uint private immutable outScale;
@@ -34,7 +37,7 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
     function liquidateFromBalanceToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(liquidateFromBalanceToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -47,6 +50,9 @@ abstract contract LiquidateFromBalanceToBalances is CommandBase {
     }
 }
 
+/// @title LiquidateFromCustodyToBalances
+/// @notice Command that liquidates CUSTODY state positions into BALANCE outputs
+/// using a virtual hook. The output-to-input ratio is set at construction via `scaledRatio`.
 abstract contract LiquidateFromCustodyToBalances is CommandBase {
     uint internal immutable liquidateFromCustodyToBalancesId = commandId(LFCTB);
     uint private immutable outScale;
@@ -71,7 +77,7 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
     function liquidateFromCustodyToBalances(
         CommandContext calldata c
     ) external payable onlyCommand(liquidateFromCustodyToBalancesId, c.target) returns (bytes memory) {
-        (Cur memory state, uint stateCount) = cursor(c.state, 1);
+        (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
         Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocScaledBalances(stateCount, outScale);
 
@@ -83,7 +89,6 @@ abstract contract LiquidateFromCustodyToBalances is CommandBase {
         return state.complete(writer);
     }
 }
-
 
 
 

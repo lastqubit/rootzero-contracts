@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+// Basis-points denominator: 10_000 BPS == 100.00%.
 uint16 constant MAX_BPS = 10_000;
 
+// Thrown by max* helpers when a value exceeds the target integer width.
 error ValueOverflow();
+// Thrown by `divisible` when `n` is not evenly divisible by `divisor`.
 error NotDivisible();
 
+/// @notice Assert that `value` fits in uint8 and return it unchanged.
 function max8(uint value) pure returns (uint) {
     if (value > type(uint8).max) {
         revert ValueOverflow();
@@ -13,6 +17,7 @@ function max8(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint16 and return it unchanged.
 function max16(uint value) pure returns (uint) {
     if (value > type(uint16).max) {
         revert ValueOverflow();
@@ -20,6 +25,7 @@ function max16(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint24 and return it unchanged.
 function max24(uint value) pure returns (uint) {
     if (value > type(uint24).max) {
         revert ValueOverflow();
@@ -27,6 +33,7 @@ function max24(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint32 and return it unchanged.
 function max32(uint value) pure returns (uint) {
     if (value > type(uint32).max) {
         revert ValueOverflow();
@@ -34,6 +41,7 @@ function max32(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint40 and return it unchanged.
 function max40(uint value) pure returns (uint) {
     if (value > type(uint40).max) {
         revert ValueOverflow();
@@ -41,6 +49,7 @@ function max40(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint64 and return it unchanged.
 function max64(uint value) pure returns (uint) {
     if (value > type(uint64).max) {
         revert ValueOverflow();
@@ -48,6 +57,7 @@ function max64(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint96 and return it unchanged.
 function max96(uint value) pure returns (uint) {
     if (value > type(uint96).max) {
         revert ValueOverflow();
@@ -55,6 +65,7 @@ function max96(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint128 and return it unchanged.
 function max128(uint value) pure returns (uint) {
     if (value > type(uint128).max) {
         revert ValueOverflow();
@@ -62,6 +73,7 @@ function max128(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `value` fits in uint160 and return it unchanged.
 function max160(uint value) pure returns (uint) {
     if (value > type(uint160).max) {
         revert ValueOverflow();
@@ -69,14 +81,19 @@ function max160(uint value) pure returns (uint) {
     return value;
 }
 
+/// @notice Assert that `n` is evenly divisible by `divisor`.
+/// No-op when `divisor` is zero.
 function divisible(uint n, uint divisor) pure {
     if (divisor != 0 && n % divisor != 0) revert NotDivisible();
 }
 
+/// @notice Return `addr` if non-zero, otherwise return `or`.
 function addrOr(address addr, address or) pure returns (address) {
     return addr == address(0) ? or : addr;
 }
 
+/// @notice Convert a null-terminated `bytes32` value to a Solidity string.
+/// Stops at the first zero byte and returns only the meaningful prefix.
 function bytes32ToString(bytes32 value) pure returns (string memory result) {
     uint len;
     while (len < 32 && value[len] != 0) {
@@ -91,6 +108,7 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
     }
 }
 
+/// @notice Keccak256-hash a single bytes32 word.
 function hash32(bytes32 value) pure returns (bytes32 hash) {
     assembly ("memory-safe") {
         mstore(0x00, value)
@@ -98,44 +116,79 @@ function hash32(bytes32 value) pure returns (bytes32 hash) {
     }
 }
 
+/// @notice Build the chain-local base prefix for a 256-bit ID.
+/// Embeds the current `block.chainid` so IDs are not portable across chains.
+/// @param prefix Four-byte type tag (e.g. `Ids.Host`, `Ids.Command`).
+/// @return Base value with the type tag in bits [255:224] and chainid in bits [223:192].
 function toLocalBase(uint32 prefix) view returns (uint) {
     return (uint(prefix) << 224) | (uint(max32(block.chainid)) << 192);
 }
 
+/// @notice Build the chain-local family prefix for a 256-bit ID.
+/// Uses a 24-bit family tag (the top 3 bytes of the type field).
+/// @param family Three-byte family tag.
+/// @return Family prefix with the family in bits [255:232] and chainid in bits [223:192].
 function toLocalFamily(uint24 family) view returns (uint) {
     return (uint(family) << 232) | (uint(max32(block.chainid)) << 192);
 }
 
+/// @notice Build a chain-unspecified base prefix (no chainid embedded).
+/// Used for IDs that must be portable across chains (e.g. user accounts).
+/// @param prefix Four-byte type tag.
+/// @return Base value with the type tag in bits [255:224] and zeros elsewhere.
 function toUnspecifiedBase(uint32 prefix) pure returns (uint) {
     return uint(prefix) << 224;
 }
 
+/// @notice Check whether `value` belongs to the given 24-bit family.
+/// Only tests the top 3 bytes (bits [255:232]); does not check chainid.
+/// @param value ID to test.
+/// @param family Expected family tag.
+/// @return True if the top 3 bytes of `value` match `family`.
 function isFamily(uint value, uint24 family) pure returns (bool) {
     return uint24(value >> 232) == family;
 }
 
+/// @notice Check whether `value` was created on the current chain.
+/// @param value ID to test.
+/// @return True if bits [223:192] of `value` equal `block.chainid`.
 function isLocal(uint value) view returns (bool) {
     return uint32(value >> 192) == block.chainid;
 }
 
+/// @notice Check whether `value` belongs to the given family and was created on the current chain.
+/// @param value ID to test.
+/// @param family Expected 24-bit family tag.
+/// @return True if both the family and chainid fields match.
 function isLocalFamily(uint value, uint24 family) view returns (bool) {
     return isFamily(value, family) && isLocal(value);
 }
 
+/// @notice Check whether two IDs share the same 64-bit base (type tag + chainid).
+/// Used to verify that an ID matches a locally-constructed base without comparing
+/// the lower 192-bit payload.
+/// @param value ID to test.
+/// @param base Reference base value produced by `toLocalBase`.
+/// @return True if bits [255:192] of `value` equal those of `base`.
 function matchesBase(bytes32 value, uint base) pure returns (bool) {
     return uint64(uint(value) >> 192) == uint64(base >> 192);
 }
 
+/// @notice Apply a basis-points fee to an amount (round down).
+/// @param amount Base amount.
+/// @param bps Fee rate in basis points (0–10_000).
+/// @return `amount * bps / 10_000`, or 0 if either input is zero.
 function applyBps(uint amount, uint16 bps) pure returns (uint) {
     if (amount == 0 || bps == 0) return 0;
     return (amount * bps) / MAX_BPS;
 }
 
+/// @notice Compute the pre-fee amount given a post-fee amount and a basis-points rate.
+/// Useful for back-calculating how much to charge so that the net result equals `amount`.
+/// @param amount Desired post-fee (net) amount.
+/// @param bps Fee rate in basis points.
+/// @return `amount * 10_000 / (10_000 + bps)`, or 0 if either input is zero.
 function beforeBps(uint amount, uint16 bps) pure returns (uint) {
     if (amount == 0 || bps == 0) return 0;
     return (amount * MAX_BPS) / (MAX_BPS + bps);
 }
-
-
-
-

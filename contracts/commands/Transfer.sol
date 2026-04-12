@@ -8,6 +8,10 @@ using Cursors for Cur;
 string constant NAME = "transfer";
 string constant INPUT = string.concat(Schemas.Amount, "&", Schemas.Recipient);
 
+/// @title Transfer
+/// @notice Command that transfers assets from a caller to recipients specified in
+/// bundled AMOUNT+RECIPIENT request blocks. Produces no state output.
+/// The virtual `transfer(from, input)` hook is called once per bundle.
 abstract contract Transfer is CommandBase {
     uint internal immutable transferId = commandId(NAME);
 
@@ -15,15 +19,19 @@ abstract contract Transfer is CommandBase {
         emit Command(host, NAME, INPUT, transferId, State.Empty, State.Empty);
     }
 
-    /// @dev Override to transfer funds from `from` to `to`.
-    /// Called once per bundled AMOUNT/RECIPIENT pair in the request.
+    /// @notice Override to execute a single transfer described by the current `input` position.
+    /// Called once per bundled AMOUNT+RECIPIENT pair in the request.
+    /// @param from Source account identifier.
+    /// @param input Live request cursor positioned at the current bundle.
     function transfer(bytes32 from, Cur memory input) internal virtual;
 
-    /// @dev Override to customize request parsing or batching for transfers.
-    /// The default implementation iterates bundled AMOUNT/RECIPIENT pairs and calls
-    /// `transfer(from, input)` for each one.
+    /// @notice Override to customize request parsing or batching for transfers.
+    /// The default implementation iterates bundles and calls `transfer(from, input)` for each.
+    /// @param from Source account identifier.
+    /// @param request Full request bytes.
+    /// @return Empty bytes (transfers produce no state output).
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, ) = cursor(request, 1);
+        (Cur memory input, , ) = cursor(request, 1);
 
         while (input.i < input.bound) {
             transfer(from, input);
