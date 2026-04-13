@@ -36,6 +36,13 @@ export function pad32(value: bigint | string): string {
   return ethers.zeroPadValue(value, 32);
 }
 
+const USER_PREFIX = 0x20010102n;
+
+export function encodeUserAccount(addr: string): string {
+  const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
+  return ethers.zeroPadValue(ethers.toBeHex(account), 32);
+}
+
 // Encode a 4-byte big-endian uint32
 function encodeUint32(value: number): string {
   return ethers.toBeHex(value, 4);

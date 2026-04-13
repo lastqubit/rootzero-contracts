@@ -39,8 +39,8 @@ abstract contract Transfer is CommandBase, TransferHook {
 
         while (input.i < input.bound) {
             Cur memory bundle = input.bundle();
-            value.to = Accounts.ensure(bundle.unpackRecipient());
             (value.asset, value.meta, value.amount) = bundle.unpackAmount();
+            value.to = Accounts.ensure(bundle.unpackRecipient());
             transfer(value);
         }
 

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { deploy, getSigner } from "./helpers/setup.js";
-import { concat, encodeRouteBlock, encodeTxBlock } from "./helpers/blocks.js";
+import { concat, encodeRouteBlock, encodeTxBlock, encodeUserAccount } from "./helpers/blocks.js";
 import { ethers } from "ethers";
 import "./helpers/matchers.js";
 
@@ -90,8 +90,8 @@ describe("Peer Commands", () => {
 
   describe("peerSettle", () => {
     const method = "peerSettle(bytes)";
-    const from_ = ethers.zeroPadValue("0x11", 32);
-    const to_ = ethers.zeroPadValue("0x22", 32);
+    const from_ = encodeUserAccount("0x11");
+    const to_ = encodeUserAccount("0x22");
     const asset = ethers.zeroPadValue("0xaa", 32);
     const meta = ethers.zeroPadValue("0xbb", 32);
 
@@ -101,7 +101,7 @@ describe("Peer Commands", () => {
     });
 
     it("emits PeerSettleCalled for each TX block when multiple are present", async () => {
-      const from2 = ethers.zeroPadValue("0x33", 32);
+      const from2 = encodeUserAccount("0x33");
       const tx = await callAs(
         0,
         method,

@@ -5,7 +5,7 @@ import "./helpers/matchers.js";
 import {
   encodeAmountBlock, encodeAmountBlockWithNode, encodeAmountBlockWithRecipient,
   encodeBalanceBlock, encodeCustodyBlock,
-  encodeRecipientBlock, encodeNodeBlock, encodeTxBlock, encodeStepBlock,
+  encodeRecipientBlock, encodeNodeBlock, encodeTxBlock, encodeStepBlock, encodeUserAccount,
   encodeBundleBlock, concat
 } from "./helpers/blocks.js";
 
@@ -141,7 +141,7 @@ describe("Commands", () => {
     });
 
     it("uses RECIPIENT from request when present", async () => {
-      const recipient = ethers.zeroPadValue("0xbabe", 32);
+      const recipient = encodeUserAccount("0xbabe");
       const state = encodeBalanceBlock(asset, meta, 50n);
       const request = encodeRecipientBlock(recipient);
       const tx = await callAs(0, "withdraw", ctx({ state, request }));
@@ -185,7 +185,7 @@ describe("Commands", () => {
     const meta  = ethers.ZeroHash;
 
     it("emits TransferCalled for bundled AMOUNT and RECIPIENT blocks", async () => {
-      const to = ethers.zeroPadValue("0xbeef", 32);
+      const to = encodeUserAccount("0xbeef");
       const request = encodeBundleBlock(
         encodeAmountBlock(asset, meta, 200n),
         encodeRecipientBlock(to)
@@ -196,7 +196,7 @@ describe("Commands", () => {
     });
 
     it("reverts InvalidBlock when no AMOUNT blocks", async () => {
-      const to = ethers.zeroPadValue("0xbeef", 32);
+      const to = encodeUserAccount("0xbeef");
       const request = encodeRecipientBlock(to);
       await expect(callAs(0, "transfer", ctx({ request })))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
@@ -212,8 +212,8 @@ describe("Commands", () => {
       const asset1 = ethers.zeroPadValue("0x21", 32);
       const asset2 = ethers.zeroPadValue("0x22", 32);
       const meta   = ethers.ZeroHash;
-      const to1    = ethers.zeroPadValue("0xbeef", 32);
-      const to2    = ethers.zeroPadValue("0xcafe", 32);
+      const to1    = encodeUserAccount("0xbeef");
+      const to2    = encodeUserAccount("0xcafe");
       const request = concat(
         encodeBundleBlock(
           encodeAmountBlock(asset1, meta, 100n),
@@ -230,7 +230,7 @@ describe("Commands", () => {
     });
 
     it("accepts the explicit transfer command id as the target", async () => {
-      const to = ethers.zeroPadValue("0xbeef", 32);
+      const to = encodeUserAccount("0xbeef");
       const request = encodeBundleBlock(
         encodeAmountBlock(asset, meta, 5n),
         encodeRecipientBlock(to)
@@ -242,7 +242,7 @@ describe("Commands", () => {
     });
 
     it("reverts UnexpectedEndpoint for wrong non-zero target", async () => {
-      const to = ethers.zeroPadValue("0xbeef", 32);
+      const to = encodeUserAccount("0xbeef");
       const request = encodeBundleBlock(
         encodeAmountBlock(asset, meta, 1n),
         encodeRecipientBlock(to)
@@ -266,7 +266,7 @@ describe("Commands", () => {
     });
 
     it("uses RECIPIENT from request when present", async () => {
-      const recipient = ethers.zeroPadValue("0xcafe", 32);
+      const recipient = encodeUserAccount("0xcafe");
       const state = encodeBalanceBlock(asset, meta, 100n);
       const request = encodeRecipientBlock(recipient);
       const tx = await callAs(0, "creditAccount", ctx({ state, request }));
@@ -340,8 +340,8 @@ describe("Commands", () => {
 
   describe("settle", () => {
     it("emits SettleCalled for each TX block in state", async () => {
-      const from_ = ethers.zeroPadValue("0xaa", 32);
-      const to_   = ethers.zeroPadValue("0xbb", 32);
+      const from_ = encodeUserAccount("0xaa");
+      const to_   = encodeUserAccount("0xbb");
       const asset = ethers.zeroPadValue("0x50", 32);
       const meta  = ethers.ZeroHash;
       const state = encodeTxBlock(from_, to_, asset, meta, 500n);
@@ -356,10 +356,10 @@ describe("Commands", () => {
     });
 
     it("emits SettleCalled for each TX block in a batch state", async () => {
-      const from1 = ethers.zeroPadValue("0xa1", 32);
-      const from2 = ethers.zeroPadValue("0xa2", 32);
-      const from3 = ethers.zeroPadValue("0xa3", 32);
-      const to_   = ethers.zeroPadValue("0xbb", 32);
+      const from1 = encodeUserAccount("0xa1");
+      const from2 = encodeUserAccount("0xa2");
+      const from3 = encodeUserAccount("0xa3");
+      const to_   = encodeUserAccount("0xbb");
       const asset = ethers.zeroPadValue("0x50", 32);
       const meta  = ethers.ZeroHash;
       const state = concat(

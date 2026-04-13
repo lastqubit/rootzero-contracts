@@ -21,6 +21,7 @@ import {
   encodeRouteBlock,
   encodeStepBlock,
   encodeTxBlock,
+  encodeUserAccount,
   concat,
 } from "./helpers/blocks.js";
 
@@ -62,8 +63,8 @@ describe("Cursors", () => {
     });
 
     it("writeTxBlock round-trips", async () => {
-      const from_ = ethers.zeroPadValue("0x03", 32);
-      const to_ = ethers.zeroPadValue("0x04", 32);
+      const from_ = encodeUserAccount("0x03");
+      const to_ = encodeUserAccount("0x04");
       const data: string = await helper.testWriteTxBlock(from_, to_, asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(168);
       expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, meta, amount]);
@@ -142,7 +143,7 @@ describe("Cursors", () => {
     });
 
     it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const route = encodeRecipientBlock(ethers.zeroPadValue("0x12", 32));
+      const route = encodeRecipientBlock(encodeUserAccount("0x12"));
       const minimum = encodeMinimumBlock(asset, meta, amount);
       const bundle = encodeBundleBlock(route, minimum);
       const [inputI, offset, len] = await helper.testBundle(bundle);
@@ -194,8 +195,8 @@ describe("Cursors", () => {
     });
 
     it("recipientAfter returns the tail recipient or backup", async () => {
-      const backup = ethers.zeroPadValue("0x99", 32);
-      const recipient = ethers.zeroPadValue("0x12", 32);
+      const backup = encodeUserAccount("0x99");
+      const recipient = encodeUserAccount("0x12");
       const source = concat(
         encodeAmountBlock(asset, meta, amount),
         encodeRecipientBlock(recipient)
