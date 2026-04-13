@@ -30,7 +30,7 @@ library Keys {
     bytes4 constant Party = bytes4(keccak256("party(bytes32 account)"));
     /// @dev Destination account — (bytes32 account)
     bytes4 constant Recipient = bytes4(keccak256("recipient(bytes32 account)"));
-    /// @dev Settled transfer record — (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
+    /// @dev Transfer record passed through the pipeline — (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Sub-command invocation — (uint target, uint value, bytes request)
     bytes4 constant Step = bytes4(keccak256("step(uint target, uint value, bytes request)"));

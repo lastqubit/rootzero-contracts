@@ -259,7 +259,7 @@ library Writers {
     /// @notice Write a TRANSACTION block directly into `dst` at byte offset `i`.
     /// @param dst Destination buffer; must have at least `i + Sizes.Transaction` bytes.
     /// @param i Write offset within `dst`.
-    /// @param value Transaction fields to encode.
+    /// @param value Transfer record fields to encode.
     /// @return next Byte offset immediately after the written block.
     function writeTxBlock(bytes memory dst, uint i, Tx memory value) internal pure returns (uint next) {
         next = i + Sizes.Transaction;
@@ -279,7 +279,7 @@ library Writers {
 
     /// @notice Append a TRANSACTION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
-    /// @param value Transaction fields to encode.
+    /// @param value Transfer record fields to encode.
     function appendTx(Writer memory writer, Tx memory value) internal pure {
         writer.i = writeTxBlock(writer.dst, writer.i, value);
     }

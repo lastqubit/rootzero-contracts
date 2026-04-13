@@ -63,11 +63,9 @@ contract TestHost is
         emit WithdrawCalled(account, asset, meta, amount);
     }
 
-    function transfer(bytes32 from_, Cur memory input) internal override {
-        Cur memory bundle = input.bundle();
-        (bytes32 asset, bytes32 meta, uint amount) = bundle.unpackAmount();
-        bytes32 to_ = bundle.unpackRecipient();
-        emit TransferCalled(from_, to_, asset, meta, amount);
+    function transfer(Tx memory value) internal override {
+        emit TransferCalled(value.from, value.to, value.asset, value.meta, value.amount);
+        emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
@@ -76,10 +74,6 @@ contract TestHost is
 
     function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DebitFromCalled(account, asset, meta, amount, amount);
-    }
-
-    function settle(Tx memory value) internal override {
-        emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
     function provision(bytes32 account, uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {

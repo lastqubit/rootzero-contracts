@@ -143,7 +143,7 @@ struct HostAsset {
     bytes32 meta;
 }
 
-/// @notice Settled transfer record written to transaction state.
+/// @notice Transfer payload used across the pipeline and later consumed by settlement.
 struct Tx {
     /// @dev Sender account identifier.
     bytes32 from;
