@@ -15,6 +15,7 @@ export const Keys = {
   Funding: blockKey("funding(uint host, uint amount)"),
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
   Allocation: blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"),
+  Listing: blockKey("listing(uint host, bytes32 asset, bytes32 meta)"),
   Quantity: blockKey("quantity(uint amount)"),
   Step: blockKey("step(uint target, uint value, bytes request)"),
   Transaction: blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
@@ -96,6 +97,10 @@ export function encodeAllocationBlock(host: bigint, asset: string, meta: string,
   return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
+export function encodeListingBlock(host: bigint, asset: string, meta: string): string {
+  return block(Keys.Listing, ethers.concat([pad32(host), pad32(asset), pad32(meta)]));
+}
+
 export function encodeTxBlock(from: string, to: string, asset: string, meta: string, amount: bigint): string {
   return block(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(meta), pad32(amount)]));
 }
@@ -138,6 +143,10 @@ export function encodeMinimumBlock(asset: string, meta: string, amount: bigint):
 
 export function encodeMaximumBlock(asset: string, meta: string, amount: bigint): string {
   return block(Keys.Maximum, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
+}
+
+export function encodeBountyBlock(amount: bigint, relayer: string): string {
+  return block(Keys.Bounty, ethers.concat([pad32(amount), pad32(relayer)]));
 }
 
 export function concat(...parts: string[]): string {
