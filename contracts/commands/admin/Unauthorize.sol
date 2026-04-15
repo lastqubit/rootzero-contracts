@@ -15,12 +15,12 @@ abstract contract Unauthorize is CommandBase {
     uint internal immutable unauthorizeId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Node, unauthorizeId, State.Empty, State.Empty, true);
+        emit Command(host, NAME, Schemas.Node, unauthorizeId, State.Empty, State.Empty, false);
     }
 
     function unauthorize(
         CommandContext calldata c
-    ) external payable onlyAdmin(c.account) onlyCommand(unauthorizeId, c.target) returns (bytes memory) {
+    ) external onlyAdmin(c.account) onlyCommand(unauthorizeId, c.target) returns (bytes memory) {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {

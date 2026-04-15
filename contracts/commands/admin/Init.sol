@@ -15,7 +15,7 @@ abstract contract Init is CommandBase {
     uint internal immutable initId = commandId(NAME);
 
     constructor(string memory input) {
-        emit Command(host, NAME, input, initId, State.Empty, State.Empty, true);
+        emit Command(host, NAME, input, initId, State.Empty, State.Empty, false);
     }
 
     /// @notice Override to run host initialization logic.
@@ -24,7 +24,7 @@ abstract contract Init is CommandBase {
 
     function init(
         CommandContext calldata c
-    ) external payable onlyAdmin(c.account) onlyCommand(initId, c.target) returns (bytes memory) {
+    ) external onlyAdmin(c.account) onlyCommand(initId, c.target) returns (bytes memory) {
         Cur memory input = cursor(c.request);
         init(input);
         return "";

@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import { AccessControl } from "./Access.sol";
 import { Authorize } from "../commands/admin/Authorize.sol";
 import { Unauthorize } from "../commands/admin/Unauthorize.sol";
-import { Relocate } from "../commands/admin/Relocate.sol";
+import { RelocatePayable } from "../commands/admin/Relocate.sol";
 import { HostAnnouncedEvent } from "../events/HostAnnounced.sol";
 import { IHostDiscovery } from "../interfaces/IHostDiscovery.sol";
 import { Ids } from "../utils/Ids.sol";
@@ -25,10 +25,10 @@ abstract contract HostDiscovery is HostAnnouncedEvent, IHostDiscovery {
 
 /// @title Host
 /// @notice Abstract base contract for rootzero host implementations.
-/// Inherits admin command support (authorize, unauthorize, relocate) and
+/// Inherits admin command support (authorize, unauthorize, relocatePayable) and
 /// optionally announces itself to a discovery contract at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is Authorize, Unauthorize, Relocate {
+abstract contract Host is Authorize, Unauthorize, RelocatePayable {
     /// @param cmdr Commander address; passed to `AccessControl`.
     ///        If `cmdr` is a deployed contract, the host calls `announceHost`
     ///        on it during construction to register with the discovery registry.

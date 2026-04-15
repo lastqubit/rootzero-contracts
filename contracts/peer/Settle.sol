@@ -16,11 +16,11 @@ abstract contract PeerSettle is PeerBase, TransferHook {
     uint internal immutable peerSettleId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.Transaction, peerSettleId);
+        emit Peer(host, NAME, Schemas.Transaction, peerSettleId, false);
     }
 
     /// @notice Execute the peer-settle call.
-    function peerSettle(bytes calldata request) external payable onlyPeer returns (bytes memory) {
+    function peerSettle(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory state, , ) = cursor(request, 1);
 
         while (state.i < state.bound) {

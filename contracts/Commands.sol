@@ -33,7 +33,7 @@ import { Destroy } from "./commands/admin/Destroy.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
 import { DenyAssets } from "./commands/admin/DenyAssets.sol";
 import { Init } from "./commands/admin/Init.sol";
-import { Relocate } from "./commands/admin/Relocate.sol";
+import { RelocatePayable } from "./commands/admin/Relocate.sol";
 import { Allocate } from "./commands/admin/Allocate.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 import { PeerBase } from "./peer/Base.sol";

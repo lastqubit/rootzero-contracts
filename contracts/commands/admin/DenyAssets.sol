@@ -14,7 +14,7 @@ abstract contract DenyAssets is CommandBase {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Asset, denyAssetsId, State.Empty, State.Empty, true);
+        emit Command(host, NAME, Schemas.Asset, denyAssetsId, State.Empty, State.Empty, false);
     }
 
     /// @dev Override to deny a single asset/meta pair.
@@ -23,7 +23,7 @@ abstract contract DenyAssets is CommandBase {
 
     function denyAssets(
         CommandContext calldata c
-    ) external payable onlyAdmin(c.account) onlyCommand(denyAssetsId, c.target) returns (bytes memory) {
+    ) external onlyAdmin(c.account) onlyCommand(denyAssetsId, c.target) returns (bytes memory) {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {

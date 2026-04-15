@@ -15,7 +15,7 @@ abstract contract PeerPull is PeerBase {
     uint internal immutable peerPullId = peerId(NAME);
 
     constructor(string memory input) {
-        emit Peer(host, NAME, input, peerPullId);
+        emit Peer(host, NAME, input, peerPullId, false);
     }
 
     /// @notice Override to process a single incoming block from the pull request.
@@ -23,7 +23,7 @@ abstract contract PeerPull is PeerBase {
     function peerPull(Cur memory input) internal virtual;
 
     /// @notice Execute the pull peer call.
-    function peerPull(bytes calldata request) external payable onlyPeer returns (bytes memory) {
+    function peerPull(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory input, , ) = cursor(request, 1);
 
         while (input.i < input.bound) {

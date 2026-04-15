@@ -15,7 +15,7 @@ abstract contract PeerAllowAssets is PeerBase {
     uint internal immutable peerAllowAssetsId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.Asset, peerAllowAssetsId);
+        emit Peer(host, NAME, Schemas.Asset, peerAllowAssetsId, false);
     }
 
     /// @notice Override to permit a single (asset, meta) pair.
@@ -25,7 +25,7 @@ abstract contract PeerAllowAssets is PeerBase {
     function peerAllowAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     /// @notice Execute the allow-assets peer call.
-    function peerAllowAssets(bytes calldata request) external payable onlyPeer returns (bytes memory) {
+    function peerAllowAssets(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory assets, , ) = cursor(request, 1);
 
         while (assets.i < assets.bound) {

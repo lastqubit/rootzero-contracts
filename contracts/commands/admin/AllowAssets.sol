@@ -14,7 +14,7 @@ abstract contract AllowAssets is CommandBase {
     uint internal immutable allowAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Asset, allowAssetsId, State.Empty, State.Empty, true);
+        emit Command(host, NAME, Schemas.Asset, allowAssetsId, State.Empty, State.Empty, false);
     }
 
     /// @dev Override to allow a single asset/meta pair.
@@ -23,7 +23,7 @@ abstract contract AllowAssets is CommandBase {
 
     function allowAssets(
         CommandContext calldata c
-    ) external payable onlyAdmin(c.account) onlyCommand(allowAssetsId, c.target) returns (bytes memory) {
+    ) external onlyAdmin(c.account) onlyCommand(allowAssetsId, c.target) returns (bytes memory) {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {

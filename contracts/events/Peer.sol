@@ -3,7 +3,8 @@ pragma solidity ^0.8.33;
 
 import { EventEmitter } from "./Emitter.sol";
 
-string constant ABI = "event Peer(uint indexed host, string name, string schema, uint pid)";
+string constant ABI =
+    "event Peer(uint indexed host, string name, string schema, uint pid, bool acceptsValue)";
 
 /// @notice Emitted once per peer during host deployment to publish its schema.
 abstract contract PeerEvent is EventEmitter {
@@ -11,7 +12,8 @@ abstract contract PeerEvent is EventEmitter {
     /// @param name Human-readable peer name.
     /// @param schema Schema DSL string describing the peer request shape.
     /// @param pid Peer node ID.
-    event Peer(uint indexed host, string name, string schema, uint pid);
+    /// @param acceptsValue Whether the peer entrypoint accepts nonzero `msg.value`.
+    event Peer(uint indexed host, string name, string schema, uint pid, bool acceptsValue);
 
     constructor() {
         emit EventAbi(ABI);

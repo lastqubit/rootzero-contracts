@@ -217,8 +217,8 @@ contract TestHost is
         return unauthorizeId;
     }
 
-    function getRelocateId() external view returns (uint) {
-        return relocateId;
+    function getRelocatePayableId() external view returns (uint) {
+        return relocatePayableId;
     }
 
     function getAllowAssetsId() external view returns (uint) {

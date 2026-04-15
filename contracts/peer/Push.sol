@@ -15,7 +15,7 @@ abstract contract PeerPush is PeerBase {
     uint internal immutable peerPushId = peerId(NAME);
 
     constructor(string memory input) {
-        emit Peer(host, NAME, input, peerPushId);
+        emit Peer(host, NAME, input, peerPushId, false);
     }
 
     /// @notice Override to process a single incoming block from the push request.
@@ -23,7 +23,7 @@ abstract contract PeerPush is PeerBase {
     function peerPush(Cur memory input) internal virtual;
 
     /// @notice Execute the push peer call.
-    function peerPush(bytes calldata request) external payable onlyPeer returns (bytes memory) {
+    function peerPush(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory input, , ) = cursor(request, 1);
 
         while (input.i < input.bound) {

@@ -204,11 +204,11 @@ describe("Admin Commands", () => {
 
   // ── Relocate ──────────────────────────────────────────────────────────────
 
-  describe("relocate", () => {
+  describe("relocatePayable", () => {
     it("reverts NotAdmin for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x06", 32);
       const request = encodeFundingBlock(1n, 0n);
-      await expect(callAs(0, "relocate", userCtx(fakeAdmin, request)))
+      await expect(callAs(0, "relocatePayable", userCtx(fakeAdmin, request)))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 
@@ -229,9 +229,9 @@ describe("Admin Commands", () => {
       const request = encodeFundingBlock(targetHostId, amount);
 
       const provider = await getProvider();
-      const tx = await callAs(0, "relocate", adminCtx(request), { value: amount });
+      const tx = await callAs(0, "relocatePayable", adminCtx(request), { value: amount });
       const receipt = await tx.wait();
-      if (!receipt || receipt.status === 0) throw new Error("relocate tx reverted");
+      if (!receipt || receipt.status === 0) throw new Error("relocatePayable tx reverted");
       const blockNum = receipt.blockNumber;
       const before = await provider.getBalance(targetAddr, blockNum - 1);
       const after = await provider.getBalance(targetAddr, blockNum);
@@ -241,7 +241,7 @@ describe("Admin Commands", () => {
     it("reverts UnauthorizedNode when target node not authorized", async () => {
       const unauthorizedNode = 0xdeaddeadn;
       const request = encodeFundingBlock(unauthorizedNode, 0n);
-      await expect(callAs(0, "relocate", adminCtx(request)))
+      await expect(callAs(0, "relocatePayable", adminCtx(request)))
         .to.be.revertedWithCustomError(host, "UnauthorizedNode");
     });
 
@@ -257,7 +257,7 @@ describe("Admin Commands", () => {
 
       const amount = 1n;
       await expect(
-        callAs(0, "relocate", adminCtx(encodeFundingBlock(rejectorHostId, amount)), { value: amount })
+        callAs(0, "relocatePayable", adminCtx(encodeFundingBlock(rejectorHostId, amount)), { value: amount })
       ).to.be.revertedWithCustomError(host, "FailedCall");
     });
   });
@@ -288,5 +288,6 @@ describe("Admin Commands", () => {
     });
   });
 });
+
 
 
