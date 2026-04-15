@@ -116,6 +116,14 @@ function hash32(bytes32 value) pure returns (bytes32 hash) {
     }
 }
 
+/// @notice Build a retry ticket commitment for an account and state payload.
+/// @param account Account identifier associated with the retryable payload.
+/// @param state Serialized state bytes for the retryable payload.
+/// @return ticket Keccak256 hash of `account` and `state`.
+function retryTicket(bytes32 account, bytes calldata state) pure returns (bytes32 ticket) {
+    return keccak256(abi.encode(account, state));
+}
+
 /// @notice Build the chain-local base prefix for a 256-bit ID.
 /// Embeds the current `block.chainid` so IDs are not portable across chains.
 /// @param prefix Four-byte type tag (e.g. `Ids.Host`, `Ids.Command`).

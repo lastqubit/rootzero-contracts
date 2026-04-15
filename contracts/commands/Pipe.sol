@@ -16,10 +16,10 @@ string constant NAME = "pipePayable";
 /// State threads through the steps: each step's output becomes the next step's state.
 /// Admin accounts are not permitted to use `pipePayable`.
 abstract contract PipePayable is CommandPayable {
-    uint internal immutable pipeId = commandId(NAME);
+    uint internal immutable pipePayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Step, pipeId, 0, 0, true);
+        emit Command(host, NAME, Schemas.Step, pipePayableId, 0, 0, true);
     }
 
     /// @notice Override to execute a single STEP and return the resulting state.
@@ -60,7 +60,7 @@ abstract contract PipePayable is CommandPayable {
     /// @notice Execute the pipePayable command.
     function pipePayable(
         CommandContext calldata c
-    ) external payable onlyCommand(pipeId, c.target) returns (bytes memory) {
+    ) external payable onlyCommand(pipePayableId, c.target) returns (bytes memory) {
         if (Accounts.isAdmin(c.account)) revert Accounts.InvalidAccount();
         Budget memory budget = Values.fromMsg();
         return pipe(c.account, c.state, c.request, budget);

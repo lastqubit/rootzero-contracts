@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 // Aggregator: re-exports all command and peer abstractions.
 // Import this file to inherit from any command or peer base contract without managing individual paths.
 
-import { CommandBase, CommandContext } from "./commands/Base.sol";
+import { CommandBase, CommandContext, CommandPayable } from "./commands/Base.sol";
 import { State } from "./utils/State.sol";
 import { BorrowAgainstBalanceToBalance, BorrowAgainstCustodyToBalance } from "./commands/Borrow.sol";
 import { Burn } from "./commands/Burn.sol";
@@ -41,6 +41,7 @@ import { PeerAllowAssets } from "./peer/AllowAssets.sol";
 import { PeerDenyAssets } from "./peer/DenyAssets.sol";
 import { PeerPull } from "./peer/Pull.sol";
 import { PeerPush } from "./peer/Push.sol";
+import { PeerSettle } from "./peer/Settle.sol";
 
 
 

@@ -197,8 +197,8 @@ contract TestHost is
         return provisionPayableId;
     }
 
-    function getPipeId() external view returns (uint) {
-        return pipeId;
+    function getPipePayableId() external view returns (uint) {
+        return pipePayableId;
     }
 
     function getInitId() external view returns (uint) {
