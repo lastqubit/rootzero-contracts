@@ -42,6 +42,19 @@ abstract contract OperationBase is AccessControl {
         (, count, quotient) = cur.primeRun(group);
     }
 
+    /// @notice Open a cursor, prime it, and assert that its normalized quotient matches `expectedQuotient`.
+    /// Equivalent to `open(source)` followed by `primeRun(group)` and `checkQuotient(quotient, expectedQuotient)`.
+    /// Reverts with `Cursors.BadRatio` when the quotient does not match.
+    /// @param source Calldata slice to parse.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @param expectedQuotient Required number of groups in the first run.
+    /// @return cur Cursor with `bound` set to the end of the first run.
+    function cursor(bytes calldata source, uint group, uint expectedQuotient) internal pure returns (Cur memory cur) {
+        cur = Cursors.open(source);
+        (, , uint quotient) = cur.primeRun(group);
+        if (quotient != expectedQuotient) revert Cursors.BadRatio();
+    }
+
     /// @notice Assert that two normalized group quotients are equal.
     /// Reverts with `Cursors.BadRatio` when `lq != rq`.
     /// @param lq Left-hand quotient.
