@@ -74,19 +74,26 @@ abstract contract CommandPayable is CommandBase {
     /// Override `settleValue` to implement refund or forwarding behavior instead.
     error UnusedValue(uint remaining);
 
-    /// @notice Settle any remaining native value after command execution.
-    /// The default implementation rejects leftover value by reverting with
-    /// `UnusedValue(remaining)`. Override this hook to refund or redirect
-    /// unused value for specific payable commands.
+    /// @notice Drains the command budget and settles any remaining native value.
+    /// @dev Calls the amount-based `settleValue` hook only when some value remains.
     /// @param account Caller's account identifier for the current invocation.
     /// @param budget Mutable native-value budget used during command execution.
     function settleValue(
         bytes32 account,
         Budget memory budget
-    ) internal virtual {
-        account;
+    ) internal {
         uint remaining = Values.drain(budget);
-        if (remaining != 0) revert UnusedValue(remaining);
+        if (remaining != 0) settleValue(account, remaining);
+    }
+
+    /// @notice Handles leftover native value after a payable command has finished.
+    /// @dev Override this hook to refund or redirect unused value for a command.
+    /// The default implementation rejects any leftover amount.
+    /// @param account Caller's account identifier for the current invocation.
+    /// @param remaining Unspent native value left in the budget, in wei.
+    function settleValue(bytes32 account, uint remaining) internal virtual {
+        account;
+        revert UnusedValue(remaining);
     }
 }
 
