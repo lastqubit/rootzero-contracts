@@ -19,6 +19,7 @@ import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
 import { RootZeroEvent } from "./events/RootZero.sol";
+import { SwapEvent } from "./events/Swap.sol";
 import { WithdrawalEvent } from "./events/Withdraw.sol";
 
 
