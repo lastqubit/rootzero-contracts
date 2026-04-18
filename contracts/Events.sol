@@ -11,13 +11,13 @@ import { CollateralEvent } from "./events/Collateral.sol";
 import { CommandEvent } from "./events/Command.sol";
 import { DebtEvent } from "./events/Debt.sol";
 import { DepositEvent } from "./events/Deposit.sol";
+import { Erc721PositionEvent } from "./events/Erc721.sol";
 import { EventEmitter } from "./events/Emitter.sol";
 import { GovernedEvent } from "./events/Governed.sol";
-import { HostAnnouncedEvent } from "./events/HostAnnounced.sol";
+import { HostAnnouncedEvent } from "./events/Host.sol";
 import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
-import { QuoteEvent } from "./events/Quote.sol";
 import { RootZeroEvent } from "./events/RootZero.sol";
 import { WithdrawalEvent } from "./events/Withdraw.sol";
 

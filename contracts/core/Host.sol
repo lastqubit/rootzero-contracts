@@ -5,7 +5,7 @@ import { AccessControl } from "./Access.sol";
 import { Authorize } from "../commands/admin/Authorize.sol";
 import { Unauthorize } from "../commands/admin/Unauthorize.sol";
 import { RelocatePayable } from "../commands/admin/Relocate.sol";
-import { HostAnnouncedEvent } from "../events/HostAnnounced.sol";
+import { HostAnnouncedEvent } from "../events/Host.sol";
 import { IHostDiscovery } from "../interfaces/IHostDiscovery.sol";
 import { Ids } from "../utils/Ids.sol";
 
