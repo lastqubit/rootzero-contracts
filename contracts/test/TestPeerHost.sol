@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
+import { PeerAssetPull } from "../peer/AssetPull.sol";
 import { PeerPull } from "../peer/Pull.sol";
 import { PeerPush } from "../peer/Push.sol";
 import { PeerSettle } from "../peer/Settle.sol";
@@ -10,7 +11,8 @@ import { Ids } from "../utils/Ids.sol";
 
 using Cursors for Cur;
 
-contract TestPeerHost is Host, PeerPull, PeerPush, PeerSettle {
+contract TestPeerHost is Host, PeerAssetPull, PeerPull, PeerPush, PeerSettle {
+    event PeerAssetPullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerPullCalled(uint peer, bytes inputData);
     event PeerPushCalled(uint peer, bytes inputData);
     event PeerSettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
@@ -21,6 +23,10 @@ contract TestPeerHost is Host, PeerPull, PeerPush, PeerSettle {
         PeerPush("")
     {
         if (cmdr != address(0)) access(Ids.toHost(cmdr), true);
+    }
+
+    function peerAssetPull(uint peer, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PeerAssetPullCalled(peer, asset, meta, amount);
     }
 
     function peerPull(uint peer, Cur memory input) internal override {
@@ -47,6 +53,7 @@ contract TestPeerHost is Host, PeerPull, PeerPush, PeerSettle {
         emit PeerSettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
+    function getPeerAssetPullId() external view returns (uint) { return peerAssetPullId; }
     function getPeerPullId() external view returns (uint) { return peerPullId; }
     function getPeerPushId() external view returns (uint) { return peerPushId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }

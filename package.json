@@ -1,6 +1,6 @@
 {
   "name": "@rootzero/contracts",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Solidity contracts and protocol building blocks for rootzero hosts and commands.",
   "private": false,
   "license": "GPL-3.0-only",

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
-import { concat, encodeRouteBlock, encodeTxBlock, encodeUserAccount } from "./helpers/blocks.js";
+import { concat, encodeAmountBlock, encodeRouteBlock, encodeTxBlock, encodeUserAccount } from "./helpers/blocks.js";
 import { ethers } from "ethers";
 import "./helpers/matchers.js";
 
@@ -15,7 +15,7 @@ describe("Peer Commands", () => {
 
   async function callAs(
     signerIndex: number,
-    method: "peerPull(bytes)" | "peerPush(bytes)" | "peerSettle(bytes)",
+    method: "peerAssetPull(bytes)" | "peerPull(bytes)" | "peerPush(bytes)" | "peerSettle(bytes)",
     request = "0x"
   ) {
     const signer = await getSigner(signerIndex);
@@ -30,6 +30,48 @@ describe("Peer Commands", () => {
     const HOST_PREFIX = 0x20010201n;
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
+
+  describe("peerAssetPull", () => {
+    const method = "peerAssetPull(bytes)";
+    const asset = ethers.zeroPadValue("0xaa", 32);
+    const meta = ethers.zeroPadValue("0xbb", 32);
+
+    it("emits PeerAssetPullCalled for a single AMOUNT block", async () => {
+      const peer = await callerHost(0);
+      const tx = await callAs(0, method, encodeAmountBlock(asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset, meta, 123n);
+    });
+
+    it("emits PeerAssetPullCalled for each AMOUNT block when multiple are present", async () => {
+      const peer = await callerHost(0);
+      const asset2 = ethers.zeroPadValue("0xcc", 32);
+      const tx = await callAs(
+        0,
+        method,
+        concat(
+          encodeAmountBlock(asset, meta, 123n),
+          encodeAmountBlock(asset2, meta, 456n),
+        )
+      );
+      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset2, meta, 456n);
+    });
+
+    it("returns empty bytes after processing amount blocks", async () => {
+      const result: string = await (host as any)[method].staticCall(encodeAmountBlock(asset, meta, 123n));
+      expect(result).to.equal("0x");
+    });
+
+    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
+      await expect(callAs(1, method, encodeAmountBlock(asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+    });
+
+    it("reverts ZeroCursor when request is empty", async () => {
+      await expect(callAs(0, method))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
 
   describe("peerPull", () => {
     const method = "peerPull(bytes)";
