@@ -153,7 +153,7 @@ library Cursors {
     /// @return quotient Number of groups represented by the run (`count / group`).
     function primeRun(Cur memory cur, uint group) internal pure returns (bytes4 key, uint count, uint quotient) {
         if (group == 0) revert ZeroGroup();
-        key = cur.len < 4 ? bytes4(0) : bytes4(msg.data[cur.offset:cur.offset + 4]);
+        key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
         (count, cur.bound) = countRun(cur, cur.i, key);
         if (count == 0) revert ZeroCursor();
         if (count % group != 0) revert BadRatio();
