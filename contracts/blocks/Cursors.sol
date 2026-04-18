@@ -222,6 +222,15 @@ library Cursors {
         return bytes.concat(key, bytes4(uint32(0x20)), value);
     }
 
+    /// @notice Encode a block with a 32-byte fixed head followed by a variable-length tail.
+    /// @param key Block type key.
+    /// @param head Fixed 32-byte head payload.
+    /// @param tail Variable-length payload bytes appended after the head.
+    /// @return Encoded block bytes.
+    function createHead32(bytes4 key, bytes32 head, bytes memory tail) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x20 + tail.length)), head, tail);
+    }
+
     /// @notice Encode a block with two 32-byte payload words (64-byte payload).
     /// @param key Block type key.
     /// @param a First payload word.
@@ -229,6 +238,16 @@ library Cursors {
     /// @return Encoded block bytes.
     function create64(bytes4 key, bytes32 a, bytes32 b) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x40)), a, b);
+    }
+
+    /// @notice Encode a block with a 64-byte fixed head followed by a variable-length tail.
+    /// @param key Block type key.
+    /// @param a First fixed payload word.
+    /// @param b Second fixed payload word.
+    /// @param tail Variable-length payload bytes appended after the fixed head.
+    /// @return Encoded block bytes.
+    function createHead64(bytes4 key, bytes32 a, bytes32 b, bytes memory tail) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(0x40 + tail.length)), a, b, tail);
     }
 
     /// @notice Encode a block with three 32-byte payload words (96-byte payload).
@@ -281,6 +300,15 @@ library Cursors {
     /// @return Encoded FEE block bytes.
     function toFeeBlock(uint amount) internal pure returns (bytes memory) {
         return create32(Keys.Fee, bytes32(amount));
+    }
+
+    /// @notice Encode a STEP block.
+    /// @param target Command target identifier.
+    /// @param value Native value forwarded with the step.
+    /// @param request Variable-length nested request payload.
+    /// @return Encoded STEP block bytes.
+    function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
+        return createHead64(Keys.Step, bytes32(target), bytes32(value), request);
     }
 
     /// @notice Encode a BALANCE block.

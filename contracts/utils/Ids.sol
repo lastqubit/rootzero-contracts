@@ -24,6 +24,8 @@ library Ids {
     uint32 constant Command = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
     /// @dev Full 4-byte type prefix for peer nodes.
     uint32 constant Peer = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Peer);
+    /// @dev Full 4-byte type prefix for query nodes.
+    uint32 constant Query = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
 
     /// @notice Return true if `id` is a host node ID.
     function isHost(uint id) internal pure returns (bool) {
@@ -40,12 +42,57 @@ library Ids {
         return uint32(id >> 224) == Peer;
     }
 
+    /// @notice Return true if `id` is a query node ID.
+    function isQuery(uint id) internal pure returns (bool) {
+        return uint32(id >> 224) == Query;
+    }
+
     /// @notice Assert that `id` is a command ID and return it unchanged.
     /// @param id Node ID to validate.
     /// @return cid The same `id` value if it is a command.
     function command(uint id) internal pure returns (uint cid) {
         if (!isCommand(id)) revert InvalidId();
         return id;
+    }
+
+    /// @notice Assert that `id` is a command ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte command selector stored in bits [191:160].
+    function commandSelector(uint id) internal pure returns (bytes4 selector) {
+        if (!isCommand(id)) revert InvalidId();
+        return bytes4(uint32(id >> 160));
+    }
+
+    /// @notice Assert that `id` is a peer ID and return it unchanged.
+    /// @param id Node ID to validate.
+    /// @return pid The same `id` value if it is a peer.
+    function peer(uint id) internal pure returns (uint pid) {
+        if (!isPeer(id)) revert InvalidId();
+        return id;
+    }
+
+    /// @notice Assert that `id` is a peer ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte peer selector stored in bits [191:160].
+    function peerSelector(uint id) internal pure returns (bytes4 selector) {
+        if (!isPeer(id)) revert InvalidId();
+        return bytes4(uint32(id >> 160));
+    }
+
+    /// @notice Assert that `id` is a query ID and return it unchanged.
+    /// @param id Node ID to validate.
+    /// @return qid The same `id` value if it is a query.
+    function query(uint id) internal pure returns (uint qid) {
+        if (!isQuery(id)) revert InvalidId();
+        return id;
+    }
+
+    /// @notice Assert that `id` is a query ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte query selector stored in bits [191:160].
+    function querySelector(uint id) internal pure returns (bytes4 selector) {
+        if (!isQuery(id)) revert InvalidId();
+        return bytes4(uint32(id >> 160));
     }
 
     /// @notice Assert that `id` is the host ID of `target` on the current chain.
@@ -84,6 +131,16 @@ library Ids {
         return id;
     }
 
+    /// @notice Build a chain-local query ID for the given selector and contract.
+    /// @param selector 4-byte ABI selector of the query entry point.
+    /// @param target Query contract address.
+    /// @return Query node ID embedding both the selector and address.
+    function toQuery(bytes4 selector, address target) internal view returns (uint) {
+        uint id = toLocalBase(Query) | uint(uint160(target));
+        id |= uint(uint32(selector)) << 160;
+        return id;
+    }
+
     /// @notice Extract the contract address from any local node ID.
     /// Reverts if `id` does not belong to the local node family.
     /// @param id Node ID (host, command, or peer).
@@ -104,12 +161,14 @@ library Ids {
 }
 
 /// @title Selectors
-/// @notice ABI-selector derivation helpers for command and peer dispatch.
+/// @notice ABI-selector derivation helpers for command, peer, and query dispatch.
 library Selectors {
     /// @dev ABI argument encoding for command entry points: `((uint256,bytes32,bytes,bytes))`.
     string constant CommandArgs = "((uint256,bytes32,bytes,bytes))";
     /// @dev ABI argument encoding for peer entry points: `(bytes)`.
     string constant PeerArgs = "(bytes)";
+    /// @dev ABI argument encoding for query entry points: `(bytes)`.
+    string constant QueryArgs = "(bytes)";
 
     /// @notice Derive the 4-byte ABI selector for a named command.
     /// The selector is `keccak256(name ++ CommandArgs)[0:4]`.
@@ -125,5 +184,13 @@ library Selectors {
     /// @return 4-byte selector.
     function peer(string memory name) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes.concat(bytes(name), bytes(PeerArgs))));
+    }
+
+    /// @notice Derive the 4-byte ABI selector for a named query.
+    /// The selector is `keccak256(name ++ QueryArgs)[0:4]`.
+    /// @param name Query function name (without arguments).
+    /// @return 4-byte selector.
+    function query(string memory name) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes.concat(bytes(name), bytes(QueryArgs))));
     }
 }

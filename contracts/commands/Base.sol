@@ -20,6 +20,25 @@ struct CommandContext {
     bytes request;
 }
 
+/// @notice ABI-encode a command call from a target command ID and execution context.
+/// @dev Derives the function selector from `target` via `Ids.commandSelector(target)`.
+/// Reverts if `target` is not a valid command ID.
+/// @param target Destination command node ID embedding the target selector.
+/// @param account Caller account identifier for the command context.
+/// @param state Current state block stream passed to the command.
+/// @param request Input block stream for the command invocation.
+/// @return ABI-encoded calldata for the command entry point.
+function encodeCommandCall(
+    uint target,
+    bytes32 account,
+    bytes memory state,
+    bytes calldata request
+) pure returns (bytes memory) {
+    bytes4 selector = Ids.commandSelector(target);
+    CommandContext memory ctx = CommandContext(target, account, state, request);
+    return abi.encodeWithSelector(selector, ctx);
+}
+
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
 /// Provides access control modifiers, event emission, and the `commandId`
@@ -78,10 +97,7 @@ abstract contract CommandPayable is CommandBase {
     /// @dev Calls the amount-based `settleValue` hook only when some value remains.
     /// @param account Caller's account identifier for the current invocation.
     /// @param budget Mutable native-value budget used during command execution.
-    function settleValue(
-        bytes32 account,
-        Budget memory budget
-    ) internal {
+    function settleValue(bytes32 account, Budget memory budget) internal {
         uint remaining = Values.drain(budget);
         if (remaining != 0) settleValue(account, remaining);
     }
@@ -96,5 +112,3 @@ abstract contract CommandPayable is CommandBase {
         revert UnusedValue(remaining);
     }
 }
-
-

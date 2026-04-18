@@ -19,6 +19,8 @@ library Schemas {
     string constant Fee = "fee(uint amount)";
     string constant Break = "break()";
     string constant Route = "route(bytes data)";
+    string constant Query = "query(bytes data)";
+    string constant Response = "response(bytes data)";
     string constant Path = "path(bytes data)";
     string constant RouteEmpty = "route()";
     string constant Quantity = "quantity(uint amount)";
@@ -72,7 +74,11 @@ library Schemas {
 // - `->` separates request and response shapes, appears at most once, and is omitted when no output is modeled
 // - top-level blocks of the same type should be grouped together
 // - primary / driving blocks should appear before auxiliary blocks
-// - `route(<fields...>)` is a reserved extensible schema form whose key is always `Keys.Route`
+// - `route(<fields...>)`, `query(<fields...>)`, and `response(<fields...>)` are reserved
+//   extensible schema forms whose keys are always `Keys.Route`, `Keys.Query`, and
+//   `Keys.Response` respectively
+// - these extensible forms work like dynamic `bytes` blocks: they may carry arbitrary
+//   payload bytes while keeping one fixed key per semantic block type
 // - `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
 //   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
@@ -94,6 +100,8 @@ library Sizes {
     uint constant Proof = 85;
     /// @dev AUTH block: 8 header + 32 cid + 32 deadline + 85 proof = 157 bytes
     uint constant Auth = 157;
+    /// @dev AMOUNT block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
+    uint constant Amount = 104;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Balance = 104;
     /// @dev MINIMUMS block: 8 header + 32 a + 32 b = 72 bytes

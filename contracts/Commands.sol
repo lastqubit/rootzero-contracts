@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 // Aggregator: re-exports all command and peer abstractions.
 // Import this file to inherit from any command or peer base contract without managing individual paths.
 
-import { CommandBase, CommandContext, CommandPayable } from "./commands/Base.sol";
+import { CommandBase, CommandContext, CommandPayable, encodeCommandCall } from "./commands/Base.sol";
 import { State } from "./utils/State.sol";
 import { BorrowAgainstBalanceToBalance, BorrowAgainstCustodyToBalance } from "./commands/Borrow.sol";
 import { Burn } from "./commands/Burn.sol";
@@ -28,10 +28,10 @@ import { SwapExactBalanceToBalance, SwapExactCustodyToBalance } from "./commands
 import { Transfer } from "./commands/Transfer.sol";
 import { UnstakeBalanceToBalances } from "./commands/Unstake.sol";
 import { Withdraw } from "./commands/Withdraw.sol";
-import { AllowAssets } from "./commands/admin/AllowAssets.sol";
+import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Destroy } from "./commands/admin/Destroy.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
-import { DenyAssets } from "./commands/admin/DenyAssets.sol";
+import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
 import { Init } from "./commands/admin/Init.sol";
 import { RelocatePayable } from "./commands/admin/Relocate.sol";
 import { Allocate } from "./commands/admin/Allocate.sol";

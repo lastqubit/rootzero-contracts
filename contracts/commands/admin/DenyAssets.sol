@@ -7,19 +7,21 @@ using Cursors for Cur;
 
 string constant NAME = "denyAssets";
 
+abstract contract DenyAssetsHook {
+    /// @dev Override to deny a single asset/meta pair.
+    /// Called once per ASSET block in the request.
+    function denyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
+}
+
 /// @title DenyAssets
 /// @notice Admin command that blocks a list of (asset, meta) pairs via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
-abstract contract DenyAssets is CommandBase {
+abstract contract DenyAssets is CommandBase, DenyAssetsHook {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
         emit Command(host, NAME, Schemas.Asset, denyAssetsId, State.Empty, State.Empty, false);
     }
-
-    /// @dev Override to deny a single asset/meta pair.
-    /// Called once per ASSET block in the request.
-    function denyAsset(bytes32 asset, bytes32 meta) internal virtual returns (bool);
 
     function denyAssets(
         CommandContext calldata c

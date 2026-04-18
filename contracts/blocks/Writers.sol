@@ -80,12 +80,27 @@ library Writers {
         return allocFromScaledCount(count, ALLOC_SCALE, Sizes.Balance);
     }
 
+    /// @notice Allocate a writer sized for exactly `count` AMOUNT blocks (1:1 ratio).
+    /// @param count Number of amount blocks to allocate space for.
+    /// @return writer Allocated writer.
+    function allocAmounts(uint count) internal pure returns (Writer memory writer) {
+        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.Amount);
+    }
+
     /// @notice Allocate a writer sized for `2 * count` BALANCE blocks (2:1 ratio).
     /// Used when each input produces a paired output (e.g. input balance + output balance).
     /// @param count Number of input blocks; output capacity is doubled.
     /// @return writer Allocated writer.
     function allocPairedBalances(uint count) internal pure returns (Writer memory writer) {
         return allocFromScaledCount(count, ALLOC_SCALE * 2, Sizes.Balance);
+    }
+
+    /// @notice Allocate a writer sized for `2 * count` AMOUNT blocks (2:1 ratio).
+    /// Used when each input produces a paired output.
+    /// @param count Number of input blocks; output capacity is doubled.
+    /// @return writer Allocated writer.
+    function allocPairedAmounts(uint count) internal pure returns (Writer memory writer) {
+        return allocFromScaledCount(count, ALLOC_SCALE * 2, Sizes.Amount);
     }
 
     /// @notice Allocate a writer for BALANCE blocks with a custom output-to-input ratio.
@@ -95,6 +110,15 @@ library Writers {
     /// @return writer Allocated writer.
     function allocScaledBalances(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
         return allocFromScaledCount(count, scaledRatio, Sizes.Balance);
+    }
+
+    /// @notice Allocate a writer for AMOUNT blocks with a custom output-to-input ratio.
+    /// @param count Number of input blocks.
+    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units
+    ///        (e.g. `ALLOC_SCALE` = 1:1, `2 * ALLOC_SCALE` = 2:1).
+    /// @return writer Allocated writer.
+    function allocScaledAmounts(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
+        return allocFromScaledCount(count, scaledRatio, Sizes.Amount);
     }
 
     /// @notice Allocate a writer sized for exactly `count` TRANSACTION blocks (1:1 ratio).
@@ -142,12 +166,12 @@ library Writers {
     // -------------------------------------------------------------------------
 
     /// @notice Write a BALANCE block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Balance` bytes.
+    /// @param dst Destination buffer; must have at least `i + Sizes.Amount` bytes.
     /// @param i Write offset within `dst`.
     /// @param value Balance fields to encode.
     /// @return next Byte offset immediately after the written block.
     function writeBalanceBlock(bytes memory dst, uint i, AssetAmount memory value) internal pure returns (uint next) {
-        next = i + Sizes.Balance;
+        next = i + Sizes.Amount;
         if (next > dst.length) revert WriterOverflow();
         uint header = toBlockHeader(Keys.Balance, 96);
         // Write 8-byte header then three 32-byte payload words.
@@ -160,8 +184,27 @@ library Writers {
         }
     }
 
+    /// @notice Write an AMOUNT block directly into `dst` at byte offset `i`.
+    /// @param dst Destination buffer; must have at least `i + Sizes.Balance` bytes.
+    /// @param i Write offset within `dst`.
+    /// @param value Amount fields to encode.
+    /// @return next Byte offset immediately after the written block.
+    function writeAmountBlock(bytes memory dst, uint i, AssetAmount memory value) internal pure returns (uint next) {
+        next = i + Sizes.Balance;
+        if (next > dst.length) revert WriterOverflow();
+        uint header = toBlockHeader(Keys.Amount, 96);
+        // Write 8-byte header then three 32-byte payload words.
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, header)
+            mstore(add(p, 0x08), mload(value))
+            mstore(add(p, 0x28), mload(add(value, 0x20)))
+            mstore(add(p, 0x48), mload(add(value, 0x40)))
+        }
+    }
+
     /// @notice Append a BALANCE block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
@@ -174,6 +217,22 @@ library Writers {
     /// @param value Balance fields to encode.
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
         writer.i = writeBalanceBlock(writer.dst, writer.i, value);
+    }
+
+    /// @notice Append an AMOUNT block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    /// @param amount Token amount.
+    function appendAmount(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        appendAmount(writer, AssetAmount(asset, meta, amount));
+    }
+
+    /// @notice Append an AMOUNT block from a struct.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
+    /// @param value Amount fields to encode.
+    function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
+        writer.i = writeAmountBlock(writer.dst, writer.i, value);
     }
 
     /// @notice Append a BALANCE block only if `amount > 0`; silently skips zero amounts.

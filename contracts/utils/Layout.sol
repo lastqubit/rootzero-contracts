@@ -52,6 +52,8 @@ library Layout {
     uint8 constant Command = 0x02;
     /// @dev Node is a peer contract.
     uint8 constant Peer = 0x03;
+    /// @dev Node is a query contract.
+    uint8 constant Query = 0x04;
 
     // -------------------------------------------------------------------------
     // Asset subtype tags (uint8, fourth byte of the ID type field)

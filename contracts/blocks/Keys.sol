@@ -30,6 +30,10 @@ library Keys {
     bytes4 constant Bundle = bytes4(keccak256("bundle(bytes data)"));
     /// @dev Extensible routing field — (bytes data); layout is command-defined
     bytes4 constant Route = bytes4(keccak256("route(bytes data)"));
+    /// @dev Extensible query field - (bytes data); layout is query-defined, key is always `Keys.Query`
+    bytes4 constant Query = bytes4(keccak256("query(bytes data)"));
+    /// @dev Extensible response field - (bytes data); layout is response-defined, key is always `Keys.Response`
+    bytes4 constant Response = bytes4(keccak256("response(bytes data)"));
     /// @dev Opaque path payload — (bytes data); e.g. a Uniswap path encoding
     bytes4 constant Path = bytes4(keccak256("path(bytes data)"));
     /// @dev Plain scalar amount — (uint amount)

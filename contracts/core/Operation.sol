@@ -79,4 +79,20 @@ abstract contract OperationBase is AccessControl {
             revert FailedCall(addr, node, bytes4(data), out);
         }
     }
+
+    /// @notice Make a trusted static call to another node in the network.
+    /// Looks up the node's contract address via `ensureTrusted` + `Ids.nodeAddr`,
+    /// then issues a low-level `staticcall` with `data`.
+    /// Reverts with `FailedCall` if the call is unsuccessful.
+    /// @param node Node ID of the callee (must be in the authorized set).
+    /// @param data Encoded calldata to send.
+    /// @return out Return data from the successful static call.
+    function staticcallTo(uint node, bytes memory data) internal view returns (bytes memory out) {
+        bool success;
+        address addr = Ids.nodeAddr(ensureTrusted(node));
+        (success, out) = addr.staticcall(data);
+        if (!success) {
+            revert FailedCall(addr, node, bytes4(data), out);
+        }
+    }
 }

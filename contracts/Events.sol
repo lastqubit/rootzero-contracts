@@ -16,6 +16,7 @@ import { GovernedEvent } from "./events/Governed.sol";
 import { HostAnnouncedEvent } from "./events/HostAnnounced.sol";
 import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
+import { QueryEvent } from "./events/Query.sol";
 import { QuoteEvent } from "./events/Quote.sol";
 import { RootZeroEvent } from "./events/RootZero.sol";
 import { WithdrawalEvent } from "./events/Withdraw.sol";
