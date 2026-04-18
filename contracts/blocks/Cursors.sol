@@ -629,6 +629,26 @@ library Cursors {
         cur.i = next;
     }
 
+    /// @notice Consume a QUERY block and return the raw payload as a calldata slice.
+    /// The payload length is variable; the returned slice covers the entire payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return data Raw query payload bytes.
+    function unpackQuery(Cur memory cur) internal pure returns (bytes calldata data) {
+        (uint abs, uint next) = expect(cur, cur.i, Keys.Query, 0, 0);
+        data = msg.data[abs:cur.offset + next];
+        cur.i = next;
+    }
+
+    /// @notice Consume a RESPONSE block and return the raw payload as a calldata slice.
+    /// The payload length is variable; the returned slice covers the entire payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return data Raw response payload bytes.
+    function unpackResponse(Cur memory cur) internal pure returns (bytes calldata data) {
+        (uint abs, uint next) = expect(cur, cur.i, Keys.Response, 0, 0);
+        data = msg.data[abs:cur.offset + next];
+        cur.i = next;
+    }
+
     /// @notice Consume a PATH block and return the raw payload as a calldata slice.
     /// The payload length is variable; the returned slice covers the entire payload.
     /// @param cur Cursor; advanced past the block.
@@ -647,12 +667,48 @@ library Cursors {
         value = uint(bytes32(msg.data[abs:abs + 32]));
     }
 
+    /// @notice Consume a QUERY block with a single uint payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded uint value.
+    function unpackQueryUint(Cur memory cur) internal pure returns (uint value) {
+        uint abs = consume(cur, Keys.Query, 32, 32);
+        value = uint(bytes32(msg.data[abs:abs + 32]));
+    }
+
+    /// @notice Consume a RESPONSE block with a single uint payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded uint value.
+    function unpackResponseUint(Cur memory cur) internal pure returns (uint value) {
+        uint abs = consume(cur, Keys.Response, 32, 32);
+        value = uint(bytes32(msg.data[abs:abs + 32]));
+    }
+
     /// @notice Consume a ROUTE block with two uint payload words.
     /// @param cur Cursor; advanced past the block.
     /// @return a First decoded uint.
     /// @return b Second decoded uint.
     function unpackRoute2Uint(Cur memory cur) internal pure returns (uint a, uint b) {
         uint abs = consume(cur, Keys.Route, 64, 64);
+        a = uint(bytes32(msg.data[abs:abs + 32]));
+        b = uint(bytes32(msg.data[abs + 32:abs + 64]));
+    }
+
+    /// @notice Consume a QUERY block with two uint payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded uint.
+    /// @return b Second decoded uint.
+    function unpackQuery2Uint(Cur memory cur) internal pure returns (uint a, uint b) {
+        uint abs = consume(cur, Keys.Query, 64, 64);
+        a = uint(bytes32(msg.data[abs:abs + 32]));
+        b = uint(bytes32(msg.data[abs + 32:abs + 64]));
+    }
+
+    /// @notice Consume a RESPONSE block with two uint payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded uint.
+    /// @return b Second decoded uint.
+    function unpackResponse2Uint(Cur memory cur) internal pure returns (uint a, uint b) {
+        uint abs = consume(cur, Keys.Response, 64, 64);
         a = uint(bytes32(msg.data[abs:abs + 32]));
         b = uint(bytes32(msg.data[abs + 32:abs + 64]));
     }
@@ -669,11 +725,51 @@ library Cursors {
         c = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
+    /// @notice Consume a QUERY block with three uint payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded uint.
+    /// @return b Second decoded uint.
+    /// @return c Third decoded uint.
+    function unpackQuery3Uint(Cur memory cur) internal pure returns (uint a, uint b, uint c) {
+        uint abs = consume(cur, Keys.Query, 96, 96);
+        a = uint(bytes32(msg.data[abs:abs + 32]));
+        b = uint(bytes32(msg.data[abs + 32:abs + 64]));
+        c = uint(bytes32(msg.data[abs + 64:abs + 96]));
+    }
+
+    /// @notice Consume a RESPONSE block with three uint payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded uint.
+    /// @return b Second decoded uint.
+    /// @return c Third decoded uint.
+    function unpackResponse3Uint(Cur memory cur) internal pure returns (uint a, uint b, uint c) {
+        uint abs = consume(cur, Keys.Response, 96, 96);
+        a = uint(bytes32(msg.data[abs:abs + 32]));
+        b = uint(bytes32(msg.data[abs + 32:abs + 64]));
+        c = uint(bytes32(msg.data[abs + 64:abs + 96]));
+    }
+
     /// @notice Consume a ROUTE block with a single bytes32 payload.
     /// @param cur Cursor; advanced past the block.
     /// @return value Decoded bytes32.
     function unpackRoute32(Cur memory cur) internal pure returns (bytes32 value) {
         uint abs = consume(cur, Keys.Route, 32, 32);
+        value = bytes32(msg.data[abs:abs + 32]);
+    }
+
+    /// @notice Consume a QUERY block with a single bytes32 payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded bytes32.
+    function unpackQuery32(Cur memory cur) internal pure returns (bytes32 value) {
+        uint abs = consume(cur, Keys.Query, 32, 32);
+        value = bytes32(msg.data[abs:abs + 32]);
+    }
+
+    /// @notice Consume a RESPONSE block with a single bytes32 payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded bytes32.
+    function unpackResponse32(Cur memory cur) internal pure returns (bytes32 value) {
+        uint abs = consume(cur, Keys.Response, 32, 32);
         value = bytes32(msg.data[abs:abs + 32]);
     }
 
@@ -687,6 +783,26 @@ library Cursors {
         b = bytes32(msg.data[abs + 32:abs + 64]);
     }
 
+    /// @notice Consume a QUERY block with two bytes32 payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded bytes32.
+    /// @return b Second decoded bytes32.
+    function unpackQuery64(Cur memory cur) internal pure returns (bytes32 a, bytes32 b) {
+        uint abs = consume(cur, Keys.Query, 64, 64);
+        a = bytes32(msg.data[abs:abs + 32]);
+        b = bytes32(msg.data[abs + 32:abs + 64]);
+    }
+
+    /// @notice Consume a RESPONSE block with two bytes32 payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded bytes32.
+    /// @return b Second decoded bytes32.
+    function unpackResponse64(Cur memory cur) internal pure returns (bytes32 a, bytes32 b) {
+        uint abs = consume(cur, Keys.Response, 64, 64);
+        a = bytes32(msg.data[abs:abs + 32]);
+        b = bytes32(msg.data[abs + 32:abs + 64]);
+    }
+
     /// @notice Consume a ROUTE block with three bytes32 payload words.
     /// @param cur Cursor; advanced past the block.
     /// @return a First decoded bytes32.
@@ -694,6 +810,30 @@ library Cursors {
     /// @return c Third decoded bytes32.
     function unpackRoute96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
         uint abs = consume(cur, Keys.Route, 96, 96);
+        a = bytes32(msg.data[abs:abs + 32]);
+        b = bytes32(msg.data[abs + 32:abs + 64]);
+        c = bytes32(msg.data[abs + 64:abs + 96]);
+    }
+
+    /// @notice Consume a QUERY block with three bytes32 payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded bytes32.
+    /// @return b Second decoded bytes32.
+    /// @return c Third decoded bytes32.
+    function unpackQuery96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+        uint abs = consume(cur, Keys.Query, 96, 96);
+        a = bytes32(msg.data[abs:abs + 32]);
+        b = bytes32(msg.data[abs + 32:abs + 64]);
+        c = bytes32(msg.data[abs + 64:abs + 96]);
+    }
+
+    /// @notice Consume a RESPONSE block with three bytes32 payload words.
+    /// @param cur Cursor; advanced past the block.
+    /// @return a First decoded bytes32.
+    /// @return b Second decoded bytes32.
+    /// @return c Third decoded bytes32.
+    function unpackResponse96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+        uint abs = consume(cur, Keys.Response, 96, 96);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);

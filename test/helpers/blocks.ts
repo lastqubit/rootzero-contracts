@@ -30,6 +30,8 @@ export const Keys = {
   Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
   Bundle: blockKey("bundle(bytes data)"),
   Route: blockKey("route(bytes data)"),
+  Query: blockKey("query(bytes data)"),
+  Response: blockKey("response(bytes data)"),
   Path: blockKey("path(bytes data)"),
 } as const;
 
@@ -143,6 +145,14 @@ export function encodeStepBlock(target: bigint, value: bigint, request: string):
 
 export function encodeRouteBlock(data: string): string {
   return block(Keys.Route, data);
+}
+
+export function encodeQueryBlock(data: string): string {
+  return block(Keys.Query, data);
+}
+
+export function encodeResponseBlock(data: string): string {
+  return block(Keys.Response, data);
 }
 
 export function encodePathBlock(data: string): string {
