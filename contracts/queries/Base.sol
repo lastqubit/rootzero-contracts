@@ -21,7 +21,7 @@ function encodeQueryCall(uint target, bytes calldata request) pure returns (byte
 /// @notice Abstract base for rootzero query contracts.
 /// Queries are view-only entry points that consume a block-stream request and
 /// return a block-stream response.
-abstract contract QueryBase is HostBound, CursorBase, QueryEvent {
+abstract contract QueryBase is CursorBase, HostBound, QueryEvent {
 
     /// @notice Derive the deterministic node ID for a named query on this contract.
     /// The ID encodes the ABI selector of `name(bytes)` and `address(this)`,

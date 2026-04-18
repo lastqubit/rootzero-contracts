@@ -15,7 +15,7 @@ error FailedCall(address addr, bytes4 selector, bytes err);
 /// @notice Shared base for command and peer contracts.
 /// Provides convenience wrappers for cursor construction, quotient validation,
 /// and trusted inter-node calls. Inherits access control from `AccessControl`.
-abstract contract OperationBase is AccessControl, CursorBase {
+abstract contract OperationBase is CursorBase, AccessControl {
     /// @notice Return the host node ID corresponding to the current caller.
     /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
     /// @return Host node ID for `msg.sender`.
