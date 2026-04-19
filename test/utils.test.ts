@@ -204,10 +204,11 @@ describe("Utils", () => {
       expect(result).to.equal(asset);
     });
 
-    it("assetKey reverts InvalidAsset for 32-byte asset with non-zero meta", async () => {
+    it("assetKey ignores non-zero meta for 32-byte assets", async () => {
       const asset = await utils.testToValueAsset();
       const meta = ethers.hexlify(ethers.randomBytes(32));
-      await expectCustomError(utils.testAssetKey(asset, meta), "InvalidAsset");
+      const result = await utils.testAssetKey(asset, meta);
+      expect(result).to.equal(asset);
     });
 
     it("assetKey reverts InvalidAsset for zero asset", async () => {

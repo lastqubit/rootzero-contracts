@@ -68,12 +68,13 @@ library Assets {
     /// For 32-byte EVM assets (no meta), the key is the asset ID itself.
     /// For assets with metadata (e.g. ERC-721 or ERC-1155 token IDs), the key is
     /// `keccak256(asset ++ meta)`.
-    /// Reverts if `asset` is zero, or if it is a 32-byte asset but `meta` is non-zero.
+    /// Reverts only if `asset` is zero.
+    /// For 32-byte assets, `meta` is ignored and does not affect the derived key.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot (e.g. token ID context).
     /// @return Storage key for the (asset, meta) combination.
     function key(bytes32 asset, bytes32 meta) internal pure returns (bytes32) {
-        if (asset == 0 || (bytes1(asset) == 0x20 && meta != 0)) revert InvalidAsset();
+        if (asset == 0) revert InvalidAsset();
         return bytes1(asset) == 0x20 ? asset : keccak256(bytes.concat(asset, meta));
     }
 

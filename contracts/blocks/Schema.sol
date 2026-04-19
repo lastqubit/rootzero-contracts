@@ -67,7 +67,9 @@ library Schemas {
 // Schema DSL:
 // - `;` separates top-level sibling blocks
 // - `&` bundles adjacent blocks into one bundle block
-// - postfix `[]` marks a repeated list and binds to the full contiguous `&` chain on its left
+// - a bundle may optionally be named in the form `name = a & b`
+// - postfix `[]` marks a repeated list in the simple suffix form, e.g. `asset(...)[]`
+// - a list of bundled items must use an inline named form `name[] = a & b`
 // - bundled blocks preserve member order, so `a & b` differs from `b & a`
 // - a bundle block's self payload is an embedded normal block stream of its bundled members
 // - bundled members keep their ordinary block encoding, so dynamic blocks are allowed inside bundles
@@ -81,7 +83,8 @@ library Schemas {
 //   payload bytes while keeping one fixed key per semantic block type
 // - `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
 // - `[]` compiles to a `Keys.List` block whose self payload is the repeated item block stream
-// - `asset(...) & recipient(...)[]` means a list whose repeated item is the bundle
+// - `asset(...)[]` means a list whose repeated item is the block `asset(...)`
+// - `steps[] = asset(...) & recipient(...)` means a named list whose repeated item is the bundle
 //   `asset(...) & recipient(...)`
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
 //   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
