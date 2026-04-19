@@ -134,6 +134,16 @@ describe("Utils", () => {
       const val = BigInt(asset);
       const embedded = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
+      expect(asset.slice(0, 4)).to.equal("0x40");
+    });
+
+    it("toErc1155Asset embeds collection address", async () => {
+      const collection = signerAddress;
+      const asset: string = await utils.testToErc1155Asset(collection);
+      const val = BigInt(asset);
+      const embedded = (val >> 32n) & ((1n << 160n) - 1n);
+      expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
+      expect(asset.slice(0, 4)).to.equal("0x40");
     });
 
     it("isAsset32 returns true when first byte is 0x20", async () => {
@@ -144,6 +154,23 @@ describe("Utils", () => {
     it("isAsset32 returns false for non-0x20 asset", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       expect(await utils.testIsAsset32(asset)).to.be.false;
+    });
+
+    it("isAsset32 returns false for ERC721 and ERC1155 assets", async () => {
+      const collection = signerAddress;
+      expect(await utils.testIsAsset32(await utils.testToErc721Asset(collection))).to.be.false;
+      expect(await utils.testIsAsset32(await utils.testToErc1155Asset(collection))).to.be.false;
+    });
+
+    it("isAsset64 returns true for ERC721 and ERC1155 assets", async () => {
+      const collection = signerAddress;
+      expect(await utils.testIsAsset64(await utils.testToErc721Asset(collection))).to.be.true;
+      expect(await utils.testIsAsset64(await utils.testToErc1155Asset(collection))).to.be.true;
+    });
+
+    it("isAsset64 returns false for value and ERC20 assets", async () => {
+      expect(await utils.testIsAsset64(await utils.testToValueAsset())).to.be.false;
+      expect(await utils.testIsAsset64(await utils.testToErc20Asset(signerAddress))).to.be.false;
     });
 
     it("resolveAmount clamps to max", async () => {
@@ -225,11 +252,36 @@ describe("Utils", () => {
       expect(extracted.toLowerCase()).to.equal(token.toLowerCase());
     });
 
-    it("localErc721Issuer extracts collection address from ERC721 asset", async () => {
+    it("matchErc20 returns the asset when it matches the token", async () => {
+      const token = signerAddress;
+      const asset = await utils.testToErc20Asset(token);
+      expect(await utils.testMatchErc20(asset, token)).to.equal(asset);
+    });
+
+    it("localErc721Collection extracts collection address from ERC721 asset", async () => {
       const collection = signerAddress;
       const asset = await utils.testToErc721Asset(collection);
-      const extracted = await utils.testLocalErc721Issuer(asset);
+      const extracted = await utils.testLocalErc721Collection(asset);
       expect(extracted.toLowerCase()).to.equal(collection.toLowerCase());
+    });
+
+    it("matchErc721 returns the asset when it matches the collection", async () => {
+      const collection = signerAddress;
+      const asset = await utils.testToErc721Asset(collection);
+      expect(await utils.testMatchErc721(asset, collection)).to.equal(asset);
+    });
+
+    it("localErc1155Collection extracts collection address from ERC1155 asset", async () => {
+      const collection = signerAddress;
+      const asset = await utils.testToErc1155Asset(collection);
+      const extracted = await utils.testLocalErc1155Collection(asset);
+      expect(extracted.toLowerCase()).to.equal(collection.toLowerCase());
+    });
+
+    it("matchErc1155 returns the asset when it matches the collection", async () => {
+      const collection = signerAddress;
+      const asset = await utils.testToErc1155Asset(collection);
+      expect(await utils.testMatchErc1155(asset, collection)).to.equal(asset);
     });
 
     it("localErc20Addr reverts InvalidAsset for value asset", async () => {
@@ -237,9 +289,35 @@ describe("Utils", () => {
       await expectCustomError(utils.testLocalErc20Addr(asset), "InvalidAsset");
     });
 
-    it("localErc721Issuer reverts InvalidAsset for value asset", async () => {
+    it("matchErc20 reverts InvalidAsset for the wrong token", async () => {
+      const token = signerAddress;
+      const other = "0x00000000000000000000000000000000000000ab";
+      const asset = await utils.testToErc20Asset(token);
+      await expectCustomError(utils.testMatchErc20(asset, other), "InvalidAsset");
+    });
+
+    it("matchErc721 reverts InvalidAsset for the wrong collection", async () => {
+      const collection = signerAddress;
+      const other = "0x00000000000000000000000000000000000000ab";
+      const asset = await utils.testToErc721Asset(collection);
+      await expectCustomError(utils.testMatchErc721(asset, other), "InvalidAsset");
+    });
+
+    it("matchErc1155 reverts InvalidAsset for the wrong collection", async () => {
+      const collection = signerAddress;
+      const other = "0x00000000000000000000000000000000000000ab";
+      const asset = await utils.testToErc1155Asset(collection);
+      await expectCustomError(utils.testMatchErc1155(asset, other), "InvalidAsset");
+    });
+
+    it("localErc721Collection reverts InvalidAsset for value asset", async () => {
       const asset = await utils.testToValueAsset();
-      await expectCustomError(utils.testLocalErc721Issuer(asset), "InvalidAsset");
+      await expectCustomError(utils.testLocalErc721Collection(asset), "InvalidAsset");
+    });
+
+    it("localErc1155Collection reverts InvalidAsset for value asset", async () => {
+      const asset = await utils.testToValueAsset();
+      await expectCustomError(utils.testLocalErc1155Collection(asset), "InvalidAsset");
     });
   });
 

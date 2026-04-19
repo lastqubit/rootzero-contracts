@@ -33,11 +33,19 @@ import {
 
 describe("Cursors", () => {
   let helper: Awaited<ReturnType<typeof deploy>>;
+  let erc20Helper: Awaited<ReturnType<typeof deploy>>;
+  let erc1155Helper: Awaited<ReturnType<typeof deploy>>;
+  let erc721Helper: Awaited<ReturnType<typeof deploy>>;
   let operation: Awaited<ReturnType<typeof deploy>>;
+  let utils: Awaited<ReturnType<typeof deploy>>;
 
   before(async () => {
     helper = await deploy("TestCursorHelper");
+    erc20Helper = await deploy("TestErc20CursorHelper");
+    erc1155Helper = await deploy("TestErc1155CursorHelper");
+    erc721Helper = await deploy("TestErc721CursorHelper");
     operation = await deploy("TestOperation");
+    utils = await deploy("TestUtils");
   });
 
   describe("Writers", () => {
@@ -376,6 +384,298 @@ describe("Cursors", () => {
     it("authLast reverts MalformedBlocks when trailing auth is missing", async () => {
       await expect(helper.testAuthLast(encodeAmountBlock(asset, meta, amount), 1n, 77n))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+    });
+
+    it("expectErc20Amount returns the token and amount from a local ERC20 amount block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 66n);
+
+      expect(await erc20Helper.testExpectErc20Amount(source, 0n)).to.deep.equal([token, 66n]);
+    });
+
+    it("requireErc20Amount returns the token and amount and advances by one amount block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 66n);
+
+      expect(await erc20Helper.testRequireErc20Amount(source)).to.deep.equal([token, 66n, 104n]);
+    });
+
+    it("expectErc20Balance returns the token and amount from a local ERC20 balance block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeBalanceBlock(assetId, ethers.ZeroHash, 67n);
+
+      expect(await erc20Helper.testExpectErc20Balance(source, 0n)).to.deep.equal([token, 67n]);
+    });
+
+    it("requireErc20Balance returns the token and amount and advances by one balance block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeBalanceBlock(assetId, ethers.ZeroHash, 67n);
+
+      expect(await erc20Helper.testRequireErc20Balance(source)).to.deep.equal([token, 67n, 104n]);
+    });
+
+    it("expectErc20Custody returns the token and amount from a local ERC20 custody block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+
+      expect(await erc20Helper.testExpectErc20Custody(source, 0n, 123n)).to.deep.equal([token, 68n]);
+    });
+
+    it("requireErc20Custody returns the token, amount, and advances by one custody block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+
+      expect(await erc20Helper.testRequireErc20Custody(source, 123n)).to.deep.equal([token, 68n, 136n]);
+    });
+
+    it("expectErc20Custody reverts UnexpectedValue when the host does not match", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+
+      await expect(erc20Helper.testExpectErc20Custody(source, 0n, 321n))
+        .to.be.revertedWithCustomError(erc20Helper, "UnexpectedValue");
+    });
+
+    it("expectErc20Minimum returns the token and amount from a local ERC20 minimum block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 88n);
+
+      expect(await erc20Helper.testExpectErc20Minimum(source, 0n)).to.deep.equal([token, 88n]);
+    });
+
+    it("requireErc20Minimum returns the token and amount and advances by one minimum block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 88n);
+
+      expect(await erc20Helper.testRequireErc20Minimum(source)).to.deep.equal([token, 88n, 104n]);
+    });
+
+    it("expectErc20Maximum returns the token and amount from a local ERC20 maximum block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeMaximumBlock(assetId, ethers.ZeroHash, 89n);
+
+      expect(await erc20Helper.testExpectErc20Maximum(source, 0n)).to.deep.equal([token, 89n]);
+    });
+
+    it("requireErc20Maximum returns the token and amount and advances by one maximum block", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeMaximumBlock(assetId, ethers.ZeroHash, 89n);
+
+      expect(await erc20Helper.testRequireErc20Maximum(source)).to.deep.equal([token, 89n, 104n]);
+    });
+
+    it("expectErc20Minimum ignores metadata", async () => {
+      const token = "0x00000000000000000000000000000000000000a0";
+      const assetId = await utils.testToErc20Asset(token);
+      const source = encodeMinimumBlock(assetId, ethers.zeroPadValue("0x01", 32), 77n);
+
+      expect(await erc20Helper.testExpectErc20Minimum(source, 0n)).to.deep.equal([token, 77n]);
+    });
+
+    it("expectErc20Minimum reverts InvalidAsset when the asset is not a local ERC20", async () => {
+      const assetId = await utils.testToValueAsset();
+      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 77n);
+
+      await expect(erc20Helper.testExpectErc20Minimum(source, 0n))
+        .to.be.revertedWithCustomError(erc20Helper, "InvalidAsset");
+    });
+
+    it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
+      const assetId = await utils.testToValueAsset();
+      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 77n);
+
+      await expect(erc20Helper.testExpectErc20Amount(source, 0n))
+        .to.be.revertedWithCustomError(erc20Helper, "InvalidAsset");
+    });
+
+    it("expectErc1155Amount returns meta and amount from a matching local ERC1155 amount block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x11", 32);
+      const source = encodeAmountBlock(assetId, meta, 66n);
+
+      expect(await erc1155Helper.testExpectErc1155Amount(source, 0n, collection)).to.deep.equal([meta, 66n]);
+    });
+
+    it("requireErc1155Amount returns meta, amount, and advances by one amount block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x11", 32);
+      const source = encodeAmountBlock(assetId, meta, 66n);
+
+      expect(await erc1155Helper.testRequireErc1155Amount(source, collection)).to.deep.equal([meta, 66n, 104n]);
+    });
+
+    it("expectErc1155Balance returns meta and amount from a matching local ERC1155 balance block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x12", 32);
+      const source = encodeBalanceBlock(assetId, meta, 67n);
+
+      expect(await erc1155Helper.testExpectErc1155Balance(source, 0n, collection)).to.deep.equal([meta, 67n]);
+    });
+
+    it("requireErc1155Balance returns meta, amount, and advances by one balance block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x12", 32);
+      const source = encodeBalanceBlock(assetId, meta, 67n);
+
+      expect(await erc1155Helper.testRequireErc1155Balance(source, collection)).to.deep.equal([meta, 67n, 104n]);
+    });
+
+    it("expectErc1155Minimum returns meta and amount from a matching local ERC1155 minimum block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x13", 32);
+      const source = encodeMinimumBlock(assetId, meta, 88n);
+
+      expect(await erc1155Helper.testExpectErc1155Minimum(source, 0n, collection)).to.deep.equal([meta, 88n]);
+    });
+
+    it("requireErc1155Minimum returns meta, amount, and advances by one minimum block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x13", 32);
+      const source = encodeMinimumBlock(assetId, meta, 88n);
+
+      expect(await erc1155Helper.testRequireErc1155Minimum(source, collection)).to.deep.equal([meta, 88n, 104n]);
+    });
+
+    it("expectErc1155Maximum returns meta and amount from a matching local ERC1155 maximum block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x14", 32);
+      const source = encodeMaximumBlock(assetId, meta, 89n);
+
+      expect(await erc1155Helper.testExpectErc1155Maximum(source, 0n, collection)).to.deep.equal([meta, 89n]);
+    });
+
+    it("requireErc1155Maximum returns meta, amount, and advances by one maximum block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x14", 32);
+      const source = encodeMaximumBlock(assetId, meta, 89n);
+
+      expect(await erc1155Helper.testRequireErc1155Maximum(source, collection)).to.deep.equal([meta, 89n, 104n]);
+    });
+
+    it("expectErc1155Custody returns meta and amount from a matching local ERC1155 custody block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x15", 32);
+      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
+
+      expect(await erc1155Helper.testExpectErc1155Custody(source, 0n, 123n, collection)).to.deep.equal([meta, 68n]);
+    });
+
+    it("requireErc1155Custody returns meta, amount, and advances by one custody block", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x15", 32);
+      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
+
+      expect(await erc1155Helper.testRequireErc1155Custody(source, 123n, collection)).to.deep.equal([meta, 68n, 136n]);
+    });
+
+    it("expectErc1155Custody reverts UnexpectedValue when the host does not match", async () => {
+      const collection = "0x00000000000000000000000000000000000000d0";
+      const assetId = await utils.testToErc1155Asset(collection);
+      const meta = ethers.zeroPadValue("0x15", 32);
+      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
+
+      await expect(erc1155Helper.testExpectErc1155Custody(source, 0n, 321n, collection))
+        .to.be.revertedWithCustomError(erc1155Helper, "UnexpectedValue");
+    });
+
+    it("expectErc1155Amount reverts InvalidAsset when the asset is not a local ERC1155", async () => {
+      const assetId = await utils.testToValueAsset();
+      const source = encodeAmountBlock(assetId, ethers.zeroPadValue("0x11", 32), 77n);
+
+      await expect(erc1155Helper.testExpectErc1155Amount(source, 0n, "0x00000000000000000000000000000000000000d0"))
+        .to.be.revertedWithCustomError(erc1155Helper, "InvalidAsset");
+    });
+
+    it("expectErc721Balance returns meta from a matching local ERC721 balance block", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const meta = ethers.zeroPadValue("0x02", 32);
+      const source = encodeBalanceBlock(assetId, meta, 1n);
+
+      expect(await erc721Helper.testExpectErc721Balance(source, 0n, collection)).to.equal(meta);
+    });
+
+    it("requireErc721Balance returns meta and advances by one balance block", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const meta = ethers.zeroPadValue("0x02", 32);
+      const source = encodeBalanceBlock(assetId, meta, 1n);
+
+      expect(await erc721Helper.testRequireErc721Balance(source, collection)).to.deep.equal([meta, 104n]);
+    });
+
+    it("expectErc721Custody returns meta from a matching local ERC721 custody block", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const meta = ethers.zeroPadValue("0x03", 32);
+      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
+
+      expect(await erc721Helper.testExpectErc721Custody(source, 0n, 321n, collection)).to.equal(meta);
+    });
+
+    it("requireErc721Custody returns meta and advances by one custody block", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const meta = ethers.zeroPadValue("0x03", 32);
+      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
+
+      expect(await erc721Helper.testRequireErc721Custody(source, 321n, collection)).to.deep.equal([meta, 136n]);
+    });
+
+    it("expectErc721Custody reverts UnexpectedValue when the host does not match", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const meta = ethers.zeroPadValue("0x03", 32);
+      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
+
+      await expect(erc721Helper.testExpectErc721Custody(source, 0n, 123n, collection))
+        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
+    });
+    it("expectErc721Balance reverts InvalidAsset when the asset is not a local ERC721", async () => {
+      const assetId = await utils.testToValueAsset();
+      const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x01", 32), 1n);
+
+      await expect(erc721Helper.testExpectErc721Balance(source, 0n, "0x00000000000000000000000000000000000000c0"))
+        .to.be.revertedWithCustomError(erc721Helper, "InvalidAsset");
+    });
+
+    it("expectErc721Balance reverts UnexpectedValue when amount is not 1", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x02", 32), 2n);
+
+      await expect(erc721Helper.testExpectErc721Balance(source, 0n, collection))
+        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
+    });
+
+    it("expectErc721Custody reverts UnexpectedValue when amount is not 1", async () => {
+      const collection = "0x00000000000000000000000000000000000000c0";
+      const assetId = await utils.testToErc721Asset(collection);
+      const source = encodeCustodyBlock(321n, assetId, ethers.zeroPadValue("0x03", 32), 2n);
+
+      await expect(erc721Helper.testExpectErc721Custody(source, 0n, 321n, collection))
+        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
     });
 
     it("accepts matching 2:1 ratio between state and request prime runs", async () => {

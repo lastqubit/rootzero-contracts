@@ -19,7 +19,7 @@ abstract contract HostDiscovery is HostAnnouncedEvent, IHostDiscovery {
     /// @param version Protocol version the host implements.
     /// @param namespace Human-readable namespace string for the host.
     function announceHost(uint id, uint blocknum, uint16 version, string calldata namespace) external {
-        emit HostAnnounced(Ids.host(id, msg.sender), blocknum, version, namespace);
+        emit HostAnnounced(Ids.matchHost(id, msg.sender), blocknum, version, namespace);
     }
 }
 

@@ -17,7 +17,7 @@ library Layout {
     uint16 constant Opaque32 = 0x2000;
     /// @dev 32-byte EVM-compatible value; lower 20 bytes hold an address.
     uint16 constant Evm32 = 0x2001;
-    /// @dev 64-byte EVM-compatible value (reserved for extended IDs).
+    /// @dev 64-byte EVM-compatible value; used when a paired metadata word completes the identity.
     uint16 constant Evm64 = 0x4001;
 
     // -------------------------------------------------------------------------
@@ -63,6 +63,8 @@ library Layout {
     uint8 constant Value = 0x01;
     /// @dev ERC-20 fungible token; lower 20 bytes of the ID hold the contract address.
     uint8 constant Erc20 = 0x02;
-    /// @dev ERC-721 non-fungible token; lower 20 bytes of the ID hold the issuer address.
+    /// @dev ERC-721 non-fungible token; lower 20 bytes of the ID hold the collection address.
     uint8 constant Erc721 = 0x03;
+    /// @dev ERC-1155 multi-token asset; lower 20 bytes of the ID hold the collection address.
+    uint8 constant Erc1155 = 0x04;
 }

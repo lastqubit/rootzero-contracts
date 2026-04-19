@@ -95,12 +95,12 @@ library Ids {
         return bytes4(uint32(id >> 160));
     }
 
-    /// @notice Assert that `id` is the host ID of `target` on the current chain.
+    /// @notice Assert that `id` is the host ID of `addr` on the current chain.
     /// @param id Node ID to validate.
-    /// @param target Expected host contract address.
-    /// @return hid The same `id` value if it matches `target`.
-    function host(uint id, address target) internal view returns (uint hid) {
-        if (id != toHost(target)) revert InvalidId();
+    /// @param addr Expected host contract address.
+    /// @return hid The same `id` value if it matches `addr`.
+    function matchHost(uint id, address addr) internal view returns (uint hid) {
+        if (id != toHost(addr)) revert InvalidId();
         return id;
     }
 

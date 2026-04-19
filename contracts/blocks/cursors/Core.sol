@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {HostAsset, AssetAmount, HostAmount, Tx, Keys, Sizes} from "./Schema.sol";
-import {ALLOC_SCALE, Writer, Writers} from "./Writers.sol";
+import {HostAsset, AssetAmount, HostAmount, Tx, Keys, Sizes} from "../Schema.sol";
+import {ALLOC_SCALE, Writer, Writers} from "../Writers.sol";
 
 /// @notice Zero-copy view into a calldata block stream.
 /// All positions (`i`, `bound`) are byte offsets relative to the start of the source region.
