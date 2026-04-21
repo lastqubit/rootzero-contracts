@@ -81,8 +81,8 @@ library Ids {
 
     /// @notice Assert that `id` is a query ID and return it unchanged.
     /// @param id Node ID to validate.
-    /// @return qid The same `id` value if it is a query.
-    function query(uint id) internal pure returns (uint qid) {
+    /// @return queryId The same `id` value if it is a query.
+    function query(uint id) internal pure returns (uint queryId) {
         if (!isQuery(id)) revert InvalidId();
         return id;
     }

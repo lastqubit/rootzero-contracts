@@ -11,7 +11,7 @@ import { CollateralEvent } from "./events/Collateral.sol";
 import { CommandEvent } from "./events/Command.sol";
 import { DebtEvent } from "./events/Debt.sol";
 import { DepositEvent } from "./events/Deposit.sol";
-import { Erc721PositionEvent } from "./events/Erc721.sol";
+import { AssetPositionEvent } from "./events/Position.sol";
 import { EventEmitter } from "./events/Emitter.sol";
 import { GovernedEvent } from "./events/Governed.sol";
 import { HostAnnouncedEvent } from "./events/Host.sol";
