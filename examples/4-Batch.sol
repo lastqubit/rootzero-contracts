@@ -27,8 +27,8 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        // Create the request cursor in the same way commands do, then size
+    ) external onlyTrusted returns (bytes memory) {
+        // Create the request cursor from CommandContext.request, then size
         // the writer from the block count returned by primeRun.
         (Cur memory inputs, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(count);

@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import { deploy, getSigner } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
-  encodeAmountBlock, encodeAmountBlockWithNode, encodeAmountBlockWithRecipient,
+  encodeAmountBlock,
   encodeBalanceBlock, encodeCustodyBlock,
-  encodeRecipientBlock, encodeNodeBlock, encodeTxBlock, encodeStepBlock, encodeUserAccount,
+  encodeAccountBlock, encodeNodeBlock, encodeTxBlock, encodeStepBlock, encodeUserAccount,
   encodeBundleBlock, concat
 } from "./helpers/blocks.js";
 
@@ -30,9 +30,8 @@ describe("Commands", () => {
     );
   });
 
-  function ctx(overrides: Partial<{ target: bigint; account: string; state: string; request: string }> = {}) {
+  function ctx(overrides: Partial<{ account: string; state: string; request: string }> = {}) {
     return {
-      target: overrides.target ?? 0n,
       account: overrides.account ?? userAccount,
       state: overrides.state ?? "0x",
       request: overrides.request ?? "0x",
@@ -89,23 +88,6 @@ describe("Commands", () => {
       ));
     });
 
-    it("accepts the explicit deposit command id as the target", async () => {
-      const asset = ethers.zeroPadValue("0x01", 32);
-      const request = encodeAmountBlock(asset, ethers.ZeroHash, 5n);
-      const target = await host.getDepositId();
-      await expect(callAs(0, "deposit", ctx({ target, request })))
-        .to.emit(host, "DepositCalled")
-        .withArgs(userAccount, asset, ethers.ZeroHash, 5n);
-    });
-
-    it("reverts UnexpectedEndpoint for wrong non-zero target", async () => {
-      const asset = ethers.zeroPadValue("0x01", 32);
-      const request = encodeAmountBlock(asset, ethers.ZeroHash, 1n);
-      await expect(
-        callAs(0, "deposit", ctx({ target: 999n, request }))
-      ).to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
-    });
-
     it("reverts UnauthorizedCaller for untrusted caller", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       const request = encodeAmountBlock(asset, ethers.ZeroHash, 1n);
@@ -152,16 +134,6 @@ describe("Commands", () => {
       expect(result).to.equal(encodeBalanceBlock(asset, meta, 8n));
     });
 
-    it("accepts the explicit depositPayable command id as the target", async () => {
-      const asset = ethers.zeroPadValue("0x06", 32);
-      const meta = ethers.ZeroHash;
-      const request = encodeAmountBlock(asset, meta, 5n);
-      const target = await host.getDepositPayableId();
-
-      await expect(callAs(0, "depositPayable", ctx({ target, request }), { value: 5n }))
-        .to.emit(host, "DepositPayableCalled")
-        .withArgs(userAccount, asset, meta, 5n, 0n);
-    });
   });
 
 
@@ -178,10 +150,10 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, meta, 100n);
     });
 
-    it("uses RECIPIENT from request when present", async () => {
+    it("uses ACCOUNT from request when present", async () => {
       const recipient = encodeUserAccount("0xbabe");
       const state = encodeBalanceBlock(asset, meta, 50n);
-      const request = encodeRecipientBlock(recipient);
+      const request = encodeAccountBlock(recipient);
       const tx = await callAs(0, "withdraw", ctx({ state, request }));
       await expect(tx).to.emit(host, "WithdrawCalled")
         .withArgs(recipient, asset, meta, 50n);
@@ -222,11 +194,11 @@ describe("Commands", () => {
     const asset = ethers.zeroPadValue("0x20", 32);
     const meta  = ethers.ZeroHash;
 
-    it("emits TransferCalled for bundled AMOUNT and RECIPIENT blocks", async () => {
+    it("emits TransferCalled for bundled AMOUNT and ACCOUNT blocks", async () => {
       const to = encodeUserAccount("0xbeef");
       const request = encodeBundleBlock(
         encodeAmountBlock(asset, meta, 200n),
-        encodeRecipientBlock(to)
+        encodeAccountBlock(to)
       );
       const tx = await callAs(0, "transfer", ctx({ request }));
       await expect(tx).to.emit(host, "TransferCalled")
@@ -235,18 +207,18 @@ describe("Commands", () => {
 
     it("reverts InvalidBlock when no AMOUNT blocks", async () => {
       const to = encodeUserAccount("0xbeef");
-      const request = encodeRecipientBlock(to);
+      const request = encodeAccountBlock(to);
       await expect(callAs(0, "transfer", ctx({ request })))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("reverts MalformedBlocks when bundled AMOUNT has no RECIPIENT block", async () => {
+    it("reverts MalformedBlocks when bundled AMOUNT has no ACCOUNT block", async () => {
       const request = encodeBundleBlock(encodeAmountBlock(asset, meta, 1n));
       await expect(callAs(0, "transfer", ctx({ request })))
         .to.be.revertedWithCustomError(host, "MalformedBlocks");
     });
 
-    it("emits TransferCalled for each bundled AMOUNT and RECIPIENT pair in a batch", async () => {
+    it("emits TransferCalled for each bundled AMOUNT and ACCOUNT pair in a batch", async () => {
       const asset1 = ethers.zeroPadValue("0x21", 32);
       const asset2 = ethers.zeroPadValue("0x22", 32);
       const meta   = ethers.ZeroHash;
@@ -255,11 +227,11 @@ describe("Commands", () => {
       const request = concat(
         encodeBundleBlock(
           encodeAmountBlock(asset1, meta, 100n),
-          encodeRecipientBlock(to1),
+          encodeAccountBlock(to1),
         ),
         encodeBundleBlock(
           encodeAmountBlock(asset2, meta, 200n),
-          encodeRecipientBlock(to2),
+          encodeAccountBlock(to2),
         ),
       );
       const tx = await callAs(0, "transfer", ctx({ request }));
@@ -267,28 +239,6 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "TransferCalled").withArgs(userAccount, to2, asset2, meta, 200n);
     });
 
-    it("accepts the explicit transfer command id as the target", async () => {
-      const to = encodeUserAccount("0xbeef");
-      const request = encodeBundleBlock(
-        encodeAmountBlock(asset, meta, 5n),
-        encodeRecipientBlock(to)
-      );
-      const target = await host.getTransferId();
-      await expect(callAs(0, "transfer", ctx({ target, request })))
-        .to.emit(host, "TransferCalled")
-        .withArgs(userAccount, to, asset, meta, 5n);
-    });
-
-    it("reverts UnexpectedEndpoint for wrong non-zero target", async () => {
-      const to = encodeUserAccount("0xbeef");
-      const request = encodeBundleBlock(
-        encodeAmountBlock(asset, meta, 1n),
-        encodeRecipientBlock(to)
-      );
-      await expect(
-        callAs(0, "transfer", ctx({ target: 999n, request }))
-      ).to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
-    });
   });
 
   // ── CreditTo ──────────────────────────────────────────────────────────────
@@ -303,10 +253,10 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "CreditToCalled");
     });
 
-    it("uses RECIPIENT from request when present", async () => {
+    it("uses ACCOUNT from request when present", async () => {
       const recipient = encodeUserAccount("0xcafe");
       const state = encodeBalanceBlock(asset, meta, 100n);
-      const request = encodeRecipientBlock(recipient);
+      const request = encodeAccountBlock(recipient);
       const tx = await callAs(0, "creditAccount", ctx({ state, request }));
       await expect(tx).to.emit(host, "CreditToCalled")
         .withArgs(recipient, asset, meta, 100n, 100n);
@@ -585,17 +535,6 @@ describe("Commands", () => {
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, meta, 8n));
     });
 
-    it("accepts the explicit provisionPayable command id as the target", async () => {
-      const asset = ethers.zeroPadValue("0x78", 32);
-      const meta = ethers.ZeroHash;
-      const hostId = 888n;
-      const request = encodeCustodyBlock(hostId, asset, meta, 5n);
-      const target = await host.getProvisionPayableId();
-
-      await expect(callAs(0, "provisionPayable", ctx({ target, request }), { value: 5n }))
-        .to.emit(host, "ProvisionPayableCalled")
-        .withArgs(hostId, userAccount, asset, meta, 5n, 0n);
-    });
   });
 
 

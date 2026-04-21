@@ -9,7 +9,7 @@ pragma solidity ^0.8.33;
 // Three things every custom command needs:
 //   1. A deterministic command ID derived from the command name + address.
 //   2. A Command event emitted in the constructor to announce the command to the protocol.
-//   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller and target.
+//   3. The onlyTrusted modifier on the entrypoint to enforce the trusted caller.
 
 import {CommandBase, CommandContext, State} from "../contracts/Commands.sol";
 import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
@@ -34,12 +34,14 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        // onlyCommand checks that msg.sender is the trusted rootzero runtime and that
-        // c.target matches this command's ID (or is 0, meaning "any command").
+    ) external onlyTrusted returns (bytes memory) {
+        // onlyTrusted checks that msg.sender is the trusted runtime / commander host.
+        // The command function selector already identifies this entrypoint, so no
+        // additional target field is needed in CommandContext.
 
+        // CommandContext now carries just account, state, and request.
         // Create a request cursor using the shared command helper and decode
-        // the first AMOUNT block.
+        // the first AMOUNT block from the request stream.
         Cur memory input = cursor(c.request);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 

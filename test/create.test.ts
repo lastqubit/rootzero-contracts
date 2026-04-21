@@ -7,7 +7,7 @@ import "./helpers/matchers.js";
 describe("Create", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const createMethod = "create((uint256,bytes32,bytes,bytes))";
+  const createMethod = "create((bytes32,bytes,bytes))";
 
   before(async () => {
     const signer = await getSigner(0);
@@ -21,9 +21,8 @@ describe("Create", () => {
     );
   });
 
-  function ctx(overrides: Partial<{ target: bigint; account: string; state: string; request: string }> = {}) {
+  function ctx(overrides: Partial<{ account: string; state: string; request: string }> = {}) {
     return {
-      target:  overrides.target  ?? 0n,
       account: overrides.account ?? userAccount,
       state:   overrides.state   ?? "0x",
       request: overrides.request ?? "0x",
@@ -62,19 +61,6 @@ describe("Create", () => {
     const tx = await callAs(0, ctx({ request }));
     await expect(tx).to.emit(host, "CreateCalled").withArgs(userAccount, "0xff");
     await expect(tx).to.emit(host, "CreateCalled").withArgs(userAccount, "0xee");
-  });
-
-  it("accepts the explicit create command id as the target", async () => {
-    const target = await host.getCreateId();
-    const request = encodeRouteBlock("0x99");
-    const tx = await callAs(0, ctx({ target, request }));
-    await expect(tx).to.emit(host, "CreateCalled");
-  });
-
-  it("reverts UnexpectedEndpoint for a wrong non-zero target", async () => {
-    const request = encodeRouteBlock("0x01");
-    await expect(callAs(0, ctx({ target: 999n, request })))
-      .to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
   });
 
   it("reverts UnauthorizedCaller for an untrusted caller", async () => {

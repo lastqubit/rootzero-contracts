@@ -38,7 +38,7 @@ describe("Access Control", () => {
     // Commander can call trusted-only functions without reverting.
     // We test by calling authorize with zero request from commander (should revert ZeroCursor, not Unauthorized).
     const adminAccount: string = await host.getAdminAccount();
-    const ctx = { target: 0n, account: adminAccount, state: "0x", request: "0x" };
+    const ctx = { account: adminAccount, state: "0x", request: "0x" };
     const signers = await getSigners(1);
     await expect(
       host.connect(signers[0]).authorize(ctx)
@@ -47,7 +47,7 @@ describe("Access Control", () => {
 
   it("stranger is not trusted and gets UnauthorizedCaller", async () => {
     const adminAccount: string = await host.getAdminAccount();
-    const ctx = { target: 0n, account: adminAccount, state: "0x", request: "0x" };
+    const ctx = { account: adminAccount, state: "0x", request: "0x" };
     const signers = await getSigners(2);
     await expect(
       host.connect(signers[1]).authorize(ctx)
@@ -59,7 +59,7 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0xdeadbeefn << 192n; // some non-zero node id
     const nodeBlock = encodeNodeBlock(dummyNode);
-    const ctx = { target: 0n, account: adminAccount, state: "0x", request: nodeBlock };
+    const ctx = { account: adminAccount, state: "0x", request: nodeBlock };
 
     await expect(host.connect(signers[0]).authorize(ctx))
       .to.emit(host, "Access")
@@ -71,7 +71,7 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0xcafebaben << 192n;
     const nodeBlock = encodeNodeBlock(dummyNode);
-    const ctx = { target: 0n, account: adminAccount, state: "0x", request: nodeBlock };
+    const ctx = { account: adminAccount, state: "0x", request: nodeBlock };
     await host.connect(signers[0]).authorize(ctx);
     expect(await host.isAuthorized(dummyNode)).to.be.true;
   });
@@ -81,10 +81,10 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0x11111111n << 192n;
     // First authorize
-    await host.connect(signers[0]).authorize({ target: 0n, account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
+    await host.connect(signers[0]).authorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
     // Then unauthorize
     await expect(
-      host.connect(signers[0]).unauthorize({ target: 0n, account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) })
+      host.connect(signers[0]).unauthorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) })
     ).to.emit(host, "Access").withArgs(await host.host(), dummyNode, false);
   });
 
@@ -92,8 +92,8 @@ describe("Access Control", () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0x22222222n << 192n;
-    await host.connect(signers[0]).authorize({ target: 0n, account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
-    await host.connect(signers[0]).unauthorize({ target: 0n, account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
+    await host.connect(signers[0]).authorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
+    await host.connect(signers[0]).unauthorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(dummyNode) });
     expect(await host.isAuthorized(dummyNode)).to.be.false;
   });
 

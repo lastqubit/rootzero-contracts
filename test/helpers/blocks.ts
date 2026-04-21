@@ -14,7 +14,9 @@ export const Keys = {
   Maximums: blockKey("maximums(uint a, uint b)"),
   Bounds: blockKey("bounds(int min, int max)"),
   Fee: blockKey("fee(uint amount)"),
-  Recipient: blockKey("recipient(bytes32 account)"),
+  Account: blockKey("account(bytes32 account)"),
+  Position: blockKey("position(bytes32 account, bytes32 asset, bytes32 meta)"),
+  Entry: blockKey("entry(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
   Node: blockKey("node(uint id)"),
   Funding: blockKey("funding(uint host, uint amount)"),
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
@@ -22,6 +24,7 @@ export const Keys = {
   Listing: blockKey("listing(uint host, bytes32 asset, bytes32 meta)"),
   Quantity: blockKey("quantity(uint amount)"),
   Step: blockKey("step(uint target, uint value, bytes request)"),
+  Call: blockKey("call(uint target, uint value, bytes data)"),
   Transaction: blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
   Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
@@ -31,6 +34,7 @@ export const Keys = {
   Bundle: blockKey("bundle(bytes data)"),
   List: blockKey("list(bytes data)"),
   Route: blockKey("route(bytes data)"),
+  Item: blockKey("item(bytes data)"),
   Query: blockKey("query(bytes data)"),
   Response: blockKey("response(bytes data)"),
   Path: blockKey("path(bytes data)"),
@@ -77,10 +81,10 @@ export function encodeAmountBlockWithNode(asset: string, meta: string, amount: b
   );
 }
 
-export function encodeAmountBlockWithRecipient(asset: string, meta: string, amount: bigint, recipient: string): string {
+export function encodeAmountBlockWithAccount(asset: string, meta: string, amount: bigint, account: string): string {
   return encodeBundleBlock(
     encodeAmountBlock(asset, meta, amount),
-    encodeRecipientBlock(recipient),
+    encodeAccountBlock(account),
   );
 }
 
@@ -92,8 +96,8 @@ export function encodeCustodyBlock(host: bigint, asset: string, meta: string, am
   return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodeRecipientBlock(account: string): string {
-  return block(Keys.Recipient, pad32(account));
+export function encodeAccountBlock(account: string): string {
+  return block(Keys.Account, pad32(account));
 }
 
 export function encodeNodeBlock(id: bigint): string {
@@ -142,6 +146,10 @@ export function encodeTxBlock(from: string, to: string, asset: string, meta: str
 
 export function encodeStepBlock(target: bigint, value: bigint, request: string): string {
   return block(Keys.Step, ethers.concat([pad32(target), pad32(value), request]));
+}
+
+export function encodeCallBlock(target: bigint, value: bigint, data: string): string {
+  return block(Keys.Call, ethers.concat([pad32(target), pad32(value), data]));
 }
 
 export function encodeRouteBlock(data: string): string {
@@ -205,7 +213,7 @@ export function concat(...parts: string[]): string {
 }
 
 // Command args suffix appended when computing command selectors
-const COMMAND_ARGS = "((uint256,bytes32,bytes,bytes))";
+const COMMAND_ARGS = "((bytes32,bytes,bytes))";
 
 export function commandSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + COMMAND_ARGS), 0, 4);

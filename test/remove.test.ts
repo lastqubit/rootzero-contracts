@@ -7,7 +7,7 @@ import "./helpers/matchers.js";
 describe("Remove", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const removeMethod = "remove((uint256,bytes32,bytes,bytes))";
+  const removeMethod = "remove((bytes32,bytes,bytes))";
 
   before(async () => {
     const signer = await getSigner(0);
@@ -21,9 +21,8 @@ describe("Remove", () => {
     );
   });
 
-  function ctx(overrides: Partial<{ target: bigint; account: string; state: string; request: string }> = {}) {
+  function ctx(overrides: Partial<{ account: string; state: string; request: string }> = {}) {
     return {
-      target:  overrides.target  ?? 0n,
       account: overrides.account ?? userAccount,
       state:   overrides.state   ?? "0x",
       request: overrides.request ?? "0x",
@@ -55,19 +54,6 @@ describe("Remove", () => {
     const request = encodeRouteBlock("0x01");
     const result: string = await (host as any)[removeMethod].staticCall(ctx({ request }));
     expect(result).to.equal("0x");
-  });
-
-  it("accepts the explicit remove command id as the target", async () => {
-    const target = await host.getRemoveId();
-    const request = encodeRouteBlock("0x99");
-    const tx = await callAs(0, ctx({ target, request }));
-    await expect(tx).to.emit(host, "RemoveCalled");
-  });
-
-  it("reverts UnexpectedEndpoint for a wrong non-zero target", async () => {
-    const request = encodeRouteBlock("0x01");
-    await expect(callAs(0, ctx({ target: 999n, request })))
-      .to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
   });
 
   it("reverts UnauthorizedCaller for an untrusted caller", async () => {

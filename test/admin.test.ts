@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
   encodeNodeBlock, encodeAssetBlock, encodeAllocationBlock,
-  encodeFundingBlock, encodeRouteBlock, concat
+  encodeFundingBlock, encodeRouteBlock, encodeCallBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -18,17 +18,24 @@ describe("Admin Commands", () => {
     adminAccount = await host.getAdminAccount();
   });
 
-  function adminCtx(request: string, target = 0n) {
-    return { target, account: adminAccount, state: "0x", request };
+  function adminCtx(request: string) {
+    return { account: adminAccount, state: "0x", request };
   }
 
   function userCtx(userAcc: string, request: string) {
-    return { target: 0n, account: userAcc, state: "0x", request };
+    return { account: userAcc, state: "0x", request };
   }
 
   async function callAs(signerIndex: number, method: string, ...args: unknown[]) {
     const signer = await getSigner(signerIndex);
     return (host.connect(signer) as any)[method](...args);
+  }
+
+  async function hostIdFor(addr: string) {
+    const provider = await getProvider();
+    const network = await provider.getNetwork();
+    const HOST_PREFIX = 0x20010201n;
+    return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
 
   // ── Authorize ─────────────────────────────────────────────────────────────
@@ -71,12 +78,6 @@ describe("Admin Commands", () => {
       await expect(callAs(0, "init", adminCtx(encodeRouteBlock(inputData))))
         .to.emit(host, "InitCalled")
         .withArgs(inputData);
-    });
-
-    it("accepts the explicit init command id as the target", async () => {
-      const target = await host.getInitId();
-      await expect(callAs(0, "init", adminCtx(encodeRouteBlock("0xab"), target)))
-        .to.emit(host, "InitCalled");
     });
 
     it("reverts NotAdmin for non-admin account", async () => {
@@ -262,18 +263,99 @@ describe("Admin Commands", () => {
     });
   });
 
+  describe("executePayable", () => {
+    it("reverts NotAdmin for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x07", 32);
+      const request = encodeCallBlock(0n, 0n, "0x");
+      await expect(callAs(0, "executePayable", userCtx(fakeAdmin, request)))
+        .to.be.revertedWithCustomError(host, "NotAdmin");
+    });
+
+    it("executes raw calldata against a target node without prior authorization", async () => {
+      const target = await deploy("TestExecuteTarget");
+      const targetId = await hostIdFor(await target.getAddress());
+      const calldata = target.interface.encodeFunctionData("ping", [123n, "0x123456"]);
+      const request = encodeCallBlock(targetId, 0n, calldata);
+
+      await expect(callAs(0, "executePayable", adminCtx(request)))
+        .to.emit(target, "Ping")
+        .withArgs(await host.getAddress(), 0n, 123n, "0x123456");
+    });
+
+    it("can still call into another host when that target trusts the caller", async () => {
+      const source = host;
+      const target = await deploy("TestHost", commander);
+
+      const sourceHostId = await hostIdFor(await source.getAddress());
+
+      await target.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
+
+      const inputData = "0x123456";
+      const targetCtx = { account: await target.getAdminAccount(), state: "0x", request: encodeRouteBlock(inputData) };
+      const calldata = target.interface.encodeFunctionData("init", [targetCtx]);
+      const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
+
+      await expect(callAs(0, "executePayable", adminCtx(request)))
+        .to.emit(target, "InitCalled")
+        .withArgs(inputData);
+    });
+
+    it("processes multiple CALL blocks in one request", async () => {
+      const targetA = await deploy("TestHost", commander);
+      const targetB = await deploy("TestHost", commander);
+
+      const sourceHostId = await hostIdFor(await host.getAddress());
+
+      await targetA.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
+      await targetB.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
+
+      const calldataA = targetA.interface.encodeFunctionData("init", [{
+        account: await targetA.getAdminAccount(),
+        state: "0x",
+        request: encodeRouteBlock("0xaa")
+      }]);
+      const calldataB = targetB.interface.encodeFunctionData("destroy", [{
+        account: await targetB.getAdminAccount(),
+        state: "0x",
+        request: encodeRouteBlock("0xbb")
+      }]);
+
+      const tx = await callAs(0, "executePayable", adminCtx(concat(
+        encodeCallBlock(await hostIdFor(await targetA.getAddress()), 0n, calldataA),
+        encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
+      )));
+
+      await expect(tx).to.emit(targetA, "InitCalled").withArgs("0xaa");
+      await expect(tx).to.emit(targetB, "DestroyCalled").withArgs("0xbb");
+    });
+
+    it("can forward native value to a target node without prior authorization", async () => {
+      const target = await deploy("TestExecuteTarget");
+      const amount = 5n;
+      const targetId = await hostIdFor(await target.getAddress());
+      const calldata = target.interface.encodeFunctionData("ping", [1n, "0xab"]);
+      const request = encodeCallBlock(targetId, amount, calldata);
+
+      await expect(callAs(0, "executePayable", adminCtx(request), { value: amount }))
+        .to.emit(target, "Ping")
+        .withArgs(await host.getAddress(), amount, 1n, "0xab");
+    });
+
+    it("reverts FailedCall when the raw target call reverts", async () => {
+      const target = await deploy("TestRejectEther");
+      const targetId = await hostIdFor(await target.getAddress());
+
+      await expect(callAs(0, "executePayable", adminCtx(encodeCallBlock(targetId, 1n, "0x")), { value: 1n }))
+        .to.be.revertedWithCustomError(host, "FailedCall");
+    });
+  });
+
   describe("destroy", () => {
     it("emits DestroyCalled for a single input block", async () => {
       const inputData = "0xdead";
       await expect(callAs(0, "destroy", adminCtx(encodeRouteBlock(inputData))))
         .to.emit(host, "DestroyCalled")
         .withArgs(inputData);
-    });
-
-    it("accepts the explicit destroy command id as the target", async () => {
-      const target = await host.getDestroyId();
-      await expect(callAs(0, "destroy", adminCtx(encodeRouteBlock("0xcd"), target)))
-        .to.emit(host, "DestroyCalled");
     });
 
     it("reverts NotAdmin for non-admin account", async () => {

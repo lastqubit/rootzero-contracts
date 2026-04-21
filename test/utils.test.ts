@@ -198,27 +198,27 @@ describe("Utils", () => {
       await expectCustomError(utils.testEnsureAmountRange(11n, 1n, 10n), "BadAmount");
     });
 
-    it("assetKey returns asset for 32-byte asset with zero meta", async () => {
+    it("assetSlot returns asset for 32-byte asset with zero meta", async () => {
       const asset = await utils.testToValueAsset();
-      const result = await utils.testAssetKey(asset, ethers.ZeroHash);
+      const result = await utils.testAssetSlot(asset, ethers.ZeroHash);
       expect(result).to.equal(asset);
     });
 
-    it("assetKey ignores non-zero meta for 32-byte assets", async () => {
+    it("assetSlot ignores non-zero meta for 32-byte assets", async () => {
       const asset = await utils.testToValueAsset();
       const meta = ethers.hexlify(ethers.randomBytes(32));
-      const result = await utils.testAssetKey(asset, meta);
+      const result = await utils.testAssetSlot(asset, meta);
       expect(result).to.equal(asset);
     });
 
-    it("assetKey reverts InvalidAsset for zero asset", async () => {
-      await expectCustomError(utils.testAssetKey(ethers.ZeroHash, ethers.ZeroHash), "InvalidAsset");
+    it("assetSlot reverts InvalidAsset for zero asset", async () => {
+      await expectCustomError(utils.testAssetSlot(ethers.ZeroHash, ethers.ZeroHash), "InvalidAsset");
     });
 
-    it("assetKey returns keccak for composite asset", async () => {
+    it("assetSlot returns keccak for composite asset", async () => {
       const asset = ethers.zeroPadValue("0x01", 32); // not starting with 0x20
       const meta = ethers.zeroPadValue("0x02", 32);
-      const result = await utils.testAssetKey(asset, meta);
+      const result = await utils.testAssetSlot(asset, meta);
       const expected = ethers.keccak256(ethers.concat([asset, meta]));
       expect(result).to.equal(expected);
     });

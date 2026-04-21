@@ -23,7 +23,7 @@ import {
   encodeMinimumBlock,
   encodeNodeBlock,
   encodePathBlock,
-  encodeRecipientBlock,
+  encodeAccountBlock,
   encodeRouteBlock,
   encodeStepBlock,
   encodeTxBlock,
@@ -147,6 +147,32 @@ describe("Cursors", () => {
       expect(await helper.testPeek(source, 0n)).to.deep.equal([Keys.Balance, 96n]);
     });
 
+    it("past returns the offset immediately past the block without advancing", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testPast(source, 0n)).to.equal(104n);
+      expect(await helper.testPastCurrent(source)).to.equal(104n);
+    });
+
+    it("has returns true for a matching well-formed block at the given offset", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testHas(source, 0n, Keys.Balance)).to.equal(true);
+    });
+
+    it("has returns false when the key does not match", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testHas(source, 0n, Keys.Amount)).to.equal(false);
+    });
+
+    it("has returns true for a truncated block when the header key matches", async () => {
+      const source = "0x" + Keys.Balance.slice(2) + "00000060";
+      expect(await helper.testHas(source, 0n, Keys.Balance)).to.equal(true);
+    });
+
+    it("has(key) checks the current cursor position", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testHasCurrent(source, Keys.Balance)).to.equal(true);
+    });
+
     it("countRun counts consecutive matching blocks from i", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
@@ -158,7 +184,7 @@ describe("Cursors", () => {
 
     it("slice creates a subcursor over the requested range", async () => {
       const a = encodeAssetBlock(asset, meta);
-      const b = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const b = encodeAccountBlock(encodeUserAccount("0x12"));
       const source = concat(a, b);
       const from = BigInt(ethers.getBytes(a).length);
       const to = BigInt(ethers.getBytes(source).length);
@@ -170,7 +196,7 @@ describe("Cursors", () => {
     });
 
     it("slice reverts MalformedBlocks when the requested range is invalid", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeRecipientBlock(encodeUserAccount("0x12")));
+      const source = concat(encodeAssetBlock(asset, meta), encodeAccountBlock(encodeUserAccount("0x12")));
       await expect(helper.testSlice(source, 10n, 9n))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
       await expect(helper.testSlice(source, 0n, BigInt(ethers.getBytes(source).length + 1)))
@@ -178,7 +204,7 @@ describe("Cursors", () => {
     });
 
     it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const route = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const route = encodeAccountBlock(encodeUserAccount("0x12"));
       const minimum = encodeMinimumBlock(asset, meta, amount);
       const bundle = encodeBundleBlock(route, minimum);
       const [inputI, end] = await helper.testBundle(bundle);
@@ -220,6 +246,33 @@ describe("Cursors", () => {
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
+    it("route returns a sliced cursor over the full route block and advances the source cursor", async () => {
+      const payload = encodeAccountBlock(encodeUserAccount("0x12"));
+      const route = encodeRouteBlock(payload);
+      const [routeOffset, routeI, routeLen, routeBound, inputI] = await helper.testRoute(route);
+      expect(routeOffset).to.equal(0n);
+      expect(routeI).to.equal(0n);
+      expect(routeLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(routeBound).to.equal(0n);
+      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+    });
+
+    it("route reverts when the current block is not ROUTE", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      await expect(helper.testRoute(source))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("maybeRoute returns an empty cursor and does not advance when the current block is not ROUTE", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      const [routeOffset, routeI, routeLen, routeBound, inputI] = await helper.testMaybeRoute(source);
+      expect(routeOffset).to.equal(0n);
+      expect(routeI).to.equal(0n);
+      expect(routeLen).to.equal(0n);
+      expect(routeBound).to.equal(0n);
+      expect(inputI).to.equal(0n);
+    });
+
     it("list(group) primes the list payload on the same cursor", async () => {
       const item1 = encodeAssetBlock(asset, meta);
       const item2 = encodeAssetBlock(meta, asset);
@@ -252,7 +305,7 @@ describe("Cursors", () => {
     it("list(group) reverts IncompleteCursor when trailing blocks remain in the list payload", async () => {
       const item1 = encodeAssetBlock(asset, meta);
       const item2 = encodeAssetBlock(meta, asset);
-      const extra = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const extra = encodeAccountBlock(encodeUserAccount("0x12"));
       const list = encodeListBlock(item1, item2, extra);
       await expect(helper.testListPrime(list, 1n))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
@@ -291,7 +344,7 @@ describe("Cursors", () => {
     it("unpackPath returns the raw path payload", async () => {
       const path = "0x1234567890abcdef";
       const source = encodePathBlock(path);
-      expect(await helper.testUnpackPath(source)).to.equal(path);
+      expect(await helper.testUnpackRaw(source, Keys.Path)).to.equal(path);
     });
 
     it("requireAmount validates and advances by one fixed-size block", async () => {
@@ -337,15 +390,15 @@ describe("Cursors", () => {
       expect(await helper.testCursorEndConsumed(source)).to.equal(true);
     });
 
-    it("recipientAfter returns the tail recipient or backup", async () => {
+    it("accountAfter returns the tail account or backup", async () => {
       const backup = encodeUserAccount("0x99");
-      const recipient = encodeUserAccount("0x12");
+      const account = encodeUserAccount("0x12");
       const source = concat(
         encodeAmountBlock(asset, meta, amount),
-        encodeRecipientBlock(recipient)
+        encodeAccountBlock(account)
       );
-      expect(await helper.testRecipientAfter(source, 1n, backup)).to.equal(recipient);
-      expect(await helper.testRecipientAfter(encodeAmountBlock(asset, meta, amount), 1n, backup)).to.equal(backup);
+      expect(await helper.testAccountAfter(source, 1n, backup)).to.equal(account);
+      expect(await helper.testAccountAfter(encodeAmountBlock(asset, meta, amount), 1n, backup)).to.equal(backup);
     });
 
     it("nodeAfter returns the tail node or backup", async () => {
