@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, CommandPayable, State} from "./Base.sol";
-import {Cursors, Cur, HostAmount, Schemas, Writer, Writers} from "../Cursors.sol";
+import {AssetAmount, Cursors, Cur, Schemas, Writer, Writers} from "../Cursors.sol";
 import {Budget, Values} from "../utils/Value.sol";
 using Cursors for Cur;
 using Writers for Writer;
@@ -16,9 +16,10 @@ abstract contract ProvisionHook {
     /// @notice Override to send or provision a custody value.
     /// Called once per provisioned asset. Implementations should perform only the
     /// side effect (e.g. transfer or record); output blocks are written by the caller.
+    /// @param host Destination host node ID.
     /// @param account Caller's account identifier.
-    /// @param custody Destination host plus asset amount to provision.
-    function provision(bytes32 account, HostAmount memory custody) internal virtual;
+    /// @param custody Asset amount to provision.
+    function provision(uint host, bytes32 account, AssetAmount memory custody) internal virtual;
 }
 
 /// @notice Shared provision hook used by `ProvisionPayable`.
@@ -26,20 +27,21 @@ abstract contract ProvisionPayableHook {
     /// @notice Override to send or provision a custody value.
     /// Called once per provisioned asset. Implementations should perform only the
     /// side effect (e.g. transfer or record); output blocks are written by the caller.
+    /// @param host Destination host node ID.
     /// @param account Caller's account identifier.
-    /// @param custody Destination host plus asset amount to provision.
+    /// @param custody Asset amount to provision.
     /// @param budget Mutable native-value budget drawn from `msg.value`.
-    function provision(bytes32 account, HostAmount memory custody, Budget memory budget) internal virtual;
+    function provision(uint host, bytes32 account, AssetAmount memory custody, Budget memory budget) internal virtual;
 }
 
 /// @title Provision
-/// @notice Command that provisions assets to remote hosts from CUSTODY request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
+/// @notice Command that provisions assets to remote hosts from CUSTODY_AT request blocks.
+/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY_AT state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
     constructor() {
-        emit Command(host, PROVISION, Schemas.Custody, provisionId, State.Empty, State.Custodies, false);
+        emit Command(host, PROVISION, Schemas.CustodyAt, provisionId, State.Empty, State.Custodies, false);
     }
 
     function provision(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
@@ -47,9 +49,9 @@ abstract contract Provision is CommandBase, ProvisionHook {
         Writer memory writer = Writers.allocCustodies(count);
 
         while (request.i < request.bound) {
-            HostAmount memory custody = request.unpackCustodyValue();
-            provision(c.account, custody);
-            writer.appendCustody(custody);
+            (uint host_, AssetAmount memory custody) = request.unpackCustodyAt();
+            provision(host_, c.account, custody);
+            writer.appendCustodyAt(host_, custody);
         }
 
         return request.complete(writer);
@@ -57,14 +59,14 @@ abstract contract Provision is CommandBase, ProvisionHook {
 }
 
 /// @title ProvisionPayable
-/// @notice Command that provisions assets to remote hosts from CUSTODY request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
+/// @notice Command that provisions assets to remote hosts from CUSTODY_AT request blocks.
+/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY_AT state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
     uint internal immutable provisionPayableId = commandId(PP);
 
     constructor() {
-        emit Command(host, PP, Schemas.Custody, provisionPayableId, State.Empty, State.Custodies, true);
+        emit Command(host, PP, Schemas.CustodyAt, provisionPayableId, State.Empty, State.Custodies, true);
     }
 
     function provisionPayable(
@@ -75,9 +77,9 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
         Budget memory budget = Values.fromMsg();
 
         while (request.i < request.bound) {
-            HostAmount memory custody = request.unpackCustodyValue();
-            provision(c.account, custody, budget);
-            writer.appendCustody(custody);
+            (uint host_, AssetAmount memory custody) = request.unpackCustodyAt();
+            provision(host_, c.account, custody, budget);
+            writer.appendCustodyAt(host_, custody);
         }
 
         settleValue(c.account, budget);
@@ -86,7 +88,7 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
 }
 
 /// @title ProvisionFromBalance
-/// @notice Command that converts BALANCE state into CUSTODY state for a destination host.
+/// @notice Command that converts BALANCE state into CUSTODY_AT state for a destination host.
 /// The destination node is read from an optional NODE trailing block; reverts if absent.
 abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     uint internal immutable provisionFromBalanceId = commandId(PFB);
@@ -105,10 +107,9 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
         if (peer == 0) revert Cursors.ZeroNode();
 
         while (state.i < state.bound) {
-            (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            HostAmount memory custody = HostAmount(peer, asset, meta, amount);
-            provision(c.account, custody);
-            writer.appendCustody(custody);
+            AssetAmount memory custody = state.unpackBalanceValue();
+            provision(peer, c.account, custody);
+            writer.appendCustodyAt(peer, custody);
         }
 
         return state.complete(writer);

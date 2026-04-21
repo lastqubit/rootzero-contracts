@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {HostAsset, AssetAmount, HostAmount, Tx} from "../../core/Types.sol";
+import {AssetAmount, Position, Tx, UserAmount} from "../../core/Types.sol";
 import {Keys, Sizes} from "../Schema.sol";
 import {ALLOC_SCALE, Writer, Writers} from "../Writers.sol";
 
@@ -100,42 +100,24 @@ library Cursors {
         if (i + 8 + len > cur.len) revert MalformedBlocks();
     }
 
-    /// @notice Return the byte offset immediately past the block at position `i`.
-    /// Does not advance the cursor.
-    /// @param cur Source cursor.
-    /// @param i Byte offset of the block header within the source region.
-    /// @return Byte offset immediately past the block, relative to the source region.
-    function past(Cur memory cur, uint i) internal pure returns (uint) {
-        (, uint len) = peek(cur, i);
-        return i + Sizes.Header + len;
-    }
-
     /// @notice Return the byte offset immediately past the block at the current cursor position.
     /// Does not advance the cursor.
     /// @param cur Source cursor.
     /// @return Byte offset immediately past the current block, relative to the source region.
     function past(Cur memory cur) internal pure returns (uint) {
-        return past(cur, cur.i);
-    }
-
-    /// @notice Return true if the block header at position `i` has the given key.
-    /// Returns false when `i` is out of bounds or the key differs.
-    /// @param cur Source cursor.
-    /// @param i Byte offset of the block header within the source region.
-    /// @param key Expected block type identifier.
-    /// @return Whether the block header at `i` uses `key`.
-    function has(Cur memory cur, uint i, bytes4 key) internal pure returns (bool) {
-        if (i + 8 > cur.len) return false;
-        uint abs = cur.offset + i;
-        return bytes4(msg.data[abs:abs + 4]) == key;
+        (, uint len) = peek(cur, cur.i);
+        return cur.i + Sizes.Header + len;
     }
 
     /// @notice Return true if the current cursor position contains a block header with the given key.
+    /// Returns false when `cur.i` is out of bounds or the key differs.
     /// @param cur Source cursor.
     /// @param key Expected block type identifier.
     /// @return Whether the block header at `cur.i` uses `key`.
     function has(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        return has(cur, cur.i, key);
+        if (cur.i + 8 > cur.len) return false;
+        uint abs = cur.offset + cur.i;
+        return bytes4(msg.data[abs:abs + 4]) == key;
     }
 
     /// @notice Validate a block at position `i` and return its payload location.
@@ -255,24 +237,25 @@ library Cursors {
         cur.i += 8;
     }
 
-    /// @notice Consume a ROUTE block at the current position and return a cursor over the full block slice.
-    /// Advances `cur.i` past the route block while the returned cursor is scoped to the
-    /// full route block bytes as a fresh zero-based region.
-    /// @param cur Cursor positioned at a ROUTE block.
-    /// @return out Cursor scoped to the full route block.
-    function route(Cur memory cur) internal pure returns (Cur memory out) {
-        (, uint next) = expect(cur, cur.i, Keys.Route, 0, 0);
+    /// @notice Consume a block with the given key at the current position and return a cursor over the full block slice.
+    /// Advances `cur.i` past the block while the returned cursor is scoped to the
+    /// full block bytes as a fresh zero-based region.
+    /// @param cur Cursor positioned at the expected block.
+    /// @param key Expected block type key.
+    /// @return out Cursor scoped to the full block.
+    function take(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
+        (, uint next) = expect(cur, cur.i, key, 0, 0);
         out = cur.slice(cur.i, next);
         cur.i = next;
     }
 
     /// @notice Consume an optional ROUTE block at the current position and return a cursor over the full block slice.
     /// If the current block is not ROUTE, returns an empty cursor and leaves `cur.i` unchanged.
-    /// Otherwise behaves like `route(cur)`.
+    /// Otherwise behaves like `take(cur, Keys.Route)`.
     /// @param cur Cursor positioned at an optional ROUTE block.
-    /// @return out Cursor scoped to the full route block, or empty when no ROUTE block is present.
+    /// @return out Cursor scoped to the full ROUTE block, or empty when no ROUTE block is present.
     function maybeRoute(Cur memory cur) internal pure returns (Cur memory out) {
-        return cur.has(Keys.Route) ? route(cur) : cur.slice(cur.i, cur.i);
+        return cur.has(Keys.Route) ? take(cur, Keys.Route) : cur.slice(cur.i, cur.i);
     }
 
     /// @notice Enter a List block, prime its member run, and return the raw block count.
@@ -284,17 +267,6 @@ library Cursors {
         next = list(cur);
         (, count, ) = cur.primeRun(group);
         if (cur.bound != next) revert IncompleteCursor();
-    }
-
-    /// @notice Enter a List block, prime its member run, and require an exact raw block count.
-    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
-    /// @param group Expected block group size for the list item stream.
-    /// @param requiredCount Required number of blocks in the list payload.
-    /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur, uint group, uint requiredCount) internal pure returns (uint next) {
-        uint count;
-        (count, next) = list(cur, group);
-        if (count != requiredCount) revert BadRatio();
     }
 
     /// @notice Assert that the cursor has consumed exactly up to `bound`.
@@ -408,22 +380,6 @@ library Cursors {
         return create64(Keys.Bounty, bytes32(bounty), relayer);
     }
 
-    /// @notice Encode a MINIMUMS block.
-    /// @param a First minimum amount.
-    /// @param b Second minimum amount.
-    /// @return Encoded MINIMUMS block bytes.
-    function toMinimumsBlock(uint a, uint b) internal pure returns (bytes memory) {
-        return create64(Keys.Minimums, bytes32(a), bytes32(b));
-    }
-
-    /// @notice Encode a MAXIMUMS block.
-    /// @param a First maximum amount.
-    /// @param b Second maximum amount.
-    /// @return Encoded MAXIMUMS block bytes.
-    function toMaximumsBlock(uint a, uint b) internal pure returns (bytes memory) {
-        return create64(Keys.Maximums, bytes32(a), bytes32(b));
-    }
-
     /// @notice Encode a FEE block.
     /// @param amount Fee amount.
     /// @return Encoded FEE block bytes.
@@ -458,14 +414,19 @@ library Cursors {
         return create96(Keys.Balance, asset, meta, bytes32(amount));
     }
 
-    /// @notice Encode a CUSTODY block.
+    /// @notice Encode a CUSTODY_AT block.
     /// @param host Host node ID holding the custody.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    /// @return Encoded CUSTODY block bytes.
-    function toCustodyBlock(uint host, bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
-        return create128(Keys.Custody, bytes32(host), asset, meta, bytes32(amount));
+    /// @return Encoded CUSTODY_AT block bytes.
+    function toCustodyAtBlock(
+        uint host,
+        bytes32 asset,
+        bytes32 meta,
+        uint amount
+    ) internal pure returns (bytes memory) {
+        return create128(Keys.CustodyAt, bytes32(host), asset, meta, bytes32(amount));
     }
 
     // -------------------------------------------------------------------------
@@ -623,10 +584,7 @@ library Cursors {
     /// @return b Second decoded bytes32.
     /// @return c Third decoded bytes32.
     /// @return d Fourth decoded bytes32.
-    function unpack128(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
+    function unpack128(Cur memory cur, bytes4 key) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
         uint abs = consume(cur, key, 128, 128);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
@@ -763,22 +721,6 @@ library Cursors {
         (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Minimum);
     }
 
-    /// @notice Consume a MINIMUMS block and return the two minimum amounts.
-    /// @param cur Cursor; advanced past the block.
-    /// @return a First minimum amount.
-    /// @return b Second minimum amount.
-    function unpackMinimums(Cur memory cur) internal pure returns (uint a, uint b) {
-        (a, b) = unpack2Uint(cur, Keys.Minimums);
-    }
-
-    /// @notice Consume a MAXIMUMS block and return the two maximum amounts.
-    /// @param cur Cursor; advanced past the block.
-    /// @return a First maximum amount.
-    /// @return b Second maximum amount.
-    function unpackMaximums(Cur memory cur) internal pure returns (uint a, uint b) {
-        (a, b) = unpack2Uint(cur, Keys.Maximums);
-    }
-
     /// @notice Consume a MAXIMUM block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return asset Asset identifier.
@@ -826,6 +768,49 @@ library Cursors {
     /// @return account Account identifier.
     function unpackAccount(Cur memory cur) internal pure returns (bytes32 account) {
         account = unpack32(cur, Keys.Account);
+    }
+
+    /// @notice Consume a POSITION block and return its fields as separate values.
+    /// @param cur Cursor; advanced past the block.
+    /// @return account Account identifier.
+    /// @return asset Asset identifier.
+    /// @return meta Asset metadata slot.
+    function unpackPosition(Cur memory cur) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+        (account, asset, meta) = unpack96(cur, Keys.Position);
+    }
+
+    /// @notice Consume a POSITION block and return its fields as a struct.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded account, asset, and meta.
+    function unpackPositionValue(Cur memory cur) internal pure returns (Position memory value) {
+        (value.account, value.asset, value.meta) = unpack96(cur, Keys.Position);
+    }
+
+    /// @notice Consume an ENTRY block and return its fields as separate values.
+    /// @param cur Cursor; advanced past the block.
+    /// @return account Account identifier.
+    /// @return asset Asset identifier.
+    /// @return meta Asset metadata slot.
+    /// @return amount Token amount.
+    function unpackEntry(
+        Cur memory cur
+    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
+        uint abs = consume(cur, Keys.Entry, 128, 128);
+        account = bytes32(msg.data[abs:abs + 32]);
+        asset = bytes32(msg.data[abs + 32:abs + 64]);
+        meta = bytes32(msg.data[abs + 64:abs + 96]);
+        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
+    }
+
+    /// @notice Consume an ENTRY block and return its fields as a struct.
+    /// @param cur Cursor; advanced past the block.
+    /// @return value Decoded account, asset, meta, and amount.
+    function unpackEntryValue(Cur memory cur) internal pure returns (UserAmount memory value) {
+        uint abs = consume(cur, Keys.Entry, 128, 128);
+        value.account = bytes32(msg.data[abs:abs + 32]);
+        value.asset = bytes32(msg.data[abs + 32:abs + 64]);
+        value.meta = bytes32(msg.data[abs + 64:abs + 96]);
+        value.amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
     }
 
     /// @notice Consume a RATE block and return the value.
@@ -887,28 +872,6 @@ library Cursors {
         relayer = y;
     }
 
-    /// @notice Consume a LISTING block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return host Host node ID that lists the asset.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    function unpackListing(Cur memory cur) internal pure returns (uint host, bytes32 asset, bytes32 meta) {
-        (bytes32 x, bytes32 y, bytes32 z) = unpack96(cur, Keys.Listing);
-        host = uint(x);
-        asset = y;
-        meta = z;
-    }
-
-    /// @notice Consume a LISTING block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, and meta.
-    function unpackListingValue(Cur memory cur) internal pure returns (HostAsset memory value) {
-        uint abs = consume(cur, Keys.Listing, 96, 96);
-        value.host = uint(bytes32(msg.data[abs:abs + 32]));
-        value.asset = bytes32(msg.data[abs + 32:abs + 64]);
-        value.meta = bytes32(msg.data[abs + 64:abs + 96]);
-    }
-
     /// @notice Consume a NODE block and return the node ID.
     /// @param cur Cursor; advanced past the block.
     /// @return node Node identifier.
@@ -916,39 +879,25 @@ library Cursors {
         node = uint(unpack32(cur, Keys.Node));
     }
 
-    /// @notice Consume a CUSTODY block and return its fields as a struct.
+    /// @notice Consume a CUSTODY_AT block and return its host plus asset amount.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, meta, and amount.
-    function unpackCustodyValue(Cur memory cur) internal pure returns (HostAmount memory value) {
-        uint abs = consume(cur, Keys.Custody, 128, 128);
-        value.host = uint(bytes32(msg.data[abs:abs + 32]));
+    /// @return host Decoded host node ID.
+    /// @return value Decoded asset, meta, and amount.
+    function unpackCustodyAt(Cur memory cur) internal pure returns (uint host, AssetAmount memory value) {
+        uint abs = consume(cur, Keys.CustodyAt, 128, 128);
+        host = uint(bytes32(msg.data[abs:abs + 32]));
         value.asset = bytes32(msg.data[abs + 32:abs + 64]);
         value.meta = bytes32(msg.data[abs + 64:abs + 96]);
         value.amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
     }
 
-    /// @notice Consume an ALLOCATION block and return its fields as separate values.
+    /// @notice Consume an ALLOCATION block and return its host plus asset amount.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID of the allocation.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Allocated amount.
-    function unpackAllocation(
-        Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    /// @return value Decoded asset, meta, and amount.
+    function unpackAllocation(Cur memory cur) internal pure returns (uint host, AssetAmount memory value) {
         uint abs = consume(cur, Keys.Allocation, 128, 128);
         host = uint(bytes32(msg.data[abs:abs + 32]));
-        asset = bytes32(msg.data[abs + 32:abs + 64]);
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
-    }
-
-    /// @notice Consume an ALLOCATION block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, meta, and amount.
-    function unpackAllocationValue(Cur memory cur) internal pure returns (HostAmount memory value) {
-        uint abs = consume(cur, Keys.Allocation, 128, 128);
-        value.host = uint(bytes32(msg.data[abs:abs + 32]));
         value.asset = bytes32(msg.data[abs + 32:abs + 64]);
         value.meta = bytes32(msg.data[abs + 64:abs + 96]);
         value.amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
@@ -982,6 +931,54 @@ library Cursors {
         if (uint(bytes32(msg.data[abs:abs + 32])) != cid) revert UnexpectedValue();
         deadline = uint(bytes32(msg.data[abs + 32:abs + 64]));
         proof = msg.data[abs + 64:cur.offset + next];
+    }
+
+    /// @notice Validate a fixed-size 32-byte block at position `i` and return its value.
+    /// Does not advance the cursor.
+    /// @param cur Source cursor.
+    /// @param i Byte offset of the block.
+    /// @param key Expected block type key.
+    /// @return value Decoded 32-byte payload value.
+    function expect32(Cur memory cur, uint i, bytes4 key) internal pure returns (bytes32 value) {
+        (uint abs, ) = expect(cur, i, key, 32, 32);
+        value = bytes32(msg.data[abs:abs + 32]);
+    }
+
+    /// @notice Validate a fixed-size 32-byte block at position `i` and require an exact payload value match.
+    /// Does not advance the cursor.
+    /// @param cur Source cursor.
+    /// @param i Byte offset of the block.
+    /// @param key Expected block type key.
+    /// @param expected Expected 32-byte payload value.
+    function expect32(Cur memory cur, uint i, bytes4 key, bytes32 expected) internal pure {
+        (uint abs, ) = expect(cur, i, key, 32, 32);
+        if (bytes32(msg.data[abs:abs + 32]) != expected) revert UnexpectedValue();
+    }
+
+    /// @notice Validate a fixed-size 64-byte block at position `i` and return its values.
+    /// Does not advance the cursor.
+    /// @param cur Source cursor.
+    /// @param i Byte offset of the block.
+    /// @param key Expected block type key.
+    /// @return a First decoded 32-byte payload value.
+    /// @return b Second decoded 32-byte payload value.
+    function expect64(Cur memory cur, uint i, bytes4 key) internal pure returns (bytes32 a, bytes32 b) {
+        (uint abs, ) = expect(cur, i, key, 64, 64);
+        a = bytes32(msg.data[abs:abs + 32]);
+        b = bytes32(msg.data[abs + 32:abs + 64]);
+    }
+
+    /// @notice Validate a fixed-size 64-byte block at position `i` and require exact payload value matches.
+    /// Does not advance the cursor.
+    /// @param cur Source cursor.
+    /// @param i Byte offset of the block.
+    /// @param key Expected block type key.
+    /// @param expectedA Expected first 32-byte payload value.
+    /// @param expectedB Expected second 32-byte payload value.
+    function expect64(Cur memory cur, uint i, bytes4 key, bytes32 expectedA, bytes32 expectedB) internal pure {
+        (uint abs, ) = expect(cur, i, key, 64, 64);
+        if (bytes32(msg.data[abs:abs + 32]) != expectedA) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 32:abs + 64]) != expectedB) revert UnexpectedValue();
     }
 
     /// @notice Validate a fixed-size asset amount block at position `i`.
@@ -1052,11 +1049,11 @@ library Cursors {
     /// @notice Validate a CUSTODY block at position `i` for a specific host.
     /// Does not advance the cursor.
     /// @param cur Source cursor.
-    /// @param i Byte offset of the CUSTODY block.
+    /// @param i Byte offset of the CUSTODY_AT block.
     /// @param host Expected host node ID.
     /// @return value Decoded asset, meta, and amount (host is not returned; it was validated).
-    function expectCustody(Cur memory cur, uint i, uint host) internal pure returns (AssetAmount memory value) {
-        (uint abs, ) = expect(cur, i, Keys.Custody, 128, 128);
+    function expectCustodyAt(Cur memory cur, uint i, uint host) internal pure returns (AssetAmount memory value) {
+        (uint abs, ) = expect(cur, i, Keys.CustodyAt, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         value.asset = bytes32(msg.data[abs + 32:abs + 64]);
         value.meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1135,12 +1132,12 @@ library Cursors {
         if (requireMaximum(cur, asset, meta) < amount) revert UnexpectedValue();
     }
 
-    /// @notice Consume a CUSTODY block and assert it belongs to the expected host.
+    /// @notice Consume a CUSTODY_AT block and assert it belongs to the expected host.
     /// @param cur Cursor; advanced past the block.
     /// @param host Expected host node ID.
     /// @return value Decoded asset, meta, and amount.
-    function requireCustody(Cur memory cur, uint host) internal pure returns (AssetAmount memory value) {
-        value = expectCustody(cur, cur.i, host);
+    function requireCustodyAt(Cur memory cur, uint host) internal pure returns (AssetAmount memory value) {
+        value = expectCustodyAt(cur, cur.i, host);
         cur.i += 136;
     }
 }

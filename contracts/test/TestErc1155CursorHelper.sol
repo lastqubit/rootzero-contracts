@@ -79,23 +79,23 @@ contract TestErc1155CursorHelper {
         return (meta, amount, cur.i);
     }
 
-    function testExpectErc1155Custody(
+    function testExpectErc1155CustodyAt(
         bytes calldata source,
         uint i,
         uint host,
         address collection
     ) external view returns (bytes32 meta, uint amount) {
         Cur memory cur = Cursors.open(source);
-        return Erc1155Cursors.expectErc1155Custody(cur, i, host, collection);
+        return Erc1155Cursors.expectErc1155CustodyAt(cur, i, host, collection);
     }
 
-    function testRequireErc1155Custody(
+    function testRequireErc1155CustodyAt(
         bytes calldata source,
         uint host,
         address collection
     ) external view returns (bytes32 meta, uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
-        (meta, amount) = Erc1155Cursors.requireErc1155Custody(cur, host, collection);
+        (meta, amount) = Erc1155Cursors.requireErc1155CustodyAt(cur, host, collection);
         return (meta, amount, cur.i);
     }
 }

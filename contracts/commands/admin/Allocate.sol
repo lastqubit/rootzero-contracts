@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, State } from "../Base.sol";
-import { Cursors, Cur, Schemas } from "../../Cursors.sol";
+import { AssetAmount, Cursors, Cur, Schemas } from "../../Cursors.sol";
 using Cursors for Cur;
 
 string constant NAME = "allocate";
@@ -27,8 +27,8 @@ abstract contract Allocate is CommandBase, AllocateHook {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
-            (uint host, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllocation();
-            allocate(host, asset, meta, amount);
+            (uint host, AssetAmount memory value) = request.unpackAllocation();
+            allocate(host, value.asset, value.meta, value.amount);
         }
 
         request.complete();

@@ -29,21 +29,21 @@ contract TestErc20CursorHelper {
         return (token, amount, cur.i);
     }
 
-    function testExpectErc20Custody(
+    function testExpectErc20CustodyAt(
         bytes calldata source,
         uint i,
         uint host
     ) external view returns (address token, uint amount) {
         Cur memory cur = Cursors.open(source);
-        return Erc20Cursors.expectErc20Custody(cur, i, host);
+        return Erc20Cursors.expectErc20CustodyAt(cur, i, host);
     }
 
-    function testRequireErc20Custody(
+    function testRequireErc20CustodyAt(
         bytes calldata source,
         uint host
     ) external view returns (address token, uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
-        (token, amount) = Erc20Cursors.requireErc20Custody(cur, host);
+        (token, amount) = Erc20Cursors.requireErc20CustodyAt(cur, host);
         return (token, amount, cur.i);
     }
 

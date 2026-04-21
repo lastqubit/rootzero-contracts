@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AssetAmount, HostAmount, Tx } from "../core/Types.sol";
-import { Keys, Sizes } from "./Schema.sol";
+import {AssetAmount, Position, Tx, UserAmount} from "../core/Types.sol";
+import {Keys, Sizes} from "./Schema.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
 struct Writer {
@@ -108,6 +108,20 @@ library Writers {
         return alloc96s(count);
     }
 
+    /// @notice Allocate a writer sized for exactly `count` POSITION blocks (1:1 ratio).
+    /// @param count Number of position blocks to allocate space for.
+    /// @return writer Allocated writer.
+    function allocPositions(uint count) internal pure returns (Writer memory writer) {
+        return alloc96s(count);
+    }
+
+    /// @notice Allocate a writer sized for exactly `count` ENTRY blocks (1:1 ratio).
+    /// @param count Number of entry blocks to allocate space for.
+    /// @return writer Allocated writer.
+    function allocEntries(uint count) internal pure returns (Writer memory writer) {
+        return alloc128s(count);
+    }
+
     /// @notice Allocate a writer sized for exactly `count` AMOUNT blocks (1:1 ratio).
     /// @param count Number of amount blocks to allocate space for.
     /// @return writer Allocated writer.
@@ -175,6 +189,14 @@ library Writers {
         return allocScaled96s(count, scaledRatio);
     }
 
+    /// @notice Allocate a writer for POSITION blocks with a custom output-to-input ratio.
+    /// @param count Number of input blocks.
+    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
+    /// @return writer Allocated writer.
+    function allocScaledPositions(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
+        return allocScaled96s(count, scaledRatio);
+    }
+
     /// @notice Allocate a writer for AMOUNT blocks with a custom output-to-input ratio.
     /// @param count Number of input blocks.
     /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units
@@ -199,7 +221,11 @@ library Writers {
     /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
     /// @param payloadLen Payload byte length for each block.
     /// @return writer Allocated writer.
-    function allocScaledBytes(uint count, uint scaledRatio, uint payloadLen) internal pure returns (Writer memory writer) {
+    function allocScaledBytes(
+        uint count,
+        uint scaledRatio,
+        uint payloadLen
+    ) internal pure returns (Writer memory writer) {
         return allocFromScaledCount(count, scaledRatio, Sizes.Header + payloadLen);
     }
 
@@ -250,14 +276,14 @@ library Writers {
         return alloc160s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` CUSTODY blocks (1:1 ratio).
-    /// @param count Number of custody blocks to allocate space for.
+    /// @notice Allocate a writer sized for exactly `count` CUSTODY_AT blocks (1:1 ratio).
+    /// @param count Number of custody-at blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocCustodies(uint count) internal pure returns (Writer memory writer) {
         return alloc128s(count);
     }
 
-    /// @notice Allocate a writer for CUSTODY blocks with a custom output-to-input ratio.
+    /// @notice Allocate a writer for CUSTODY_AT blocks with a custom output-to-input ratio.
     /// @param count Number of input blocks.
     /// @param scaledRatio Output count multiplier in `ALLOC_SCALE` units.
     /// @return writer Allocated writer.
@@ -286,6 +312,22 @@ library Writers {
     // -------------------------------------------------------------------------
     // Fixed-width write helpers
     // -------------------------------------------------------------------------
+
+    /// @notice Write a raw 32-byte word directly into `dst` at byte offset `i` without a block header.
+    /// `trim` shortens the logical write by removing bytes from the end of the word.
+    /// @param dst Destination buffer; must have at least `i + 32` bytes.
+    /// @param i Write offset within `dst`.
+    /// @param value Word to write.
+    /// @param trim Number of bytes to trim from the end of the word (0..31).
+    /// @return next Byte offset immediately after the written bytes.
+    function write32Raw(bytes memory dst, uint i, bytes32 value, uint trim) internal pure returns (uint next) {
+        if (trim > 31) revert InvalidTrim();
+        if (i + 32 > dst.length) revert WriterOverflow();
+        next = i + 32 - trim;
+        assembly ("memory-safe") {
+            mstore(add(add(dst, 0x20), i), value)
+        }
+    }
 
     /// @notice Write a fixed-width 32-byte-payload block directly into `dst` at byte offset `i`.
     /// `trim` shortens the logical payload by removing bytes from the end of the final word.
@@ -499,76 +541,6 @@ library Writers {
     }
 
     // -------------------------------------------------------------------------
-    // Typed write helpers
-    // -------------------------------------------------------------------------
-
-    /// @notice Write a BALANCE block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Amount` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param value Balance fields to encode.
-    /// @return next Byte offset immediately after the written block.
-    function writeBalanceBlock(bytes memory dst, uint i, AssetAmount memory value) internal pure returns (uint next) {
-        return write96(dst, i, Keys.Balance, value.asset, value.meta, bytes32(value.amount), 0);
-    }
-
-    /// @notice Write an AMOUNT block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Balance` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param value Amount fields to encode.
-    /// @return next Byte offset immediately after the written block.
-    function writeAmountBlock(bytes memory dst, uint i, AssetAmount memory value) internal pure returns (uint next) {
-        return write96(dst, i, Keys.Amount, value.asset, value.meta, bytes32(value.amount), 0);
-    }
-
-    /// @notice Write an ASSET block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.B64` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
-    /// @return next Byte offset immediately after the written block.
-    function writeAssetBlock(bytes memory dst, uint i, bytes32 asset, bytes32 meta) internal pure returns (uint next) {
-        return write64(dst, i, Keys.Asset, asset, meta, 0);
-    }
-
-    /// @notice Write a BOUNTY block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Bounty` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param amount Relayer reward amount.
-    /// @param relayer Relayer account identifier.
-    /// @return next Byte offset immediately after the written block.
-    function writeBountyBlock(bytes memory dst, uint i, uint amount, bytes32 relayer) internal pure returns (uint next) {
-        return write64(dst, i, Keys.Bounty, bytes32(amount), relayer, 0);
-    }
-
-    /// @notice Write a CUSTODY block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Custody` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param value Custody fields to encode.
-    /// @return next Byte offset immediately after the written block.
-    function writeCustodyBlock(bytes memory dst, uint i, HostAmount memory value) internal pure returns (uint next) {
-        return write128(dst, i, Keys.Custody, bytes32(value.host), value.asset, value.meta, bytes32(value.amount), 0);
-    }
-
-    /// @notice Write a TRANSACTION block directly into `dst` at byte offset `i`.
-    /// @param dst Destination buffer; must have at least `i + Sizes.Transaction` bytes.
-    /// @param i Write offset within `dst`.
-    /// @param value Transfer record fields to encode.
-    /// @return next Byte offset immediately after the written block.
-    function writeTxBlock(bytes memory dst, uint i, Tx memory value) internal pure returns (uint next) {
-        return write160(
-            dst,
-            i,
-            Keys.Transaction,
-            bytes32(value.from),
-            bytes32(value.to),
-            value.asset,
-            value.meta,
-            bytes32(value.amount),
-            0
-        );
-    }
-
-    // -------------------------------------------------------------------------
     // Append helpers
     // -------------------------------------------------------------------------
 
@@ -585,6 +557,14 @@ library Writers {
         writer.i = next;
     }
 
+    /// @notice Append a raw 32-byte word without a block header.
+    /// @param writer Destination writer; `i` is advanced by `32 - trim`.
+    /// @param value Word to append.
+    /// @param trim Number of bytes to trim from the end of the word (0..31).
+    function append32Raw(Writer memory writer, bytes32 value, uint trim) internal pure {
+        writer.i = write32Raw(writer.dst, writer.i, value, trim);
+    }
+
     /// @notice Append a fixed-width 32-byte-payload block.
     /// @param writer Destination writer; `i` is advanced by the trimmed logical block length.
     /// @param key Block type key.
@@ -593,16 +573,6 @@ library Writers {
     function append32(Writer memory writer, bytes4 key, bytes32 a, uint trim) internal pure {
         writer.i = write32(writer.dst, writer.i, key, a, trim);
     }
-
-    /// @notice Append an ABI-style boolean as a 32-byte scalar payload block.
-    /// Encodes `false` as `bytes32(0)` and `true` as `bytes32(uint(1))`.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B32`.
-    /// @param key Block type key.
-    /// @param value Boolean value to encode.
-    function appendBool(Writer memory writer, bytes4 key, bool value) internal pure {
-        writer.i = writeBool(writer.dst, writer.i, key, value);
-    }
-
 
     /// @notice Append a fixed-width 64-byte-payload block.
     /// @param writer Destination writer; `i` is advanced by the trimmed logical block length.
@@ -667,6 +637,15 @@ library Writers {
         writer.i = write160(writer.dst, writer.i, key, a, b, c, d, e, trim);
     }
 
+    /// @notice Append an ABI-style boolean as a 32-byte scalar payload block.
+    /// Encodes `false` as `bytes32(0)` and `true` as `bytes32(uint(1))`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B32`.
+    /// @param key Block type key.
+    /// @param value Boolean value to encode.
+    function appendBool(Writer memory writer, bytes4 key, bool value) internal pure {
+        writer.i = writeBool(writer.dst, writer.i, key, value);
+    }
+
     /// @notice Append a dynamic block with a fixed 32-byte head word.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B32 + tail.length`.
     /// @param key Block type key.
@@ -707,7 +686,23 @@ library Writers {
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Balance fields to encode.
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
-        writer.i = writeBalanceBlock(writer.dst, writer.i, value);
+        writer.i = write96(writer.dst, writer.i, Keys.Balance, value.asset, value.meta, bytes32(value.amount), 0);
+    }
+
+    /// @notice Append a POSITION block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
+    /// @param account Account identifier.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    function appendPosition(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta) internal pure {
+        writer.i = write96(writer.dst, writer.i, Keys.Position, account, asset, meta, 0);
+    }
+
+    /// @notice Append a POSITION block from a struct.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
+    /// @param value Position fields to encode.
+    function appendPosition(Writer memory writer, Position memory value) internal pure {
+        writer.i = write96(writer.dst, writer.i, Keys.Position, value.account, value.asset, value.meta, 0);
     }
 
     /// @notice Append an AMOUNT block using separate field values.
@@ -723,7 +718,33 @@ library Writers {
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Amount fields to encode.
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
-        writer.i = writeAmountBlock(writer.dst, writer.i, value);
+        writer.i = write96(writer.dst, writer.i, Keys.Amount, value.asset, value.meta, bytes32(value.amount), 0);
+    }
+
+    /// @notice Append an ENTRY block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
+    /// @param account Account identifier.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
+    /// @param amount Token amount.
+    function appendEntry(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        writer.i = write128(writer.dst, writer.i, Keys.Entry, account, asset, meta, bytes32(amount), 0);
+    }
+
+    /// @notice Append an ENTRY block from a struct.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
+    /// @param value Entry fields to encode.
+    function appendEntry(Writer memory writer, UserAmount memory value) internal pure {
+        writer.i = write128(
+            writer.dst,
+            writer.i,
+            Keys.Entry,
+            value.account,
+            value.asset,
+            value.meta,
+            bytes32(value.amount),
+            0
+        );
     }
 
     /// @notice Append an ASSET block.
@@ -731,7 +752,7 @@ library Writers {
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     function appendAsset(Writer memory writer, bytes32 asset, bytes32 meta) internal pure {
-        writer.i = writeAssetBlock(writer.dst, writer.i, asset, meta);
+        writer.i = write64(writer.dst, writer.i, Keys.Asset, asset, meta, 0);
     }
 
     /// @notice Append a BALANCE block only if `amount > 0`; silently skips zero amounts.
@@ -755,31 +776,51 @@ library Writers {
     /// @param amount Relayer reward amount.
     /// @param relayer Relayer account identifier.
     function appendBounty(Writer memory writer, uint amount, bytes32 relayer) internal pure {
-        writer.i = writeBountyBlock(writer.dst, writer.i, amount, relayer);
+        writer.i = write64(writer.dst, writer.i, Keys.Bounty, bytes32(amount), relayer, 0);
     }
 
-    /// @notice Append a CUSTODY block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.Custody`.
+    /// @notice Append a CUSTODY_AT block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.CustodyAt`.
     /// @param host Host node ID.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendCustody(Writer memory writer, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        writer.i = write128(writer.dst, writer.i, Keys.Custody, bytes32(host), asset, meta, bytes32(amount), 0);
+    function appendCustodyAt(Writer memory writer, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        writer.i = write128(writer.dst, writer.i, Keys.CustodyAt, bytes32(host), asset, meta, bytes32(amount), 0);
     }
 
-    /// @notice Append a CUSTODY block from a struct.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.Custody`.
+    /// @notice Append a CUSTODY_AT block from a host and asset amount.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.CustodyAt`.
+    /// @param host Host node ID.
     /// @param value Custody fields to encode.
-    function appendCustody(Writer memory writer, HostAmount memory value) internal pure {
-        writer.i = writeCustodyBlock(writer.dst, writer.i, value);
+    function appendCustodyAt(Writer memory writer, uint host, AssetAmount memory value) internal pure {
+        writer.i = write128(
+            writer.dst,
+            writer.i,
+            Keys.CustodyAt,
+            bytes32(host),
+            value.asset,
+            value.meta,
+            bytes32(value.amount),
+            0
+        );
     }
 
     /// @notice Append a TRANSACTION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
     /// @param value Transfer record fields to encode.
     function appendTx(Writer memory writer, Tx memory value) internal pure {
-        writer.i = writeTxBlock(writer.dst, writer.i, value);
+        writer.i = write160(
+            writer.dst,
+            writer.i,
+            Keys.Transaction,
+            bytes32(value.from),
+            bytes32(value.to),
+            value.asset,
+            value.meta,
+            bytes32(value.amount),
+            0
+        );
     }
 
     // -------------------------------------------------------------------------

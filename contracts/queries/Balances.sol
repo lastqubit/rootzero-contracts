@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cur, Cursors, Keys, Schemas, Writer, Writers} from "../Cursors.sol";
+import {Cur, Cursors, Schemas, Writer, Writers} from "../Cursors.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
 
 string constant NAME = "getBalances";
-string constant INPUT = "query(bytes32 account, bytes32 asset, bytes32 meta)";
 
 abstract contract GetBalancesHook {
     /// @notice Resolve one account's balance for one supported asset.
@@ -21,26 +20,26 @@ abstract contract GetBalancesHook {
 
 /// @title GetBalances
 /// @notice Rootzero query that resolves balances for one or more `(account, asset, meta)` tuples.
-/// The request is a run of `QUERY` blocks, each encoding `(bytes32 account, bytes32 asset, bytes32 meta)`.
-/// The response returns one `BALANCE` block per query entry, preserving request order.
+/// The request is a run of `POSITION` blocks.
+/// The response returns one `ENTRY` block per position entry, preserving request order.
 abstract contract GetBalances is QueryBase, GetBalancesHook {
     uint public immutable getBalancesId = queryId(NAME);
 
     constructor() {
-        emit Query(host, NAME, INPUT, Schemas.Balance, getBalancesId);
+        emit Query(host, NAME, Schemas.Position, Schemas.Entry, getBalancesId);
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.
-    /// @param request Block-stream request consisting of `query(account, asset, meta)*`.
-    /// @return Block-stream response containing one `balance(asset, meta, amount)` per query block.
+    /// @param request Block-stream request consisting of `position(account, asset, meta)*`.
+    /// @return Block-stream response containing one `entry(account, asset, meta, amount)` per position block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint count, ) = cursor(request, 1);
-        Writer memory response = Writers.allocBalances(count);
+        Writer memory response = Writers.allocEntries(count);
 
         while (query.i < query.bound) {
-            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpack96(Keys.Query);
+            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackPosition();
             uint balance = getBalance(account, asset, meta);
-            Writers.appendBalance(response, asset, meta, balance);
+            Writers.appendEntry(response, account, asset, meta, balance);
         }
 
         return query.complete(response);

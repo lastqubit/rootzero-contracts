@@ -10,18 +10,17 @@ import { Keys } from "./Keys.sol";
 library Schemas {
     string constant Account = "account(bytes32 account)";
     string constant Position = "position(bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant PositionAt = "positionAt(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
     string constant Entry = "entry(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant EntryAt = "entryAt(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
     string constant Asset = "asset(bytes32 asset, bytes32 meta)";
     string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
     string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
     string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
     string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Custody = "custody(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant CustodyAt = "custodyAt(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Transaction = "tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
     string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Listing = "listing(uint host, bytes32 asset, bytes32 meta)";
-    string constant Minimums = "minimums(uint a, uint b)";
-    string constant Maximums = "maximums(uint a, uint b)";
     string constant Funding = "funding(uint host, uint amount)";
     string constant Call = "call(uint target, uint value, bytes data)";
     string constant Bounty = "bounty(uint amount, bytes32 relayer)";
@@ -34,9 +33,9 @@ library Schemas {
     string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
     string constant Route = "route(bytes data)";
     string constant Item = "item(bytes data)";
+    string constant Evm = "evm(bytes data)";
     string constant Query = "query(bytes data)";
     string constant Response = "response(bytes data)";
-    string constant Path = "path(bytes data)";
     string constant Break = "break()";
 }
 
@@ -49,6 +48,12 @@ library Schemas {
 // - self payload may be [head][dynamic tail]
 // - head layout is implied by the block key
 // - one dynamic field may consume the rest of self payload without its own length prefix
+// - reserved extensible forms keep one fixed key while their declared field list remains descriptive schema metadata
+// - chain-specific payload blocks are encoded using the local chain/runtime's native conventions
+// - on EVM-family chains, `evm(<fields...>)` payloads use standard ABI tuple encoding via `abi.encode(...)`
+//   and can be decoded with `abi.decode`
+// - chain-specific payload blocks are request-only escape hatches and should never be used for pipeline state
+// - prefer ordinary protocol blocks whenever possible; chain-specific payload blocks should be a last resort
 //
 // Schema DSL:
 // - `;` separates top-level sibling blocks
@@ -67,17 +72,21 @@ library Schemas {
 // - a list block's self payload is an embedded normal block stream representing the repeated items
 // - top-level blocks of the same type should be grouped together
 // - primary / driving blocks should appear before auxiliary blocks
-// - `route(<fields...>)`, `item(<fields...>)`, `query(<fields...>)`, and `response(<fields...>)`
-//   are reserved extensible schema forms whose keys are always `Keys.Route`, `Keys.Item`,
-//   `Keys.Query`, and `Keys.Response` respectively
+// - `route(<fields...>)`, `item(<fields...>)`, `evm(<fields...>)`, `query(<fields...>)`,
+//   and `response(<fields...>)` are reserved extensible schema forms whose keys are always
+//   `Keys.Route`, `Keys.Item`, `Keys.Evm`, `Keys.Query`, and `Keys.Response` respectively
 // - these extensible forms work like dynamic `bytes` blocks: they may carry arbitrary
 //   payload bytes while keeping one fixed key per semantic block type
+// - `evm(<fields...>)` differs from bundle/list payloads: its bytes are not an embedded block stream
+// - `evm(uint foo, uint bar)` is a schema declaration only; on-chain the block key is still `Keys.Evm`
+//   and the payload can be decoded from `bytes data` using the local runtime's native decoder
+// - on EVM, `evm(bool flag)` occupies one full 32-byte ABI word, exactly like `abi.encode(flag)`
 // - `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
 // - `[]` compiles to a `Keys.List` block whose self payload is the repeated item block stream
 // - `asset(...)[]` means a list whose repeated item is the block `asset(...)`
 // - `steps[] = asset(...) & account(...)` means a named list whose repeated item is the bundle
 //   `asset(...) & account(...)`
-// - `bundle = account(...) & path(...)` means an anonymous child bundle with those bundled members
+// - `bundle = account(...) & evm(bytes routeData)` means an anonymous child bundle with those bundled members
 // - `list = asset(...) & account(...)` means an anonymous child list whose repeated item is the
 //   bundle `asset(...) & account(...)`
 // - `"amount(...) &"` and `"& amount(...)"` both normalize to a bundle containing one `amount(...)` child
@@ -119,18 +128,14 @@ library Sizes {
     uint constant Amount = B96;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Balance = B96;
-    /// @dev MINIMUMS block: 8 header + 32 a + 32 b = 72 bytes
-    uint constant Minimums = B64;
-    /// @dev MAXIMUMS block: 8 header + 32 a + 32 b = 72 bytes
-    uint constant Maximums = B64;
     /// @dev BOUNDS block: 8 header + 32 min + 32 max = 72 bytes
     uint constant Bounds = B64;
     /// @dev FEE block: 8 header + 32 amount = 40 bytes
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
-    /// @dev CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
-    uint constant Custody = B128;
+    /// @dev CUSTODY_AT block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
+    uint constant CustodyAt = B128;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
     uint constant Transaction = B160;
 }

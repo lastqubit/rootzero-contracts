@@ -36,13 +36,4 @@ abstract contract Balances is BalanceEvent {
         }
         balances[account][slot] = balance;
     }
-
-    /// @notice Remove and return the entire balance at `slot`.
-    /// @param account Account identifier.
-    /// @param slot Storage slot for the position being drained.
-    /// @return amount Full amount removed from the position.
-    function drainFrom(bytes32 account, bytes32 slot) internal returns (uint amount) {
-        amount = balances[account][slot];
-        delete balances[account][slot];
-    }
 }

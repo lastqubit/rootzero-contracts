@@ -12,10 +12,15 @@ contract TestAssetPositionQuery is AssetPosition {
 
     constructor() AssetPosition("response(uint position)", 32) {}
 
-    function appendAssetPosition(bytes32 asset, bytes32 meta, Writer memory response) internal view override {
-        uint position = 0;
-        if (asset == firstAsset && meta == firstMeta) position = 11;
-        if (asset == secondAsset && meta == secondMeta) position = 22;
-        Writers.appendBytes(response, Keys.Response, abi.encode(position));
+    function appendAssetPosition(
+        bytes32,
+        bytes32 asset,
+        bytes32 meta,
+        Writer memory response
+    ) internal view override {
+        uint resolved = 0;
+        if (asset == firstAsset && meta == firstMeta) resolved = 11;
+        if (asset == secondAsset && meta == secondMeta) resolved = 22;
+        Writers.appendBytes(response, Keys.Response, abi.encode(resolved));
     }
 }

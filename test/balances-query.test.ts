@@ -3,14 +3,13 @@ import { ethers } from "ethers";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
-  encodeBalanceBlock,
-  encodeQueryBlock,
+  encodeEntryBlock,
+  encodePositionBlock,
   encodeUserAccount,
-  pad32,
 } from "./helpers/blocks.js";
 
 describe("BalancesQuery", () => {
-  it("returns a balance block for one ERC-20 query tuple", async () => {
+  it("returns an entry block for one ERC-20 position query", async () => {
     const query = await deploy("TestBalancesQuery");
     const account = await getSigner(1);
     const accountId = encodeUserAccount(await account.getAddress());
@@ -19,13 +18,13 @@ describe("BalancesQuery", () => {
 
     await query.mint(await account.getAddress(), 123n);
 
-    const request = encodeQueryBlock(concat(accountId, pad32(tokenAsset), pad32(meta)));
+    const request = encodePositionBlock(accountId, tokenAsset, meta);
     const result: string = await query.getBalances.staticCall(request);
 
-    expect(result).to.equal(encodeBalanceBlock(tokenAsset, meta, 123n));
+    expect(result).to.equal(encodeEntryBlock(accountId, tokenAsset, meta, 123n));
   });
 
-  it("maps multiple query blocks into matching balance blocks in order", async () => {
+  it("maps multiple position blocks into matching entry blocks in order", async () => {
     const query = await deploy("TestBalancesQuery");
     const provider = await getProvider();
     const account = await getSigner(1);
@@ -39,15 +38,15 @@ describe("BalancesQuery", () => {
     const nativeBalance = await provider.getBalance(accountAddr);
 
     const request = concat(
-      encodeQueryBlock(concat(accountId, pad32(tokenAsset), pad32(meta))),
-      encodeQueryBlock(concat(accountId, pad32(valueAsset), pad32(meta))),
+      encodePositionBlock(accountId, tokenAsset, meta),
+      encodePositionBlock(accountId, valueAsset, meta),
     );
 
     const result: string = await query.getBalances.staticCall(request);
 
     expect(result).to.equal(concat(
-      encodeBalanceBlock(tokenAsset, meta, 456n),
-      encodeBalanceBlock(valueAsset, meta, nativeBalance),
+      encodeEntryBlock(accountId, tokenAsset, meta, 456n),
+      encodeEntryBlock(accountId, valueAsset, meta, nativeBalance),
     ));
   });
 });

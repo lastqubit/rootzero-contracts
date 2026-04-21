@@ -15,7 +15,7 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
 import { Allocate } from "../commands/admin/Allocate.sol";
-import { HostAmount, Tx } from "../core/Types.sol";
+import { AssetAmount, Tx } from "../core/Types.sol";
 import { Cursors, Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
@@ -91,17 +91,18 @@ contract TestHost is
         emit DebitFromCalled(account, asset, meta, amount, amount);
     }
 
-    function provision(bytes32 account, HostAmount memory custody) internal override {
-        emit ProvisionCalled(custody.host, account, custody.asset, custody.meta, custody.amount);
+    function provision(uint host_, bytes32 account, AssetAmount memory custody) internal override {
+        emit ProvisionCalled(host_, account, custody.asset, custody.meta, custody.amount);
     }
 
     function provision(
+        uint host_,
         bytes32 account,
-        HostAmount memory custody,
+        AssetAmount memory custody,
         Budget memory budget
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, custody.meta, Values.use(budget, custody.amount), budget.remaining
+            host_, account, custody.asset, custody.meta, Values.use(budget, custody.amount), budget.remaining
         );
     }
 

@@ -66,21 +66,21 @@ library Erc1155Cursors {
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
-    /// @notice Validate a CUSTODY block for a specific local ERC-1155 collection and return its token id and amount.
-    /// Reverts if the block is not CUSTODY, the host differs, the asset is not a local ERC-1155, or the collection differs.
+    /// @notice Validate a CUSTODY_AT block for a specific local ERC-1155 collection and return its token id and amount.
+    /// Reverts if the block is not CUSTODY_AT, the host differs, the asset is not a local ERC-1155, or the collection differs.
     /// @param cur Source cursor.
-    /// @param i Byte offset of the CUSTODY block.
+    /// @param i Byte offset of the CUSTODY_AT block.
     /// @param host Expected host node ID from the block.
     /// @param collection Expected local ERC-1155 collection.
     /// @return meta Asset metadata slot from the block.
     /// @return amount Custodied amount from the block.
-    function expectErc1155Custody(
+    function expectErc1155CustodyAt(
         Cur memory cur,
         uint i,
         uint host,
         address collection
     ) internal view returns (bytes32 meta, uint amount) {
-        (uint abs, ) = Cursors.expect(cur, i, Keys.Custody, 128, 128);
+        (uint abs, ) = Cursors.expect(cur, i, Keys.CustodyAt, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert Cursors.UnexpectedValue();
         bytes32(msg.data[abs + 32:abs + 64]).matchErc1155(collection);
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -131,19 +131,19 @@ library Erc1155Cursors {
         cur.i += 104;
     }
 
-    /// @notice Consume a CUSTODY block for a specific local ERC-1155 collection and return its token id and amount.
-    /// Reverts if the current block is not CUSTODY, the host differs, the asset is not a local ERC-1155, or the collection differs.
+    /// @notice Consume a CUSTODY_AT block for a specific local ERC-1155 collection and return its token id and amount.
+    /// Reverts if the current block is not CUSTODY_AT, the host differs, the asset is not a local ERC-1155, or the collection differs.
     /// @param cur Cursor; advanced past the block.
     /// @param host Expected host node ID from the block.
     /// @param collection Expected local ERC-1155 collection.
     /// @return meta Asset metadata slot from the block.
     /// @return amount Custodied amount from the block.
-    function requireErc1155Custody(
+    function requireErc1155CustodyAt(
         Cur memory cur,
         uint host,
         address collection
     ) internal view returns (bytes32 meta, uint amount) {
-        (meta, amount) = expectErc1155Custody(cur, cur.i, host, collection);
+        (meta, amount) = expectErc1155CustodyAt(cur, cur.i, host, collection);
         cur.i += 136;
     }
 }

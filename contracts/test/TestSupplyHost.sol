@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Supply } from "../commands/Supply.sol";
-import { HostAmount } from "../core/Types.sol";
+import { AssetAmount } from "../core/Types.sol";
 import { Ids } from "../utils/Ids.sol";
 
 contract TestSupplyHost is Host, Supply {
@@ -16,8 +16,8 @@ contract TestSupplyHost is Host, Supply {
         if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
     }
 
-    function supply(bytes32 account, HostAmount memory value) internal override {
-        emit SupplyCalled(account, value.host, value.asset, value.meta, value.amount);
+    function supply(uint host, bytes32 account, AssetAmount memory value) internal override {
+        emit SupplyCalled(account, host, value.asset, value.meta, value.amount);
     }
 
     function getSupplyId() external view returns (uint) { return supplyId; }

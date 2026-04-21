@@ -7,19 +7,19 @@ import { Accounts } from "../utils/Accounts.sol";
 using Cursors for Cur;
 
 string constant NAME = "transfer";
-string constant INPUT = string.concat(Schemas.Amount, "&", Schemas.Account);
+string constant INPUT = Schemas.Entry;
 
 abstract contract TransferHook {
     /// @notice Override to execute a single transfer record from the request pipeline.
-    /// Called once per bundled AMOUNT+ACCOUNT pair in the request.
+    /// Called once per ENTRY block in the request.
     /// @param value Decoded transfer record (from, to, asset, meta, amount).
     function transfer(Tx memory value) internal virtual;
 }
 
 /// @title Transfer
 /// @notice Command that transfers assets from a caller to recipients specified in
-/// bundled AMOUNT+ACCOUNT request blocks. Produces no state output.
-/// The virtual `transfer(value)` hook is called once per bundle.
+/// ENTRY request blocks. Produces no state output.
+/// The virtual `transfer(value)` hook is called once per entry.
 abstract contract Transfer is CommandBase, TransferHook {
     uint internal immutable transferId = commandId(NAME);
 
@@ -28,7 +28,7 @@ abstract contract Transfer is CommandBase, TransferHook {
     }
 
     /// @notice Override to customize request parsing or batching for transfers.
-    /// The default implementation iterates bundles and calls `transfer(value)` for each.
+    /// The default implementation iterates entry blocks and calls `transfer(value)` for each.
     /// @param from Source account identifier.
     /// @param request Full request bytes.
     /// @return Empty bytes (transfers produce no state output).
@@ -38,11 +38,9 @@ abstract contract Transfer is CommandBase, TransferHook {
         value.from = from;
 
         while (input.i < input.bound) {
-            uint next = input.bundle();
-            (value.asset, value.meta, value.amount) = input.unpackAmount();
-            value.to = Accounts.ensure(input.unpackAccount());
+            (value.to, value.asset, value.meta, value.amount) = input.unpackEntry();
+            Accounts.ensure(value.to);
             transfer(value);
-            input.ensure(next);
         }
 
         input.complete();

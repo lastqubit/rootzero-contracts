@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Tx } from "../core/Types.sol";
+import { Position, Tx } from "../core/Types.sol";
 import { Sizes } from "../blocks/Schema.sol";
 import { Cur, Cursors, Writer } from "../Cursors.sol";
 import { Writers } from "../blocks/Writers.sol";
@@ -20,14 +20,20 @@ contract TestCursorHelper {
         return Writers.finish(w);
     }
 
-    function testWriteCustodyBlock(
+    function testWritePositionBlock(bytes32 account, bytes32 asset, bytes32 meta) external pure returns (bytes memory) {
+        Writer memory w = Writers.alloc(Sizes.B96);
+        w.appendPosition(account, asset, meta);
+        return Writers.finish(w);
+    }
+
+    function testWriteCustodyAtBlock(
         uint host_,
         bytes32 asset,
         bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        Writer memory w = Writers.alloc(Sizes.Custody);
-        w.appendCustody(host_, asset, meta, amount);
+        Writer memory w = Writers.alloc(Sizes.CustodyAt);
+        w.appendCustodyAt(host_, asset, meta, amount);
         return Writers.finish(w);
     }
 
@@ -51,13 +57,13 @@ contract TestCursorHelper {
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 
-    function testToCustodyBlock(
+    function testToCustodyAtBlock(
         uint host_,
         bytes32 asset,
         bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        return Cursors.toCustodyBlock(host_, asset, meta, amount);
+        return Cursors.toCustodyAtBlock(host_, asset, meta, amount);
     }
 
     function testWriterFinishIncomplete() external pure returns (bytes memory) {
@@ -76,19 +82,14 @@ contract TestCursorHelper {
         return cur.unpackBalance();
     }
 
+    function testUnpackPosition(bytes calldata source) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+        Cur memory cur = Cursors.open(source);
+        return cur.unpackPosition();
+    }
+
     function testUnpackBounds(bytes calldata source) external pure returns (int min, int max) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackBounds();
-    }
-
-    function testUnpackMinimums(bytes calldata source) external pure returns (uint a, uint b) {
-        Cur memory cur = Cursors.open(source);
-        return cur.unpackMinimums();
-    }
-
-    function testUnpackMaximums(bytes calldata source) external pure returns (uint a, uint b) {
-        Cur memory cur = Cursors.open(source);
-        return cur.unpackMaximums();
     }
 
     function testUnpackFee(bytes calldata source) external pure returns (uint amount) {
@@ -126,19 +127,9 @@ contract TestCursorHelper {
         return cur.peek(i);
     }
 
-    function testPast(bytes calldata source, uint i) external pure returns (uint) {
-        Cur memory cur = Cursors.open(source);
-        return cur.past(i);
-    }
-
     function testPastCurrent(bytes calldata source) external pure returns (uint) {
         Cur memory cur = Cursors.open(source);
         return cur.past();
-    }
-
-    function testHas(bytes calldata source, uint i, bytes4 key) external pure returns (bool) {
-        Cur memory cur = Cursors.open(source);
-        return cur.has(i, key);
     }
 
     function testHasCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
@@ -206,24 +197,24 @@ contract TestCursorHelper {
         return (cur.i, next);
     }
 
-    function testRoute(bytes calldata source)
+    function testTake(bytes calldata source, bytes4 key)
         external
         pure
-        returns (uint routeOffset, uint routeI, uint routeLen, uint routeBound, uint inputI)
+        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        Cur memory out = cur.route();
+        Cur memory out = cur.take(key);
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 
     function testMaybeRoute(bytes calldata source)
         external
         pure
-        returns (uint routeOffset, uint routeI, uint routeLen, uint routeBound, uint inputI)
+        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
@@ -242,16 +233,6 @@ contract TestCursorHelper {
         Cur memory cur = Cursors.open(source);
         (count, next) = cur.list(group);
         return (cur.i, cur.bound, count, next);
-    }
-
-    function testListPrimeRequired(bytes calldata source, uint group, uint requiredCount)
-        external
-        pure
-        returns (uint inputI, uint bound, uint next)
-    {
-        Cur memory cur = Cursors.open(source);
-        next = cur.list(group, requiredCount);
-        return (cur.i, cur.bound, next);
     }
 
     function testUnpackStep(bytes calldata source) external pure returns (uint target, uint value, bytes calldata req, uint i) {

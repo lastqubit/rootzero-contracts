@@ -72,15 +72,15 @@ library Erc20Cursors {
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
-    /// @notice Validate a CUSTODY block for any local ERC-20 token and return it.
-    /// Reverts if the block is not CUSTODY or the asset is not a local ERC-20.
+    /// @notice Validate a CUSTODY_AT block for any local ERC-20 token and return it.
+    /// Reverts if the block is not CUSTODY_AT or the asset is not a local ERC-20.
     /// @param cur Source cursor.
-    /// @param i Byte offset of the CUSTODY block.
+    /// @param i Byte offset of the CUSTODY_AT block.
     /// @param host Expected host node ID from the block.
     /// @return token Local ERC-20 token address extracted from the asset identifier.
     /// @return amount Custodied amount from the block.
-    function expectErc20Custody(Cur memory cur, uint i, uint host) internal view returns (address token, uint amount) {
-        (uint abs, ) = Cursors.expect(cur, i, Keys.Custody, 128, 128);
+    function expectErc20CustodyAt(Cur memory cur, uint i, uint host) internal view returns (address token, uint amount) {
+        (uint abs, ) = Cursors.expect(cur, i, Keys.CustodyAt, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert Cursors.UnexpectedValue();
         token = erc20AddrAt(abs + 32);
         amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
@@ -116,14 +116,14 @@ library Erc20Cursors {
         cur.i += 104;
     }
 
-    /// @notice Consume a CUSTODY block for any local ERC-20 token and return it.
-    /// Reverts if the current block is not CUSTODY or the asset is not a local ERC-20.
+    /// @notice Consume a CUSTODY_AT block for any local ERC-20 token and return it.
+    /// Reverts if the current block is not CUSTODY_AT or the asset is not a local ERC-20.
     /// @param cur Cursor; advanced past the block.
     /// @param host Expected host node ID from the block.
     /// @return token Local ERC-20 token address extracted from the asset identifier.
     /// @return amount Custodied amount from the block.
-    function requireErc20Custody(Cur memory cur, uint host) internal view returns (address token, uint amount) {
-        (token, amount) = expectErc20Custody(cur, cur.i, host);
+    function requireErc20CustodyAt(Cur memory cur, uint host) internal view returns (address token, uint amount) {
+        (token, amount) = expectErc20CustodyAt(cur, cur.i, host);
         cur.i += 136;
     }
 
