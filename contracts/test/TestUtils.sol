@@ -28,16 +28,24 @@ contract TestUtils {
         return Accounts.isAdmin(account);
     }
 
+    function testIsUserAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isUser(account);
+    }
+
     function testIsKeccakAccount(bytes32 account) external pure returns (bool) {
         return Accounts.isKeccak(account);
     }
 
-    function testToKeccakAccount(bytes calldata raw) external pure returns (bytes32) {
-        return Accounts.toKeccak(raw);
+    function testToKeccakAccount(bytes32 head, bytes32 meta) external pure returns (bytes32) {
+        return Accounts.toKeccak(head, meta);
     }
 
-    function testMatchesKeccakAccount(bytes32 account, bytes calldata raw) external pure returns (bool) {
-        return Accounts.matchesKeccak(account, raw);
+    function testMatchesKeccakAccount(bytes32 account, bytes32 head, bytes32 meta) external pure returns (bool) {
+        return Accounts.matchesKeccak(account, head, meta);
+    }
+
+    function testIsAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isAccount(account);
     }
 
     function testToValueAsset() external view returns (bytes32) {
@@ -60,6 +68,10 @@ contract TestUtils {
         return Assets.is32(asset);
     }
 
+    function testIsAsset(bytes32 asset) external pure returns (bool) {
+        return Assets.isAsset(asset);
+    }
+
     function testIsAsset64(bytes32 asset) external pure returns (bool) {
         return Assets.is64(asset);
     }
@@ -78,14 +90,6 @@ contract TestUtils {
 
     function testAssetSlot(bytes32 asset, bytes32 meta) external pure returns (bytes32) {
         return Assets.slot(asset, meta);
-    }
-
-    function testIsSortedErc20Assets(bytes32 a, bytes32 b) external view returns (bool ordered) {
-        return Assets.isSortedErc20(a, b);
-    }
-
-    function testErc20Addrs(bytes32 a, bytes32 b) external view returns (address addrA, address addrB, bool ordered) {
-        return Assets.erc20Addrs(a, b);
     }
 
     function testLocalErc20Addr(bytes32 asset) external view returns (address) {

@@ -71,6 +71,52 @@ describe("Utils", () => {
       expect(await utils.testIsAdminAccount(userAccount)).to.be.false;
     });
 
+    it("isUserAccount returns true for user account", async () => {
+      const userAccount = await utils.testToUserAccount(signerAddress);
+      expect(await utils.testIsUserAccount(userAccount)).to.be.true;
+    });
+
+    it("isUserAccount returns false for admin and keccak accounts", async () => {
+      expect(await utils.testIsUserAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
+      expect(await utils.testIsUserAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.false;
+    });
+
+    it("isAccount returns true for supported account IDs", async () => {
+      expect(await utils.testIsAccount(await utils.testToAdminAccount(signerAddress))).to.be.true;
+      expect(await utils.testIsAccount(await utils.testToUserAccount(signerAddress))).to.be.true;
+      expect(await utils.testIsAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.true;
+    });
+
+    it("isAccount returns false for non-account category values", async () => {
+      expect(await utils.testIsAccount(await utils.testToValueAsset())).to.be.false;
+      expect(await utils.testIsAccount(ethers.ZeroHash)).to.be.false;
+    });
+
+    it("isKeccakAccount returns true only for keccak accounts", async () => {
+      expect(await utils.testIsKeccakAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.true;
+      expect(await utils.testIsKeccakAccount(await utils.testToUserAccount(signerAddress))).to.be.false;
+    });
+
+    it("toKeccakAccount uses the keccak account prefix and truncated witness hash", async () => {
+      const head = ethers.zeroPadValue("0x12", 32);
+      const meta = ethers.zeroPadValue("0x34", 32);
+      const account = await utils.testToKeccakAccount(head, meta);
+      const prefix = (BigInt(account) >> 224n) & 0xffffffffn;
+      expect(prefix).to.equal(0x20000103n);
+
+      const digest = BigInt(ethers.keccak256(ethers.concat([head, meta])));
+      const payload = BigInt(account) & ((1n << 224n) - 1n);
+      expect(payload).to.equal(digest & ((1n << 224n) - 1n));
+    });
+
+    it("matchesKeccakAccount validates witnesses against the account id", async () => {
+      const head = ethers.zeroPadValue("0x12", 32);
+      const meta = ethers.zeroPadValue("0x34", 32);
+      const account = await utils.testToKeccakAccount(head, meta);
+      expect(await utils.testMatchesKeccakAccount(account, head, meta)).to.be.true;
+      expect(await utils.testMatchesKeccakAccount(account, head, ethers.zeroPadValue("0x35", 32))).to.be.false;
+    });
+
     it("accountEvmAddr extracts embedded address", async () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
       const extracted = await utils.testAccountEvmAddr(userAccount);
@@ -78,37 +124,10 @@ describe("Utils", () => {
     });
 
     it("accountEvmAddr reverts for non-EVM account", async () => {
-      const invalid = ethers.zeroPadValue("0x01", 32);
-      await expectCustomError(utils.testAccountEvmAddr(invalid), "InvalidAccount");
-    });
-
-    it("isKeccakAccount returns false for user account", async () => {
-      const userAccount = await utils.testToUserAccount(signerAddress);
-      expect(await utils.testIsKeccakAccount(userAccount)).to.be.false;
-    });
-
-    it("toKeccakAccount encodes the opaque account prefix plus truncated keccak payload", async () => {
-      const raw = ethers.hexlify(ethers.randomBytes(96));
-      const account: string = await utils.testToKeccakAccount(raw);
-      const value = BigInt(account);
-      const payloadMask = (1n << 224n) - 1n;
-      const expectedPayload = BigInt(ethers.keccak256(raw)) & payloadMask;
-      expect((value >> 224n) & 0xffffffffn).to.equal(0x20000103n);
-      expect(value & payloadMask).to.equal(expectedPayload);
-      expect(await utils.testIsKeccakAccount(account)).to.be.true;
-    });
-
-    it("matchesKeccakAccount accepts the original long-form payload", async () => {
-      const raw = ethers.hexlify(ethers.randomBytes(80));
-      const account = await utils.testToKeccakAccount(raw);
-      expect(await utils.testMatchesKeccakAccount(account, raw)).to.be.true;
-    });
-
-    it("matchesKeccakAccount rejects a different long-form payload", async () => {
-      const raw = ethers.hexlify(ethers.randomBytes(80));
-      const other = ethers.hexlify(ethers.randomBytes(80));
-      const account = await utils.testToKeccakAccount(raw);
-      expect(await utils.testMatchesKeccakAccount(account, other)).to.be.false;
+      await expectCustomError(
+        utils.testAccountEvmAddr(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32))),
+        "InvalidAccount"
+      );
     });
   });
 
@@ -149,6 +168,18 @@ describe("Utils", () => {
     it("isAsset32 returns true when first byte is 0x20", async () => {
       const asset = await utils.testToValueAsset();
       expect(await utils.testIsAsset32(asset)).to.be.true;
+    });
+
+    it("isAsset returns true for supported asset IDs", async () => {
+      expect(await utils.testIsAsset(await utils.testToValueAsset())).to.be.true;
+      expect(await utils.testIsAsset(await utils.testToErc20Asset(signerAddress))).to.be.true;
+      expect(await utils.testIsAsset(await utils.testToErc721Asset(signerAddress))).to.be.true;
+      expect(await utils.testIsAsset(await utils.testToErc1155Asset(signerAddress))).to.be.true;
+    });
+
+    it("isAsset returns false for non-asset category values", async () => {
+      expect(await utils.testIsAsset(await utils.testToUserAccount(signerAddress))).to.be.false;
+      expect(await utils.testIsAsset(ethers.ZeroHash)).to.be.false;
     });
 
     it("isAsset32 returns false for non-0x20 asset", async () => {
@@ -215,35 +246,12 @@ describe("Utils", () => {
       await expectCustomError(utils.testAssetSlot(ethers.ZeroHash, ethers.ZeroHash), "InvalidAsset");
     });
 
-    it("assetSlot returns keccak for composite asset", async () => {
-      const asset = ethers.zeroPadValue("0x01", 32); // not starting with 0x20
+    it("assetSlot returns keccak for 64-byte asset families", async () => {
+      const asset = await utils.testToErc721Asset(signerAddress);
       const meta = ethers.zeroPadValue("0x02", 32);
       const result = await utils.testAssetSlot(asset, meta);
       const expected = ethers.keccak256(ethers.concat([asset, meta]));
       expect(result).to.equal(expected);
-    });
-
-    it("isSortedErc20Assets reports whether ERC20 assets are in canonical address order", async () => {
-      const a = await utils.testToErc20Asset("0x00000000000000000000000000000000000000b0");
-      const b = await utils.testToErc20Asset("0x00000000000000000000000000000000000000a0");
-
-      expect(await utils.testIsSortedErc20Assets(a, b)).to.equal(false);
-      expect(await utils.testIsSortedErc20Assets(b, a)).to.equal(true);
-    });
-
-    it("erc20Addrs returns token addresses in input order and reports whether they are canonical", async () => {
-      const a = await utils.testToErc20Asset("0x00000000000000000000000000000000000000b0");
-      const b = await utils.testToErc20Asset("0x00000000000000000000000000000000000000a0");
-
-      const [addrA1, addrB1, ordered1] = await utils.testErc20Addrs(a, b);
-      expect(addrA1.toLowerCase()).to.equal("0x00000000000000000000000000000000000000b0");
-      expect(addrB1.toLowerCase()).to.equal("0x00000000000000000000000000000000000000a0");
-      expect(ordered1).to.equal(false);
-
-      const [addrA2, addrB2, ordered2] = await utils.testErc20Addrs(b, a);
-      expect(addrA2.toLowerCase()).to.equal("0x00000000000000000000000000000000000000a0");
-      expect(addrB2.toLowerCase()).to.equal("0x00000000000000000000000000000000000000b0");
-      expect(ordered2).to.equal(true);
     });
 
     it("localErc20Addr extracts token address from ERC20 asset", async () => {
