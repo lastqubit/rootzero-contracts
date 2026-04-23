@@ -28,11 +28,11 @@ abstract contract Supply is CommandBase, SupplyHook {
     }
 
     /// @notice Execute the supply command.
-    function supply(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function supply(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, , ) = cursor(c.state, 1);
         
         while (state.i < state.bound) {
-            (uint host, AssetAmount memory value) = state.unpackCustodyAt();
+            (uint host, AssetAmount memory value) = state.unpackHostAssetAmountValue();
             supply(host, c.account, value);
         }
 

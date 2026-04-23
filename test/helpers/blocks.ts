@@ -9,22 +9,21 @@ export function blockKey(schema: string): string {
 export const Keys = {
   Amount: blockKey("amount(bytes32 asset, bytes32 meta, uint amount)"),
   Balance: blockKey("balance(bytes32 asset, bytes32 meta, uint amount)"),
-  CustodyAt: blockKey("custodyAt(uint host, bytes32 asset, bytes32 meta, uint amount)"),
+  HostAssetAmount: blockKey("hostAssetAmount(uint host, bytes32 asset, bytes32 meta, uint amount)"),
   Bounds: blockKey("bounds(int min, int max)"),
   Fee: blockKey("fee(uint amount)"),
   Account: blockKey("account(bytes32 account)"),
-  Position: blockKey("position(bytes32 account, bytes32 asset, bytes32 meta)"),
-  PositionAt: blockKey("positionAt(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
-  Entry: blockKey("entry(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
-  EntryAt: blockKey("entryAt(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
+  UserPosition: blockKey("userPosition(bytes32 account, bytes32 asset, bytes32 meta)"),
+  HostUserPosition: blockKey("hostUserPosition(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
+  UserAmount: blockKey("userAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
+  HostUserAmount: blockKey("hostUserAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
   Node: blockKey("node(uint id)"),
-  Funding: blockKey("funding(uint host, uint amount)"),
+  HostFunding: blockKey("hostFunding(uint host, uint amount)"),
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
-  Allocation: blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"),
   Quantity: blockKey("quantity(uint amount)"),
   Step: blockKey("step(uint target, uint value, bytes request)"),
   Call: blockKey("call(uint target, uint value, bytes data)"),
-  Transaction: blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
+  Transaction: blockKey("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
   Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
   Break: blockKey("break()"),
@@ -91,16 +90,16 @@ export function encodeBalanceBlock(asset: string, meta: string, amount: bigint):
   return block(Keys.Balance, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodePositionBlock(account: string, asset: string, meta: string): string {
-  return block(Keys.Position, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
+export function encodeUserPositionBlock(account: string, asset: string, meta: string): string {
+  return block(Keys.UserPosition, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
 }
 
-export function encodeEntryBlock(account: string, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Entry, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeUserAmountBlock(account: string, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.UserAmount, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodeCustodyAtBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.CustodyAt, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeHostAssetAmountBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.HostAssetAmount, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
 export function encodeAccountBlock(account: string): string {
@@ -111,8 +110,8 @@ export function encodeNodeBlock(id: bigint): string {
   return block(Keys.Node, pad32(id));
 }
 
-export function encodeFundingBlock(host: bigint, amount: bigint): string {
-  return block(Keys.Funding, ethers.concat([pad32(host), pad32(amount)]));
+export function encodeHostFundingBlock(host: bigint, amount: bigint): string {
+  return block(Keys.HostFunding, ethers.concat([pad32(host), pad32(amount)]));
 }
 
 export function encodeAssetBlock(asset: string, meta: string): string {
@@ -129,10 +128,6 @@ export function encodeBoundsBlock(min: bigint, max: bigint): string {
 
 export function encodeFeeBlock(amount: bigint): string {
   return block(Keys.Fee, pad32(amount));
-}
-
-export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
 export function encodeTxBlock(from: string, to: string, asset: string, meta: string, amount: bigint): string {

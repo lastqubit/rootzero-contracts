@@ -6,6 +6,7 @@ import {Schemas} from "../blocks/Schema.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
+using Writers for Writer;
 
 string constant NAME = "isAllowedAsset";
 string constant OUTPUT = "response(uint allowed)";
@@ -40,7 +41,7 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
         while (query.i < query.bound) {
             (bytes32 asset, bytes32 meta) = query.unpackAsset();
             bool allowed = isAllowedAsset(asset, meta);
-            Writers.appendBool(response, Keys.Response, allowed);
+            response.appendBool(Keys.Response, allowed);
         }
 
         return query.complete(response);

@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { deploy } from "./helpers/setup.js";
 import {
   concat,
-  encodeAssetBlock,
+  encodeUserPositionBlock,
   encodeResponseBlock,
   pad32,
 } from "./helpers/blocks.js";
@@ -12,9 +12,10 @@ describe("AssetPosition", () => {
     const query = await deploy("TestAssetPositionQuery");
     const asset = await query.firstAsset();
     const meta = await query.firstMeta();
+    const account = pad32(0n);
 
     const result: string = await query.getAssetPosition.staticCall(
-      encodeAssetBlock(asset, meta),
+      encodeUserPositionBlock(account, asset, meta),
     );
 
     expect(result).to.equal(encodeResponseBlock(pad32(11n)));
@@ -26,10 +27,11 @@ describe("AssetPosition", () => {
     const firstMeta = await query.firstMeta();
     const secondAsset = await query.secondAsset();
     const secondMeta = await query.secondMeta();
+    const account = pad32(0n);
 
     const request = concat(
-      encodeAssetBlock(firstAsset, firstMeta),
-      encodeAssetBlock(secondAsset, secondMeta),
+      encodeUserPositionBlock(account, firstAsset, firstMeta),
+      encodeUserPositionBlock(account, secondAsset, secondMeta),
     );
 
     const result: string = await query.getAssetPosition.staticCall(request);

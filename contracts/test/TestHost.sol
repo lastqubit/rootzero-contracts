@@ -5,6 +5,7 @@ import { Host } from "../core/Host.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
 import { Transfer } from "../commands/Transfer.sol";
+import { CommandContext } from "../commands/Base.sol";
 import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
 import { Settle } from "../commands/Settle.sol";
@@ -248,6 +249,10 @@ contract TestHost is
 
     function isAuthorized(uint node) external view returns (bool) {
         return trusted[node];
+    }
+
+    function getActiveAccount(CommandContext calldata) external pure returns (bytes32) {
+        return activeAccount();
     }
 }
 

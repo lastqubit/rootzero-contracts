@@ -25,7 +25,7 @@ abstract contract Swap is CommandBase, SwapHook {
         emit Command(host, NAME, input, swapId, State.Balances, State.Balances, false);
     }
 
-    function swap(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function swap(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, uint count, uint quotient) = cursor(c.state, 1);
         Cur memory input = cursor(c.request, 1, quotient);
         Writer memory writer = Writers.allocBalances(count);

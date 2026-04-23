@@ -9,19 +9,18 @@ import { Keys } from "./Keys.sol";
 /// and are used when emitting schema descriptors in command events.
 library Schemas {
     string constant Account = "account(bytes32 account)";
-    string constant Position = "position(bytes32 account, bytes32 asset, bytes32 meta)";
-    string constant PositionAt = "positionAt(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
-    string constant Entry = "entry(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
-    string constant EntryAt = "entryAt(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant UserPosition = "userPosition(bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant HostUserPosition = "hostUserPosition(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant UserAmount = "userAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostUserAmount = "hostUserAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
     string constant Asset = "asset(bytes32 asset, bytes32 meta)";
     string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
     string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
     string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
     string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant CustodyAt = "custodyAt(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Transaction = "tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Funding = "funding(uint host, uint amount)";
+    string constant HostAssetAmount = "hostAssetAmount(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostFunding = "hostFunding(uint host, uint amount)";
     string constant Call = "call(uint target, uint value, bytes data)";
     string constant Bounty = "bounty(uint amount, bytes32 relayer)";
     string constant Node = "node(uint id)";
@@ -134,8 +133,8 @@ library Sizes {
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
-    /// @dev CUSTODY_AT block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
-    uint constant CustodyAt = B128;
+    /// @dev HOST_ASSET_AMOUNT block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
+    uint constant HostAssetAmount = B128;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
     uint constant Transaction = B160;
 }

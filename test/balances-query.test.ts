@@ -3,8 +3,8 @@ import { ethers } from "ethers";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
-  encodeEntryBlock,
-  encodePositionBlock,
+  encodeUserAmountBlock,
+  encodeUserPositionBlock,
   encodeUserAccount,
 } from "./helpers/blocks.js";
 
@@ -18,10 +18,10 @@ describe("BalancesQuery", () => {
 
     await query.mint(await account.getAddress(), 123n);
 
-    const request = encodePositionBlock(accountId, tokenAsset, meta);
+    const request = encodeUserPositionBlock(accountId, tokenAsset, meta);
     const result: string = await query.getBalances.staticCall(request);
 
-    expect(result).to.equal(encodeEntryBlock(accountId, tokenAsset, meta, 123n));
+    expect(result).to.equal(encodeUserAmountBlock(accountId, tokenAsset, meta, 123n));
   });
 
   it("maps multiple position blocks into matching entry blocks in order", async () => {
@@ -38,15 +38,15 @@ describe("BalancesQuery", () => {
     const nativeBalance = await provider.getBalance(accountAddr);
 
     const request = concat(
-      encodePositionBlock(accountId, tokenAsset, meta),
-      encodePositionBlock(accountId, valueAsset, meta),
+      encodeUserPositionBlock(accountId, tokenAsset, meta),
+      encodeUserPositionBlock(accountId, valueAsset, meta),
     );
 
     const result: string = await query.getBalances.staticCall(request);
 
     expect(result).to.equal(concat(
-      encodeEntryBlock(accountId, tokenAsset, meta, 456n),
-      encodeEntryBlock(accountId, valueAsset, meta, nativeBalance),
+      encodeUserAmountBlock(accountId, tokenAsset, meta, 456n),
+      encodeUserAmountBlock(accountId, valueAsset, meta, nativeBalance),
     ));
   });
 });

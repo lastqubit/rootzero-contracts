@@ -2,8 +2,8 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
-  encodeNodeBlock, encodeAssetBlock, encodeAllocationBlock,
-  encodeFundingBlock, encodeRouteBlock, encodeCallBlock, concat
+  encodeNodeBlock, encodeAssetBlock, encodeHostAssetAmountBlock,
+  encodeHostFundingBlock, encodeRouteBlock, encodeCallBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -19,11 +19,11 @@ describe("Admin Commands", () => {
   });
 
   function adminCtx(request: string) {
-    return { account: adminAccount, state: "0x", request };
+    return { account: adminAccount, meta: ethers.ZeroHash, state: "0x", request };
   }
 
   function userCtx(userAcc: string, request: string) {
-    return { account: userAcc, state: "0x", request };
+    return { account: userAcc, meta: ethers.ZeroHash, state: "0x", request };
   }
 
   async function callAs(signerIndex: number, method: string, ...args: unknown[]) {
@@ -179,12 +179,12 @@ describe("Admin Commands", () => {
   // ── Allocate ─────────────────────────────────────────────────────────────
 
   describe("allocate", () => {
-    it("emits AllocateCalled for each ALLOCATION block", async () => {
+    it("emits AllocateCalled for each HOST_ASSET_AMOUNT block", async () => {
       const hostId = 9999n;
       const asset  = ethers.zeroPadValue("0x05", 32);
       const meta   = ethers.ZeroHash;
       const amount = 1000n;
-      const request = encodeAllocationBlock(hostId, asset, meta, amount);
+      const request = encodeHostAssetAmountBlock(hostId, asset, meta, amount);
       await expect(callAs(0, "allocate", adminCtx(request)))
         .to.emit(host, "AllocateCalled")
         .withArgs(hostId, asset, meta, amount);
@@ -192,7 +192,7 @@ describe("Admin Commands", () => {
 
     it("reverts NotAdmin for non-admin", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x05", 32);
-      const request = encodeAllocationBlock(1n, ethers.zeroPadValue("0x01", 32), ethers.ZeroHash, 1n);
+      const request = encodeHostAssetAmountBlock(1n, ethers.zeroPadValue("0x01", 32), ethers.ZeroHash, 1n);
       await expect(callAs(0, "allocate", userCtx(fakeAdmin, request)))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
@@ -208,7 +208,7 @@ describe("Admin Commands", () => {
   describe("relocatePayable", () => {
     it("reverts NotAdmin for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x06", 32);
-      const request = encodeFundingBlock(1n, 0n);
+      const request = encodeHostFundingBlock(1n, 0n);
       await expect(callAs(0, "relocatePayable", userCtx(fakeAdmin, request)))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
@@ -227,7 +227,7 @@ describe("Admin Commands", () => {
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(targetHostId)));
 
       const amount = ethers.parseEther("0.001");
-      const request = encodeFundingBlock(targetHostId, amount);
+      const request = encodeHostFundingBlock(targetHostId, amount);
 
       const provider = await getProvider();
       const tx = await callAs(0, "relocatePayable", adminCtx(request), { value: amount });
@@ -241,7 +241,7 @@ describe("Admin Commands", () => {
 
     it("reverts UnauthorizedNode when target node not authorized", async () => {
       const unauthorizedNode = 0xdeaddeadn;
-      const request = encodeFundingBlock(unauthorizedNode, 0n);
+      const request = encodeHostFundingBlock(unauthorizedNode, 0n);
       await expect(callAs(0, "relocatePayable", adminCtx(request)))
         .to.be.revertedWithCustomError(host, "UnauthorizedNode");
     });
@@ -258,7 +258,7 @@ describe("Admin Commands", () => {
 
       const amount = 1n;
       await expect(
-        callAs(0, "relocatePayable", adminCtx(encodeFundingBlock(rejectorHostId, amount)), { value: amount })
+        callAs(0, "relocatePayable", adminCtx(encodeHostFundingBlock(rejectorHostId, amount)), { value: amount })
       ).to.be.revertedWithCustomError(host, "FailedCall");
     });
   });
@@ -291,7 +291,7 @@ describe("Admin Commands", () => {
       await target.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
 
       const inputData = "0x123456";
-      const targetCtx = { account: await target.getAdminAccount(), state: "0x", request: encodeRouteBlock(inputData) };
+      const targetCtx = { account: await target.getAdminAccount(), meta: ethers.ZeroHash, state: "0x", request: encodeRouteBlock(inputData) };
       const calldata = target.interface.encodeFunctionData("init", [targetCtx]);
       const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
@@ -311,11 +311,13 @@ describe("Admin Commands", () => {
 
       const calldataA = targetA.interface.encodeFunctionData("init", [{
         account: await targetA.getAdminAccount(),
+        meta: ethers.ZeroHash,
         state: "0x",
         request: encodeRouteBlock("0xaa")
       }]);
       const calldataB = targetB.interface.encodeFunctionData("destroy", [{
         account: await targetB.getAdminAccount(),
+        meta: ethers.ZeroHash,
         state: "0x",
         request: encodeRouteBlock("0xbb")
       }]);

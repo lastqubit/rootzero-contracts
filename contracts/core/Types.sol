@@ -11,7 +11,7 @@ struct AssetAmount {
     uint amount;
 }
 
-/// @notice User-scoped amount that matches the ENTRY block shape.
+/// @notice User-scoped amount that matches the USER_AMOUNT block shape.
 struct UserAmount {
     /// @dev User account identifier.
     bytes32 account;
@@ -23,8 +23,8 @@ struct UserAmount {
     uint amount;
 }
 
-/// @notice User-scoped asset position that matches the POSITION block shape.
-struct Position {
+/// @notice User-scoped asset position that matches the USER_POSITION block shape.
+struct UserPosition {
     /// @dev User account identifier.
     bytes32 account;
     /// @dev Asset identifier.

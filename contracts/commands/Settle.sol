@@ -18,7 +18,7 @@ abstract contract Settle is CommandBase, TransferHook {
         emit Command(host, NAME, "", settleId, State.Transactions, State.Empty, false);
     }
 
-    function settle(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function settle(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, , ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {

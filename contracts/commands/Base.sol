@@ -44,11 +44,21 @@ function encodeCommandCall(
 abstract contract CommandBase is OperationBase, CommandEvent {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
+    /// @dev Thrown when the raw active account word in calldata does not match the decoded context account.
+    error ActiveAccountMismatch();
     /// @dev Thrown when `onlyAdmin` finds that `account` is not the admin account.
     error NotAdmin();
 
+    /// @dev Restrict execution to trusted callers whose decoded context account matches the active calldata account.
+    modifier onlyCommand(bytes32 account) {
+        if (activeAccount() != account) revert ActiveAccountMismatch();
+        enforceCaller(msg.sender);
+        _;
+    }
+
     /// @dev Restrict execution to trusted callers using the host's admin account.
     modifier onlyAdmin(bytes32 account) {
+        if (activeAccount() != account) revert ActiveAccountMismatch();
         if (account != adminAccount) revert NotAdmin();
         enforceCaller(msg.sender);
         _;
@@ -74,6 +84,13 @@ abstract contract CommandBase is OperationBase, CommandEvent {
     /// @return Command node ID.
     function commandId(string memory name) internal view returns (uint) {
         return Ids.toCommand(Selectors.command(name), address(this));
+    }
+
+    /// @notice Return the active command account directly from the fixed tuple head in calldata.
+    /// @dev Command entrypoints use the ABI shape `name((bytes32,bytes,bytes))`, so the tuple head
+    /// starts at byte 36 of `msg.data`, with the account field at bytes [36:68).
+    function activeAccount() internal pure returns (bytes32 account) {
+        account = bytes32(msg.data[36:68]);
     }
 }
 

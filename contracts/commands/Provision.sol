@@ -35,23 +35,23 @@ abstract contract ProvisionPayableHook {
 }
 
 /// @title Provision
-/// @notice Command that provisions assets to remote hosts from CUSTODY_AT request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY_AT state stream.
+/// @notice Command that provisions assets to remote hosts from HOST_ASSET_AMOUNT request blocks.
+/// Each request block supplies the target host plus an asset amount; the output is a HOST_ASSET_AMOUNT state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
     constructor() {
-        emit Command(host, PROVISION, Schemas.CustodyAt, provisionId, State.Empty, State.Custodies, false);
+        emit Command(host, PROVISION, Schemas.HostAssetAmount, provisionId, State.Empty, State.Custodies, false);
     }
 
-    function provision(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocCustodies(count);
 
         while (request.i < request.bound) {
-            (uint host_, AssetAmount memory custody) = request.unpackCustodyAt();
+            (uint host_, AssetAmount memory custody) = request.unpackHostAssetAmountValue();
             provision(host_, c.account, custody);
-            writer.appendCustodyAt(host_, custody);
+            writer.appendHostAssetAmount(host_, custody);
         }
 
         return request.complete(writer);
@@ -59,27 +59,27 @@ abstract contract Provision is CommandBase, ProvisionHook {
 }
 
 /// @title ProvisionPayable
-/// @notice Command that provisions assets to remote hosts from CUSTODY_AT request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY_AT state stream.
+/// @notice Command that provisions assets to remote hosts from HOST_ASSET_AMOUNT request blocks.
+/// Each request block supplies the target host plus an asset amount; the output is a HOST_ASSET_AMOUNT state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
     uint internal immutable provisionPayableId = commandId(PP);
 
     constructor() {
-        emit Command(host, PP, Schemas.CustodyAt, provisionPayableId, State.Empty, State.Custodies, true);
+        emit Command(host, PP, Schemas.HostAssetAmount, provisionPayableId, State.Empty, State.Custodies, true);
     }
 
     function provisionPayable(
         CommandContext calldata c
-    ) external payable onlyTrusted returns (bytes memory) {
+    ) external payable onlyCommand(c.account) returns (bytes memory) {
         (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocCustodies(count);
         Budget memory budget = Values.fromMsg();
 
         while (request.i < request.bound) {
-            (uint host_, AssetAmount memory custody) = request.unpackCustodyAt();
+            (uint host_, AssetAmount memory custody) = request.unpackHostAssetAmountValue();
             provision(host_, c.account, custody, budget);
-            writer.appendCustodyAt(host_, custody);
+            writer.appendHostAssetAmount(host_, custody);
         }
 
         settleValue(c.account, budget);
@@ -88,7 +88,7 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
 }
 
 /// @title ProvisionFromBalance
-/// @notice Command that converts BALANCE state into CUSTODY_AT state for a destination host.
+/// @notice Command that converts BALANCE state into HOST_ASSET_AMOUNT state for a destination host.
 /// The destination node is read from an optional NODE trailing block; reverts if absent.
 abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
     uint internal immutable provisionFromBalanceId = commandId(PFB);
@@ -99,17 +99,15 @@ abstract contract ProvisionFromBalance is CommandBase, ProvisionHook {
 
     function provisionFromBalance(
         CommandContext calldata c
-    ) external onlyTrusted returns (bytes memory) {
+    ) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, uint stateCount, ) = cursor(c.state, 1);
-        Cur memory request = cursor(c.request);
         Writer memory writer = Writers.allocCustodies(stateCount);
-        uint peer = request.nodeAfter(0);
-        if (peer == 0) revert Cursors.ZeroNode();
+        uint peer = Cursors.resolveNodeOrRevert(c.request, 0);
 
         while (state.i < state.bound) {
             AssetAmount memory custody = state.unpackBalanceValue();
             provision(peer, c.account, custody);
-            writer.appendCustodyAt(peer, custody);
+            writer.appendHostAssetAmount(peer, custody);
         }
 
         return state.complete(writer);

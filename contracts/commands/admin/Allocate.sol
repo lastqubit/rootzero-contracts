@@ -15,19 +15,19 @@ abstract contract AllocateHook {
 
 /// @title Allocate
 /// @notice Admin command that applies cross-host allocation entries via a virtual hook.
-/// Each ALLOCATION block in the request calls `allocate`. Only callable by the admin account.
+/// Each HOST_ASSET_AMOUNT block in the request calls `allocate`. Only callable by the admin account.
 abstract contract Allocate is CommandBase, AllocateHook {
     uint internal immutable allocateId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Allocation, allocateId, State.Empty, State.Empty, false);
+        emit Command(host, NAME, Schemas.HostAssetAmount, allocateId, State.Empty, State.Empty, false);
     }
 
     function allocate(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
-            (uint host, AssetAmount memory value) = request.unpackAllocation();
+            (uint host, AssetAmount memory value) = request.unpackHostAssetAmountValue();
             allocate(host, value.asset, value.meta, value.amount);
         }
 
@@ -35,9 +35,6 @@ abstract contract Allocate is CommandBase, AllocateHook {
         return "";
     }
 }
-
-
-
 
 
 

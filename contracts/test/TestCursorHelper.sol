@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Position, Tx } from "../core/Types.sol";
-import { Sizes } from "../blocks/Schema.sol";
+import { UserPosition, Tx } from "../core/Types.sol";
+import { Keys, Sizes } from "../blocks/Schema.sol";
 import { Cur, Cursors, Writer } from "../Cursors.sol";
 import { Writers } from "../blocks/Writers.sol";
 
@@ -17,24 +17,24 @@ contract TestCursorHelper {
     function testWriteBalanceBlock(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
         w.appendBalance(asset, meta, amount);
-        return Writers.finish(w);
+        return w.finish();
     }
 
-    function testWritePositionBlock(bytes32 account, bytes32 asset, bytes32 meta) external pure returns (bytes memory) {
+    function testWriteUserPositionBlock(bytes32 account, bytes32 asset, bytes32 meta) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.B96);
-        w.appendPosition(account, asset, meta);
-        return Writers.finish(w);
+        w.appendUserPosition(account, asset, meta);
+        return w.finish();
     }
 
-    function testWriteCustodyAtBlock(
+    function testWriteHostAssetAmountBlock(
         uint host_,
         bytes32 asset,
         bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        Writer memory w = Writers.alloc(Sizes.CustodyAt);
-        w.appendCustodyAt(host_, asset, meta, amount);
-        return Writers.finish(w);
+        Writer memory w = Writers.alloc(Sizes.HostAssetAmount);
+        w.appendHostAssetAmount(host_, asset, meta, amount);
+        return w.finish();
     }
 
     function testWriteTxBlock(
@@ -46,7 +46,7 @@ contract TestCursorHelper {
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Transaction);
         w.appendTx(Tx({ from: from_, to: to_, asset: asset, meta: meta, amount: amount }));
-        return Writers.finish(w);
+        return w.finish();
     }
 
     function testToBountyBlock(uint amount, bytes32 relayer) external pure returns (bytes memory) {
@@ -57,24 +57,24 @@ contract TestCursorHelper {
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 
-    function testToCustodyAtBlock(
+    function testToHostAssetAmountBlock(
         uint host_,
         bytes32 asset,
         bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        return Cursors.toCustodyAtBlock(host_, asset, meta, amount);
+        return Cursors.toHostAssetAmountBlock(host_, asset, meta, amount);
     }
 
     function testWriterFinishIncomplete() external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
-        return Writers.finish(w);
+        return w.finish();
     }
 
     function testWriterFinish(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance * 2);
         w.appendBalance(asset, meta, amount);
-        return Writers.finish(w);
+        return w.finish();
     }
 
     function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, bytes32 meta, uint amount) {
@@ -82,9 +82,9 @@ contract TestCursorHelper {
         return cur.unpackBalance();
     }
 
-    function testUnpackPosition(bytes calldata source) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+    function testUnpackUserPosition(bytes calldata source) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
         Cur memory cur = Cursors.open(source);
-        return cur.unpackPosition();
+        return cur.unpackUserPosition();
     }
 
     function testUnpackBounds(bytes calldata source) external pure returns (int min, int max) {
@@ -95,6 +95,11 @@ contract TestCursorHelper {
     function testUnpackFee(bytes calldata source) external pure returns (uint amount) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackFee();
+    }
+
+    function testUnpackAccount(bytes calldata source) external pure returns (bytes32 account) {
+        Cur memory cur = Cursors.open(source);
+        return cur.unpackAccount();
     }
 
     function testUnpackRaw(bytes calldata source, bytes4 key) external pure returns (bytes calldata data) {
@@ -247,7 +252,7 @@ contract TestCursorHelper {
         bytes32 meta
     ) external pure returns (uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
-        amount = cur.requireAmount(asset, meta);
+        amount = cur.requireAssetAmount(Keys.Amount, asset, meta);
         i = cur.i;
     }
 
@@ -263,7 +268,7 @@ contract TestCursorHelper {
         return cur.nodeAfter(backup);
     }
 
-    function testAccountAfter(bytes calldata source, uint group, bytes32 backup) external pure returns (bytes32) {
+    function testAccountAfter(bytes calldata source, uint group, bytes32 backup) external pure returns (bytes32 account) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
         return cur.accountAfter(backup);

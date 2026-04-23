@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, Position, Tx, UserAmount} from "../core/Types.sol";
+import {AssetAmount, Tx, UserAmount, UserPosition} from "../core/Types.sol";
 import {Keys, Sizes} from "./Schema.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
@@ -88,7 +88,7 @@ library Writers {
     }
 
     // -------------------------------------------------------------------------
-    // Allocation
+    // Host-qualified asset amounts
     // -------------------------------------------------------------------------
 
     /// @notice Allocate a writer with a logical byte capacity.
@@ -108,17 +108,17 @@ library Writers {
         return alloc96s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` POSITION blocks (1:1 ratio).
-    /// @param count Number of position blocks to allocate space for.
+    /// @notice Allocate a writer sized for exactly `count` USER_POSITION blocks (1:1 ratio).
+    /// @param count Number of user-position blocks to allocate space for.
     /// @return writer Allocated writer.
-    function allocPositions(uint count) internal pure returns (Writer memory writer) {
+    function allocUserPositions(uint count) internal pure returns (Writer memory writer) {
         return alloc96s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` ENTRY blocks (1:1 ratio).
-    /// @param count Number of entry blocks to allocate space for.
+    /// @notice Allocate a writer sized for exactly `count` USER_AMOUNT blocks (1:1 ratio).
+    /// @param count Number of user-amount blocks to allocate space for.
     /// @return writer Allocated writer.
-    function allocEntries(uint count) internal pure returns (Writer memory writer) {
+    function allocUserAmounts(uint count) internal pure returns (Writer memory writer) {
         return alloc128s(count);
     }
 
@@ -689,20 +689,20 @@ library Writers {
         writer.i = write96(writer.dst, writer.i, Keys.Balance, value.asset, value.meta, bytes32(value.amount), 0);
     }
 
-    /// @notice Append a POSITION block using separate field values.
+    /// @notice Append a USER_POSITION block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
     /// @param account Account identifier.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
-    function appendPosition(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta) internal pure {
-        writer.i = write96(writer.dst, writer.i, Keys.Position, account, asset, meta, 0);
+    function appendUserPosition(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta) internal pure {
+        writer.i = write96(writer.dst, writer.i, Keys.UserPosition, account, asset, meta, 0);
     }
 
-    /// @notice Append a POSITION block from a struct.
+    /// @notice Append a USER_POSITION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
-    /// @param value Position fields to encode.
-    function appendPosition(Writer memory writer, Position memory value) internal pure {
-        writer.i = write96(writer.dst, writer.i, Keys.Position, value.account, value.asset, value.meta, 0);
+    /// @param value User-position fields to encode.
+    function appendUserPosition(Writer memory writer, UserPosition memory value) internal pure {
+        writer.i = write96(writer.dst, writer.i, Keys.UserPosition, value.account, value.asset, value.meta, 0);
     }
 
     /// @notice Append an AMOUNT block using separate field values.
@@ -721,24 +721,24 @@ library Writers {
         writer.i = write96(writer.dst, writer.i, Keys.Amount, value.asset, value.meta, bytes32(value.amount), 0);
     }
 
-    /// @notice Append an ENTRY block using separate field values.
+    /// @notice Append a USER_AMOUNT block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
     /// @param account Account identifier.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendEntry(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        writer.i = write128(writer.dst, writer.i, Keys.Entry, account, asset, meta, bytes32(amount), 0);
+    function appendUserAmount(Writer memory writer, bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        writer.i = write128(writer.dst, writer.i, Keys.UserAmount, account, asset, meta, bytes32(amount), 0);
     }
 
-    /// @notice Append an ENTRY block from a struct.
+    /// @notice Append a USER_AMOUNT block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
-    /// @param value Entry fields to encode.
-    function appendEntry(Writer memory writer, UserAmount memory value) internal pure {
+    /// @param value User-amount fields to encode.
+    function appendUserAmount(Writer memory writer, UserAmount memory value) internal pure {
         writer.i = write128(
             writer.dst,
             writer.i,
-            Keys.Entry,
+            Keys.UserAmount,
             value.account,
             value.asset,
             value.meta,
@@ -779,25 +779,31 @@ library Writers {
         writer.i = write64(writer.dst, writer.i, Keys.Bounty, bytes32(amount), relayer, 0);
     }
 
-    /// @notice Append a CUSTODY_AT block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.CustodyAt`.
+    /// @notice Append a HOST_ASSET_AMOUNT block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.HostAssetAmount`.
     /// @param host Host node ID.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendCustodyAt(Writer memory writer, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        writer.i = write128(writer.dst, writer.i, Keys.CustodyAt, bytes32(host), asset, meta, bytes32(amount), 0);
+    function appendHostAssetAmount(
+        Writer memory writer,
+        uint host,
+        bytes32 asset,
+        bytes32 meta,
+        uint amount
+    ) internal pure {
+        writer.i = write128(writer.dst, writer.i, Keys.HostAssetAmount, bytes32(host), asset, meta, bytes32(amount), 0);
     }
 
-    /// @notice Append a CUSTODY_AT block from a host and asset amount.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.CustodyAt`.
+    /// @notice Append a HOST_ASSET_AMOUNT block from a host and asset amount.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.HostAssetAmount`.
     /// @param host Host node ID.
-    /// @param value Custody fields to encode.
-    function appendCustodyAt(Writer memory writer, uint host, AssetAmount memory value) internal pure {
+    /// @param value Host-asset-amount fields to encode.
+    function appendHostAssetAmount(Writer memory writer, uint host, AssetAmount memory value) internal pure {
         writer.i = write128(
             writer.dst,
             writer.i,
-            Keys.CustodyAt,
+            Keys.HostAssetAmount,
             bytes32(host),
             value.asset,
             value.meta,

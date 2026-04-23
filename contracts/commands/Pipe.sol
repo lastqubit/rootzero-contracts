@@ -54,7 +54,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
     /// @notice Execute the pipePayable command.
     function pipePayable(
         CommandContext calldata c
-    ) external payable onlyTrusted returns (bytes memory) {
+    ) external payable onlyCommand(c.account) returns (bytes memory) {
         if (Accounts.isAdmin(c.account)) revert Accounts.InvalidAccount();
         Budget memory budget = Values.fromMsg();
         return pipe(c.account, c.state, c.request, budget);

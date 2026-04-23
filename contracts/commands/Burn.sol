@@ -28,7 +28,7 @@ abstract contract Burn is CommandBase, BurnHook {
         emit Command(host, NAME, "", burnId, State.Balances, State.Empty, false);
     }
 
-    function burn(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function burn(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, , ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {

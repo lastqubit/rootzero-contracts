@@ -5,6 +5,7 @@ import {Cur, Cursors, Schemas, Writer, Writers} from "../Cursors.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
+using Writers for Writer;
 
 string constant NAME = "getBalances";
 
@@ -20,26 +21,26 @@ abstract contract GetBalancesHook {
 
 /// @title GetBalances
 /// @notice Rootzero query that resolves balances for one or more `(account, asset, meta)` tuples.
-/// The request is a run of `POSITION` blocks.
-/// The response returns one `ENTRY` block per position entry, preserving request order.
+/// The request is a run of `USER_POSITION` blocks.
+/// The response returns one `USER_AMOUNT` block per requested position, preserving request order.
 abstract contract GetBalances is QueryBase, GetBalancesHook {
     uint public immutable getBalancesId = queryId(NAME);
 
     constructor() {
-        emit Query(host, NAME, Schemas.Position, Schemas.Entry, getBalancesId);
+        emit Query(host, NAME, Schemas.UserPosition, Schemas.UserAmount, getBalancesId);
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.
-    /// @param request Block-stream request consisting of `position(account, asset, meta)*`.
-    /// @return Block-stream response containing one `entry(account, asset, meta, amount)` per position block.
+    /// @param request Block-stream request consisting of `userPosition(account, asset, meta)*`.
+    /// @return Block-stream response containing one `userAmount(account, asset, meta, amount)` block per request block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint count, ) = cursor(request, 1);
-        Writer memory response = Writers.allocEntries(count);
+        Writer memory response = Writers.allocUserAmounts(count);
 
         while (query.i < query.bound) {
-            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackPosition();
+            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackUserPosition();
             uint balance = getBalance(account, asset, meta);
-            Writers.appendEntry(response, account, asset, meta, balance);
+            response.appendUserAmount(account, asset, meta, balance);
         }
 
         return query.complete(response);

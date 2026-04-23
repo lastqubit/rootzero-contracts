@@ -27,7 +27,7 @@ abstract contract AssetPositionHook {
 
 /// @title PositionsQuery
 /// @notice Rootzero query that resolves one dynamic position response for each requested position.
-/// The request is a run of `POSITION` blocks.
+/// The request is a run of `USER_POSITION` blocks.
 /// The response returns one dynamic `RESPONSE` block per position entry, preserving request order.
 abstract contract AssetPosition is QueryBase, AssetPositionHook {
     uint public immutable getAssetPositionId = queryId(NAME);
@@ -35,20 +35,20 @@ abstract contract AssetPosition is QueryBase, AssetPositionHook {
 
     constructor(string memory output, uint responseSize) {
         positionResponseSize = responseSize;
-        emit Query(host, NAME, Schemas.Position, output, getAssetPositionId);
+        emit Query(host, NAME, Schemas.UserPosition, output, getAssetPositionId);
     }
 
     /// @notice Resolve positions for a run of requested `(account, asset, meta)` tuples.
     /// @dev Allocates from the configured fixed response payload length so each hook call
     ///      can append one `RESPONSE` block directly into the output stream.
-    /// @param request Block-stream request consisting of `position(account, asset, meta)*`.
+    /// @param request Block-stream request consisting of `userPosition(account, asset, meta)*`.
     /// @return Block-stream response containing one `response(bytes data)` block per position block.
     function getAssetPosition(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint count, ) = cursor(request, 1);
         Writer memory response = Writers.allocBytes(count, positionResponseSize);
 
         while (query.i < query.bound) {
-            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackPosition();
+            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackUserPosition();
             appendAssetPosition(account, asset, meta, response);
         }
 

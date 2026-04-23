@@ -10,8 +10,8 @@ library Keys {
     bytes4 constant Amount = bytes4(keccak256("amount(bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Ledger balance - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Balance = bytes4(keccak256("balance(bytes32 asset, bytes32 meta, uint amount)"));
-    /// @dev Host-qualified custody position - (uint host, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant CustodyAt = bytes4(keccak256("custodyAt(uint host, bytes32 asset, bytes32 meta, uint amount)"));
+    /// @dev Host-qualified asset amount - (uint host, bytes32 asset, bytes32 meta, uint amount)
+    bytes4 constant HostAssetAmount = bytes4(keccak256("hostAssetAmount(uint host, bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Minimum acceptable output - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Minimum = bytes4(keccak256("minimum(bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Maximum allowable spend - (bytes32 asset, bytes32 meta, uint amount)
@@ -43,15 +43,17 @@ library Keys {
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("account(bytes32 account)"));
     /// @dev Account asset position key - (bytes32 account, bytes32 asset, bytes32 meta)
-    bytes4 constant Position = bytes4(keccak256("position(bytes32 account, bytes32 asset, bytes32 meta)"));
+    bytes4 constant UserPosition = bytes4(keccak256("userPosition(bytes32 account, bytes32 asset, bytes32 meta)"));
     /// @dev Host-qualified account asset position key - (uint host, bytes32 account, bytes32 asset, bytes32 meta)
-    bytes4 constant PositionAt = bytes4(keccak256("positionAt(uint host, bytes32 account, bytes32 asset, bytes32 meta)"));
+    bytes4 constant HostUserPosition = bytes4(keccak256("hostUserPosition(uint host, bytes32 account, bytes32 asset, bytes32 meta)"));
     /// @dev Account asset entry - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Entry = bytes4(keccak256("entry(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
+    bytes4 constant UserAmount = bytes4(keccak256("userAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Host-qualified account asset entry - (uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant EntryAt = bytes4(keccak256("entryAt(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
+    bytes4 constant HostUserAmount = bytes4(keccak256("hostUserAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Transaction = bytes4(keccak256("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"));
+    bytes4 constant Transaction = bytes4(
+        keccak256("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)")
+    );
     /// @dev Sub-command invocation - (uint target, uint value, bytes request)
     bytes4 constant Step = bytes4(keccak256("step(uint target, uint value, bytes request)"));
     /// @dev Raw external call - (uint target, uint value, bytes data)
@@ -62,10 +64,8 @@ library Keys {
     bytes4 constant Asset = bytes4(keccak256("asset(bytes32 asset, bytes32 meta)"));
     /// @dev Node identifier - (uint id)
     bytes4 constant Node = bytes4(keccak256("node(uint id)"));
-    /// @dev Liquidity funding entry - (uint host, uint amount)
-    bytes4 constant Funding = bytes4(keccak256("funding(uint host, uint amount)"));
-    /// @dev Host-qualified allocation - (uint host, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Allocation = bytes4(keccak256("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"));
+    /// @dev Host-qualified liquidity funding entry - (uint host, uint amount)
+    bytes4 constant HostFunding = bytes4(keccak256("hostFunding(uint host, uint amount)"));
     /// @dev Relayer bounty - (uint amount, bytes32 relayer)
     bytes4 constant Bounty = bytes4(keccak256("bounty(uint amount, bytes32 relayer)"));
 }
