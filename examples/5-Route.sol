@@ -12,7 +12,7 @@ pragma solidity ^0.8.33;
 //
 // This example expects a bundle containing a ROUTE block carrying a `host` ID
 // and an AMOUNT block. The command reads both, forwards the asset to that host,
-// and returns a CUSTODY block confirming the held asset.
+// and returns a HOSTED_BALANCE custody block confirming the held asset.
 
 import {CommandBase, CommandContext, State} from "../contracts/Commands.sol";
 import {Cursors, Cur, Schemas, Keys} from "../contracts/Cursors.sol";
@@ -32,7 +32,7 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        // CUSTODIES = this command returns CUSTODY blocks (assets held by another host).
+        // CUSTODIES = this command returns HOSTED_BALANCE custody blocks.
         emit Command(host, NAME, INPUT, myCommandId, State.Empty, State.Custodies, false);
     }
 
@@ -54,7 +54,7 @@ abstract contract MyCommand is CommandBase {
         // Delegate to the implementer to move the asset to the routed host.
         sendToHost(host, asset, meta, amount);
 
-        // Return a CUSTODY block recording that this asset is now held by `host`.
+        // Return a HOSTED_BALANCE block recording that this asset is now held by `host`.
         return Cursors.toHostedBalanceBlock(host, asset, meta, amount);
     }
 }

@@ -3,42 +3,6 @@ pragma solidity ^0.8.33;
 
 import { Keys } from "./Keys.sol";
 
-/// @title Schemas
-/// @notice Human-readable ABI-signature string constants for each block type.
-/// These strings are the canonical source from which `Keys` constants are derived
-/// and are used when emitting schema descriptors in command events.
-library Schemas {
-    string constant Account = "account(bytes32 account)";
-    string constant UserPosition = "userPosition(bytes32 account, bytes32 asset, bytes32 meta)";
-    string constant HostedUserPosition = "hostedUserPosition(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
-    string constant UserAmount = "userAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
-    string constant HostedUserAmount = "hostedUserAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Asset = "asset(bytes32 asset, bytes32 meta)";
-    string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant HostedBalance = "hostedBalance(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
-    string constant HostFunding = "hostFunding(uint host, uint amount)";
-    string constant Call = "call(uint target, uint value, bytes data)";
-    string constant Bounty = "bounty(uint amount, bytes32 relayer)";
-    string constant Node = "node(uint id)";
-    string constant Step = "step(uint target, uint value, bytes request)";
-    string constant Quantity = "quantity(uint amount)";
-    string constant Fee = "fee(uint amount)";
-    string constant Rate = "rate(uint value)";
-    string constant Bounds = "bounds(int min, int max)";
-    string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
-    string constant Route = "route(bytes data)";
-    string constant Item = "item(bytes data)";
-    string constant Evm = "evm(bytes data)";
-    string constant Query = "query(bytes data)";
-    string constant Response = "response(bytes data)";
-    string constant Frame = "frame(bytes data)";
-    string constant Break = "break()";
-}
-
 // Block stream:
 // - encoding is [bytes4 key][bytes4 payloadLen][payload]
 // - `payloadLen` covers only the block payload
@@ -117,6 +81,42 @@ library Schemas {
 // - the signed slice runs from the segment start through the AUTH head, excluding only AUTH proof bytes
 // - `cid` binds the signature to one command; `deadline` acts as expiry and nonce
 // - current helpers assume proof layout `[bytes20 signer][bytes65 sig]`
+
+/// @title Schemas
+/// @notice Human-readable ABI-signature string constants for each block type.
+/// These strings are the canonical source from which `Keys` constants are derived
+/// and are used when emitting schema descriptors in command events.
+library Schemas {
+    string constant Account = "account(bytes32 account)";
+    string constant UserPosition = "userPosition(bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant HostedUserPosition = "hostedUserPosition(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant UserAmount = "userAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostedUserAmount = "hostedUserAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Asset = "asset(bytes32 asset, bytes32 meta)";
+    string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostedBalance = "hostedBalance(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostFunding = "hostFunding(uint host, uint amount)";
+    string constant Call = "call(uint target, uint value, bytes data)";
+    string constant Bounty = "bounty(uint amount, bytes32 relayer)";
+    string constant Node = "node(uint id)";
+    string constant Step = "step(uint target, uint value, bytes request)";
+    string constant Quantity = "quantity(uint amount)";
+    string constant Fee = "fee(uint amount)";
+    string constant Rate = "rate(uint value)";
+    string constant Bounds = "bounds(int min, int max)";
+    string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
+    string constant Route = "route(bytes data)";
+    string constant Item = "item(bytes data)";
+    string constant Evm = "evm(bytes data)";
+    string constant Query = "query(bytes data)";
+    string constant Response = "response(bytes data)";
+    string constant Frame = "frame(bytes data)";
+    string constant Break = "break()";
+}
 
 /// @title Sizes
 /// @notice Total byte sizes for fixed-width block types, including the 8-byte header (4-byte key + 4-byte payloadLen).

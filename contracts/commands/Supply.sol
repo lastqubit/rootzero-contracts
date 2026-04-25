@@ -9,7 +9,7 @@ using Cursors for Cur;
 
 abstract contract SupplyHook {
     /// @notice Override to consume or supply a single custody position.
-    /// Called once per CUSTODY_AT block in state.
+    /// Called once per HOSTED_BALANCE custody block in state.
     /// @param host Decoded custody host node ID.
     /// @param account Caller's account identifier.
     /// @param value Decoded custody asset amount.
@@ -17,7 +17,7 @@ abstract contract SupplyHook {
 }
 
 /// @title Supply
-/// @notice Command that processes each CUSTODY_AT state block through a virtual hook.
+/// @notice Command that processes each HOSTED_BALANCE custody state block through a virtual hook.
 /// Used to move assets out of cross-host custody positions (e.g. to settle or redeem them).
 /// Produces no output state.
 abstract contract Supply is CommandBase, SupplyHook {

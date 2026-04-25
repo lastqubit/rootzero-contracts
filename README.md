@@ -10,7 +10,8 @@ Most consumers should start from the package root entry points:
 
 - `@rootzero/contracts/Core.sol` — host, access control, balances, and validator building blocks
 - `@rootzero/contracts/Commands.sol` — command and peer base contracts plus all standard command mixins
-- `@rootzero/contracts/Cursors.sol` — cursor reader (`Cur`), block schemas, key constants, memory refs, and writers
+- `@rootzero/contracts/Queries.sol` — query base contracts plus standard query mixins
+- `@rootzero/contracts/Cursors.sol` — cursor reader (`Cur`), block schemas, key constants, typed block helpers, and writers
 - `@rootzero/contracts/Utils.sol` — IDs, assets, accounts, state discriminants, layout, and value helpers
 - `@rootzero/contracts/Events.sol` — reusable event emitters and event contracts
 
@@ -35,7 +36,7 @@ All request and response data is encoded as a binary block stream. Each block is
 [bytes4 key][bytes4 payloadLen][payload]
 ```
 
-`key` is `bytes4(keccak256(schemaString))` — see `Keys` for the full set. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory; `Mem` parses in-memory streams for composed responses.
+`key` is `bytes4(keccak256(schemaString))` — see `Keys` for the full set. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory.
 
 ## State Discriminants
 
@@ -47,7 +48,7 @@ Every command declares its input and output state shape using constants from the
 | `State.Steps`        | STEP blocks (sub-command pipeline)|
 | `State.Balances`     | BALANCE blocks                    |
 | `State.Transactions` | TRANSACTION blocks                |
-| `State.Custodies`    | CUSTODY blocks                    |
+| `State.Custodies`    | HOSTED_BALANCE custody blocks     |
 | `State.Claims`       | Claim records                     |
 
 ## Typical Usage
@@ -79,9 +80,8 @@ Extend `CommandBase` to define a command mixin that runs inside the protocol's t
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext } from "@rootzero/contracts/Commands.sol";
+import { CommandBase, CommandContext, State } from "@rootzero/contracts/Commands.sol";
 import { Cursors, Cur, Schemas } from "@rootzero/contracts/Cursors.sol";
-import { State } from "@rootzero/contracts/Utils.sol";
 
 using Cursors for Cur;
 
@@ -91,12 +91,12 @@ abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, myCommandId, State.Empty, State.Balances);
+        emit Command(host, NAME, Schemas.Amount, myCommandId, State.Empty, State.Balances, false);
     }
 
     function myCommand(
         CommandContext calldata c
-    ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
+    ) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory input, , ) = cursor(c.request, 1);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
         input.complete();
@@ -110,7 +110,7 @@ abstract contract ExampleCommand is CommandBase {
 - `contracts/core` — host, access control, balances, operation base, and signature validation
 - `contracts/commands` — standard command building blocks and admin commands
 - `contracts/peer` — peer protocol surfaces for inter-host asset flows and asset allow/deny
-- `contracts/blocks` — block stream schema (`Schema`), cursor parsing (`Cursors`), memory refs (`Mem`), and writers (`Writers`)
+- `contracts/blocks` — block stream schema (`Schema`), cursor parsing (`Cursors`), and writers (`Writers`)
 - `contracts/utils` — shared encoding helpers: IDs, assets, accounts, state discriminants, layout, ECDSA
 - `contracts/events` — protocol event contracts and emitters
 - `contracts/interfaces` — discovery interfaces and shared external protocol surfaces

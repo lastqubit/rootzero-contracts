@@ -13,11 +13,13 @@ import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./comm
 import { PipePayable, PipePayableHook } from "./commands/Pipe.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook, ProvisionFromBalance } from "./commands/Provision.sol";
 import { Settle } from "./commands/Settle.sol";
+import { Swap, SwapHook } from "./commands/Swap.sol";
 import { Supply, SupplyHook } from "./commands/Supply.sol";
 import { Transfer, TransferHook } from "./commands/Transfer.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Destroy, DestroyHook } from "./commands/admin/Destroy.sol";
+import { ExecutePayable } from "./commands/admin/Execute.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
 import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
 import { Init, InitHook } from "./commands/admin/Init.sol";

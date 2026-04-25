@@ -92,6 +92,16 @@ function addrOr(address addr, address or) pure returns (address) {
     return addr == address(0) ? or : addr;
 }
 
+/// @notice Convert a signed integer to its 32-byte two's-complement representation.
+function intToBytes32(int value) pure returns (bytes32) {
+    return bytes32(uint(value));
+}
+
+/// @notice Convert a 32-byte two's-complement representation to a signed integer.
+function bytes32ToInt(bytes32 value) pure returns (int) {
+    return int(uint(value));
+}
+
 /// @notice Convert a null-terminated `bytes32` value to a Solidity string.
 /// Stops at the first zero byte and returns only the meaningful prefix.
 function bytes32ToString(bytes32 value) pure returns (string memory result) {

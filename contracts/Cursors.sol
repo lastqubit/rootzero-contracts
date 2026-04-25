@@ -9,7 +9,7 @@ import { Sizes } from "./blocks/Schema.sol";
 import { Keys } from "./blocks/Keys.sol";
 import { Schemas } from "./blocks/Schema.sol";
 import { Cursors, Cur } from "./blocks/Cursors.sol";
-import { Writer, Writers } from "./blocks/Writers.sol";
+import { ALLOC_SCALE, Writer, Writers } from "./blocks/Writers.sol";
 
 
 

@@ -15,7 +15,7 @@ library State {
     uint8 constant Balances = 0x0003;
     /// @dev State stream contains TRANSACTION blocks.
     uint8 constant Transactions = 0x0004;
-    /// @dev State stream contains CUSTODY blocks.
+    /// @dev State stream contains HOSTED_BALANCE custody blocks.
     uint8 constant Custodies = 0x0005;
     /// @dev State stream contains claim records.
     uint8 constant Claims = 0x0006;

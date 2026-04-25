@@ -30,6 +30,11 @@ string constant NAME = "myCommand";
 // still `Keys.Frame`; the schema name tells tools and readers what it means.
 string constant INPUT = string.concat("payment = ", Schemas.Amount, "+", Schemas.Fee);
 
+function unpackPayment(Cur memory input) pure returns (bytes32 asset, bytes32 meta, uint amount, uint fee) {
+    (bytes32 a, bytes32 b, bytes32 c, bytes32 d) = input.unpack128(Keys.Frame, 32);
+    return (a, b, uint(c), uint(d));
+}
+
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
     event PaymentSeen(bytes32 asset, bytes32 meta, uint amount, uint fee);
@@ -38,29 +43,13 @@ abstract contract MyCommand is CommandBase {
         emit Command(host, NAME, INPUT, myCommandId, State.Empty, State.Empty, false);
     }
 
-    // Custom helper for this command's frame shape.
-    //
-    // It uses generic cursor helpers in two layers:
-    // - `consume` validates and consumes one FRAME block, returning its payload offset
-    // - `load128` decodes the four fixed 32-byte payload words from that offset
-    function unpackPaymentFrame(
-        Cur memory input
-    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount, uint fee) {
-        uint abs = input.consume(Keys.Frame, 128, 128);
-        bytes32 rawAmount;
-        bytes32 rawFee;
-        (asset, meta, rawAmount, rawFee) = Cursors.load128(abs);
-        amount = uint(rawAmount);
-        fee = uint(rawFee);
-    }
-
     function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
         (Cur memory request, , ) = cursor(c.request, 1);
 
         // The request can batch multiple FRAME blocks. Each one is decoded
         // with the command-local unpack helper above.
         while (request.i < request.bound) {
-            (bytes32 asset, bytes32 meta, uint amount, uint fee) = unpackPaymentFrame(request);
+            (bytes32 asset, bytes32 meta, uint amount, uint fee) = unpackPayment(request);
             emit PaymentSeen(asset, meta, amount, fee);
         }
 
