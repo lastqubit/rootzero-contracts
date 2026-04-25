@@ -23,6 +23,6 @@ contract TestAssetPositionQuery is AssetPosition {
         uint resolved = 0;
         if (asset == firstAsset && meta == firstMeta) resolved = 11;
         if (asset == secondAsset && meta == secondMeta) resolved = 22;
-        response.appendBytes(Keys.Response, abi.encode(resolved));
+        response.appendBlock(Keys.Response, abi.encode(resolved));
     }
 }

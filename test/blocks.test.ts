@@ -115,6 +115,17 @@ describe("Cursors", () => {
       const data: string = await helper.testWriterFinish(asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
     });
+
+    it("reverts when appending past logical writer capacity", async () => {
+      await expect(helper.testWriterRejectsSecond32Block(asset))
+        .to.be.revertedWithCustomError(helper, "WriterOverflow");
+    });
+
+    it("reverts when a dynamic block exceeds allocated payload size", async () => {
+      const oversized = ethers.concat([asset, meta]);
+      await expect(helper.testWriterRejectsOversizedDynamicBlock(oversized))
+        .to.be.revertedWithCustomError(helper, "WriterOverflow");
+    });
   });
 
   describe("Cursor helpers", () => {
@@ -340,7 +351,7 @@ describe("Cursors", () => {
       const [deadline, outProof, i] = await helper.testRequireAuth(source, 77n);
       expect(deadline).to.equal(123456n);
       expect(outProof).to.equal(proof);
-      expect(i).to.equal(149n);
+      expect(i).to.equal(157n);
     });
 
     it("complete reverts ZeroCursor when prime run is empty", async () => {

@@ -73,6 +73,19 @@ contract TestCursorHelper {
         return w.finish();
     }
 
+    function testWriterRejectsSecond32Block(bytes32 value) external pure returns (bytes memory) {
+        Writer memory w = Writers.alloc32s(1);
+        w.appendBlock32(Keys.Response, value, 32);
+        w.appendBlock32(Keys.Response, value, 32);
+        return w.finish();
+    }
+
+    function testWriterRejectsOversizedDynamicBlock(bytes memory data) external pure returns (bytes memory) {
+        Writer memory w = Writers.allocBytes(1, 32);
+        w.appendBlock(Keys.Response, data);
+        return w.finish();
+    }
+
     function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, bytes32 meta, uint amount) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackBalance();

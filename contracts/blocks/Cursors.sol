@@ -332,7 +332,7 @@ library Cursors {
     /// @param key Block type key.
     /// @param value 32-byte payload.
     /// @return Encoded block bytes.
-    function create32(bytes4 key, bytes32 value) internal pure returns (bytes memory) {
+    function createBlock32(bytes4 key, bytes32 value) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x20)), value);
     }
 
@@ -341,7 +341,7 @@ library Cursors {
     /// @param a First payload word.
     /// @param b Second payload word.
     /// @return Encoded block bytes.
-    function create64(bytes4 key, bytes32 a, bytes32 b) internal pure returns (bytes memory) {
+    function createBlock64(bytes4 key, bytes32 a, bytes32 b) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x40)), a, b);
     }
 
@@ -351,7 +351,7 @@ library Cursors {
     /// @param b Second payload word.
     /// @param c Third payload word.
     /// @return Encoded block bytes.
-    function create96(bytes4 key, bytes32 a, bytes32 b, bytes32 c) internal pure returns (bytes memory) {
+    function createBlock96(bytes4 key, bytes32 a, bytes32 b, bytes32 c) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x60)), a, b, c);
     }
 
@@ -362,7 +362,13 @@ library Cursors {
     /// @param c Third payload word.
     /// @param d Fourth payload word.
     /// @return Encoded block bytes.
-    function create128(bytes4 key, bytes32 a, bytes32 b, bytes32 c, bytes32 d) internal pure returns (bytes memory) {
+    function createBlock128(
+        bytes4 key,
+        bytes32 a,
+        bytes32 b,
+        bytes32 c,
+        bytes32 d
+    ) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x80)), a, b, c, d);
     }
 
@@ -374,7 +380,7 @@ library Cursors {
     /// @param d Fourth payload word.
     /// @param e Fifth payload word.
     /// @return Encoded block bytes.
-    function create160(
+    function createBlock160(
         bytes4 key,
         bytes32 a,
         bytes32 b,
@@ -390,7 +396,7 @@ library Cursors {
     /// @param head Fixed 32-byte head payload.
     /// @param tail Variable-length payload bytes appended after the head.
     /// @return Encoded block bytes.
-    function createHead32(bytes4 key, bytes32 head, bytes memory tail) internal pure returns (bytes memory) {
+    function createBlockHead32(bytes4 key, bytes32 head, bytes memory tail) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x20 + tail.length)), head, tail);
     }
 
@@ -400,7 +406,12 @@ library Cursors {
     /// @param b Second fixed payload word.
     /// @param tail Variable-length payload bytes appended after the fixed head.
     /// @return Encoded block bytes.
-    function createHead64(bytes4 key, bytes32 a, bytes32 b, bytes memory tail) internal pure returns (bytes memory) {
+    function createBlockHead64(
+        bytes4 key,
+        bytes32 a,
+        bytes32 b,
+        bytes memory tail
+    ) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(0x40 + tail.length)), a, b, tail);
     }
 
@@ -409,7 +420,7 @@ library Cursors {
     /// @param relayer Relayer account identifier.
     /// @return Encoded BOUNTY block bytes.
     function toBountyBlock(uint bounty, bytes32 relayer) internal pure returns (bytes memory) {
-        return create64(Keys.Bounty, bytes32(bounty), relayer);
+        return createBlock64(Keys.Bounty, bytes32(bounty), relayer);
     }
 
     /// @notice Encode a STEP block.
@@ -418,7 +429,7 @@ library Cursors {
     /// @param request Variable-length nested request payload.
     /// @return Encoded STEP block bytes.
     function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
-        return createHead64(Keys.Step, bytes32(target), bytes32(value), request);
+        return createBlockHead64(Keys.Step, bytes32(target), bytes32(value), request);
     }
 
     /// @notice Encode a CALL block.
@@ -427,7 +438,7 @@ library Cursors {
     /// @param data Raw calldata payload for the target.
     /// @return Encoded CALL block bytes.
     function toCallBlock(uint target, uint value, bytes memory data) internal pure returns (bytes memory) {
-        return createHead64(Keys.Call, bytes32(target), bytes32(value), data);
+        return createBlockHead64(Keys.Call, bytes32(target), bytes32(value), data);
     }
 
     /// @notice Encode a BALANCE block.
@@ -436,7 +447,7 @@ library Cursors {
     /// @param amount Token amount.
     /// @return Encoded BALANCE block bytes.
     function toBalanceBlock(bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
-        return create96(Keys.Balance, asset, meta, bytes32(amount));
+        return createBlock96(Keys.Balance, asset, meta, bytes32(amount));
     }
 
     /// @notice Encode a HOSTED_BALANCE block.
@@ -451,7 +462,7 @@ library Cursors {
         bytes32 meta,
         uint amount
     ) internal pure returns (bytes memory) {
-        return create128(Keys.HostedBalance, bytes32(host), asset, meta, bytes32(amount));
+        return createBlock128(Keys.HostedBalance, bytes32(host), asset, meta, bytes32(amount));
     }
 
     // -------------------------------------------------------------------------
@@ -1028,7 +1039,9 @@ library Cursors {
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
     /// @return value Decoded account, asset, and meta.
-    function unpackHostedUserPositionValue(Cur memory cur) internal pure returns (uint host, UserPosition memory value) {
+    function unpackHostedUserPositionValue(
+        Cur memory cur
+    ) internal pure returns (uint host, UserPosition memory value) {
         (host, value.account, value.asset, value.meta) = unpackHostedUserPosition(cur, Keys.HostedUserPosition);
     }
 
@@ -1069,7 +1082,10 @@ library Cursors {
     /// @return host Host node ID.
     /// @return value Decoded account, asset, meta, and amount.
     function unpackHostedUserAmountValue(Cur memory cur) internal pure returns (uint host, UserAmount memory value) {
-        (host, value.account, value.asset, value.meta, value.amount) = unpackHostedUserAmount(cur, Keys.HostedUserAmount);
+        (host, value.account, value.asset, value.meta, value.amount) = unpackHostedUserAmount(
+            cur,
+            Keys.HostedUserAmount
+        );
     }
 
     /// @notice Consume a HOSTED_BALANCE block and return its fields as separate values.
@@ -1191,6 +1207,18 @@ library Cursors {
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
+    /// @notice Consume an asset amount block, assert it matches the expected asset, and require the amount to be 1.
+    /// @param cur Cursor; advanced past the block.
+    /// @param key Expected block type key.
+    /// @param asset Expected asset identifier.
+    /// @return meta Metadata slot from the block.
+    function requireUnitAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure returns (bytes32 meta) {
+        uint abs = consume(cur, key, 96, 96);
+        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
+        meta = bytes32(msg.data[abs + 32:abs + 64]);
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
+    }
+
     /// @notice Consume a MINIMUM block and assert it matches the expected asset and meta.
     /// @param cur Cursor; advanced past the block.
     /// @param asset Expected asset identifier.
@@ -1239,18 +1267,6 @@ library Cursors {
         amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
     }
 
-    /// @notice Consume an asset amount block, assert it matches the expected asset, and require the amount to be 1.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected block type key.
-    /// @param asset Expected asset identifier.
-    /// @return meta Metadata slot from the block.
-    function requireUnitAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure returns (bytes32 meta) {
-        uint abs = consume(cur, key, 96, 96);
-        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        meta = bytes32(msg.data[abs + 32:abs + 64]);
-        if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
-    }
-
     /// @notice Consume a hosted balance block, assert it matches the expected host and asset, and require the amount to be 1.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block type key.
@@ -1295,7 +1311,7 @@ library Cursors {
     /// @return proof Raw proof bytes.
     function requireAuth(Cur memory cur, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
         (deadline, proof) = expectAuth(cur, cur.i, cid);
-        cur.i += 64 + proof.length;
+        cur.i += Sizes.Header + 64 + proof.length;
     }
 
     // -------------------------------------------------------------------------

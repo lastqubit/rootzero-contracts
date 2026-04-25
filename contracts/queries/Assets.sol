@@ -41,7 +41,7 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
         while (query.i < query.bound) {
             (bytes32 asset, bytes32 meta) = query.unpackAsset();
             bool allowed = isAllowedAsset(asset, meta);
-            response.appendBool(Keys.Response, allowed);
+            response.appendBlockBool(Keys.Response, allowed);
         }
 
         return query.complete(response);
