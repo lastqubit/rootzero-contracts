@@ -21,8 +21,12 @@ function encodePeerCall(uint target, bytes calldata request) pure returns (bytes
 /// Peers handle inter-host asset flows (push/pull) and asset allow/deny management
 /// between cooperating hosts. Access is restricted to trusted callers via `onlyPeer`.
 abstract contract PeerBase is OperationBase, PeerEvent {
-    /// @dev Restrict execution to trusted callers (authorized hosts or the commander).
+    /// @dev Thrown when the commander attempts to call a peer entrypoint directly.
+    error CommanderNotAllowed();
+
+    /// @dev Restrict execution to trusted callers, excluding the commander.
     modifier onlyPeer() {
+        if (msg.sender == commander) revert CommanderNotAllowed();
         enforceCaller(msg.sender);
         _;
     }

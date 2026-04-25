@@ -7,7 +7,6 @@ import { PeerPull } from "../peer/Pull.sol";
 import { PeerPush } from "../peer/Push.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { Cursors, Cur, Keys, Tx } from "../Cursors.sol";
-import { Ids } from "../utils/Ids.sol";
 
 using Cursors for Cur;
 
@@ -18,12 +17,10 @@ contract TestPeerHost is Host, PeerAssetPull, PeerPull, PeerPush, PeerSettle {
     event PeerSettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
 
     constructor(address cmdr)
-        Host(address(0), 1, "test")
+        Host(cmdr, 1, "test")
         PeerPull("")
         PeerPush("")
-    {
-        if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
-    }
+    {}
 
     function peerAssetPull(uint peer, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit PeerAssetPullCalled(peer, asset, meta, amount);
@@ -57,6 +54,7 @@ contract TestPeerHost is Host, PeerAssetPull, PeerPull, PeerPush, PeerSettle {
     function getPeerPullId() external view returns (uint) { return peerPullId; }
     function getPeerPushId() external view returns (uint) { return peerPushId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
+    function getAdminAccount() external view returns (bytes32) { return adminAccount; }
 }
 
 
