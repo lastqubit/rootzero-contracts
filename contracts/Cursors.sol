@@ -4,8 +4,8 @@ pragma solidity ^0.8.33;
 // Aggregator: re-exports all block stream primitives (Cursors, Writers, Schema, Keys, Sizes).
 // Import this file to get access to the full block encoding/decoding surface in one import.
 
-import { UserAmount, Position, Tx, AssetAmount, HostedAmount } from "./core/Types.sol";
-import { Sizes } from "./blocks/Schema.sol";
+import { AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Tx } from "./core/Types.sol";
+import { Forms, Sizes } from "./blocks/Schema.sol";
 import { Keys } from "./blocks/Keys.sol";
 import { Schemas } from "./blocks/Schema.sol";
 import { Cursors, Cur } from "./blocks/Cursors.sol";

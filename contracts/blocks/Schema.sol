@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Keys} from "./Keys.sol";
-
 // Block stream:
 // - encoding is [bytes4 key][bytes4 payloadLen][payload]
 // - `payloadLen` covers only the block payload
@@ -77,7 +75,6 @@ import {Keys} from "./Keys.sol";
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
 //   `allocation(...)` for host-scoped provision requests, `allowance(...)` for host-scoped caps,
 //   `custody(...)` for host-scoped state,
-//   `lookup(...)` for host-qualified position lookups,
 //   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
 //   for plain scalar amounts
 // - `auth(uint cid, uint deadline, bytes proof)` is a proof-separator block and must be emitted last
@@ -89,8 +86,7 @@ import {Keys} from "./Keys.sol";
 //   in another ledger/store by this protocol
 // - commands must preserve, transform, settle, or intentionally consume pipeline state
 // - request blocks such as `amount(...)`, `allocation(...)`, `allowance(...)`, `payout(...)`,
-//   `lookup(...)`, `minimum(...)`, and `maximum(...)` express intent, constraints, or references
-// - value/response blocks such as `holding(...)` report observed values
+//   `minimum(...)`, and `maximum(...)` express intent, constraints, or references
 // - request and value/response blocks are not live state
 //
 // Signed blocks:
@@ -115,10 +111,8 @@ library Schemas {
     string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
     string constant Custody = "custody(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Payout = "payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Holding = "holding(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
     string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Allowance = "allowance(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Lookup = "lookup(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
     string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
     string constant Relocation = "relocation(uint host, uint amount)";
     string constant Call = "call(uint target, uint value, bytes data)";
@@ -135,6 +129,18 @@ library Schemas {
     string constant Query = "query(bytes data)";
     string constant Response = "response(bytes data)";
     string constant Break = "break()";
+}
+
+/// @title Forms
+/// @notice Reusable structural block schemas for core tuple shapes.
+/// These describe payload form without assigning command or query semantics.
+library Forms {
+    string constant AssetAmount = "assetAmount(bytes32 asset, bytes32 meta, uint amount)";
+    string constant AccountAsset = "accountAsset(bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant AccountAmount = "accountAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostAmount = "hostAmount(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostAccountAsset = "hostAccountAsset(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant HostAccountAmount = "hostAccountAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
 }
 
 /// @title Sizes
@@ -169,7 +175,7 @@ library Sizes {
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
     /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
-    uint constant HostedAmount = B128;
+    uint constant HostAmount = B128;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
     uint constant Transaction = B160;
 }

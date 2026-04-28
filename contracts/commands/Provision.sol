@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, CommandPayable, State} from "./Base.sol";
-import {HostedAmount, Cursors, Cur, Schemas, Writer, Writers} from "../Cursors.sol";
+import {CommandContext, CommandBase, CommandPayable, Keys} from "./Base.sol";
+import {HostAmount, Cursors, Cur, Schemas, Writer, Writers} from "../Cursors.sol";
 import {Budget, Values} from "../utils/Value.sol";
 using Cursors for Cur;
 using Writers for Writer;
@@ -17,7 +17,7 @@ abstract contract ProvisionHook {
     /// side effect (e.g. transfer or record); output blocks are written by the caller.
     /// @param account Caller's account identifier.
     /// @param allocation Host-scoped amount to provision.
-    function provision(bytes32 account, HostedAmount memory allocation) internal virtual;
+    function provision(bytes32 account, HostAmount memory allocation) internal virtual;
 }
 
 /// @notice Shared provision hook used by `ProvisionPayable`.
@@ -28,7 +28,7 @@ abstract contract ProvisionPayableHook {
     /// @param account Caller's account identifier.
     /// @param allocation Host-scoped amount to provision.
     /// @param budget Mutable native-value budget drawn from `msg.value`.
-    function provision(bytes32 account, HostedAmount memory allocation, Budget memory budget) internal virtual;
+    function provision(bytes32 account, HostAmount memory allocation, Budget memory budget) internal virtual;
 }
 
 /// @title Provision
@@ -38,7 +38,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
     constructor() {
-        emit Command(host, PROVISION, Schemas.Allocation, provisionId, State.Empty, State.Custodies, false);
+        emit Command(host, PROVISION, Schemas.Allocation, provisionId, Keys.Empty, Keys.Custody, false);
     }
 
     function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
@@ -46,7 +46,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
         Writer memory writer = Writers.allocCustodies(count);
 
         while (request.i < request.bound) {
-            HostedAmount memory allocation = request.unpackAllocationValue();
+            HostAmount memory allocation = request.unpackAllocationValue();
             provision(c.account, allocation);
             writer.appendCustody(allocation);
         }
@@ -63,7 +63,7 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
     uint internal immutable provisionPayableId = commandId(PP);
 
     constructor() {
-        emit Command(host, PP, Schemas.Allocation, provisionPayableId, State.Empty, State.Custodies, true);
+        emit Command(host, PP, Schemas.Allocation, provisionPayableId, Keys.Empty, Keys.Custody, true);
     }
 
     function provisionPayable(
@@ -74,7 +74,7 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
         Budget memory budget = Values.fromMsg();
 
         while (request.i < request.bound) {
-            HostedAmount memory allocation = request.unpackAllocationValue();
+            HostAmount memory allocation = request.unpackAllocationValue();
             provision(c.account, allocation, budget);
             writer.appendCustody(allocation);
         }

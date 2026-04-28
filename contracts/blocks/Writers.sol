@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, HostedAmount, Tx, UserAmount} from "../core/Types.sol";
+import {AssetAmount, AccountAmount, HostAmount, Tx} from "../core/Types.sol";
+import {Sizes} from "./Schema.sol";
+import {Keys} from "./Keys.sol";
 import {max32} from "../utils/Utils.sol";
-import {Keys, Sizes} from "./Schema.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
 struct Writer {
@@ -193,10 +194,10 @@ library Writers {
         return alloc96s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` HOLDING blocks (1:1 ratio).
-    /// @param count Number of holding blocks to allocate space for.
+    /// @notice Allocate a writer sized for exactly `count` ACCOUNT_AMOUNT form blocks (1:1 ratio).
+    /// @param count Number of account amount blocks to allocate space for.
     /// @return writer Allocated writer.
-    function allocHoldings(uint count) internal pure returns (Writer memory writer) {
+    function allocAccountAmounts(uint count) internal pure returns (Writer memory writer) {
         return alloc128s(count);
     }
 
@@ -773,30 +774,30 @@ library Writers {
         commit(writer, writeBlock96(writer.dst, writer.i, Keys.Amount, value.asset, value.meta, bytes32(value.amount), 32));
     }
 
-    /// @notice Append a HOLDING block using separate field values.
+    /// @notice Append an ACCOUNT_AMOUNT form block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
     /// @param account Account identifier.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendHolding(
+    function appendAccountAmount(
         Writer memory writer,
         bytes32 account,
         bytes32 asset,
         bytes32 meta,
         uint amount
     ) internal pure {
-        commit(writer, writeBlock128(writer.dst, writer.i, Keys.Holding, account, asset, meta, bytes32(amount), 32));
+        commit(writer, writeBlock128(writer.dst, writer.i, Keys.AccountAmount, account, asset, meta, bytes32(amount), 32));
     }
 
-    /// @notice Append a HOLDING block from a struct.
+    /// @notice Append an ACCOUNT_AMOUNT form block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
-    /// @param value User amount fields to encode as a holding.
-    function appendHolding(Writer memory writer, UserAmount memory value) internal pure {
+    /// @param value Account amount fields to encode.
+    function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
         commit(writer, writeBlock128(
             writer.dst,
             writer.i,
-            Keys.Holding,
+            Keys.AccountAmount,
             value.account,
             value.asset,
             value.meta,
@@ -822,7 +823,7 @@ library Writers {
     }
 
     /// @notice Append a CUSTODY block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.HostedAmount`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param host Host node ID.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
@@ -847,7 +848,7 @@ library Writers {
     }
 
     /// @notice Append a CUSTODY block from a host and asset amount.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.HostedAmount`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param host Host node ID.
     /// @param value Custody fields to encode.
     function appendCustody(Writer memory writer, uint host, AssetAmount memory value) internal pure {
@@ -863,10 +864,10 @@ library Writers {
         ));
     }
 
-    /// @notice Append a CUSTODY block from a hosted amount struct.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.HostedAmount`.
+    /// @notice Append a CUSTODY block from a host amount struct.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param value Custody fields to encode.
-    function appendCustody(Writer memory writer, HostedAmount memory value) internal pure {
+    function appendCustody(Writer memory writer, HostAmount memory value) internal pure {
         commit(writer, writeBlock128(
             writer.dst,
             writer.i,

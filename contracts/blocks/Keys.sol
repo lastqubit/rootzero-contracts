@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {Forms} from "./Schema.sol";
+
 /// @title Keys
 /// @notice Block type selectors for the rootzero block stream protocol.
 /// Each key is the first 4 bytes of the keccak256 hash of its schema string,
 /// matching the ABI-selector convention used in `Schemas`.
 library Keys {
+    /// @dev Empty / unset key.
+    bytes4 constant Empty = bytes4(0);
     /// @dev Input amount - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Amount = bytes4(keccak256("amount(bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Ledger balance - (bytes32 asset, bytes32 meta, uint amount)
@@ -48,12 +52,8 @@ library Keys {
     bytes4 constant Rate = bytes4(keccak256("rate(uint value)"));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("account(bytes32 account)"));
-    /// @dev Host-qualified position lookup - (uint host, bytes32 account, bytes32 asset, bytes32 meta)
-    bytes4 constant Lookup = bytes4(keccak256("lookup(uint host, bytes32 account, bytes32 asset, bytes32 meta)"));
     /// @dev Transfer payout request - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Payout = bytes4(keccak256("payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
-    /// @dev Observed receiver-local account holding - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Holding = bytes4(keccak256("holding(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(
         keccak256("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)")
@@ -72,4 +72,17 @@ library Keys {
     bytes4 constant Relocation = bytes4(keccak256("relocation(uint host, uint amount)"));
     /// @dev Relayer bounty - (uint amount, bytes32 relayer)
     bytes4 constant Bounty = bytes4(keccak256("bounty(uint amount, bytes32 relayer)"));
+
+    /// @dev Structural asset amount form - (bytes32 asset, bytes32 meta, uint amount)
+    bytes4 constant AssetAmount = bytes4(keccak256(bytes(Forms.AssetAmount)));
+    /// @dev Structural account asset form - (bytes32 account, bytes32 asset, bytes32 meta)
+    bytes4 constant AccountAsset = bytes4(keccak256(bytes(Forms.AccountAsset)));
+    /// @dev Structural account amount form - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+    bytes4 constant AccountAmount = bytes4(keccak256(bytes(Forms.AccountAmount)));
+    /// @dev Structural host amount form - (uint host, bytes32 asset, bytes32 meta, uint amount)
+    bytes4 constant HostAmount = bytes4(keccak256(bytes(Forms.HostAmount)));
+    /// @dev Structural host account asset form - (uint host, bytes32 account, bytes32 asset, bytes32 meta)
+    bytes4 constant HostAccountAsset = bytes4(keccak256(bytes(Forms.HostAccountAsset)));
+    /// @dev Structural host account amount form - (uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+    bytes4 constant HostAccountAmount = bytes4(keccak256(bytes(Forms.HostAccountAmount)));
 }

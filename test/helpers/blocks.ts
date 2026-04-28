@@ -15,9 +15,7 @@ export const Keys = {
   Bounds: blockKey("bounds(int min, int max)"),
   Fee: blockKey("fee(uint amount)"),
   Account: blockKey("account(bytes32 account)"),
-  Lookup: blockKey("lookup(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
   Payout: blockKey("payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
-  Holding: blockKey("holding(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
   Node: blockKey("node(uint id)"),
   Relocation: blockKey("relocation(uint host, uint amount)"),
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
@@ -38,6 +36,12 @@ export const Keys = {
   Evm: blockKey("evm(bytes data)"),
   Query: blockKey("query(bytes data)"),
   Response: blockKey("response(bytes data)"),
+  AssetAmount: blockKey("assetAmount(bytes32 asset, bytes32 meta, uint amount)"),
+  AccountAsset: blockKey("accountAsset(bytes32 account, bytes32 asset, bytes32 meta)"),
+  AccountAmount: blockKey("accountAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
+  HostAmount: blockKey("hostAmount(uint host, bytes32 asset, bytes32 meta, uint amount)"),
+  HostAccountAsset: blockKey("hostAccountAsset(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
+  HostAccountAmount: blockKey("hostAccountAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
 } as const;
 
 // Pad a bigint or hex string to 32 bytes
@@ -92,16 +96,20 @@ export function encodeBalanceBlock(asset: string, meta: string, amount: bigint):
   return block(Keys.Balance, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodeLookupBlock(host: bigint, account: string, asset: string, meta: string): string {
-  return block(Keys.Lookup, ethers.concat([pad32(host), pad32(account), pad32(asset), pad32(meta)]));
+export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string, meta: string): string {
+  return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset), pad32(meta)]));
+}
+
+export function encodeAccountAssetBlock(account: string, asset: string, meta: string): string {
+  return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
 }
 
 export function encodePayoutBlock(account: string, asset: string, meta: string, amount: bigint): string {
   return block(Keys.Payout, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodeHoldingBlock(account: string, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Holding, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeAccountAmountBlock(account: string, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
 export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {

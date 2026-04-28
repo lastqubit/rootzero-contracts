@@ -2,7 +2,8 @@
 pragma solidity ^0.8.33;
 
 import { Tx } from "../core/Types.sol";
-import { Keys, Sizes } from "../blocks/Schema.sol";
+import { Sizes } from "../blocks/Schema.sol";
+import { Keys } from "../blocks/Keys.sol";
 import { Cur, Cursors, Writer } from "../Cursors.sol";
 import { Writers } from "../blocks/Writers.sol";
 
@@ -22,7 +23,7 @@ contract TestCursorHelper {
         bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        Writer memory w = Writers.alloc(Sizes.HostedAmount);
+        Writer memory w = Writers.alloc(Sizes.HostAmount);
         w.appendCustody(host_, asset, meta, amount);
         return w.finish();
     }
@@ -85,11 +86,18 @@ contract TestCursorHelper {
         return cur.unpackBalance();
     }
 
-    function testUnpackLookup(
+    function testUnpackHostAccountAsset(
         bytes calldata source
     ) external pure returns (uint host_, bytes32 account, bytes32 asset, bytes32 meta) {
         Cur memory cur = Cursors.open(source);
-        return cur.unpackLookup();
+        return cur.unpackHostAccountAsset();
+    }
+
+    function testUnpackAccountAsset(
+        bytes calldata source
+    ) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+        Cur memory cur = Cursors.open(source);
+        return cur.unpackAccountAsset();
     }
 
     function testUnpackBounds(bytes calldata source) external pure returns (int min, int max) {

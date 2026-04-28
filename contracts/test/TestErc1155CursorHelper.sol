@@ -124,7 +124,7 @@ contract TestErc1155CursorHelper {
         bytes32 asset
     ) external view returns (bytes32 meta, uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
-        (meta, amount) = Cursors.requireHostedAmount(cur, Keys.Custody, host, asset.erc1155());
+        (meta, amount) = Cursors.requireHostAmount(cur, Keys.Custody, host, asset.erc1155());
         return (meta, amount, cur.i);
     }
 }
