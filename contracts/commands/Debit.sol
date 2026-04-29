@@ -27,7 +27,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     uint internal immutable debitAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, debitAccountId, Keys.Empty, Keys.Balance, false);
+        emit Command(host, debitAccountId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     /// @notice Override to customize request parsing or batching for debits.

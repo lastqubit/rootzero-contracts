@@ -20,7 +20,7 @@ abstract contract AllowAssets is CommandBase, AllowAssetsHook {
     uint internal immutable allowAssetsId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Asset, allowAssetsId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, allowAssetsId, NAME, Schemas.Asset, Keys.Empty, Keys.Empty, false);
     }
 
     function allowAssets(

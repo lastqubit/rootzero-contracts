@@ -28,8 +28,6 @@ import { PeerAllowance } from "./peer/Allowance.sol";
 import { PeerAssetPull, PeerAssetPullHook } from "./peer/AssetPull.sol";
 import { PeerAllowAssets } from "./peer/AllowAssets.sol";
 import { PeerDenyAssets } from "./peer/DenyAssets.sol";
-import { PeerPull, PeerPullHook } from "./peer/Pull.sol";
-import { PeerPush, PeerPushHook } from "./peer/Push.sol";
 import { PeerSettle } from "./peer/Settle.sol";
 
 

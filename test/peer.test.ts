@@ -4,7 +4,6 @@ import {
   concat,
   encodeAmountBlock,
   encodeNodeBlock,
-  encodeRouteBlock,
   encodeTxBlock,
   encodeUserAccount,
 } from "./helpers/blocks.js";
@@ -25,7 +24,7 @@ describe("Peer Commands", () => {
 
   async function callAs(
     signerIndex: number,
-    method: "peerAllowance(bytes)" | "peerAssetPull(bytes)" | "peerPull(bytes)" | "peerPush(bytes)" | "peerSettle(bytes)",
+    method: "peerAllowance(bytes)" | "peerAssetPull(bytes)" | "peerSettle(bytes)",
     request = "0x"
   ) {
     const signer = await getSigner(signerIndex);
@@ -128,78 +127,6 @@ describe("Peer Commands", () => {
 
     it("reverts UnauthorizedCaller for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeAmountBlock(asset, meta, 123n)))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
-    });
-
-    it("reverts ZeroCursor when request is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
-    });
-  });
-
-  describe("peerPull", () => {
-    const method = "peerPull(bytes)";
-
-    it("emits PeerPullCalled for a single input block", async () => {
-      const inputData = "0xabcd";
-      const peer = await callerHost(1);
-      const tx = await callAs(1, method, encodeRouteBlock(inputData));
-      await expect(tx).to.emit(host, "PeerPullCalled").withArgs(peer, inputData);
-    });
-
-    it("emits PeerPullCalled for each input block when multiple are present", async () => {
-      const input1 = "0x1111";
-      const input2 = "0x2222";
-      const peer = await callerHost(1);
-      const tx = await callAs(1, method, concat(encodeRouteBlock(input1), encodeRouteBlock(input2)));
-      await expect(tx).to.emit(host, "PeerPullCalled").withArgs(peer, input1);
-      await expect(tx).to.emit(host, "PeerPullCalled").withArgs(peer, input2);
-    });
-
-    it("returns empty bytes after processing input blocks", async () => {
-      const signer = await getSigner(1);
-      const result: string = await (host.connect(signer) as any)[method].staticCall(encodeRouteBlock("0x01"));
-      expect(result).to.equal("0x");
-    });
-
-    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
-      await expect(callAs(2, method, encodeRouteBlock("0x01")))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
-    });
-
-    it("reverts ZeroCursor when request is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
-    });
-  });
-
-  describe("peerPush", () => {
-    const method = "peerPush(bytes)";
-
-    it("emits PeerPushCalled for a single input block", async () => {
-      const inputData = "0xbeef";
-      const peer = await callerHost(1);
-      const tx = await callAs(1, method, encodeRouteBlock(inputData));
-      await expect(tx).to.emit(host, "PeerPushCalled").withArgs(peer, inputData);
-    });
-
-    it("emits PeerPushCalled for each input block when multiple are present", async () => {
-      const input1 = "0x3333";
-      const input2 = "0x4444";
-      const peer = await callerHost(1);
-      const tx = await callAs(1, method, concat(encodeRouteBlock(input1), encodeRouteBlock(input2)));
-      await expect(tx).to.emit(host, "PeerPushCalled").withArgs(peer, input1);
-      await expect(tx).to.emit(host, "PeerPushCalled").withArgs(peer, input2);
-    });
-
-    it("returns empty bytes after processing input blocks", async () => {
-      const signer = await getSigner(1);
-      const result: string = await (host.connect(signer) as any)[method].staticCall(encodeRouteBlock("0x01"));
-      expect(result).to.equal("0x");
-    });
-
-    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
-      await expect(callAs(2, method, encodeRouteBlock("0x01")))
         .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
     });
 

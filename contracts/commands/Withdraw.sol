@@ -25,7 +25,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
     uint internal immutable withdrawId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Account, withdrawId, Keys.Balance, Keys.Empty, false);
+        emit Command(host, withdrawId, NAME, Schemas.Account, Keys.Balance, Keys.Empty, false);
     }
 
     function withdraw(

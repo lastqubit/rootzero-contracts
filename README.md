@@ -90,7 +90,7 @@ abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, myCommandId, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(

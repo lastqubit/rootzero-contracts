@@ -26,7 +26,7 @@ abstract contract Allowance is CommandBase, AllowanceHook {
     uint internal immutable allowanceId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Allowance, allowanceId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, allowanceId, NAME, Schemas.Allowance, Keys.Empty, Keys.Empty, false);
     }
 
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {

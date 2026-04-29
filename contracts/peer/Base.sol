@@ -18,7 +18,7 @@ function encodePeerCall(uint target, bytes calldata request) pure returns (bytes
 
 /// @title PeerBase
 /// @notice Abstract base for all rootzero peer contracts.
-/// Peers handle inter-host asset flows (push/pull) and asset allow/deny management
+/// Peers handle inter-host operations and asset allow/deny management
 /// between cooperating hosts. Access is restricted to trusted callers via `onlyPeer`.
 abstract contract PeerBase is OperationBase, PeerEvent {
     /// @dev Thrown when the commander attempts to call a peer entrypoint directly.

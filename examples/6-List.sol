@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
     event AssetSeen(uint indexed listIndex, bytes32 asset, bytes32 meta);
 
     constructor() {
-        emit Command(host, NAME, INPUT, myCommandId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Empty, false);
     }
 
     // consumeAssetList parses one top-level LIST block in place.

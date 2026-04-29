@@ -23,7 +23,7 @@ abstract contract Transfer is CommandBase, TransferHook {
     uint internal immutable transferId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Payout, transferId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, transferId, NAME, Schemas.Payout, Keys.Empty, Keys.Empty, false);
     }
 
     /// @notice Override to customize request parsing or batching for transfers.

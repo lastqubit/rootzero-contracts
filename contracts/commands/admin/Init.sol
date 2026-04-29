@@ -21,7 +21,7 @@ abstract contract Init is CommandBase, InitHook {
     uint internal immutable initId = commandId(NAME);
 
     constructor(string memory input) {
-        emit Command(host, NAME, input, initId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, initId, NAME, input, Keys.Empty, Keys.Empty, false);
     }
 
     function init(

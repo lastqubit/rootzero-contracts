@@ -33,7 +33,7 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         // CUSTODIES = this command returns CUSTODY blocks.
-        emit Command(host, NAME, INPUT, myCommandId, Keys.Empty, Keys.Custody, false);
+        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Custody, false);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.

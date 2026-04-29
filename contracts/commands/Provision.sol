@@ -38,7 +38,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(PROVISION);
 
     constructor() {
-        emit Command(host, PROVISION, Schemas.Allocation, provisionId, Keys.Empty, Keys.Custody, false);
+        emit Command(host, provisionId, PROVISION, Schemas.Allocation, Keys.Empty, Keys.Custody, false);
     }
 
     function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
@@ -63,7 +63,7 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
     uint internal immutable provisionPayableId = commandId(PP);
 
     constructor() {
-        emit Command(host, PP, Schemas.Allocation, provisionPayableId, Keys.Empty, Keys.Custody, true);
+        emit Command(host, provisionPayableId, PP, Schemas.Allocation, Keys.Empty, Keys.Custody, true);
     }
 
     function provisionPayable(

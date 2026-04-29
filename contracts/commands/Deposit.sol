@@ -42,7 +42,7 @@ abstract contract Deposit is CommandBase, DepositHook {
     uint internal immutable depositId = commandId(DEPOSIT);
 
     constructor() {
-        emit Command(host, DEPOSIT, Schemas.Amount, depositId, Keys.Empty, Keys.Balance, false);
+        emit Command(host, depositId, DEPOSIT, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function deposit(
@@ -68,7 +68,7 @@ abstract contract DepositPayable is CommandPayable, DepositPayableHook {
     uint internal immutable depositPayableId = commandId(DEPOSIT_PAYABLE);
 
     constructor() {
-        emit Command(host, DEPOSIT_PAYABLE, Schemas.Amount, depositPayableId, Keys.Empty, Keys.Balance, true);
+        emit Command(host, depositPayableId, DEPOSIT_PAYABLE, Schemas.Amount, Keys.Empty, Keys.Balance, true);
     }
 
     function depositPayable(

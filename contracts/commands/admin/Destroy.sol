@@ -21,7 +21,7 @@ abstract contract Destroy is CommandBase, DestroyHook {
     uint internal immutable destroyId = commandId(NAME);
 
     constructor(string memory input) {
-        emit Command(host, NAME, input, destroyId, Keys.Empty, Keys.Empty, false);
+        emit Command(host, destroyId, NAME, input, Keys.Empty, Keys.Empty, false);
     }
 
     function destroy(

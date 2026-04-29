@@ -25,7 +25,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     uint internal immutable creditAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Account, creditAccountId, Keys.Balance, Keys.Empty, false);
+        emit Command(host, creditAccountId, NAME, Schemas.Account, Keys.Balance, Keys.Empty, false);
     }
 
     function creditAccount(

@@ -29,7 +29,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
     uint internal immutable pipePayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Step, pipePayableId, Keys.Empty, Keys.Empty, true);
+        emit Command(host, pipePayableId, NAME, Schemas.Step, Keys.Empty, Keys.Empty, true);
     }
 
     function pipe(

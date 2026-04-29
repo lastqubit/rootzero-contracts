@@ -16,7 +16,7 @@ abstract contract RelocatePayable is CommandPayable {
     uint internal immutable relocatePayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Relocation, relocatePayableId, Keys.Empty, Keys.Empty, true);
+        emit Command(host, relocatePayableId, NAME, Schemas.Relocation, Keys.Empty, Keys.Empty, true);
     }
 
     function relocatePayable(
