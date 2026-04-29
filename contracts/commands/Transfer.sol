@@ -1,34 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, State } from "./Base.sol";
+import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas, Tx } from "../Cursors.sol";
 import { Accounts } from "../utils/Accounts.sol";
 using Cursors for Cur;
 
 string constant NAME = "transfer";
-string constant INPUT = string.concat(Schemas.Amount, "&", Schemas.Recipient);
 
 abstract contract TransferHook {
     /// @notice Override to execute a single transfer record from the request pipeline.
-    /// Called once per bundled AMOUNT+RECIPIENT pair in the request.
+    /// Called once per PAYOUT block in the request.
     /// @param value Decoded transfer record (from, to, asset, meta, amount).
     function transfer(Tx memory value) internal virtual;
 }
 
 /// @title Transfer
 /// @notice Command that transfers assets from a caller to recipients specified in
-/// bundled AMOUNT+RECIPIENT request blocks. Produces no state output.
-/// The virtual `transfer(value)` hook is called once per bundle.
+/// PAYOUT request blocks. Produces no state output.
+/// The virtual `transfer(value)` hook is called once per entry.
 abstract contract Transfer is CommandBase, TransferHook {
     uint internal immutable transferId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, INPUT, transferId, State.Empty, State.Empty, false);
+        emit Command(host, transferId, NAME, Schemas.Payout, Keys.Empty, Keys.Empty, false);
     }
 
     /// @notice Override to customize request parsing or batching for transfers.
-    /// The default implementation iterates bundles and calls `transfer(value)` for each.
+    /// The default implementation iterates entry blocks and calls `transfer(value)` for each.
     /// @param from Source account identifier.
     /// @param request Full request bytes.
     /// @return Empty bytes (transfers produce no state output).
@@ -38,11 +37,9 @@ abstract contract Transfer is CommandBase, TransferHook {
         value.from = from;
 
         while (input.i < input.bound) {
-            uint next = input.bundle();
-            (value.asset, value.meta, value.amount) = input.unpackAmount();
-            value.to = Accounts.ensure(input.unpackRecipient());
+            (value.to, value.asset, value.meta, value.amount) = input.unpackPayout();
+            Accounts.ensure(value.to);
             transfer(value);
-            input.ensure(next);
         }
 
         input.complete();
@@ -51,14 +48,7 @@ abstract contract Transfer is CommandBase, TransferHook {
 
     function transfer(
         CommandContext calldata c
-    ) external onlyCommand(transferId, c.target) returns (bytes memory) {
+    ) external onlyCommand(c.account) returns (bytes memory) {
         return transfer(c.account, c.request);
     }
 }
-
-
-
-
-
-
-

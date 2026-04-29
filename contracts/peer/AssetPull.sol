@@ -25,7 +25,7 @@ abstract contract PeerAssetPull is PeerBase, PeerAssetPullHook {
     uint internal immutable peerAssetPullId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.Amount, peerAssetPullId, false);
+        emit Peer(host, peerAssetPullId, NAME, Schemas.Amount, false);
     }
 
     /// @notice Execute the asset-pull peer call.

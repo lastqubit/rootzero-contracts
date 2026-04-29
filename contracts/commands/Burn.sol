@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, State } from "./Base.sol";
+import { CommandBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur } from "../Cursors.sol";
 using Cursors for Cur;
 
@@ -25,10 +25,10 @@ abstract contract Burn is CommandBase, BurnHook {
     uint internal immutable burnId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, "", burnId, State.Balances, State.Empty, false);
+        emit Command(host, burnId, NAME, "", Keys.Balance, Keys.Empty, false);
     }
 
-    function burn(CommandContext calldata c) external onlyCommand(burnId, c.target) returns (bytes memory) {
+    function burn(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, , ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {

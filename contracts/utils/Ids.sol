@@ -81,8 +81,8 @@ library Ids {
 
     /// @notice Assert that `id` is a query ID and return it unchanged.
     /// @param id Node ID to validate.
-    /// @return qid The same `id` value if it is a query.
-    function query(uint id) internal pure returns (uint qid) {
+    /// @return queryId The same `id` value if it is a query.
+    function query(uint id) internal pure returns (uint queryId) {
         if (!isQuery(id)) revert InvalidId();
         return id;
     }
@@ -163,8 +163,8 @@ library Ids {
 /// @title Selectors
 /// @notice ABI-selector derivation helpers for command, peer, and query dispatch.
 library Selectors {
-    /// @dev ABI argument encoding for command entry points: `((uint256,bytes32,bytes,bytes))`.
-    string constant CommandArgs = "((uint256,bytes32,bytes,bytes))";
+    /// @dev ABI argument encoding for command entry points: `((bytes32,bytes,bytes))`.
+    string constant CommandArgs = "((bytes32,bytes,bytes))";
     /// @dev ABI argument encoding for peer entry points: `(bytes)`.
     string constant PeerArgs = "(bytes)";
     /// @dev ABI argument encoding for query entry points: `(bytes)`.

@@ -11,11 +11,11 @@ pragma solidity ^0.8.33;
 // members from the returned cursor.
 //
 // This example expects a bundle containing a ROUTE block carrying a `host` ID
-// and an AMOUNT block. The command reads both, forwards the asset to the target
-// host, and returns a CUSTODY block confirming the held asset.
+// and an AMOUNT block. The command reads both, forwards the asset to that host,
+// and returns a CUSTODY block confirming the held asset.
 
-import { CommandBase, CommandContext, State } from "../contracts/Commands.sol";
-import { Cursors, Cur, Schemas } from "../contracts/Cursors.sol";
+import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
+import {Cursors, Cur, Schemas, Keys} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
@@ -32,35 +32,29 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        // CUSTODIES = this command returns CUSTODY blocks (assets held by another host).
-        emit Command(host, NAME, INPUT, myCommandId, State.Empty, State.Custodies, false);
+        // CUSTODIES = this command returns CUSTODY blocks.
+        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Custody, false);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
-    function myCommand(
-        CommandContext calldata c
-    ) external onlyCommand(myCommandId, c.target) returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
         // Create a cursor for the request, then unwrap the bundle into a
         // second cursor over its member stream.
-        Cur memory input = cursor(c.request).bundle();
+        Cur memory input = cursor(c.request);
+        input.bundle();
 
         // The first bundled member is the ROUTE block.
-        uint host = input.unpackRouteUint();
+        uint host = input.unpackUint(Keys.Route);
 
         // The second bundled member is the AMOUNT block.
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 
-        // Delegate to the implementer to move the asset to the target host.
+        // Delegate to the implementer to move the asset to the routed host.
         sendToHost(host, asset, meta, amount);
 
         // Return a CUSTODY block recording that this asset is now held by `host`.
         return Cursors.toCustodyBlock(host, asset, meta, amount);
     }
 }
-
-
-
-
-

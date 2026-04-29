@@ -9,20 +9,20 @@ export function blockKey(schema: string): string {
 export const Keys = {
   Amount: blockKey("amount(bytes32 asset, bytes32 meta, uint amount)"),
   Balance: blockKey("balance(bytes32 asset, bytes32 meta, uint amount)"),
+  Allocation: blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"),
+  Allowance: blockKey("allowance(uint host, bytes32 asset, bytes32 meta, uint amount)"),
   Custody: blockKey("custody(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  Minimums: blockKey("minimums(uint a, uint b)"),
-  Maximums: blockKey("maximums(uint a, uint b)"),
   Bounds: blockKey("bounds(int min, int max)"),
   Fee: blockKey("fee(uint amount)"),
-  Recipient: blockKey("recipient(bytes32 account)"),
+  Account: blockKey("account(bytes32 account)"),
+  Payout: blockKey("payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
   Node: blockKey("node(uint id)"),
-  Funding: blockKey("funding(uint host, uint amount)"),
+  Relocation: blockKey("relocation(uint host, uint amount)"),
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
-  Allocation: blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  Listing: blockKey("listing(uint host, bytes32 asset, bytes32 meta)"),
   Quantity: blockKey("quantity(uint amount)"),
   Step: blockKey("step(uint target, uint value, bytes request)"),
-  Transaction: blockKey("tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
+  Call: blockKey("call(uint target, uint value, bytes data)"),
+  Transaction: blockKey("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
   Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
   Break: blockKey("break()"),
@@ -30,10 +30,19 @@ export const Keys = {
   Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
   Bundle: blockKey("bundle(bytes data)"),
   List: blockKey("list(bytes data)"),
+  Frame: blockKey("frame(bytes data)"),
   Route: blockKey("route(bytes data)"),
+  Item: blockKey("item(bytes data)"),
+  Evm: blockKey("evm(bytes data)"),
   Query: blockKey("query(bytes data)"),
   Response: blockKey("response(bytes data)"),
-  Path: blockKey("path(bytes data)"),
+  Status: blockKey("status(bool ok)"),
+  AssetAmount: blockKey("assetAmount(bytes32 asset, bytes32 meta, uint amount)"),
+  AccountAsset: blockKey("accountAsset(bytes32 account, bytes32 asset, bytes32 meta)"),
+  AccountAmount: blockKey("accountAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
+  HostAmount: blockKey("hostAmount(uint host, bytes32 asset, bytes32 meta, uint amount)"),
+  HostAccountAsset: blockKey("hostAccountAsset(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
+  HostAccountAmount: blockKey("hostAccountAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
 } as const;
 
 // Pad a bigint or hex string to 32 bytes
@@ -77,10 +86,10 @@ export function encodeAmountBlockWithNode(asset: string, meta: string, amount: b
   );
 }
 
-export function encodeAmountBlockWithRecipient(asset: string, meta: string, amount: bigint, recipient: string): string {
+export function encodeAmountBlockWithAccount(asset: string, meta: string, amount: bigint, account: string): string {
   return encodeBundleBlock(
     encodeAmountBlock(asset, meta, amount),
-    encodeRecipientBlock(recipient),
+    encodeAccountBlock(account),
   );
 }
 
@@ -88,20 +97,44 @@ export function encodeBalanceBlock(asset: string, meta: string, amount: bigint):
   return block(Keys.Balance, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
 }
 
+export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string, meta: string): string {
+  return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset), pad32(meta)]));
+}
+
+export function encodeAccountAssetBlock(account: string, asset: string, meta: string): string {
+  return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
+}
+
+export function encodePayoutBlock(account: string, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.Payout, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
+}
+
+export function encodeAccountAmountBlock(account: string, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
+}
+
+export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+}
+
+export function encodeAllowanceBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
+  return block(Keys.Allowance, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+}
+
 export function encodeCustodyBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
   return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
-export function encodeRecipientBlock(account: string): string {
-  return block(Keys.Recipient, pad32(account));
+export function encodeAccountBlock(account: string): string {
+  return block(Keys.Account, pad32(account));
 }
 
 export function encodeNodeBlock(id: bigint): string {
   return block(Keys.Node, pad32(id));
 }
 
-export function encodeFundingBlock(host: bigint, amount: bigint): string {
-  return block(Keys.Funding, ethers.concat([pad32(host), pad32(amount)]));
+export function encodeRelocationBlock(host: bigint, amount: bigint): string {
+  return block(Keys.Relocation, ethers.concat([pad32(host), pad32(amount)]));
 }
 
 export function encodeAssetBlock(asset: string, meta: string): string {
@@ -116,24 +149,8 @@ export function encodeBoundsBlock(min: bigint, max: bigint): string {
   return block(Keys.Bounds, ethers.concat([padInt32(min), padInt32(max)]));
 }
 
-export function encodeMinimumsBlock(a: bigint, b: bigint): string {
-  return block(Keys.Minimums, ethers.concat([pad32(a), pad32(b)]));
-}
-
-export function encodeMaximumsBlock(a: bigint, b: bigint): string {
-  return block(Keys.Maximums, ethers.concat([pad32(a), pad32(b)]));
-}
-
 export function encodeFeeBlock(amount: bigint): string {
   return block(Keys.Fee, pad32(amount));
-}
-
-export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
-}
-
-export function encodeListingBlock(host: bigint, asset: string, meta: string): string {
-  return block(Keys.Listing, ethers.concat([pad32(host), pad32(asset), pad32(meta)]));
 }
 
 export function encodeTxBlock(from: string, to: string, asset: string, meta: string, amount: bigint): string {
@@ -144,8 +161,16 @@ export function encodeStepBlock(target: bigint, value: bigint, request: string):
   return block(Keys.Step, ethers.concat([pad32(target), pad32(value), request]));
 }
 
+export function encodeCallBlock(target: bigint, value: bigint, data: string): string {
+  return block(Keys.Call, ethers.concat([pad32(target), pad32(value), data]));
+}
+
 export function encodeRouteBlock(data: string): string {
   return block(Keys.Route, data);
+}
+
+export function encodeEvmBlock(data: string): string {
+  return block(Keys.Evm, data);
 }
 
 export function encodeQueryBlock(data: string): string {
@@ -156,8 +181,8 @@ export function encodeResponseBlock(data: string): string {
   return block(Keys.Response, data);
 }
 
-export function encodePathBlock(data: string): string {
-  return block(Keys.Path, data);
+export function encodeStatusBlock(ok: boolean): string {
+  return block(Keys.Status, pad32(ok ? 1n : 0n));
 }
 
 export function encodeBreakBlock(): string {
@@ -170,6 +195,10 @@ export function encodeBundleBlock(...members: string[]): string {
 
 export function encodeListBlock(...members: string[]): string {
   return block(Keys.List, concat(...members));
+}
+
+export function encodeFrameBlock(...payloads: string[]): string {
+  return block(Keys.Frame, concat(...payloads));
 }
 
 export function encodeRouteBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
@@ -205,7 +234,7 @@ export function concat(...parts: string[]): string {
 }
 
 // Command args suffix appended when computing command selectors
-const COMMAND_ARGS = "((uint256,bytes32,bytes,bytes))";
+const COMMAND_ARGS = "((bytes32,bytes,bytes))";
 
 export function commandSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + COMMAND_ARGS), 0, 4);

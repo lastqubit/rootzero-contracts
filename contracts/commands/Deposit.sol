@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, CommandPayable, State } from "./Base.sol";
+import { CommandContext, CommandBase, CommandPayable, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
@@ -15,7 +15,7 @@ abstract contract DepositHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
     /// output after each call.
-    /// @param account Recipient account identifier.
+    /// @param account Destination account identifier.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Amount received.
@@ -26,7 +26,7 @@ abstract contract DepositPayableHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
     /// output after each call.
-    /// @param account Recipient account identifier.
+    /// @param account Destination account identifier.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Amount received.
@@ -42,12 +42,12 @@ abstract contract Deposit is CommandBase, DepositHook {
     uint internal immutable depositId = commandId(DEPOSIT);
 
     constructor() {
-        emit Command(host, DEPOSIT, Schemas.Amount, depositId, State.Empty, State.Balances, false);
+        emit Command(host, depositId, DEPOSIT, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function deposit(
         CommandContext calldata c
-    ) external onlyCommand(depositId, c.target) returns (bytes memory) {
+    ) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(count);
 
@@ -68,12 +68,12 @@ abstract contract DepositPayable is CommandPayable, DepositPayableHook {
     uint internal immutable depositPayableId = commandId(DEPOSIT_PAYABLE);
 
     constructor() {
-        emit Command(host, DEPOSIT_PAYABLE, Schemas.Amount, depositPayableId, State.Empty, State.Balances, true);
+        emit Command(host, depositPayableId, DEPOSIT_PAYABLE, Schemas.Amount, Keys.Empty, Keys.Balance, true);
     }
 
     function depositPayable(
         CommandContext calldata c
-    ) external payable onlyCommand(depositPayableId, c.target) returns (bytes memory) {
+    ) external payable onlyCommand(c.account) returns (bytes memory) {
         (Cur memory request, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(count);
         Budget memory budget = Values.fromMsg();

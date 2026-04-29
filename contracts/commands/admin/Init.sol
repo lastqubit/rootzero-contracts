@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, State } from "../Base.sol";
+import { CommandBase, CommandContext, Keys } from "../Base.sol";
 import { Cursors, Cur } from "../../Cursors.sol";
 
 string constant NAME = "init";
@@ -21,12 +21,12 @@ abstract contract Init is CommandBase, InitHook {
     uint internal immutable initId = commandId(NAME);
 
     constructor(string memory input) {
-        emit Command(host, NAME, input, initId, State.Empty, State.Empty, false);
+        emit Command(host, initId, NAME, input, Keys.Empty, Keys.Empty, false);
     }
 
     function init(
         CommandContext calldata c
-    ) external onlyAdmin(c.account) onlyCommand(initId, c.target) returns (bytes memory) {
+    ) external onlyAdmin(c.account) returns (bytes memory) {
         Cur memory input = cursor(c.request);
         init(input);
         return "";

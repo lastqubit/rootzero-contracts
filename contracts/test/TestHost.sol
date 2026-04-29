@@ -5,18 +5,18 @@ import { Host } from "../core/Host.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
 import { Transfer } from "../commands/Transfer.sol";
+import { CommandContext } from "../commands/Base.sol";
 import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
-import { Settle } from "../commands/Settle.sol";
-import { Provision, ProvisionPayable, ProvisionFromBalance } from "../commands/Provision.sol";
+import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { PipePayable } from "../commands/Pipe.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
-import { Allocate } from "../commands/admin/Allocate.sol";
-import { HostAmount, Tx } from "../blocks/Schema.sol";
-import { Cursors, Cursors, Cur, Keys } from "../Cursors.sol";
+import { Allowance } from "../commands/admin/Allowance.sol";
+import { HostAmount, Tx } from "../core/Types.sol";
+import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
 using Cursors for Cur;
@@ -29,16 +29,14 @@ contract TestHost is
     Transfer,
     CreditAccount,
     DebitAccount,
-    Settle,
     Provision,
     ProvisionPayable,
-    ProvisionFromBalance,
     PipePayable,
     Init,
     Destroy,
     AllowAssets,
     DenyAssets,
-    Allocate
+    Allowance
 {
     event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
@@ -46,14 +44,13 @@ contract TestHost is
     event TransferCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
     event CreditToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
     event DebitFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
-    event SettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset, bytes32 meta);
     event DenyAssetCalled(bytes32 asset, bytes32 meta);
-    event AllocateCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
+    event AllowanceCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
     event StepDispatched(uint target, uint stepIndex, uint value);
 
     uint public stepCount;
@@ -80,7 +77,6 @@ contract TestHost is
 
     function transfer(Tx memory value) internal override {
         emit TransferCalled(value.from, value.to, value.asset, value.meta, value.amount);
-        emit SettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
@@ -109,7 +105,7 @@ contract TestHost is
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
         if (key == Keys.Route) {
-            inputData = input.unpackRoute();
+            inputData = input.unpackRaw(Keys.Route);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];
@@ -122,7 +118,7 @@ contract TestHost is
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
         if (key == Keys.Route) {
-            inputData = input.unpackRoute();
+            inputData = input.unpackRaw(Keys.Route);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];
@@ -141,8 +137,8 @@ contract TestHost is
         return true;
     }
 
-    function allocate(uint host_, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit AllocateCalled(host_, asset, meta, amount);
+    function allowance(uint peer, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit AllowanceCalled(peer, asset, meta, amount);
     }
 
     function dispatchStep(
@@ -181,14 +177,6 @@ contract TestHost is
         return debitAccountId;
     }
 
-    function getSettleId() external view returns (uint) {
-        return settleId;
-    }
-
-    function getProvisionFromBalanceId() external view returns (uint) {
-        return provisionFromBalanceId;
-    }
-
     function getProvisionId() external view returns (uint) {
         return provisionId;
     }
@@ -221,6 +209,10 @@ contract TestHost is
         return relocatePayableId;
     }
 
+    function getExecutePayableId() external view returns (uint) {
+        return executePayableId;
+    }
+
     function getAllowAssetsId() external view returns (uint) {
         return allowAssetsId;
     }
@@ -229,8 +221,8 @@ contract TestHost is
         return denyAssetsId;
     }
 
-    function getAllocateId() external view returns (uint) {
-        return allocateId;
+    function getAllowanceId() external view returns (uint) {
+        return allowanceId;
     }
 
     function getAdminAccount() external view returns (bytes32) {
@@ -242,7 +234,11 @@ contract TestHost is
     }
 
     function isAuthorized(uint node) external view returns (bool) {
-        return authorized[node];
+        return trusted[node];
+    }
+
+    function getActiveAccount(CommandContext calldata) external pure returns (bytes32) {
+        return activeAccount();
     }
 }
 

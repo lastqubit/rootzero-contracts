@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { EventEmitter } from "./Emitter.sol";
 
-string constant ABI = "event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint cid)";
+string constant ABI = "event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount)";
 
 /// @notice Emitted when assets are withdrawn from an account.
 abstract contract WithdrawalEvent is EventEmitter {
@@ -11,8 +11,7 @@ abstract contract WithdrawalEvent is EventEmitter {
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Amount withdrawn.
-    /// @param cid Command ID that triggered the withdrawal.
-    event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint cid);
+    event Withdrawal(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount);
 
     constructor() {
         emit EventAbi(ABI);

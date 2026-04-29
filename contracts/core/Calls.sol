@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AccessControl } from "./Access.sol";
-import { CursorBase } from "./CursorBase.sol";
-import { Ids } from "../utils/Ids.sol";
+import {AccessControl} from "./Access.sol";
+import {Ids} from "../utils/Ids.sol";
 
 /// @dev Emitted when a trusted inter-node call fails.
 /// @param addr Contract address that was called.
@@ -11,11 +10,9 @@ import { Ids } from "../utils/Ids.sol";
 /// @param err Revert data returned by the failed call.
 error FailedCall(address addr, bytes4 selector, bytes err);
 
-/// @title OperationBase
-/// @notice Shared base for command and peer contracts.
-/// Provides convenience wrappers for cursor construction, quotient validation,
-/// and trusted inter-node calls. Inherits access control from `AccessControl`.
-abstract contract OperationBase is CursorBase, AccessControl {
+/// @title NodeCalls
+/// @notice Shared trusted inter-node call helpers for contracts that can talk to other nodes.
+abstract contract NodeCalls is AccessControl {
     /// @notice Return the host node ID corresponding to the current caller.
     /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
     /// @return Host node ID for `msg.sender`.

@@ -15,7 +15,7 @@ contract TestQuery is QueryBase {
     uint public immutable incrementQueryId = queryId(NAME);
 
     constructor() {
-        emit Query(host, NAME, INPUT, OUTPUT, incrementQueryId);
+        emit Query(host, incrementQueryId, NAME, INPUT, OUTPUT);
     }
 
     function incrementQuery(bytes calldata request) external pure returns (bytes memory out) {
@@ -23,8 +23,8 @@ contract TestQuery is QueryBase {
         Writer memory writer = Writers.alloc32s(count);
 
         while (input.i < input.bound) {
-            uint foo = input.unpackQueryUint();
-            writer.append32(Keys.Response, bytes32(foo + 1));
+            uint foo = input.unpackUint(Keys.Query);
+            writer.appendBlock32(Keys.Response, bytes32(foo + 1), 32);
         }
 
         out = input.complete(writer);

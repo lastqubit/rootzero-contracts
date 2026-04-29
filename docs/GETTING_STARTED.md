@@ -14,7 +14,6 @@ rootzero moves data through a small command context:
 
 ```solidity
 struct CommandContext {
-    uint target;
     bytes32 account;
     bytes state;
     bytes request;
@@ -25,8 +24,7 @@ In practice:
 
 - `account` is the user account the command is acting for.
 - `request` is the new input for this command.
-- `state` is data produced by an earlier command in a pipeline.
-- `target` is the command id you expect to receive, or `0`.
+- `state` is live pipeline state produced by an earlier command.
 
 Most built-in commands follow a simple pattern:
 
@@ -86,7 +84,7 @@ contract ExampleHost is Host, DebitAccount {
         bytes32 meta,
         uint amount
     ) internal override {
-        bytes32 key = Assets.key(asset, meta);
+        bytes32 key = Assets.slot(asset, meta);
         balances[account][key] -= amount;
     }
 }
@@ -105,22 +103,21 @@ The built-in commands are easiest to use when you know which blocks they expect.
 ### Commands That Read `request`
 
 - `deposit`: reads `AMOUNT` blocks, returns `BALANCE`
-- `transfer`: reads `AMOUNT` plus `RECIPIENT`
+- `transfer`: reads `PAYOUT` blocks
 - `debitAccount`: reads `AMOUNT`, returns `BALANCE`
-- `provision`: reads `AMOUNT` plus `NODE`, returns `CUSTODY`
-- `pipe`: reads `STEP` blocks and runs them in order
+- `provision`: reads `ALLOCATION`, returns `CUSTODY` state
+- `pipePayable`: reads `STEP` blocks and runs them in order
 
 ### Commands That Read `state`
 
-- `withdraw`: reads `BALANCE`, optionally reads `RECIPIENT` from `request`
-- `creditAccount`: reads `BALANCE`, optionally reads `RECIPIENT` from `request`
-- `settle`: reads `TX`
-- `provisionFromBalance`: reads `BALANCE` from `state` and `NODE` from `request`
+- `withdraw`: reads `BALANCE`, optionally reads `ACCOUNT` from `request`
+- `creditAccount`: reads `BALANCE`, optionally reads `ACCOUNT` from `request`
 
 This is the main pattern to keep in mind:
 
 - use `request` for the command's direct input
-- use `state` when a previous command already produced the input
+- use `state` for live value threaded through a pipeline, currently `BALANCE` and `CUSTODY`
+- use peer commands such as `peerSettle` for settlement messages such as `TRANSACTION`
 
 ## Step 4: Send A Simple Request
 
@@ -137,7 +134,6 @@ const meta = ethers.ZeroHash;
 const amount = 100n;
 
 const ctx = {
-  target: 0n,
   account: "0x...", // 32-byte rootzero account id
   state: "0x",
   request: encodeAmountBlock(asset, meta, amount),
@@ -160,11 +156,10 @@ When the built-in modules are not enough, add your own command entrypoint.
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Host} from "@rootzero/contracts/Core.sol";
-import {CommandBase, CommandContext, Channels} from "@rootzero/contracts/Commands.sol";
-import {Cursors, Cursor, Schemas} from "@rootzero/contracts/Cursors.sol";
+import {CommandBase, CommandContext, Keys} from "@rootzero/contracts/Commands.sol";
+import {Cursors, Cur, Schemas} from "@rootzero/contracts/Cursors.sol";
 
-using Cursors for Cursor;
+using Cursors for Cur;
 
 string constant NAME = "myCommand";
 string constant ROUTE = "route(uint foo, uint bar)";
@@ -174,16 +169,20 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, INPUT, myCommandId, Channels.Setup, Channels.Balances);
+        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
-    ) external payable onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        Cursor memory input = Cursors.openBlock(c.request, 0);
-        uint foo = input.unpackRouteUint();
+    ) external onlyCommand(c.account) returns (bytes memory) {
+        Cur memory input = cursor(c.request);
+        uint next = input.bundle();
+
+        bytes calldata route = input.unpackRaw(Keys.Route);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-        foo;
+        input.ensure(next);
+
+        route;
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
@@ -193,7 +192,7 @@ There are three important ideas here:
 
 - every custom command gets a deterministic command id
 - you announce it with the `Command` event
-- `onlyCommand(myCommandId, c.target)` ensures the trusted caller hit the right endpoint
+- `onlyCommand(c.account)` ensures the caller is trusted and the calldata account matches `c.account`
 
 ## Step 6: Read Input With A Cursor
 
@@ -205,7 +204,7 @@ If your request contains a bundled input like:
 
 your command can:
 
-- open it with `Cursors.openBlock(...)`
+- open it with `cursor(c.request)` or `Cursors.open(...)`
 - consume the route first
 - then consume the amount
 - keep parsing in bundle/member order without indexing helpers
@@ -232,17 +231,26 @@ function buildBalances() internal pure returns (bytes memory) {
     Writer memory writer = Writers.allocBalances(2);
     writer.appendBalance(bytes32(uint256(1)), bytes32(0), 50);
     writer.appendBalance(bytes32(uint256(2)), bytes32(0), 75);
-    return writer.done();
+    return writer.finish();
 }
 ```
 
 Use this when your command needs to return:
 
 - balances
-- custodies
-- transactions
+- custody state
 
 If you are only consuming built-in commands, you often will not need to touch writers directly.
+
+## Query Forms
+
+Queries use reusable `Forms` as their input and output schema vocabulary. For example, `getBalances` accepts `Forms.AccountAsset` blocks and returns `Forms.AccountAmount` blocks:
+
+```solidity
+emit Query(host, NAME, Forms.AccountAsset, Forms.AccountAmount, getBalancesId);
+```
+
+This keeps query payloads structural: the query name describes what is being asked, while the form describes the fields carried by each block.
 
 ## A Tiny End-To-End Example
 
@@ -251,7 +259,7 @@ Imagine you want a host that keeps internal balances and lets rootzero debit the
 1. Deploy a host that inherits `Host` and `DebitAccount`.
 2. Store balances in your own mapping.
 3. Implement `debitAccount(account, asset, meta, amount)`.
-4. Send `debitAccountToBalance` a request containing one or more `AMOUNT` blocks.
+4. Send `debitAccount` a request containing one or more `AMOUNT` blocks.
 5. rootzero returns `BALANCE` blocks representing the debited amounts.
 
 That is already a valid and useful integration.
@@ -272,7 +280,7 @@ If you want to learn by example, these are the best files to read next:
 
 - Passing data in `state` when the command expects it in `request`
 - Forgetting to emit a `Command` event for a custom command
-- Using the wrong `target` value for `onlyCommand`
+- Using an admin account with user-only command flows such as `pipePayable`
 - Trying to parse raw bytes manually when a built-in reader already exists
 - Starting with a custom command when a built-in module already matches the job
 

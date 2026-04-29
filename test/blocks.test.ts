@@ -4,7 +4,6 @@ import { deploy } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
-  encodeAllocationBlock,
   encodeAmountBlock,
   encodeAuthBlock,
   encodeAssetBlock,
@@ -15,15 +14,13 @@ import {
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
-  encodeFundingBlock,
-  encodeListingBlock,
-  encodeMaximumsBlock,
+  encodeFrameBlock,
   encodeMaximumBlock,
-  encodeMinimumsBlock,
   encodeMinimumBlock,
   encodeNodeBlock,
-  encodePathBlock,
-  encodeRecipientBlock,
+  encodeAccountBlock,
+  encodeAccountAssetBlock,
+  encodeHostAccountAssetBlock,
   encodeRouteBlock,
   encodeStepBlock,
   encodeTxBlock,
@@ -53,22 +50,29 @@ describe("Cursors", () => {
     const meta = ethers.zeroPadValue("0x02", 32);
     const amount = 12345n;
 
-    it("toBlockHeader packs key and payloadLen", async () => {
-      const header: bigint = await helper.testBlockHeader(Keys.Balance, 96n);
-      expect((header >> 224n) & 0xffffffffn).to.equal(BigInt(Keys.Balance));
-      expect((header >> 192n) & 0xffffffffn).to.equal(96n);
-    });
-
-    it("toBlockHeader reverts BlockLengthOverflow when payloadLen exceeds uint32", async () => {
-      await expect(helper.testBlockHeader(Keys.Balance, 0x1_0000_0000n))
-        .to.be.revertedWithCustomError(helper, "BlockLengthOverflow");
-    });
-
     it("writeBalanceBlock round-trips", async () => {
       const data: string = await helper.testWriteBalanceBlock(asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
       expect(data.slice(0, 10)).to.equal(Keys.Balance);
+      expect(data.slice(10, 18)).to.equal("00000060");
       expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, meta, amount]);
+    });
+
+    it("hostAccountAsset block round-trips", async () => {
+      const host = 1234n;
+      const account = encodeUserAccount("0x03");
+      const data = encodeHostAccountAssetBlock(host, account, asset, meta);
+      expect(ethers.getBytes(data).length).to.equal(136);
+      expect(data.slice(0, 10)).to.equal(Keys.HostAccountAsset);
+      expect(await helper.testUnpackHostAccountAsset(data)).to.deep.equal([host, account, asset, meta]);
+    });
+
+    it("accountAsset block round-trips", async () => {
+      const account = encodeUserAccount("0x03");
+      const data = encodeAccountAssetBlock(account, asset, meta);
+      expect(ethers.getBytes(data).length).to.equal(104);
+      expect(data.slice(0, 10)).to.equal(Keys.AccountAsset);
+      expect(await helper.testUnpackAccountAsset(data)).to.deep.equal([account, asset, meta]);
     });
 
     it("writeCustodyBlock produces 136 bytes", async () => {
@@ -106,6 +110,14 @@ describe("Cursors", () => {
       expect(ethers.hexlify(bytes.slice(4, 8))).to.equal("0x00000040");
     });
 
+    it("load160 reads raw calldata words from an absolute payload offset", async () => {
+      const words = [1n, 2n, 3n, 4n, 5n].map((value) => ethers.zeroPadValue(ethers.toBeHex(value), 32));
+      const source = concat(encodeFeeBlock(99n), ethers.concat(words));
+      const offset = BigInt(ethers.getBytes(encodeFeeBlock(99n)).length);
+
+      expect(await helper.testLoad160(source, offset)).to.deep.equal(words);
+    });
+
     it("finish reverts EmptyRequest when writer is unused", async () => {
       await expect(helper.testWriterFinishIncomplete()).to.be.revertedWithCustomError(helper, "EmptyRequest");
     });
@@ -113,6 +125,17 @@ describe("Cursors", () => {
     it("finish truncates to actual written length", async () => {
       const data: string = await helper.testWriterFinish(asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
+    });
+
+    it("reverts when appending past logical writer capacity", async () => {
+      await expect(helper.testWriterRejectsSecond32Block(asset))
+        .to.be.revertedWithCustomError(helper, "WriterOverflow");
+    });
+
+    it("reverts when a dynamic block exceeds allocated payload size", async () => {
+      const oversized = ethers.concat([asset, meta]);
+      await expect(helper.testWriterRejectsOversizedDynamicBlock(oversized))
+        .to.be.revertedWithCustomError(helper, "WriterOverflow");
     });
   });
 
@@ -147,6 +170,26 @@ describe("Cursors", () => {
       expect(await helper.testPeek(source, 0n)).to.deep.equal([Keys.Balance, 96n]);
     });
 
+    it("past returns the offset immediately past the current block without advancing", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testPastCurrent(source)).to.equal(104n);
+    });
+
+    it("has returns true for a matching well-formed block at the current cursor position", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testHasCurrent(source, Keys.Balance)).to.equal(true);
+    });
+
+    it("has returns false when the key does not match", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      expect(await helper.testHasCurrent(source, Keys.Amount)).to.equal(false);
+    });
+
+    it("has returns true for a truncated block when the current header key matches", async () => {
+      const source = "0x" + Keys.Balance.slice(2) + "00000060";
+      expect(await helper.testHasCurrent(source, Keys.Balance)).to.equal(true);
+    });
+
     it("countRun counts consecutive matching blocks from i", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
@@ -158,7 +201,7 @@ describe("Cursors", () => {
 
     it("slice creates a subcursor over the requested range", async () => {
       const a = encodeAssetBlock(asset, meta);
-      const b = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const b = encodeAccountBlock(encodeUserAccount("0x12"));
       const source = concat(a, b);
       const from = BigInt(ethers.getBytes(a).length);
       const to = BigInt(ethers.getBytes(source).length);
@@ -170,7 +213,7 @@ describe("Cursors", () => {
     });
 
     it("slice reverts MalformedBlocks when the requested range is invalid", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeRecipientBlock(encodeUserAccount("0x12")));
+      const source = concat(encodeAssetBlock(asset, meta), encodeAccountBlock(encodeUserAccount("0x12")));
       await expect(helper.testSlice(source, 10n, 9n))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
       await expect(helper.testSlice(source, 0n, BigInt(ethers.getBytes(source).length + 1)))
@@ -178,7 +221,7 @@ describe("Cursors", () => {
     });
 
     it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const route = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const route = encodeAccountBlock(encodeUserAccount("0x12"));
       const minimum = encodeMinimumBlock(asset, meta, amount);
       const bundle = encodeBundleBlock(route, minimum);
       const [inputI, end] = await helper.testBundle(bundle);
@@ -220,6 +263,46 @@ describe("Cursors", () => {
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
+    it("frame uses a shared key and carries merged payload fields without child headers", async () => {
+      const frame = encodeFrameBlock(
+        ethers.concat([asset, meta, ethers.zeroPadValue(ethers.toBeHex(amount), 32)]),
+        ethers.zeroPadValue(ethers.toBeHex(77n), 32),
+      );
+
+      expect(frame.slice(0, 10)).to.equal(Keys.Frame);
+      expect(await helper.testPeek(frame, 0n)).to.deep.equal([Keys.Frame, 128n]);
+      expect(ethers.getBytes(frame).length).to.equal(136);
+      expect(frame).to.not.include(Keys.Amount.slice(2));
+      expect(frame).to.not.include(Keys.Fee.slice(2));
+    });
+
+    it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
+      const payload = encodeAccountBlock(encodeUserAccount("0x12"));
+      const route = encodeRouteBlock(payload);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testTake(route, Keys.Route);
+      expect(outOffset).to.equal(0n);
+      expect(outI).to.equal(0n);
+      expect(outLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(outBound).to.equal(0n);
+      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+    });
+
+    it("take reverts when the current block key does not match", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      await expect(helper.testTake(source, Keys.Route))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("maybeRoute returns an empty cursor and does not advance when the current block is not ROUTE", async () => {
+      const source = encodeBalanceBlock(asset, meta, amount);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeRoute(source);
+      expect(outOffset).to.equal(0n);
+      expect(outI).to.equal(0n);
+      expect(outLen).to.equal(0n);
+      expect(outBound).to.equal(0n);
+      expect(inputI).to.equal(0n);
+    });
+
     it("list(group) primes the list payload on the same cursor", async () => {
       const item1 = encodeAssetBlock(asset, meta);
       const item2 = encodeAssetBlock(meta, asset);
@@ -231,28 +314,10 @@ describe("Cursors", () => {
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
-    it("list(group, requiredCount) succeeds when the raw count matches", async () => {
-      const item1 = encodeAssetBlock(asset, meta);
-      const item2 = encodeAssetBlock(meta, asset);
-      const list = encodeListBlock(item1, item2);
-      const [inputI, bound, next] = await helper.testListPrimeRequired(list, 1n, 2n);
-      expect(inputI).to.equal(8n);
-      expect(bound).to.equal(BigInt(ethers.getBytes(list).length));
-      expect(next).to.equal(BigInt(ethers.getBytes(list).length));
-    });
-
-    it("list(group, requiredCount) reverts BadRatio when the count mismatches", async () => {
-      const item1 = encodeAssetBlock(asset, meta);
-      const item2 = encodeAssetBlock(meta, asset);
-      const list = encodeListBlock(item1, item2);
-      await expect(helper.testListPrimeRequired(list, 1n, 1n))
-        .to.be.revertedWithCustomError(helper, "BadRatio");
-    });
-
     it("list(group) reverts IncompleteCursor when trailing blocks remain in the list payload", async () => {
       const item1 = encodeAssetBlock(asset, meta);
       const item2 = encodeAssetBlock(meta, asset);
-      const extra = encodeRecipientBlock(encodeUserAccount("0x12"));
+      const extra = encodeAccountBlock(encodeUserAccount("0x12"));
       const list = encodeListBlock(item1, item2, extra);
       await expect(helper.testListPrime(list, 1n))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
@@ -273,25 +338,15 @@ describe("Cursors", () => {
       expect(await helper.testUnpackBounds(source)).to.deep.equal([-5n, 42n]);
     });
 
-    it("unpackMinimums returns the two minimum amounts", async () => {
-      const source = encodeMinimumsBlock(11n, 22n);
-      expect(await helper.testUnpackMinimums(source)).to.deep.equal([11n, 22n]);
-    });
-
-    it("unpackMaximums returns the two maximum amounts", async () => {
-      const source = encodeMaximumsBlock(33n, 44n);
-      expect(await helper.testUnpackMaximums(source)).to.deep.equal([33n, 44n]);
-    });
-
     it("unpackFee returns the fee amount", async () => {
       const source = encodeFeeBlock(77n);
       expect(await helper.testUnpackFee(source)).to.equal(77n);
     });
 
-    it("unpackPath returns the raw path payload", async () => {
-      const path = "0x1234567890abcdef";
-      const source = encodePathBlock(path);
-      expect(await helper.testUnpackPath(source)).to.equal(path);
+    it("unpackAccount returns the account word", async () => {
+      const account = encodeUserAccount("0x12");
+      const source = encodeAccountBlock(account);
+      expect(await helper.testUnpackAccount(source)).to.equal(account);
     });
 
     it("requireAmount validates and advances by one fixed-size block", async () => {
@@ -307,7 +362,7 @@ describe("Cursors", () => {
       const [deadline, outProof, i] = await helper.testRequireAuth(source, 77n);
       expect(deadline).to.equal(123456n);
       expect(outProof).to.equal(proof);
-      expect(i).to.equal(149n);
+      expect(i).to.equal(157n);
     });
 
     it("complete reverts ZeroCursor when prime run is empty", async () => {
@@ -337,15 +392,15 @@ describe("Cursors", () => {
       expect(await helper.testCursorEndConsumed(source)).to.equal(true);
     });
 
-    it("recipientAfter returns the tail recipient or backup", async () => {
+    it("accountAfter returns the tail account or backup", async () => {
       const backup = encodeUserAccount("0x99");
-      const recipient = encodeUserAccount("0x12");
+      const account = encodeUserAccount("0x12");
       const source = concat(
         encodeAmountBlock(asset, meta, amount),
-        encodeRecipientBlock(recipient)
+        encodeAccountBlock(account)
       );
-      expect(await helper.testRecipientAfter(source, 1n, backup)).to.equal(recipient);
-      expect(await helper.testRecipientAfter(encodeAmountBlock(asset, meta, amount), 1n, backup)).to.equal(backup);
+      expect(await helper.testAccountAfter(source, 1n, backup)).to.equal(account);
+      expect(await helper.testAccountAfter(encodeAmountBlock(asset, meta, amount), 1n, backup)).to.equal(backup);
     });
 
     it("nodeAfter returns the tail node or backup", async () => {
@@ -505,7 +560,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x11", 32);
       const source = encodeAmountBlock(assetId, meta, 66n);
 
-      expect(await erc1155Helper.testExpectErc1155Amount(source, 0n, collection)).to.deep.equal([meta, 66n]);
+      expect(await erc1155Helper.testExpectErc1155Amount(source, 0n, assetId)).to.deep.equal([meta, 66n]);
     });
 
     it("requireErc1155Amount returns meta, amount, and advances by one amount block", async () => {
@@ -514,7 +569,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x11", 32);
       const source = encodeAmountBlock(assetId, meta, 66n);
 
-      expect(await erc1155Helper.testRequireErc1155Amount(source, collection)).to.deep.equal([meta, 66n, 104n]);
+      expect(await erc1155Helper.testRequireErc1155Amount(source, assetId)).to.deep.equal([meta, 66n, 104n]);
     });
 
     it("expectErc1155Balance returns meta and amount from a matching local ERC1155 balance block", async () => {
@@ -523,7 +578,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x12", 32);
       const source = encodeBalanceBlock(assetId, meta, 67n);
 
-      expect(await erc1155Helper.testExpectErc1155Balance(source, 0n, collection)).to.deep.equal([meta, 67n]);
+      expect(await erc1155Helper.testExpectErc1155Balance(source, 0n, assetId)).to.deep.equal([meta, 67n]);
     });
 
     it("requireErc1155Balance returns meta, amount, and advances by one balance block", async () => {
@@ -532,7 +587,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x12", 32);
       const source = encodeBalanceBlock(assetId, meta, 67n);
 
-      expect(await erc1155Helper.testRequireErc1155Balance(source, collection)).to.deep.equal([meta, 67n, 104n]);
+      expect(await erc1155Helper.testRequireErc1155Balance(source, assetId)).to.deep.equal([meta, 67n, 104n]);
     });
 
     it("expectErc1155Minimum returns meta and amount from a matching local ERC1155 minimum block", async () => {
@@ -541,7 +596,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x13", 32);
       const source = encodeMinimumBlock(assetId, meta, 88n);
 
-      expect(await erc1155Helper.testExpectErc1155Minimum(source, 0n, collection)).to.deep.equal([meta, 88n]);
+      expect(await erc1155Helper.testExpectErc1155Minimum(source, 0n, assetId)).to.deep.equal([meta, 88n]);
     });
 
     it("requireErc1155Minimum returns meta, amount, and advances by one minimum block", async () => {
@@ -550,7 +605,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x13", 32);
       const source = encodeMinimumBlock(assetId, meta, 88n);
 
-      expect(await erc1155Helper.testRequireErc1155Minimum(source, collection)).to.deep.equal([meta, 88n, 104n]);
+      expect(await erc1155Helper.testRequireErc1155Minimum(source, assetId)).to.deep.equal([meta, 88n, 104n]);
     });
 
     it("expectErc1155Maximum returns meta and amount from a matching local ERC1155 maximum block", async () => {
@@ -559,7 +614,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x14", 32);
       const source = encodeMaximumBlock(assetId, meta, 89n);
 
-      expect(await erc1155Helper.testExpectErc1155Maximum(source, 0n, collection)).to.deep.equal([meta, 89n]);
+      expect(await erc1155Helper.testExpectErc1155Maximum(source, 0n, assetId)).to.deep.equal([meta, 89n]);
     });
 
     it("requireErc1155Maximum returns meta, amount, and advances by one maximum block", async () => {
@@ -568,7 +623,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x14", 32);
       const source = encodeMaximumBlock(assetId, meta, 89n);
 
-      expect(await erc1155Helper.testRequireErc1155Maximum(source, collection)).to.deep.equal([meta, 89n, 104n]);
+      expect(await erc1155Helper.testRequireErc1155Maximum(source, assetId)).to.deep.equal([meta, 89n, 104n]);
     });
 
     it("expectErc1155Custody returns meta and amount from a matching local ERC1155 custody block", async () => {
@@ -577,7 +632,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x15", 32);
       const source = encodeCustodyBlock(123n, assetId, meta, 68n);
 
-      expect(await erc1155Helper.testExpectErc1155Custody(source, 0n, 123n, collection)).to.deep.equal([meta, 68n]);
+      expect(await erc1155Helper.testExpectErc1155Custody(source, 0n, 123n, assetId)).to.deep.equal([meta, 68n]);
     });
 
     it("requireErc1155Custody returns meta, amount, and advances by one custody block", async () => {
@@ -586,7 +641,7 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x15", 32);
       const source = encodeCustodyBlock(123n, assetId, meta, 68n);
 
-      expect(await erc1155Helper.testRequireErc1155Custody(source, 123n, collection)).to.deep.equal([meta, 68n, 136n]);
+      expect(await erc1155Helper.testRequireErc1155Custody(source, 123n, assetId)).to.deep.equal([meta, 68n, 136n]);
     });
 
     it("expectErc1155Custody reverts UnexpectedValue when the host does not match", async () => {
@@ -595,16 +650,18 @@ describe("Cursors", () => {
       const meta = ethers.zeroPadValue("0x15", 32);
       const source = encodeCustodyBlock(123n, assetId, meta, 68n);
 
-      await expect(erc1155Helper.testExpectErc1155Custody(source, 0n, 321n, collection))
+      await expect(erc1155Helper.testExpectErc1155Custody(source, 0n, 321n, assetId))
         .to.be.revertedWithCustomError(erc1155Helper, "UnexpectedValue");
     });
 
-    it("expectErc1155Amount reverts InvalidAsset when the asset is not a local ERC1155", async () => {
+    it("expectErc1155Amount reverts UnexpectedValue when the source asset does not match the expected ERC1155 asset", async () => {
       const assetId = await utils.testToValueAsset();
       const source = encodeAmountBlock(assetId, ethers.zeroPadValue("0x11", 32), 77n);
 
-      await expect(erc1155Helper.testExpectErc1155Amount(source, 0n, "0x00000000000000000000000000000000000000d0"))
-        .to.be.revertedWithCustomError(erc1155Helper, "InvalidAsset");
+      const expectedAsset = await utils.testToErc1155Asset("0x00000000000000000000000000000000000000d0");
+
+      await expect(erc1155Helper.testExpectErc1155Amount(source, 0n, expectedAsset))
+        .to.be.revertedWithCustomError(erc1155Helper, "UnexpectedValue");
     });
 
     it("expectErc721Balance returns meta from a matching local ERC721 balance block", async () => {

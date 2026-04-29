@@ -10,7 +10,6 @@ import {isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
 /// Account IDs embed a 4-byte type tag in bits [255:224]:
 ///   - `Admin` — chain-local EVM address in bits [191:32]
 ///   - `User`  — chain-agnostic EVM address in bits [191:32]
-///   - `Keccak` — 28-byte keccak hash of an arbitrary key
 library Accounts {
     /// @dev Thrown when an account ID does not belong to the EVM family.
     error InvalidAccount();
@@ -31,12 +30,21 @@ library Accounts {
         return uint32(uint(account) >> 224);
     }
 
+    /// @notice Return true if `account` uses the Account category tag in the type field.
+    function isAccount(bytes32 account) internal pure returns (bool) {
+        return uint8(uint(account) >> 232) == Layout.Account;
+    }
+
     /// @notice Return true if `account` is an admin account.
     function isAdmin(bytes32 account) internal pure returns (bool) {
         return prefix(account) == Admin;
     }
 
-    /// @notice Return true if `account` is a keccak account.
+    /// @notice Return true if `account` is a user account.
+    function isUser(bytes32 account) internal pure returns (bool) {
+        return prefix(account) == User;
+    }
+
     function isKeccak(bytes32 account) internal pure returns (bool) {
         return prefix(account) == Keccak;
     }
@@ -55,19 +63,12 @@ library Accounts {
         return bytes32(toUnspecifiedBase(User) | (uint(uint160(addr)) << 32));
     }
 
-    /// @notice Encode arbitrary calldata as a keccak account ID.
-    /// The lower 28 bytes of the ID hold the lower 28 bytes of `keccak256(raw)`.
-    /// @param raw Arbitrary key bytes to hash.
-    /// @return Keccak account ID.
-    function toKeccak(bytes calldata raw) internal pure returns (bytes32) {
-        return bytes32(toUnspecifiedBase(Keccak) | uint224(uint256(keccak256(raw))));
+    function toKeccak(bytes32 head, bytes32 meta) internal pure returns (bytes32) {
+        return bytes32(toUnspecifiedBase(Keccak) | uint224(uint256(keccak256(bytes.concat(head, meta)))));
     }
 
-    /// @notice Return true if `account` is the keccak account ID of `raw`.
-    /// @param account Account ID to compare.
-    /// @param raw Raw key bytes to hash and compare against.
-    function matchesKeccak(bytes32 account, bytes calldata raw) internal pure returns (bool) {
-        return account == toKeccak(raw);
+    function matchesKeccak(bytes32 account, bytes32 head, bytes32 meta) internal pure returns (bool) {
+        return account == toKeccak(head, meta);
     }
 
     /// @notice Assert that `account` uses the Account layout tag and return it unchanged.

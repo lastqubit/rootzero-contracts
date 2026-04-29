@@ -7,7 +7,7 @@ import "./helpers/matchers.js";
 describe("Burn", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const burnMethod = "burn((uint256,bytes32,bytes,bytes))";
+  const burnMethod = "burn((bytes32,bytes,bytes))";
 
   before(async () => {
     const signer = await getSigner(0);
@@ -21,9 +21,8 @@ describe("Burn", () => {
     );
   });
 
-  function ctx(overrides: Partial<{ target: bigint; account: string; state: string; request: string }> = {}) {
+  function ctx(overrides: Partial<{ account: string; state: string; request: string }> = {}) {
     return {
-      target:  overrides.target  ?? 0n,
       account: overrides.account ?? userAccount,
       state:   overrides.state   ?? "0x",
       request: overrides.request ?? "0x",
@@ -73,19 +72,6 @@ describe("Burn", () => {
   });
 
   // ── Target / access guards ─────────────────────────────────────────────────
-
-  it("accepts the explicit burn command id as the target", async () => {
-    const target = await host.getBurnId();
-    const state  = encodeBalanceBlock(ethers.zeroPadValue("0xe1", 32), ethers.ZeroHash, 1n);
-    const tx = await callAs(0, ctx({ target, state }));
-    await expect(tx).to.emit(host, "BurnCalled");
-  });
-
-  it("reverts UnexpectedEndpoint for a wrong non-zero target", async () => {
-    const state = encodeBalanceBlock(ethers.zeroPadValue("0xf1", 32), ethers.ZeroHash, 1n);
-    await expect(callAs(0, ctx({ target: 999n, state })))
-      .to.be.revertedWithCustomError(host, "UnexpectedEndpoint");
-  });
 
   it("reverts UnauthorizedCaller for an untrusted caller", async () => {
     const state = encodeBalanceBlock(ethers.zeroPadValue("0xf2", 32), ethers.ZeroHash, 1n);

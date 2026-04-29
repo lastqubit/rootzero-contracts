@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Cur, Cursors } from "../Cursors.sol";
+import {Cur, Cursors} from "../Cursors.sol";
+import {Assets} from "../utils/Assets.sol";
+import {Ids} from "../utils/Ids.sol";
 
 using Cursors for Cur;
 
-/// @title CursorBase
-/// @notice Shared cursor convenience helpers for contracts that consume block streams.
-abstract contract CursorBase {
+/// @title RootZeroContext
+/// @notice Shared rootzero contract context for host identity, native value identity, and block-stream cursors.
+abstract contract RootZeroContext {
+    /// @dev This contract's host node ID, set to `Ids.toHost(address(this))` at construction.
+    uint public immutable host = Ids.toHost(address(this));
+    /// @dev Asset ID for the native chain value (ETH), bound to the current chain at deployment.
+    bytes32 internal immutable valueAsset = Assets.toValue();
+
     /// @notice Open a cursor over a calldata block stream.
     /// @param source Calldata slice to parse.
     /// @return cur Cursor positioned at the beginning of `source`.
@@ -39,5 +46,4 @@ abstract contract CursorBase {
         (, , uint quotient) = cur.primeRun(group);
         if (quotient != expectedQuotient) revert Cursors.BadRatio();
     }
-
 }

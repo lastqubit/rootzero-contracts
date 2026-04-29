@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, State } from "./Base.sol";
+import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
 using Cursors for Cur;
 
@@ -10,7 +10,7 @@ string constant NAME = "withdraw";
 abstract contract WithdrawHook {
     /// @notice Override to send funds to `account`.
     /// Called once per BALANCE block in state.
-    /// @param account Destination account identifier (resolved from RECIPIENT block or caller).
+    /// @param account Destination account identifier (resolved from ACCOUNT block or caller).
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param amount Amount to deliver.
@@ -25,15 +25,14 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
     uint internal immutable withdrawId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Recipient, withdrawId, State.Balances, State.Empty, false);
+        emit Command(host, withdrawId, NAME, Schemas.Account, Keys.Balance, Keys.Empty, false);
     }
 
     function withdraw(
         CommandContext calldata c
-    ) external onlyCommand(withdrawId, c.target) returns (bytes memory) {
+    ) external onlyCommand(c.account) returns (bytes memory) {
         (Cur memory state, , ) = cursor(c.state, 1);
-        Cur memory request = cursor(c.request);
-        bytes32 to = request.recipientAfter(c.account);
+        bytes32 to = Cursors.resolveAccount(c.request, c.account);
 
         while (state.i < state.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();

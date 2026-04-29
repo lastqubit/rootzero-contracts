@@ -11,7 +11,7 @@ abstract contract ListingEvent is EventEmitter {
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     /// @param active True if the listing is currently active.
-    /// @param created True if this is a new listing (false if it is an update).
+    /// @param created True if the asset was created as part of this listing.
     event Listing(uint indexed host, bytes32 asset, bytes32 meta, bool active, bool created);
 
     constructor() {

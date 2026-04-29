@@ -14,6 +14,21 @@ describe("Queries", () => {
     query = await deploy("TestQuery");
   });
 
+  it("emits Query discovery events with id as the second argument", async () => {
+    const tx = query.deploymentTransaction();
+    expect(tx).to.not.equal(null);
+
+    await expect(tx!)
+      .to.emit(query, "Query")
+      .withArgs(
+        await query.host(),
+        await query.incrementQueryId(),
+        "incrementQuery",
+        "query(uint foo)",
+        "response(uint bar)",
+      );
+  });
+
   describe("incrementQuery", () => {
     it("accepts `query(uint foo)` and returns `response(uint bar)`", async () => {
       const request = encodeQueryBlock(pad32(7n));

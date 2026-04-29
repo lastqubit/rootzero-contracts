@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, CommandPayable} from "./Base.sol";
+import {CommandBase, CommandContext, CommandPayable, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
 import {Accounts} from "../utils/Accounts.sol";
 import {Budget, Values} from "../utils/Value.sol";
@@ -29,7 +29,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
     uint internal immutable pipePayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Step, pipePayableId, 0, 0, true);
+        emit Command(host, pipePayableId, NAME, Schemas.Step, Keys.Empty, Keys.Empty, true);
     }
 
     function pipe(
@@ -54,7 +54,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
     /// @notice Execute the pipePayable command.
     function pipePayable(
         CommandContext calldata c
-    ) external payable onlyCommand(pipePayableId, c.target) returns (bytes memory) {
+    ) external payable onlyCommand(c.account) returns (bytes memory) {
         if (Accounts.isAdmin(c.account)) revert Accounts.InvalidAccount();
         Budget memory budget = Values.fromMsg();
         return pipe(c.account, c.state, c.request, budget);

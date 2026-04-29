@@ -2,10 +2,10 @@
 pragma solidity ^0.8.33;
 
 import { Cursors } from "../Cursors.sol";
-import { OperationBase } from "../core/Operation.sol";
+import { NodeCalls } from "../core/Calls.sol";
 import { AccessControl } from "../core/Access.sol";
 
-contract TestOperation is OperationBase {
+contract TestOperation is NodeCalls {
     constructor() AccessControl(address(0)) {}
 
     function testCheckCursorRatio(

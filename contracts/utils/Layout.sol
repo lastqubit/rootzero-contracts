@@ -39,7 +39,7 @@ library Layout {
     uint8 constant Admin = 0x01;
     /// @dev User account — chain-agnostic, backed by an EVM address.
     uint8 constant User = 0x02;
-    /// @dev Keccak account — opaque 28-byte hash of an arbitrary key.
+    /// @dev Keccak account — opaque 28-byte keccak commitment.
     uint8 constant Keccak = 0x03;
 
     // -------------------------------------------------------------------------

@@ -3,12 +3,12 @@ import { deploy } from "./helpers/setup.js";
 import {
   concat,
   encodeAssetBlock,
-  encodeResponseBlock,
+  encodeStatusBlock,
   pad32,
 } from "./helpers/blocks.js";
 
 describe("IsAllowedAsset", () => {
-  it("returns one response block for one asset query", async () => {
+  it("returns one status block for one asset query", async () => {
     const query = await deploy("TestAllowedAssetQuery");
     const asset = await query.allowedAssetId();
     const meta = await query.allowedMeta();
@@ -17,7 +17,7 @@ describe("IsAllowedAsset", () => {
       encodeAssetBlock(asset, meta),
     );
 
-    expect(result).to.equal(encodeResponseBlock(pad32(1n)));
+    expect(result).to.equal(encodeStatusBlock(true));
   });
 
   it("maps multiple asset blocks into matching allowed flags in order", async () => {
@@ -35,8 +35,8 @@ describe("IsAllowedAsset", () => {
     const result: string = await query["isAllowedAsset(bytes)"].staticCall(request);
 
     expect(result).to.equal(concat(
-      encodeResponseBlock(pad32(1n)),
-      encodeResponseBlock(pad32(0n)),
+      encodeStatusBlock(true),
+      encodeStatusBlock(false),
     ));
   });
 });

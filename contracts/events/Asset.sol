@@ -8,7 +8,7 @@ string constant ABI = "event Asset(uint indexed host, bytes32 name, uint32 prefi
 /// @notice Emitted when an asset is registered or updated on a host.
 abstract contract AssetEvent is EventEmitter {
     /// @param host Host node ID that registered the asset.
-    /// @param name Asset identifier.
+    /// @param name Asset name encoded as a bytes32 string.
     /// @param prefix 4-byte type prefix of the asset ID.
     event Asset(uint indexed host, bytes32 name, uint32 prefix);
 

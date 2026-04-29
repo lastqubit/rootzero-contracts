@@ -10,7 +10,7 @@ pragma solidity ^0.8.33;
 // Use Writers when you need to build the response incrementally rather than
 // returning a single pre-encoded block.
 
-import {CommandBase, CommandContext, State} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
 import {Cur, Cursors, Writer, Writers, Schemas} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -22,13 +22,13 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, NAME, Schemas.Amount, myCommandId, State.Empty, State.Balances, false);
+        emit Command(host, myCommandId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand(myCommandId, c.target) returns (bytes memory) {
-        // Create the request cursor in the same way commands do, then size
+    ) external onlyTrusted returns (bytes memory) {
+        // Create the request cursor from CommandContext.request, then size
         // the writer from the block count returned by primeRun.
         (Cur memory inputs, uint count, ) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(count);

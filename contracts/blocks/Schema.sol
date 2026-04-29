@@ -1,59 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Keys } from "./Keys.sol";
-
-/// @title Schemas
-/// @notice Human-readable ABI-signature string constants for each block type.
-/// These strings are the canonical source from which `Keys` constants are derived
-/// and are used when emitting schema descriptors in command events.
-library Schemas {
-    string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Custody = "custody(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Minimums = "minimums(uint a, uint b)";
-    string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
-    string constant Maximums = "maximums(uint a, uint b)";
-    string constant Bounds = "bounds(int min, int max)";
-    string constant Fee = "fee(uint amount)";
-    string constant Break = "break()";
-    string constant Route = "route(bytes data)";
-    string constant Query = "query(bytes data)";
-    string constant Response = "response(bytes data)";
-    string constant Path = "path(bytes data)";
-    string constant RouteEmpty = "route()";
-    string constant Quantity = "quantity(uint amount)";
-    string constant Rate = "rate(uint value)";
-    string constant Recipient = "recipient(bytes32 account)";
-    string constant Transaction = "tx(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Step = "step(uint target, uint value, bytes request)";
-    string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
-    string constant Asset = "asset(bytes32 asset, bytes32 meta)";
-    string constant Node = "node(uint id)";
-    string constant Listing = "listing(uint host, bytes32 asset, bytes32 meta)";
-    string constant Funding = "funding(uint host, uint amount)";
-    string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Bounty = "bounty(uint amount, bytes32 relayer)";
-
-    /// @notice Compose a route schema with one additional field.
-    /// @param maybeRoute Existing route schema string, or empty string to start a fresh `route()`.
-    /// @param a Schema string for the field to append.
-    /// @return Composed schema string: `"route(...) & a"`.
-    function route1(string memory maybeRoute, string memory a) internal pure returns (string memory) {
-        return string.concat(bytes(maybeRoute).length == 0 ? RouteEmpty : maybeRoute, "&", a);
-    }
-
-    /// @notice Compose a route schema with two additional fields.
-    /// @param maybeRoute Existing route schema string, or empty string to start a fresh `route()`.
-    /// @param a Schema string for the first field to append.
-    /// @param b Schema string for the second field to append.
-    /// @return Composed schema string: `"route(...) & a & b"`.
-    function route2(string memory maybeRoute, string memory a, string memory b) internal pure returns (string memory) {
-        return string.concat(bytes(maybeRoute).length == 0 ? RouteEmpty : maybeRoute, "&", a, "&", b);
-    }
-}
-
 // Block stream:
 // - encoding is [bytes4 key][bytes4 payloadLen][payload]
 // - `payloadLen` covers only the block payload
@@ -63,33 +10,84 @@ library Schemas {
 // - self payload may be [head][dynamic tail]
 // - head layout is implied by the block key
 // - one dynamic field may consume the rest of self payload without its own length prefix
+// - reserved extensible forms keep one fixed key while their declared field list remains descriptive schema metadata
+// - chain-specific payload blocks are encoded using the local chain/runtime's native conventions
+// - on EVM-family chains, `evm(<fields...>)` payloads use standard ABI tuple encoding via `abi.encode(...)`
+//   and can be decoded with `abi.decode`
+// - chain-specific payload blocks are request-only escape hatches and should never be used for pipeline state
+// - prefer ordinary protocol blocks whenever possible; chain-specific payload blocks should be a last resort
 //
 // Schema DSL:
 // - `;` separates top-level sibling blocks
 // - `&` bundles adjacent blocks into one bundle block
-// - a bundle may optionally be named in the form `name = a & b`
+// - `+` frames adjacent fixed-layout block payloads into one frame block
+// - `&` and `+` follow the same grouping and normalization rules, except they emit different wrapper blocks
+// - `name = a & b` introduces a named bundle item with a local key derived from the raw input string
+// - `name = a + b` introduces a named frame item with a local key derived from the raw input string
+// - `bundle = a & b` introduces an anonymous child bundle item
+// - `frame = a + b` introduces an anonymous child frame item, like `bundle = ...` and `list = ...`
 // - postfix `[]` marks a repeated list in the simple suffix form, e.g. `asset(...)[]`
-// - a list of bundled items must use an inline named form `name[] = a & b`
+// - `name[] = a & b` introduces a named list with a local key derived from the raw input string
+// - `list = a & b` introduces an anonymous list whose repeated item is the bundled shape `a & b`
+// - empty entries are ignored, but structural markers are preserved after normalization
+// - grouping parentheses are not part of the DSL; parentheses are only used in block field lists
+// - `+` binds tighter than `&`, so `a & b + c` normalizes as `a & (b + c)`
+// - if `&` appears, the result remains a bundle even when only one non-empty child remains
+// - if `+` appears, the result remains a frame even when only one non-empty child remains
+// - after ignoring empty entries, repeated adjacent separators collapse while preserving bundle/frame/list shape
 // - bundled blocks preserve member order, so `a & b` differs from `b & a`
 // - a bundle block's self payload is an embedded normal block stream of its bundled members
 // - bundled members keep their ordinary block encoding, so dynamic blocks are allowed inside bundles
 // - a list block's self payload is an embedded normal block stream representing the repeated items
+// - a frame block's self payload is the concatenated payload fields of its framed members
+// - framed members do not keep their ordinary block headers; the emitted schema defines the frame layout
+// - framed members must be fixed-layout block forms because frame payloads contain no child lengths or block keys
+// - frames may be bundled like ordinary block items, but bundles/lists cannot be framed
 // - top-level blocks of the same type should be grouped together
 // - primary / driving blocks should appear before auxiliary blocks
-// - `route(<fields...>)`, `query(<fields...>)`, and `response(<fields...>)` are reserved
-//   extensible schema forms whose keys are always `Keys.Route`, `Keys.Query`, and
-//   `Keys.Response` respectively
+// - `route(<fields...>)`, `item(<fields...>)`, `evm(<fields...>)`, `query(<fields...>)`,
+//   and `response(<fields...>)` are reserved extensible schema forms whose keys are always
+//   `Keys.Route`, `Keys.Item`, `Keys.Evm`, `Keys.Query`, and `Keys.Response` respectively
 // - these extensible forms work like dynamic `bytes` blocks: they may carry arbitrary
 //   payload bytes while keeping one fixed key per semantic block type
-// - `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
-// - `[]` compiles to a `Keys.List` block whose self payload is the repeated item block stream
+// - `evm(<fields...>)` differs from bundle/list payloads: its bytes are not an embedded block stream
+// - `evm(uint foo, uint bar)` is a schema declaration only; on-chain the block key is still `Keys.Evm`
+//   and the payload can be decoded from `bytes data` using the local runtime's native decoder
+// - on EVM, `evm(bool flag)` occupies one full 32-byte ABI word, exactly like `abi.encode(flag)`
+// - anonymous `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
+// - anonymous `[]` compiles to a `Keys.List` block whose self payload is the repeated item block stream
+// - anonymous `+` compiles to a `Keys.Frame` block whose self payload is the framed member payload fields
+// - named lists, bundles, and frames use bytes4(keccak256(bytes(rawSchemaInput))) as their block key
+// - named structural keys are custom/local identifiers, not global protocol keys; formatting is part of identity
 // - `asset(...)[]` means a list whose repeated item is the block `asset(...)`
-// - `steps[] = asset(...) & recipient(...)` means a named list whose repeated item is the bundle
-//   `asset(...) & recipient(...)`
+// - `steps[] = asset(...) & account(...)` means a named list whose repeated item is the bundle
+//   `asset(...) & account(...)`
+// - `payment = amount(...) + fee(...)` means a named frame whose payload is
+//   `asset | meta | amount | fee` and whose on-chain key is derived from that raw schema string
+// - `amount(...) & fee(...) + account(...)` means `amount(...) & (fee(...) + account(...))`;
+//   it compiles to a bundle containing one amount block followed by one frame block
+// - `bundle = account(...) & evm(bytes routeData)` means an anonymous child bundle with those bundled members
+// - `frame = amount(...) + fee(...)` means an anonymous child frame with those framed payload fields
+// - `list = asset(...) & account(...)` means an anonymous child list whose repeated item is the
+//   bundle `asset(...) & account(...)`
+// - `"amount(...) &"` and `"& amount(...)"` both normalize to a bundle containing one `amount(...)` child
+// - `"amount(...) +"` and `"+ amount(...)"` both normalize to a frame containing one `amount(...)` payload
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
+//   `allocation(...)` for host-scoped provision requests, `allowance(...)` for host-scoped caps,
+//   `custody(...)` for host-scoped state,
 //   `minimum(...)` for result floors, `maximum(...)` for spend ceilings, and `quantity(...)`
 //   for plain scalar amounts
 // - `auth(uint cid, uint deadline, bytes proof)` is a proof-separator block and must be emitted last
+//
+// Pipeline state:
+// - `balance(...)` and `custody(...)` are live, linear state in the active command pipeline
+// - pipeline state belongs to the active account while the pipeline is executing
+// - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
+//   in another ledger/store by this protocol
+// - commands must preserve, transform, settle, or intentionally consume pipeline state
+// - request blocks such as `amount(...)`, `allocation(...)`, `allowance(...)`, `payout(...)`,
+//   `minimum(...)`, and `maximum(...)` express intent, constraints, or references
+// - request and value/response blocks are not live state
 //
 // Signed blocks:
 // - an authenticated input segment ends with one trailing AUTH block
@@ -98,6 +96,53 @@ library Schemas {
 // - the signed slice runs from the segment start through the AUTH head, excluding only AUTH proof bytes
 // - `cid` binds the signature to one command; `deadline` acts as expiry and nonce
 // - current helpers assume proof layout `[bytes20 signer][bytes65 sig]`
+
+/// @title Schemas
+/// @notice Human-readable ABI-signature string constants for each block type.
+/// These strings are the canonical source from which `Keys` constants are derived
+/// and are used when emitting schema descriptors in command events.
+library Schemas {
+    string constant Node = "node(uint id)";
+    string constant Account = "account(bytes32 account)";
+    string constant Asset = "asset(bytes32 asset, bytes32 meta)";
+    string constant Balance = "balance(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Amount = "amount(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Minimum = "minimum(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Maximum = "maximum(bytes32 asset, bytes32 meta, uint amount)";
+    string constant Custody = "custody(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Payout = "payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Allowance = "allowance(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
+    string constant Relocation = "relocation(uint host, uint amount)";
+    string constant Call = "call(uint target, uint value, bytes data)";
+    string constant Step = "step(uint target, uint value, bytes request)";
+    string constant Bounty = "bounty(uint amount, bytes32 relayer)";
+    string constant Quantity = "quantity(uint amount)";
+    string constant Fee = "fee(uint amount)";
+    string constant Rate = "rate(uint value)";
+    string constant Bounds = "bounds(int min, int max)";
+    string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
+    string constant Route = "route(bytes data)";
+    string constant Item = "item(bytes data)";
+    string constant Evm = "evm(bytes data)";
+    string constant Query = "query(bytes data)";
+    string constant Response = "response(bytes data)";
+    string constant Break = "break()";
+}
+
+/// @title Forms
+/// @notice Reusable structural block schemas for core tuple shapes.
+/// These describe payload form without assigning command or query semantics.
+library Forms {
+    string constant Status = "status(bool ok)";
+    string constant AssetAmount = "assetAmount(bytes32 asset, bytes32 meta, uint amount)";
+    string constant AccountAsset = "accountAsset(bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant AccountAmount = "accountAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostAmount = "hostAmount(uint host, bytes32 asset, bytes32 meta, uint amount)";
+    string constant HostAccountAsset = "hostAccountAsset(uint host, bytes32 account, bytes32 asset, bytes32 meta)";
+    string constant HostAccountAmount = "hostAccountAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)";
+}
 
 /// @title Sizes
 /// @notice Total byte sizes for fixed-width block types, including the 8-byte header (4-byte key + 4-byte payloadLen).
@@ -124,76 +169,14 @@ library Sizes {
     uint constant Amount = B96;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Balance = B96;
-    /// @dev MINIMUMS block: 8 header + 32 a + 32 b = 72 bytes
-    uint constant Minimums = B64;
-    /// @dev MAXIMUMS block: 8 header + 32 a + 32 b = 72 bytes
-    uint constant Maximums = B64;
     /// @dev BOUNDS block: 8 header + 32 min + 32 max = 72 bytes
     uint constant Bounds = B64;
     /// @dev FEE block: 8 header + 32 amount = 40 bytes
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
-    /// @dev CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
-    uint constant Custody = B128;
+    /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
+    uint constant HostAmount = B128;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
     uint constant Transaction = B160;
-}
-
-/// @notice Asset and amount pair; used for balance and amount blocks.
-struct AssetAmount {
-    /// @dev Asset identifier (encoding depends on asset type — see `Assets` library).
-    bytes32 asset;
-    /// @dev Asset metadata slot (e.g. token contract address or ERC-721 token ID context).
-    bytes32 meta;
-    /// @dev Token amount in the asset's native units.
-    uint amount;
-}
-
-/// @notice Cross-host custody value; used for custody and allocation blocks.
-struct HostAmount {
-    /// @dev Host node ID that holds the custody position.
-    uint host;
-    /// @dev Asset identifier.
-    bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
-    /// @dev Token amount in the asset's native units.
-    uint amount;
-}
-
-/// @notice User-scoped amount; associates an account with an asset amount.
-struct UserAmount {
-    /// @dev User account identifier.
-    bytes32 account;
-    /// @dev Asset identifier.
-    bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
-    /// @dev Token amount in the asset's native units.
-    uint amount;
-}
-
-/// @notice Cross-host asset descriptor without an amount.
-struct HostAsset {
-    /// @dev Host node ID.
-    uint host;
-    /// @dev Asset identifier.
-    bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
-}
-
-/// @notice Transfer payload used across the pipeline and later consumed by settlement.
-struct Tx {
-    /// @dev Sender account identifier.
-    bytes32 from;
-    /// @dev Recipient account identifier.
-    bytes32 to;
-    /// @dev Asset identifier.
-    bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
-    /// @dev Transfer amount in the asset's native units.
-    uint amount;
 }

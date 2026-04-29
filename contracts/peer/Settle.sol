@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { PeerBase } from "./Base.sol";
 import { TransferHook } from "../commands/Transfer.sol";
-import { Cursors, Cur, Tx, Schemas } from "../Cursors.sol";
+import { Cursors, Cur, Schemas } from "../Cursors.sol";
 
 using Cursors for Cur;
 
@@ -16,7 +16,7 @@ abstract contract PeerSettle is PeerBase, TransferHook {
     uint internal immutable peerSettleId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.Transaction, peerSettleId, false);
+        emit Peer(host, peerSettleId, NAME, Schemas.Transaction, false);
     }
 
     /// @notice Execute the peer-settle call.
@@ -24,8 +24,7 @@ abstract contract PeerSettle is PeerBase, TransferHook {
         (Cur memory state, , ) = cursor(request, 1);
 
         while (state.i < state.bound) {
-            Tx memory value = state.unpackTxValue();
-            transfer(value);
+            transfer(state.unpackTxValue());
         }
 
         state.complete();

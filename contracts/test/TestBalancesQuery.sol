@@ -30,7 +30,7 @@ contract TestBalancesQuery is GetBalances {
     }
 
     function getBalance(bytes32 account, bytes32 asset, bytes32 meta) internal view override returns (uint amount) {
-        Assets.key(asset, meta);
+        Assets.slot(asset, meta);
 
         address accountAddr = Accounts.addrEvm(account);
         if (asset == valueAsset) return accountAddr.balance;

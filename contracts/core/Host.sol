@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AccessControl } from "./Access.sol";
-import { Authorize } from "../commands/admin/Authorize.sol";
-import { Unauthorize } from "../commands/admin/Unauthorize.sol";
-import { RelocatePayable } from "../commands/admin/Relocate.sol";
-import { HostAnnouncedEvent } from "../events/Host.sol";
-import { IHostDiscovery } from "../interfaces/IHostDiscovery.sol";
-import { Ids } from "../utils/Ids.sol";
+import {AccessControl} from "./Access.sol";
+import {Authorize} from "../commands/admin/Authorize.sol";
+import {Unauthorize} from "../commands/admin/Unauthorize.sol";
+import {ExecutePayable} from "../commands/admin/Execute.sol";
+import {RelocatePayable} from "../commands/admin/Relocate.sol";
+import {HostAnnouncedEvent} from "../events/Host.sol";
+import {IHostDiscovery} from "../interfaces/IHostDiscovery.sol";
+import {Ids} from "../utils/Ids.sol";
 
 /// @notice Mixin that allows a contract to act as a host discovery registry.
 /// Hosts call `announceHost` on a discovery contract to register themselves.
@@ -25,10 +26,10 @@ abstract contract HostDiscovery is HostAnnouncedEvent, IHostDiscovery {
 
 /// @title Host
 /// @notice Abstract base contract for rootzero host implementations.
-/// Inherits admin command support (authorize, unauthorize, relocatePayable) and
+/// Inherits admin command support (authorize, unauthorize, executePayable, relocatePayable) and
 /// optionally announces itself to a discovery contract at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is Authorize, Unauthorize, RelocatePayable {
+abstract contract Host is Authorize, Unauthorize, ExecutePayable, RelocatePayable {
     /// @param cmdr Commander address; passed to `AccessControl`.
     ///        If `cmdr` is a deployed contract, the host calls `announceHost`
     ///        on it during construction to register with the discovery registry.

@@ -16,7 +16,7 @@ abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook {
     uint internal immutable peerAllowAssetsId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, NAME, Schemas.Asset, peerAllowAssetsId, false);
+        emit Peer(host, peerAllowAssetsId, NAME, Schemas.Asset, false);
     }
 
     /// @notice Execute the allow-assets peer call.

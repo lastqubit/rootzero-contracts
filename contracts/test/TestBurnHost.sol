@@ -12,7 +12,7 @@ contract TestBurnHost is Host, Burn {
         Host(address(0), 1, "test")
         Burn()
     {
-        if (cmdr != address(0)) access(Ids.toHost(cmdr), true);
+        if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
     }
 
     function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
