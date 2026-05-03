@@ -5,8 +5,6 @@ import { CommandBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur } from "../Cursors.sol";
 using Cursors for Cur;
 
-string constant NAME = "burn";
-
 abstract contract BurnHook {
     /// @notice Override to burn or consume the provided balance amount.
     /// Called once per BALANCE block in state.
@@ -22,6 +20,8 @@ abstract contract BurnHook {
 /// @notice Command that irreversibly destroys each BALANCE state block via a virtual hook.
 /// Produces no output state.
 abstract contract Burn is CommandBase, BurnHook {
+    string private constant NAME = "burn";
+
     uint internal immutable burnId = commandId(NAME);
 
     constructor() {

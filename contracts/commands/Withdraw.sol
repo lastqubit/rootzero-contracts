@@ -5,8 +5,6 @@ import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
 using Cursors for Cur;
 
-string constant NAME = "withdraw";
-
 abstract contract WithdrawHook {
     /// @notice Override to send funds to `account`.
     /// Called once per BALANCE block in state.
@@ -22,6 +20,8 @@ abstract contract WithdrawHook {
 /// Use `withdraw` for assets being sent outside the protocol (e.g. ERC-20 transfers, ETH sends).
 /// For internal balance credits, use `creditAccount` instead.
 abstract contract Withdraw is CommandBase, WithdrawHook {
+    string private constant NAME = "withdraw";
+
     uint internal immutable withdrawId = commandId(NAME);
 
     constructor() {

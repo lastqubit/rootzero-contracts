@@ -4,8 +4,6 @@ pragma solidity ^0.8.33;
 import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
 
-string constant NAME = "debitAccount";
-
 using Cursors for Cur;
 using Writers for Writer;
 
@@ -24,6 +22,8 @@ abstract contract DebitAccountHook {
 /// Use for internally recording debits. The virtual `debitAccount` hook is called once per
 /// AMOUNT block; the default batch implementation handles the full request loop.
 abstract contract DebitAccount is CommandBase, DebitAccountHook {
+    string private constant NAME = "debitAccount";
+
     uint internal immutable debitAccountId = commandId(NAME);
 
     constructor() {

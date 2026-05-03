@@ -6,8 +6,6 @@ import { Cursors, Cur, Schemas, Tx } from "../Cursors.sol";
 import { Accounts } from "../utils/Accounts.sol";
 using Cursors for Cur;
 
-string constant NAME = "transfer";
-
 abstract contract TransferHook {
     /// @notice Override to execute a single transfer record from the request pipeline.
     /// Called once per PAYOUT block in the request.
@@ -20,6 +18,8 @@ abstract contract TransferHook {
 /// PAYOUT request blocks. Produces no state output.
 /// The virtual `transfer(value)` hook is called once per entry.
 abstract contract Transfer is CommandBase, TransferHook {
+    string private constant NAME = "transfer";
+
     uint internal immutable transferId = commandId(NAME);
 
     constructor() {

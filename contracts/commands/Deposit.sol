@@ -5,9 +5,6 @@ import { CommandContext, CommandBase, CommandPayable, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
-string constant DEPOSIT = "deposit";
-string constant DEPOSIT_PAYABLE = "depositPayable";
-
 using Cursors for Cur;
 using Writers for Writer;
 
@@ -39,10 +36,12 @@ abstract contract DepositPayableHook {
 /// Use `deposit` for assets arriving from outside the protocol (e.g. ERC-20 transfers, ETH).
 /// For internal balance deductions, use `debitAccount` instead.
 abstract contract Deposit is CommandBase, DepositHook {
-    uint internal immutable depositId = commandId(DEPOSIT);
+    string private constant NAME = "deposit";
+
+    uint internal immutable depositId = commandId(NAME);
 
     constructor() {
-        emit Command(host, depositId, DEPOSIT, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, depositId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function deposit(
@@ -65,10 +64,12 @@ abstract contract Deposit is CommandBase, DepositHook {
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
 abstract contract DepositPayable is CommandPayable, DepositPayableHook {
-    uint internal immutable depositPayableId = commandId(DEPOSIT_PAYABLE);
+    string private constant NAME = "depositPayable";
+
+    uint internal immutable depositPayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, depositPayableId, DEPOSIT_PAYABLE, Schemas.Amount, Keys.Empty, Keys.Balance, true);
+        emit Command(host, depositPayableId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, true);
     }
 
     function depositPayable(

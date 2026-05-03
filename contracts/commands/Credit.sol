@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
-string constant NAME = "creditAccount";
 
 using Cursors for Cur;
 
@@ -22,6 +21,8 @@ abstract contract CreditAccountHook {
 /// Use for internally recording credits that have already been settled externally.
 /// An optional ACCOUNT block in the request overrides the default `c.account` destination.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
+    string private constant NAME = "creditAccount";
+
     uint internal immutable creditAccountId = commandId(NAME);
 
     constructor() {

@@ -7,9 +7,6 @@ import {Budget, Values} from "../utils/Value.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-string constant PROVISION = "provision";
-string constant PP = "provisionPayable";
-
 /// @notice Shared provision hook used by `Provision`.
 abstract contract ProvisionHook {
     /// @notice Override to send or provision a custody value.
@@ -35,10 +32,12 @@ abstract contract ProvisionPayableHook {
 /// @notice Command that provisions assets to remote hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
-    uint internal immutable provisionId = commandId(PROVISION);
+    string private constant NAME = "provision";
+
+    uint internal immutable provisionId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionId, PROVISION, Schemas.Allocation, Keys.Empty, Keys.Custody, false);
+        emit Command(host, provisionId, NAME, Schemas.Allocation, Keys.Empty, Keys.Custody, false);
     }
 
     function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
@@ -60,10 +59,12 @@ abstract contract Provision is CommandBase, ProvisionHook {
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
-    uint internal immutable provisionPayableId = commandId(PP);
+    string private constant NAME = "provisionPayable";
+
+    uint internal immutable provisionPayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionPayableId, PP, Schemas.Allocation, Keys.Empty, Keys.Custody, true);
+        emit Command(host, provisionPayableId, NAME, Schemas.Allocation, Keys.Empty, Keys.Custody, true);
     }
 
     function provisionPayable(

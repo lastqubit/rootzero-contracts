@@ -8,8 +8,6 @@ import {Budget, Values} from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-string constant NAME = "pipePayable";
-
 abstract contract PipePayableHook {
     function dispatchStep(
         uint target,
@@ -26,6 +24,8 @@ abstract contract PipePayableHook {
 /// State threads through the steps: each step's output becomes the next step's state.
 /// Admin accounts are not permitted to use `pipePayable`.
 abstract contract PipePayable is CommandPayable, PipePayableHook {
+    string private constant NAME = "pipePayable";
+
     uint internal immutable pipePayableId = commandId(NAME);
 
     constructor() {
