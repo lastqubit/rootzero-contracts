@@ -3,17 +3,17 @@ pragma solidity ^0.8.33;
 
 // Example 7: Frame Blocks
 //
-// `payment = amount(...) + fee(...)` means: one FRAME block whose payload is
-// the merged payload fields of AMOUNT followed by FEE, without child block
-// headers.
+// `frame = amount(...) +& fee(...)?` means: one anonymous FRAME block whose
+// payload is the merged payload fields of AMOUNT followed by an optional full
+// FEE block, preserving the FEE child header when present.
 //
 // For:
 //
-//   payment = amount(bytes32 asset, bytes32 meta, uint amount) + fee(uint amount)
+//   frame = amount(bytes32 asset, bytes32 meta, uint amount) +& fee(uint amount)?
 //
 // the encoded request item is:
 //
-//   FRAME(asset | meta | amount | fee)
+//   FRAME(asset | meta | amount | FEE(fee))
 //
 // The Command event publishes the schema, while every encoded frame uses the
 // same `Keys.Frame` runtime key.
@@ -26,13 +26,16 @@ using Cursors for Cur;
 
 string constant NAME = "myCommand";
 
-// `payment = ...` names the frame in schema metadata. The runtime key is
-// still `Keys.Frame`; the schema name tells tools and readers what it means.
-string constant INPUT = string.concat("payment = ", Schemas.Amount, "+", Schemas.Fee);
+// `frame = ...` describes an anonymous frame, so encoded inputs use the shared
+// `Keys.Frame` runtime key.
+string constant INPUT = string.concat("frame = ", Schemas.Amount, "+&", Schemas.Fee, "?");
 
-function unpackPayment(Cur memory input) pure returns (bytes32 asset, bytes32 meta, uint amount, uint fee) {
-    (bytes32 a, bytes32 b, bytes32 c, bytes32 d) = input.unpack128(Keys.Frame);
-    return (a, b, uint(c), uint(d));
+function unpackPayment(Cur memory input) pure returns (bytes32 asset, bytes32 meta, uint amount, Cur memory fee) {
+    uint abs = input.consume(Keys.Frame, 96, 0);
+    asset = bytes32(msg.data[abs:abs + 32]);
+    meta = bytes32(msg.data[abs + 32:abs + 64]);
+    amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
+    fee = input.slice(abs + 96 - input.offset, input.i);
 }
 
 abstract contract MyCommand is CommandBase {
@@ -49,7 +52,8 @@ abstract contract MyCommand is CommandBase {
         // The request can batch multiple FRAME blocks. Each one is decoded
         // with the command-local unpack helper above.
         while (request.i < request.bound) {
-            (bytes32 asset, bytes32 meta, uint amount, uint fee) = unpackPayment(request);
+            (bytes32 asset, bytes32 meta, uint amount, Cur memory tail) = unpackPayment(request);
+            uint fee = tail.maybeOnly(Keys.Fee) ? tail.unpackFee() : 0;
             emit PaymentSeen(asset, meta, amount, fee);
         }
 

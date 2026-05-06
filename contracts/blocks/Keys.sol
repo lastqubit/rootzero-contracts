@@ -34,7 +34,7 @@ library Keys {
     bytes4 constant Bundle = bytes4(keccak256("bundle(bytes data)"));
     /// @dev List wrapper - (bytes data); payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256("list(bytes data)"));
-    /// @dev Frame wrapper - (bytes data); payload is schema-defined concatenated member payloads
+    /// @dev Frame wrapper - (bytes data); payload is schema-defined fields, optionally followed by block-stream items
     bytes4 constant Frame = bytes4(keccak256("frame(bytes data)"));
     /// @dev Extensible routing field - (bytes data); layout is command-defined
     bytes4 constant Route = bytes4(keccak256("route(bytes data)"));
