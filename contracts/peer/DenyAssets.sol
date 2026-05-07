@@ -15,7 +15,7 @@ abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook {
     uint internal immutable peerDenyAssetsId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, peerDenyAssetsId, NAME, Schemas.Asset, false);
+        emit Peer(host, peerDenyAssetsId, NAME, "1:0", Schemas.Asset, "", false);
     }
 
     /// @notice Execute the deny-assets peer call.

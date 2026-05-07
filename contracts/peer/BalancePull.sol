@@ -24,7 +24,7 @@ abstract contract PeerBalancePull is PeerBase, BalancePullHook {
     uint internal immutable peerBalancePullId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, peerBalancePullId, NAME, Schemas.Balance, false);
+        emit Peer(host, peerBalancePullId, NAME, "1:0", Schemas.Balance, "", false);
     }
 
     /// @notice Execute the balance-pull peer call.

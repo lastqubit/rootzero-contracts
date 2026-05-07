@@ -16,7 +16,7 @@ abstract contract Unauthorize is CommandBase, AdminEvent {
     uint internal immutable unauthorizeId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, unauthorizeId, NAME, Schemas.Node, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, unauthorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false);
     }
 
     function unauthorize(

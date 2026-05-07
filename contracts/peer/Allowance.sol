@@ -16,7 +16,7 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook {
     uint internal immutable peerAllowanceId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, peerAllowanceId, NAME, Schemas.Amount, false);
+        emit Peer(host, peerAllowanceId, NAME, "1:0", Schemas.Amount, "", false);
     }
 
     /// @notice Execute the allowance peer call.

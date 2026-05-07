@@ -34,7 +34,7 @@ abstract contract GetPosition is QueryBase, GetPositionHook {
 
     constructor(string memory output, uint responseSize) {
         positionResponseSize = responseSize;
-        emit Query(host, getPositionId, NAME, Forms.AccountAsset, output);
+        emit Query(host, getPositionId, NAME, "1:1", Forms.AccountAsset, output);
     }
 
     /// @notice Resolve positions for a run of requested `(account, asset, meta)` tuples.

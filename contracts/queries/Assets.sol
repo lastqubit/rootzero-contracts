@@ -26,7 +26,7 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
     uint public immutable isAllowedAssetId = queryId(NAME);
 
     constructor() {
-        emit Query(host, isAllowedAssetId, NAME, Schemas.Asset, Forms.Status);
+        emit Query(host, isAllowedAssetId, NAME, "1:1", Schemas.Asset, Forms.Status);
     }
 
     /// @notice Resolve allowlist status for a run of requested `(asset, meta)` tuples.

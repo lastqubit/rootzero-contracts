@@ -26,7 +26,7 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
     uint public immutable getBalancesId = queryId(NAME);
 
     constructor() {
-        emit Query(host, getBalancesId, NAME, Forms.AccountAsset, Forms.AccountAmount);
+        emit Query(host, getBalancesId, NAME, "1:1", Forms.AccountAsset, Forms.AccountAmount);
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.

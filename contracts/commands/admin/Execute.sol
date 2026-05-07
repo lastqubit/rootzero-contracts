@@ -19,7 +19,7 @@ abstract contract ExecutePayable is CommandPayable, AdminEvent {
     uint internal immutable executePayableId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, executePayableId, NAME, Schemas.Call, Keys.Empty, Keys.Empty, true);
+        emit Admin(host, executePayableId, NAME, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, true);
     }
 
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {

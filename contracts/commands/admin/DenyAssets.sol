@@ -21,7 +21,7 @@ abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, denyAssetsId, NAME, Schemas.Asset, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, denyAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false);
     }
 
     function denyAssets(

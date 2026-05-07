@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { ethers } from "ethers";
 import { deploy } from "./helpers/setup.js";
 import {
   concat,
@@ -24,6 +25,7 @@ describe("Queries", () => {
         await query.host(),
         await query.incrementQueryId(),
         "incrementQuery",
+        ethers.encodeBytes32String("1:1"),
         "query(uint foo)",
         "response(uint bar)",
       );
