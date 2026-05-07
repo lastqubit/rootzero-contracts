@@ -20,10 +20,22 @@ pragma solidity ^0.8.33;
 //   should be used only when a stable protocol-level key or opaque escape hatch is needed
 //
 // Schema DSL:
-// - `;` separates top-level sibling blocks
+// - `;` separates top-level items
+// - command, peer, and query schemas have the top-level form `prime`, `prime; global; global`,
+//   `empty; global; global`, or `""` for no request items at all
+// - the first top-level item is the prime item unless it is the schema-only `empty` sentinel
+// - the prime item must have one runtime key; helpers consume the consecutive run of blocks with
+//   that key as the per-operation batch, and `Command.shape` is defined over those prime runs
+// - `empty` emits no block, has no runtime key, and must only appear as the first top-level item
+//   before global blocks; it means the schema has no prime item
+// - top-level items after the prime item or `empty` are global batch support blocks: they apply to
+//   the whole batch, may be searched or consumed separately by the command, and are not counted as
+//   per-operation prime blocks
 // - `&` bundles adjacent blocks into one bundle block
 // - `+` frames adjacent fixed-layout block payloads into one frame block
 // - `+&` appends adjacent blocks to a frame as full block-stream items, preserving their headers
+// - leading `&` is shorthand for an anonymous bundle
+// - leading `+&` is shorthand for an anonymous frame with only a block-stream tail
 // - `&`, `+`, and `+&` follow the same grouping and normalization rules, except they emit different payload forms
 // - `name = a & b` introduces a named bundle item with a local key derived from the raw input string
 // - `name = a + b` introduces a named frame item with a local key derived from the raw input string
@@ -54,6 +66,9 @@ pragma solidity ^0.8.33;
 //   encounter order, e.g. `(uint amount, uint amount)` presents as `amount0` and `amount1`
 // - optionality is schema metadata only; when an optional item is present, it uses the same encoding as the
 //   non-optional form, and when absent, no placeholder block is emitted
+// - optional children inside a present bundle, list item, or `+&` frame tail may be absent while the
+//   parent structural block is still emitted; for example `& account(...)?` and `+& account(...)?`
+//   can encode as an empty BUNDLE or empty FRAME when the account child is absent
 // - optional `?` is not allowed on flattened `+` frame members because frame fields have no child key or length;
 //   use `(fields...)?` as an optional frame item, make the whole frame optional, or use `+&` for
 //   optional block-stream tail items
@@ -80,8 +95,9 @@ pragma solidity ^0.8.33;
 // - `+&` members keep their ordinary block encoding inside the frame payload, so dynamic blocks are allowed there
 // - `+&` starts a block-stream tail inside the frame; fixed-layout `+` members may not follow it
 // - frames may be bundled like ordinary block items, but bundles/lists cannot be framed
-// - top-level blocks of the same type should be grouped together
-// - primary / driving blocks should appear before auxiliary blocks
+// - prime blocks of the same type should be grouped together so the prime run is contiguous
+// - primary / driving blocks should be the prime item; auxiliary batch-wide blocks should follow
+//   as global `;` siblings
 // - `route(<fields...>)`, `item(<fields...>)`, `evm(<fields...>)`, `query(<fields...>)`,
 //   and `response(<fields...>)` are reserved extensible schema forms whose keys are always
 //   `Keys.Route`, `Keys.Item`, `Keys.Evm`, `Keys.Query`, and `Keys.Response` respectively
@@ -144,8 +160,10 @@ pragma solidity ^0.8.33;
 //   bundle `asset(...) & account(...)`
 // - `list? = fee(...)` means that anonymous list may be absent
 // - `"amount(...) &"` and `"& amount(...)"` both normalize to a bundle containing one `amount(...)` child
+// - `"& account(...)?"` normalizes to a bundle containing one optional `account(...)` child
 // - `"amount(...) +"` and `"+ amount(...)"` both normalize to a frame containing one `amount(...)` payload
 // - `"amount(...) +&"` and `"+& amount(...)"` both normalize to a frame containing one `amount(...)` block
+// - `"+& account(...)?"` normalizes to a frame containing an optional `account(...)` block-stream tail
 // - `"amount(...)?"` normalizes to an optional amount block; `"amount(...)?[]"` is invalid
 // - canonical blocks are `amount(...)` for request amounts, `balance(...)` for state balances,
 //   `allocation(...)` for host-scoped provision requests, `allowance(...)` for host-scoped caps,
@@ -177,6 +195,7 @@ pragma solidity ^0.8.33;
 /// These strings are the canonical source from which `Keys` constants are derived
 /// and are used when emitting schema descriptors in command events.
 library Schemas {
+    string constant Empty = "empty";
     string constant Node = "node(uint id)";
     string constant Account = "account(bytes32 account)";
     string constant Asset = "asset(bytes32 asset, bytes32 meta)";

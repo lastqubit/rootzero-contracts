@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Tx} from "../core/Types.sol";
 import {Sizes} from "./Schema.sol";
 import {Keys} from "./Keys.sol";
-import {ALLOC_SCALE, Writer, Writers} from "./Writers.sol";
+import {Writer, Writers} from "./Writers.sol";
 
 /// @notice Zero-copy view into a calldata block stream.
 /// All positions (`i`, `bound`) are byte offsets relative to the start of the source region.
@@ -45,7 +45,7 @@ library Cursors {
     error ZeroNode();
     /// @dev A field value did not match the expected value.
     error UnexpectedValue();
-    /// @dev Input and output block counts are not proportional to their declared group sizes.
+    /// @dev Prime block counts are not divisible by, or do not match, their declared group sizes.
     error BadRatio();
     // -------------------------------------------------------------------------
     // Cursor construction and navigation
@@ -300,14 +300,14 @@ library Cursors {
         return maybeTake(cur, Keys.Route);
     }
 
-    /// @notice Enter a List block, prime its member run, and return the raw block count.
+    /// @notice Enter a List block, prime its member run, and return the group count.
     /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
     /// @param group Expected block group size for the list item stream.
-    /// @return count Total number of blocks in the list payload (a multiple of `group`).
+    /// @return groups Number of block groups in the list payload.
     /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur, uint group) internal pure returns (uint count, uint next) {
+    function list(Cur memory cur, uint group) internal pure returns (uint groups, uint next) {
         next = list(cur);
-        (, count, ) = cur.primeRun(group);
+        (, , groups) = cur.primeRun(group);
         if (cur.bound != next) revert IncompleteCursor();
     }
 

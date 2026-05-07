@@ -20,7 +20,7 @@ abstract contract PeerSettle is PeerBase, TransferHook {
 
     /// @notice Execute the peer-settle call.
     function peerSettle(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory state, , ) = cursor(request, 1);
+        (Cur memory state, ) = cursor(request, 1);
 
         while (state.i < state.bound) {
             transfer(state.unpackTxValue());

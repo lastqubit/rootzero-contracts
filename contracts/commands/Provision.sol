@@ -37,12 +37,12 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionId, NAME, Schemas.Allocation, Keys.Empty, Keys.Custody, false);
+        emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false);
     }
 
     function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory request, uint count, ) = cursor(c.request, 1);
-        Writer memory writer = Writers.allocCustodies(count);
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocCustodies(groups);
 
         while (request.i < request.bound) {
             HostAmount memory allocation = request.unpackAllocationValue();
@@ -64,14 +64,14 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
     uint internal immutable provisionPayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionPayableId, NAME, Schemas.Allocation, Keys.Empty, Keys.Custody, true);
+        emit Command(host, provisionPayableId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, true);
     }
 
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory request, uint count, ) = cursor(c.request, 1);
-        Writer memory writer = Writers.allocCustodies(count);
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocCustodies(groups);
         Budget memory budget = Values.fromMsg();
 
         while (request.i < request.bound) {

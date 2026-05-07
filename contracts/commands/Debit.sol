@@ -27,15 +27,15 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     uint internal immutable debitAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, debitAccountId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, debitAccountId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     /// @notice Override to customize request parsing or batching for debits.
     /// The default implementation iterates AMOUNT blocks, calls
     /// `debitAccount`, and emits matching BALANCE blocks.
     function debitAccount(bytes32 account, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, uint count, ) = cursor(request, 1);
-        Writer memory writer = Writers.allocBalances(count);
+        (Cur memory input, uint groups) = cursor(request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
 
         while (input.i < input.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();

@@ -21,7 +21,7 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook {
 
     /// @notice Execute the allowance peer call.
     function peerAllowance(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory amounts, , ) = cursor(request, 1);
+        (Cur memory amounts, ) = cursor(request, 1);
         uint peer = caller();
 
         while (amounts.i < amounts.bound) {

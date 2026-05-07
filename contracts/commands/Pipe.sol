@@ -38,7 +38,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
     uint internal immutable pipePayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, pipePayableId, NAME, Schemas.Step, Keys.Empty, Keys.Empty, true);
+        emit Command(host, pipePayableId, NAME, "1:0:0", Schemas.Step, Keys.Empty, Keys.Empty, true);
     }
 
     function pipe(
@@ -47,7 +47,7 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
         bytes calldata steps,
         Budget memory budget
     ) internal returns (bytes memory) {
-        (Cur memory input, , ) = cursor(steps, 1);
+        (Cur memory input, ) = cursor(steps, 1);
 
         while (input.i < input.bound) {
             (uint target, uint value, bytes calldata request) = input.unpackStep();

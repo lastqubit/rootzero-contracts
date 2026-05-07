@@ -3,6 +3,7 @@ import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
   encodeAmountBlock,
+  encodeBalanceBlock,
   encodeNodeBlock,
   encodeTxBlock,
   encodeUserAccount,
@@ -35,11 +36,21 @@ describe("Peer Entrypoints", () => {
         "amount(bytes32 asset, bytes32 meta, uint amount)",
         false,
       );
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
+        await host.getPeerBalancePullId(),
+        "peerBalancePull",
+        "balance(bytes32 asset, bytes32 meta, uint amount)",
+        false,
+      );
   });
 
   async function callAs(
     signerIndex: number,
-    method: "peerAllowance(bytes)" | "peerAssetPull(bytes)" | "peerSettle(bytes)",
+    method: "peerAllowance(bytes)" | "peerBalancePull(bytes)" | "peerSettle(bytes)",
     request = "0x"
   ) {
     const signer = await getSigner(signerIndex);
@@ -103,45 +114,45 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerAssetPull", () => {
-    const method = "peerAssetPull(bytes)";
+  describe("peerBalancePull", () => {
+    const method = "peerBalancePull(bytes)";
     const asset = ethers.zeroPadValue("0xaa", 32);
     const meta = ethers.zeroPadValue("0xbb", 32);
 
-    it("emits PeerAssetPullCalled for a single AMOUNT block", async () => {
+    it("emits PeerBalancePullCalled for a single BALANCE block", async () => {
       const peer = await callerHost(1);
-      const tx = await callAs(1, method, encodeAmountBlock(asset, meta, 123n));
-      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset, meta, 123n);
+      const tx = await callAs(1, method, encodeBalanceBlock(asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerBalancePullCalled").withArgs(peer, asset, meta, 123n);
     });
 
-    it("emits PeerAssetPullCalled for each AMOUNT block when multiple are present", async () => {
+    it("emits PeerBalancePullCalled for each BALANCE block when multiple are present", async () => {
       const peer = await callerHost(1);
       const asset2 = ethers.zeroPadValue("0xcc", 32);
       const tx = await callAs(
         1,
         method,
         concat(
-          encodeAmountBlock(asset, meta, 123n),
-          encodeAmountBlock(asset2, meta, 456n),
+          encodeBalanceBlock(asset, meta, 123n),
+          encodeBalanceBlock(asset2, meta, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset, meta, 123n);
-      await expect(tx).to.emit(host, "PeerAssetPullCalled").withArgs(peer, asset2, meta, 456n);
+      await expect(tx).to.emit(host, "PeerBalancePullCalled").withArgs(peer, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerBalancePullCalled").withArgs(peer, asset2, meta, 456n);
     });
 
-    it("returns empty bytes after processing amount blocks", async () => {
+    it("returns empty bytes after processing balance blocks", async () => {
       const signer = await getSigner(1);
-      const result: string = await (host.connect(signer) as any)[method].staticCall(encodeAmountBlock(asset, meta, 123n));
+      const result: string = await (host.connect(signer) as any)[method].staticCall(encodeBalanceBlock(asset, meta, 123n));
       expect(result).to.equal("0x");
     });
 
     it("reverts CommanderNotAllowed for the commander", async () => {
-      await expect(callAs(0, method, encodeAmountBlock(asset, meta, 123n)))
+      await expect(callAs(0, method, encodeBalanceBlock(asset, meta, 123n)))
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
     it("reverts UnauthorizedCaller for an untrusted caller", async () => {
-      await expect(callAs(2, method, encodeAmountBlock(asset, meta, 123n)))
+      await expect(callAs(2, method, encodeBalanceBlock(asset, meta, 123n)))
         .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
     });
 

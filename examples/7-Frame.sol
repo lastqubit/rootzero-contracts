@@ -43,11 +43,11 @@ abstract contract MyCommand is CommandBase {
     event PaymentSeen(bytes32 asset, bytes32 meta, uint amount, uint fee);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Empty, false);
+        emit Command(host, myCommandId, NAME, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
     }
 
     function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
-        (Cur memory request, , ) = cursor(c.request, 1);
+        (Cur memory request, ) = cursor(c.request, 1);
 
         // The request can batch multiple FRAME blocks. Each one is decoded
         // with the command-local unpack helper above.

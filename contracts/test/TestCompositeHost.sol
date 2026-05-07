@@ -3,15 +3,15 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Deposit } from "../commands/Deposit.sol";
-import { PeerAssetPull } from "../peer/AssetPull.sol";
+import { PeerBalancePull } from "../peer/BalancePull.sol";
 import { GetBalances } from "../queries/Balances.sol";
 import { Ids } from "../utils/Ids.sol";
 
-contract TestCompositeHost is Host, Deposit, PeerAssetPull, GetBalances {
+contract TestCompositeHost is Host, Deposit, PeerBalancePull, GetBalances {
     constructor(address cmdr)
         Host(address(0), 1, "test")
         Deposit()
-        PeerAssetPull()
+        PeerBalancePull()
         GetBalances()
     {
         if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
@@ -21,7 +21,7 @@ contract TestCompositeHost is Host, Deposit, PeerAssetPull, GetBalances {
         account; asset; meta; amount;
     }
 
-    function assetPull(uint peer, bytes32 asset, bytes32 meta, uint amount) internal pure override {
+    function balancePull(uint peer, bytes32 asset, bytes32 meta, uint amount) internal pure override {
         peer; asset; meta; amount;
     }
 

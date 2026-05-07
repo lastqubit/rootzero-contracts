@@ -27,23 +27,22 @@ abstract contract RootZeroContext {
     /// @param source Calldata slice to parse.
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
     /// @return cur Cursor with `bound` set to the end of the first run.
-    /// @return count Total number of blocks in the run (a multiple of `group`).
-    /// @return quotient Number of groups in the run (`count / group`).
-    function cursor(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint count, uint quotient) {
+    /// @return groups Number of block groups in the run (`prime block count / group`).
+    function cursor(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
         cur = Cursors.open(source);
-        (, count, quotient) = cur.primeRun(group);
+        (, , groups) = cur.primeRun(group);
     }
 
-    /// @notice Open a cursor, prime it, and assert that its normalized quotient matches `expectedQuotient`.
-    /// Equivalent to `open(source)` followed by `primeRun(group)` and a direct quotient equality check.
-    /// Reverts with `Cursors.BadRatio` when the quotient does not match.
+    /// @notice Open a cursor, prime it, and assert that its group count matches `expectedGroups`.
+    /// Equivalent to `open(source)` followed by `primeRun(group)` and a direct group-count equality check.
+    /// Reverts with `Cursors.BadRatio` when the group count does not match.
     /// @param source Calldata slice to parse.
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @param expectedQuotient Required number of groups in the first run.
+    /// @param expectedGroups Required number of groups in the first run.
     /// @return cur Cursor with `bound` set to the end of the first run.
-    function cursor(bytes calldata source, uint group, uint expectedQuotient) internal pure returns (Cur memory cur) {
+    function cursor(bytes calldata source, uint group, uint expectedGroups) internal pure returns (Cur memory cur) {
         cur = Cursors.open(source);
-        (, , uint quotient) = cur.primeRun(group);
-        if (quotient != expectedQuotient) revert Cursors.BadRatio();
+        (, , uint groups) = cur.primeRun(group);
+        if (groups != expectedGroups) revert Cursors.BadRatio();
     }
 }

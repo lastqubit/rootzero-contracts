@@ -30,7 +30,7 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
     }
 
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = cursor(c.request, 1);
+        (Cur memory request, ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
             (uint peer, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllowance();

@@ -24,7 +24,7 @@ import { Allowance, AllowanceHook } from "./commands/admin/Allowance.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 import { PeerBase, encodePeerCall } from "./peer/Base.sol";
 import { PeerAllowance } from "./peer/Allowance.sol";
-import { PeerAssetPull, AssetPullHook } from "./peer/AssetPull.sol";
+import { PeerBalancePull, BalancePullHook } from "./peer/BalancePull.sol";
 import { PeerAllowAssets } from "./peer/AllowAssets.sol";
 import { PeerDenyAssets } from "./peer/DenyAssets.sol";
 import { PeerSettle } from "./peer/Settle.sol";
