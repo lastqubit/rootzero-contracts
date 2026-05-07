@@ -16,12 +16,12 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook {
     uint internal immutable peerAllowanceId = peerId(NAME);
 
     constructor() {
-        emit Peer(host, peerAllowanceId, NAME, Schemas.Amount, false);
+        emit Peer(host, peerAllowanceId, NAME, "1:0", Schemas.Amount, "", false);
     }
 
     /// @notice Execute the allowance peer call.
     function peerAllowance(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory amounts, , ) = cursor(request, 1);
+        (Cur memory amounts, ) = cursor(request, 1);
         uint peer = caller();
 
         while (amounts.i < amounts.bound) {

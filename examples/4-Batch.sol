@@ -22,16 +22,16 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external onlyTrusted returns (bytes memory) {
         // Create the request cursor from CommandContext.request, then size
-        // the writer from the block count returned by primeRun.
-        (Cur memory inputs, uint count, ) = cursor(c.request, 1);
-        Writer memory writer = Writers.allocBalances(count);
+        // the writer from the group count returned by the cursor helper.
+        (Cur memory inputs, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
 
         // Walk every AMOUNT block in the prime run of the request.
         while (inputs.i < inputs.bound) {

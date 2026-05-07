@@ -22,7 +22,7 @@ abstract contract Destroy is CommandBase, AdminEvent, DestroyHook {
     uint internal immutable destroyId = commandId(NAME);
 
     constructor(string memory input) {
-        emit Admin(host, destroyId, NAME, input, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, destroyId, NAME, "1:0:0", input, Keys.Empty, Keys.Empty, false);
     }
 
     function destroy(

@@ -17,11 +17,6 @@ struct Writer {
     bytes dst;
 }
 
-// Fixed-point scaling denominator for output-count allocation.
-// A `scaledRatio` of `ALLOC_SCALE` means 1:1 (one output block per input block).
-// `2 * ALLOC_SCALE` means 2:1; non-integer ratios revert with `BadWriterRatio`.
-uint constant ALLOC_SCALE = 10_000;
-
 /// @title Writers
 /// @notice Response block stream builder for the rootzero protocol.
 /// Allocates a fixed-size memory buffer up front and writes binary-encoded
@@ -36,8 +31,6 @@ library Writers {
     error IncompleteWriter();
     /// @dev An alloc function received a zero count, or `finish` found no bytes written.
     error EmptyRequest();
-    /// @dev `scaledRatio * count` is not evenly divisible by `ALLOC_SCALE`.
-    error BadWriterRatio();
     /// @dev A fixed-width low-level writer received an invalid final-word keep length.
     error InvalidKeep();
 
@@ -58,21 +51,13 @@ library Writers {
     }
 
     /// @notice Core allocation routine used by all counted `alloc*` helpers.
-    /// Computes `(count * scaledRatio / ALLOC_SCALE) * blockLen` and allocates that many bytes.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output-to-input ratio in `ALLOC_SCALE` units.
+    /// Computes `count * blockLen` and allocates that many bytes.
+    /// @param count Number of output blocks.
     /// @param blockLen Logical byte size of each output block (including 8-byte header).
     /// @return writer Allocated writer.
-    function allocFromScaledCount(
-        uint count,
-        uint scaledRatio,
-        uint blockLen
-    ) internal pure returns (Writer memory writer) {
+    function allocFromCount(uint count, uint blockLen) internal pure returns (Writer memory writer) {
         if (count == 0) revert EmptyRequest();
-        uint scaledCount = count * scaledRatio;
-        if (scaledCount % ALLOC_SCALE != 0) revert BadWriterRatio();
-        uint len = (scaledCount / ALLOC_SCALE) * blockLen;
-        writer = alloc(len);
+        writer = alloc(count * blockLen);
     }
 
     /// @notice Allocate a writer sized for exactly `count` dynamic blocks with a shared payload length.
@@ -81,96 +66,42 @@ library Writers {
     /// @param payloadLen Payload byte length for each block.
     /// @return writer Allocated writer.
     function allocBytes(uint count, uint payloadLen) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.Header + payloadLen);
+        return allocFromCount(count, Sizes.Header + payloadLen);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` 32-byte-payload blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` 32-byte-payload blocks.
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function alloc32s(uint count) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.B32);
+        return allocFromCount(count, Sizes.B32);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` 64-byte-payload blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` 64-byte-payload blocks.
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function alloc64s(uint count) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.B64);
+        return allocFromCount(count, Sizes.B64);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` 96-byte-payload blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` 96-byte-payload blocks.
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function alloc96s(uint count) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.B96);
+        return allocFromCount(count, Sizes.B96);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` 128-byte-payload blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` 128-byte-payload blocks.
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function alloc128s(uint count) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.B128);
+        return allocFromCount(count, Sizes.B128);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` 160-byte-payload blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` 160-byte-payload blocks.
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function alloc160s(uint count) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, ALLOC_SCALE, Sizes.B160);
-    }
-
-    /// @notice Allocate a writer for dynamic blocks with a shared payload length and custom output ratio.
-    /// Each block reserves `Sizes.Header + payloadLen` bytes.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @param payloadLen Payload byte length for each block.
-    /// @return writer Allocated writer.
-    function allocScaledBytes(
-        uint count,
-        uint scaledRatio,
-        uint payloadLen
-    ) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.Header + payloadLen);
-    }
-
-    /// @notice Allocate a writer for 32-byte-payload blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaled32s(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.B32);
-    }
-
-    /// @notice Allocate a writer for 64-byte-payload blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaled64s(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.B64);
-    }
-
-    /// @notice Allocate a writer for 96-byte-payload blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaled96s(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.B96);
-    }
-
-    /// @notice Allocate a writer for 128-byte-payload blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaled128s(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.B128);
-    }
-
-    /// @notice Allocate a writer for 160-byte-payload blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaled160s(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocFromScaledCount(count, scaledRatio, Sizes.B160);
+        return allocFromCount(count, Sizes.B160);
     }
 
     /// @notice Allocate a writer sized for exactly `count` STATUS form blocks.
@@ -180,81 +111,46 @@ library Writers {
         return alloc32s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` ASSET blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` ASSET blocks.
     /// @param count Number of asset blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAssets(uint count) internal pure returns (Writer memory writer) {
         return alloc64s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` AMOUNT blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` AMOUNT blocks.
     /// @param count Number of amount blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAmounts(uint count) internal pure returns (Writer memory writer) {
         return alloc96s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` BALANCE blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` BALANCE blocks.
     /// @param count Number of balance blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocBalances(uint count) internal pure returns (Writer memory writer) {
         return alloc96s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` ACCOUNT_AMOUNT form blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` ACCOUNT_AMOUNT form blocks.
     /// @param count Number of account amount blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAccountAmounts(uint count) internal pure returns (Writer memory writer) {
         return alloc128s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` CUSTODY blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` CUSTODY blocks.
     /// @param count Number of custody blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocCustodies(uint count) internal pure returns (Writer memory writer) {
         return alloc128s(count);
     }
 
-    /// @notice Allocate a writer sized for exactly `count` TRANSACTION blocks (1:1 ratio).
+    /// @notice Allocate a writer sized for exactly `count` TRANSACTION blocks.
     /// @param count Number of transaction blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocTransactions(uint count) internal pure returns (Writer memory writer) {
         return alloc160s(count);
-    }
-
-    /// @notice Allocate a writer for ASSET blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units
-    ///        (e.g. `ALLOC_SCALE` = 1:1, `2 * ALLOC_SCALE` = 2:1).
-    /// @return writer Allocated writer.
-    function allocScaledAssets(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocScaled64s(count, scaledRatio);
-    }
-
-    /// @notice Allocate a writer for AMOUNT blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units
-    ///        (e.g. `ALLOC_SCALE` = 1:1, `2 * ALLOC_SCALE` = 2:1).
-    /// @return writer Allocated writer.
-    function allocScaledAmounts(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocScaled96s(count, scaledRatio);
-    }
-
-    /// @notice Allocate a writer for BALANCE blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier expressed in `ALLOC_SCALE` units
-    ///        (e.g. `ALLOC_SCALE` = 1:1, `2 * ALLOC_SCALE` = 2:1).
-    /// @return writer Allocated writer.
-    function allocScaledBalances(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocScaled96s(count, scaledRatio);
-    }
-
-    /// @notice Allocate a writer for CUSTODY blocks with a custom output-to-input ratio.
-    /// @param count Number of input blocks.
-    /// @param scaledRatio Output count multiplier in `ALLOC_SCALE` units.
-    /// @return writer Allocated writer.
-    function allocScaledCustodies(uint count, uint scaledRatio) internal pure returns (Writer memory writer) {
-        return allocScaled128s(count, scaledRatio);
     }
 
     // -------------------------------------------------------------------------

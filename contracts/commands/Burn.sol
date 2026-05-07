@@ -25,11 +25,11 @@ abstract contract Burn is CommandBase, BurnHook {
     uint internal immutable burnId = commandId(NAME);
 
     constructor() {
-        emit Command(host, burnId, NAME, "", Keys.Balance, Keys.Empty, false);
+        emit Command(host, burnId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false);
     }
 
     function burn(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory state, , ) = cursor(c.state, 1);
+        (Cur memory state, ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();

@@ -22,17 +22,18 @@ abstract contract CreditAccountHook {
 /// An optional ACCOUNT block in the request overrides the default `c.account` destination.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     string private constant NAME = "creditAccount";
+    string private constant REQUEST = string.concat(Schemas.Empty, ";", Schemas.Account, "?");
 
     uint internal immutable creditAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, creditAccountId, NAME, Schemas.Account, Keys.Balance, Keys.Empty, false);
+        emit Command(host, creditAccountId, NAME, "0:1:0", REQUEST, Keys.Balance, Keys.Empty, false);
     }
 
     function creditAccount(
         CommandContext calldata c
     ) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory state, , ) = cursor(c.state, 1);
+        (Cur memory state, ) = cursor(c.state, 1);
         bytes32 to = Cursors.resolveAccount(c.request, c.account);
 
         while (state.i < state.bound) {

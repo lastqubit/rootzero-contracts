@@ -162,9 +162,9 @@ contract TestCursorHelper {
         return cur.past();
     }
 
-    function testHasCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
+    function testIsAtCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
-        return cur.has(key);
+        return cur.isAt(key);
     }
 
     function testCountRun(bytes calldata source, uint i, bytes4 key) external pure returns (uint total, uint next) {
@@ -184,6 +184,21 @@ contract TestCursorHelper {
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.slice(from, to);
         return (out.offset - sourceOffset, out.i, out.len, out.bound);
+    }
+
+    function testRaw(bytes calldata source) external pure returns (bytes calldata data) {
+        Cur memory cur = Cursors.open(source);
+        return cur.raw();
+    }
+
+    function testRawSlice(bytes calldata source, uint from, uint to) external pure returns (bytes calldata data) {
+        Cur memory cur = Cursors.open(source);
+        return cur.raw(from, to);
+    }
+
+    function testMaybeOnly(bytes calldata source, bytes4 key) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        return cur.maybeOnly(key);
     }
 
     function testBundle(bytes calldata source) external pure returns (uint inputI, uint next) {
@@ -238,6 +253,20 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.take(key);
+        return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
+    }
+
+    function testMaybeTake(bytes calldata source, bytes4 key)
+        external
+        pure
+        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur = Cursors.open(source);
+        Cur memory out = cur.maybeTake(key);
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 

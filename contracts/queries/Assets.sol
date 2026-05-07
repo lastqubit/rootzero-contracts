@@ -26,15 +26,15 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
     uint public immutable isAllowedAssetId = queryId(NAME);
 
     constructor() {
-        emit Query(host, isAllowedAssetId, NAME, Schemas.Asset, Forms.Status);
+        emit Query(host, isAllowedAssetId, NAME, "1:1", Schemas.Asset, Forms.Status);
     }
 
     /// @notice Resolve allowlist status for a run of requested `(asset, meta)` tuples.
     /// @param request Block-stream request consisting of `asset(asset, meta)*`.
     /// @return Block-stream response containing one `status(ok)` per asset block.
     function isAllowedAsset(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint count, ) = cursor(request, 1);
-        Writer memory response = Writers.allocStatuses(count);
+        (Cur memory query, uint groups) = cursor(request, 1);
+        Writer memory response = Writers.allocStatuses(groups);
 
         while (query.i < query.bound) {
             (bytes32 asset, bytes32 meta) = query.unpackAsset();

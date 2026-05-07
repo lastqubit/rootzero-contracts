@@ -23,7 +23,7 @@ abstract contract Transfer is CommandBase, TransferHook {
     uint internal immutable transferId = commandId(NAME);
 
     constructor() {
-        emit Command(host, transferId, NAME, Schemas.Payout, Keys.Empty, Keys.Empty, false);
+        emit Command(host, transferId, NAME, "1:0:0", Schemas.Payout, Keys.Empty, Keys.Empty, false);
     }
 
     /// @notice Override to customize request parsing or batching for transfers.
@@ -32,7 +32,7 @@ abstract contract Transfer is CommandBase, TransferHook {
     /// @param request Full request bytes.
     /// @return Empty bytes (transfers produce no state output).
     function transfer(bytes32 from, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, , ) = cursor(request, 1);
+        (Cur memory input, ) = cursor(request, 1);
         Tx memory value;
         value.from = from;
 

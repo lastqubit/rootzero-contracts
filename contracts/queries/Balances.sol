@@ -26,15 +26,15 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
     uint public immutable getBalancesId = queryId(NAME);
 
     constructor() {
-        emit Query(host, getBalancesId, NAME, Forms.AccountAsset, Forms.AccountAmount);
+        emit Query(host, getBalancesId, NAME, "1:1", Forms.AccountAsset, Forms.AccountAmount);
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.
     /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
     /// @return Block-stream response containing one `accountAmount(account, asset, meta, amount)` block per request block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint count, ) = cursor(request, 1);
-        Writer memory response = Writers.allocAccountAmounts(count);
+        (Cur memory query, uint groups) = cursor(request, 1);
+        Writer memory response = Writers.allocAccountAmounts(groups);
 
         while (query.i < query.bound) {
             (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackAccountAsset();

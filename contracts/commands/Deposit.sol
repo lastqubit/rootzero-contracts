@@ -41,14 +41,14 @@ abstract contract Deposit is CommandBase, DepositHook {
     uint internal immutable depositId = commandId(NAME);
 
     constructor() {
-        emit Command(host, depositId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, depositId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function deposit(
         CommandContext calldata c
     ) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory request, uint count, ) = cursor(c.request, 1);
-        Writer memory writer = Writers.allocBalances(count);
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
 
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
@@ -69,14 +69,14 @@ abstract contract DepositPayable is CommandPayable, DepositPayableHook {
     uint internal immutable depositPayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, depositPayableId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, true);
+        emit Command(host, depositPayableId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, true);
     }
 
     function depositPayable(
         CommandContext calldata c
     ) external payable onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory request, uint count, ) = cursor(c.request, 1);
-        Writer memory writer = Writers.allocBalances(count);
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
         Budget memory budget = Values.fromMsg();
 
         while (request.i < request.bound) {

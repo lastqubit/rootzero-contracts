@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Tx} from "../core/Types.sol";
 import {Sizes} from "./Schema.sol";
 import {Keys} from "./Keys.sol";
-import {ALLOC_SCALE, Writer, Writers} from "./Writers.sol";
+import {Writer, Writers} from "./Writers.sol";
 
 /// @notice Zero-copy view into a calldata block stream.
 /// All positions (`i`, `bound`) are byte offsets relative to the start of the source region.
@@ -45,7 +45,7 @@ library Cursors {
     error ZeroNode();
     /// @dev A field value did not match the expected value.
     error UnexpectedValue();
-    /// @dev Input and output block counts are not proportional to their declared group sizes.
+    /// @dev Prime block counts are not divisible by, or do not match, their declared group sizes.
     error BadRatio();
     // -------------------------------------------------------------------------
     // Cursor construction and navigation
@@ -87,6 +87,25 @@ library Cursors {
         out.len = to - from;
     }
 
+    /// @notice Return the full cursor region as a calldata slice.
+    /// Does not advance the cursor; `cur.i` and `cur.bound` are ignored.
+    /// @param cur Cursor whose backing region should be returned.
+    /// @return data Calldata view over `[cur.offset, cur.offset + cur.len)`.
+    function raw(Cur memory cur) internal pure returns (bytes calldata data) {
+        if (cur.len > msg.data.length || cur.offset > msg.data.length - cur.len) revert MalformedBlocks();
+        data = msg.data[cur.offset:cur.offset + cur.len];
+    }
+
+    /// @notice Return a sub-range of the cursor region as a calldata slice.
+    /// Does not advance the cursor; `cur.i` and `cur.bound` are ignored.
+    /// @param cur Source cursor.
+    /// @param from Start byte offset within the source region (inclusive).
+    /// @param to End byte offset within the source region (exclusive).
+    /// @return data Calldata view over the requested sub-range.
+    function raw(Cur memory cur, uint from, uint to) internal pure returns (bytes calldata data) {
+        data = cur.slice(from, to).raw();
+    }
+
     /// @notice Read a block header at position `i` without advancing the cursor.
     /// @param cur Source cursor.
     /// @param i Byte offset of the block header within the source region.
@@ -109,15 +128,28 @@ library Cursors {
         return cur.i + Sizes.Header + len;
     }
 
-    /// @notice Return true if the current cursor position contains a block header with the given key.
+    /// @notice Return true if the current cursor position is at a block header with the given key.
     /// Returns false when `cur.i` is out of bounds or the key differs.
     /// @param cur Source cursor.
     /// @param key Expected block type identifier.
     /// @return Whether the block header at `cur.i` uses `key`.
-    function has(Cur memory cur, bytes4 key) internal pure returns (bool) {
+    function isAt(Cur memory cur, bytes4 key) internal pure returns (bool) {
         if (cur.i + 8 > cur.len) return false;
         uint abs = cur.offset + cur.i;
         return bytes4(msg.data[abs:abs + 4]) == key;
+    }
+
+    /// @notice Return whether the remaining cursor region is empty or exactly one block with `key`.
+    /// Returns false for an empty remaining region. Reverts if the next block has another key or
+    /// if a matching block is followed by trailing bytes.
+    /// @param cur Source cursor.
+    /// @param key Expected optional block key.
+    /// @return Whether the remaining region contains exactly one block with `key`.
+    function maybeOnly(Cur memory cur, bytes4 key) internal pure returns (bool) {
+        if (cur.i == cur.len) return false;
+        if (!cur.isAt(key)) revert InvalidBlock();
+        if (cur.past() != cur.len) revert IncompleteCursor();
+        return true;
     }
 
     /// @notice Validate a block at position `i` and return its payload location.
@@ -249,23 +281,33 @@ library Cursors {
         cur.i = next;
     }
 
+    /// @notice Consume an optional block with the given key and return a cursor over the full block slice.
+    /// If the current block key does not match, returns an empty cursor and leaves `cur.i` unchanged.
+    /// Otherwise behaves like `take(cur, key)`.
+    /// @param cur Cursor positioned at an optional block.
+    /// @param key Optional block type key.
+    /// @return out Cursor scoped to the full matching block, or empty when no matching block is present.
+    function maybeTake(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
+        return cur.isAt(key) ? take(cur, key) : cur.slice(cur.i, cur.i);
+    }
+
     /// @notice Consume an optional ROUTE block at the current position and return a cursor over the full block slice.
     /// If the current block is not ROUTE, returns an empty cursor and leaves `cur.i` unchanged.
     /// Otherwise behaves like `take(cur, Keys.Route)`.
     /// @param cur Cursor positioned at an optional ROUTE block.
     /// @return out Cursor scoped to the full ROUTE block, or empty when no ROUTE block is present.
     function maybeRoute(Cur memory cur) internal pure returns (Cur memory out) {
-        return cur.has(Keys.Route) ? take(cur, Keys.Route) : cur.slice(cur.i, cur.i);
+        return maybeTake(cur, Keys.Route);
     }
 
-    /// @notice Enter a List block, prime its member run, and return the raw block count.
+    /// @notice Enter a List block, prime its member run, and return the group count.
     /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
     /// @param group Expected block group size for the list item stream.
-    /// @return count Total number of blocks in the list payload (a multiple of `group`).
+    /// @return groups Number of block groups in the list payload.
     /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur, uint group) internal pure returns (uint count, uint next) {
+    function list(Cur memory cur, uint group) internal pure returns (uint groups, uint next) {
         next = list(cur);
-        (, count, ) = cur.primeRun(group);
+        (, , groups) = cur.primeRun(group);
         if (cur.bound != next) revert IncompleteCursor();
     }
 
