@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-// Example 5: Route Blocks
+// Example 5: Data Blocks
 //
-// Route blocks let a command accept arbitrary command-specific parameters
+// Data blocks let a command accept arbitrary command-specific parameters
 // alongside standard protocol blocks, without breaking the rootzero wire format.
 //
 // In the current cursor model, bundled inputs are handled explicitly:
 // create a cursor for the request, call `bundle()`, then consume the bundle
 // members from the returned cursor.
 //
-// This example expects a bundle containing a ROUTE block carrying a `host` ID
+// This example expects a bundle containing a DATA block carrying a `host` ID
 // and an AMOUNT block. The command reads both, forwards the asset to that host,
 // and returns a CUSTODY block confirming the held asset.
 
@@ -21,12 +21,12 @@ using Cursors for Cur;
 
 string constant NAME = "myCommand";
 
-// ROUTE describes the route payload schema (a single uint - the target host ID).
-string constant ROUTE = "route(uint host)";
+// DATA describes the custom payload schema (a single uint - the target host ID).
+string constant DATA = "data(uint host)";
 
 // INPUT is the full input schema published with the Command event.
-// The "&" separator means: a ROUTE block bundled together with an AMOUNT block.
-string constant INPUT = string.concat(ROUTE, "&", Schemas.Amount);
+// The "&" separator means: a DATA block bundled together with an AMOUNT block.
+string constant INPUT = string.concat(DATA, "&", Schemas.Amount);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
@@ -45,13 +45,13 @@ abstract contract MyCommand is CommandBase {
         Cur memory input = cursor(c.request);
         input.bundle();
 
-        // The first bundled member is the ROUTE block.
-        uint host = input.unpackUint(Keys.Route);
+        // The first bundled member is the DATA block.
+        uint host = input.unpackUint(Keys.Data);
 
         // The second bundled member is the AMOUNT block.
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 
-        // Delegate to the implementer to move the asset to the routed host.
+        // Delegate to the implementer to move the asset to the selected host.
         sendToHost(host, asset, meta, amount);
 
         // Return a CUSTODY block recording that this asset is now held by `host`.

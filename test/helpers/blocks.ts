@@ -20,21 +20,20 @@ export const Keys = {
   Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
   Quantity: blockKey("quantity(uint amount)"),
   Step: blockKey("step(uint target, uint value, bytes request)"),
-  Call: blockKey("call(uint target, uint value, bytes data)"),
+  Call: blockKey("call(uint target, uint value, bytes payload)"),
   Transaction: blockKey("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
   Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
   Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
   Break: blockKey("break()"),
   Auth: blockKey("auth(uint cid, uint deadline, bytes proof)"),
   Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
-  Bundle: blockKey("bundle(bytes data)"),
-  List: blockKey("list(bytes data)"),
-  Frame: blockKey("frame(bytes data)"),
-  Route: blockKey("route(bytes data)"),
-  Item: blockKey("item(bytes data)"),
-  Evm: blockKey("evm(bytes data)"),
-  Query: blockKey("query(bytes data)"),
-  Response: blockKey("response(bytes data)"),
+  Bundle: blockKey("bundle(bytes payload)"),
+  List: blockKey("list(bytes payload)"),
+  Frame: blockKey("frame(bytes payload)"),
+  Data: blockKey("data(bytes payload)"),
+  Evm: blockKey("evm(bytes payload)"),
+  Query: blockKey("query(bytes payload)"),
+  Response: blockKey("response(bytes payload)"),
   Status: blockKey("status(bool ok)"),
   AssetAmount: blockKey("assetAmount(bytes32 asset, bytes32 meta, uint amount)"),
   AccountAsset: blockKey("accountAsset(bytes32 account, bytes32 asset, bytes32 meta)"),
@@ -160,8 +159,8 @@ export function encodeCallBlock(target: bigint, value: bigint, data: string): st
   return block(Keys.Call, ethers.concat([pad32(target), pad32(value), data]));
 }
 
-export function encodeRouteBlock(data: string): string {
-  return block(Keys.Route, data);
+export function encodeDataBlock(data: string): string {
+  return block(Keys.Data, data);
 }
 
 export function encodeEvmBlock(data: string): string {
@@ -196,16 +195,16 @@ export function encodeFrameBlock(...payloads: string[]): string {
   return block(Keys.Frame, concat(...payloads));
 }
 
-export function encodeRouteBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeRouteBlock(data), encodeAmountBlock(asset, meta, amount));
+export function encodeDataBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
+  return encodeBundleBlock(encodeDataBlock(data), encodeAmountBlock(asset, meta, amount));
 }
 
-export function encodeRouteBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeRouteBlock(data), encodeMinimumBlock(asset, meta, amount));
+export function encodeDataBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
+  return encodeBundleBlock(encodeDataBlock(data), encodeMinimumBlock(asset, meta, amount));
 }
 
 export function encodeBundleBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeRouteBlock(data), encodeMinimumBlock(asset, meta, amount));
+  return encodeBundleBlock(encodeDataBlock(data), encodeMinimumBlock(asset, meta, amount));
 }
 
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {

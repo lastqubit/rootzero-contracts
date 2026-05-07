@@ -270,7 +270,7 @@ contract TestCursorHelper {
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 
-    function testMaybeRoute(bytes calldata source)
+    function testMaybeData(bytes calldata source)
         external
         pure
         returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
@@ -280,7 +280,7 @@ contract TestCursorHelper {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        Cur memory out = cur.maybeRoute();
+        Cur memory out = cur.maybeData();
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 

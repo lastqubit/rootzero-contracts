@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
   encodeNodeBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeRouteBlock, encodeCallBlock, concat
+  encodeDataBlock, encodeCallBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -75,14 +75,14 @@ describe("Admin Commands", () => {
   describe("init", () => {
     it("emits InitCalled for a single input block", async () => {
       const inputData = "0x1234";
-      await expect(callAs(0, "init", adminCtx(encodeRouteBlock(inputData))))
+      await expect(callAs(0, "init", adminCtx(encodeDataBlock(inputData))))
         .to.emit(host, "InitCalled")
         .withArgs(inputData);
     });
 
     it("reverts NotAdmin for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x11", 32);
-      await expect(callAs(0, "init", userCtx(fakeAdmin, encodeRouteBlock("0x01"))))
+      await expect(callAs(0, "init", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 
@@ -231,7 +231,7 @@ describe("Admin Commands", () => {
       await target.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
 
       const inputData = "0x123456";
-      const targetCtx = { account: await target.getAdminAccount(), meta: ethers.ZeroHash, state: "0x", request: encodeRouteBlock(inputData) };
+      const targetCtx = { account: await target.getAdminAccount(), meta: ethers.ZeroHash, state: "0x", request: encodeDataBlock(inputData) };
       const calldata = target.interface.encodeFunctionData("init", [targetCtx]);
       const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
@@ -253,13 +253,13 @@ describe("Admin Commands", () => {
         account: await targetA.getAdminAccount(),
         meta: ethers.ZeroHash,
         state: "0x",
-        request: encodeRouteBlock("0xaa")
+        request: encodeDataBlock("0xaa")
       }]);
       const calldataB = targetB.interface.encodeFunctionData("destroy", [{
         account: await targetB.getAdminAccount(),
         meta: ethers.ZeroHash,
         state: "0x",
-        request: encodeRouteBlock("0xbb")
+        request: encodeDataBlock("0xbb")
       }]);
 
       const tx = await callAs(0, "executePayable", adminCtx(concat(
@@ -312,14 +312,14 @@ describe("Admin Commands", () => {
   describe("destroy", () => {
     it("emits DestroyCalled for a single input block", async () => {
       const inputData = "0xdead";
-      await expect(callAs(0, "destroy", adminCtx(encodeRouteBlock(inputData))))
+      await expect(callAs(0, "destroy", adminCtx(encodeDataBlock(inputData))))
         .to.emit(host, "DestroyCalled")
         .withArgs(inputData);
     });
 
     it("reverts NotAdmin for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x12", 32);
-      await expect(callAs(0, "destroy", userCtx(fakeAdmin, encodeRouteBlock("0x01"))))
+      await expect(callAs(0, "destroy", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
         .to.be.revertedWithCustomError(host, "NotAdmin");
     });
 

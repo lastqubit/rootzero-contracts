@@ -162,8 +162,8 @@ import {Cursors, Cur, Schemas} from "@rootzero/contracts/Cursors.sol";
 using Cursors for Cur;
 
 string constant NAME = "myCommand";
-string constant ROUTE = "route(uint foo, uint bar)";
-string constant INPUT = string.concat(ROUTE, "&", Schemas.Amount);
+string constant DATA = "data(uint foo, uint bar)";
+string constant INPUT = string.concat(DATA, "&", Schemas.Amount);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
@@ -178,11 +178,11 @@ abstract contract MyCommand is CommandBase {
         Cur memory input = cursor(c.request);
         uint next = input.bundle();
 
-        bytes calldata route = input.unpackRaw(Keys.Route);
+        bytes calldata data = input.unpackRaw(Keys.Data);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
         input.ensure(next);
 
-        route;
+        data;
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
@@ -200,12 +200,12 @@ Cursor parsing is the nicest way to read structured command input.
 
 If your request contains a bundled input like:
 
-- `route(uint foo) & amount(bytes32 asset, bytes32 meta, uint amount)`
+- `data(uint foo) & amount(bytes32 asset, bytes32 meta, uint amount)`
 
 your command can:
 
 - open it with `cursor(c.request)` or `Cursors.open(...)`
-- consume the route first
+- consume the data first
 - then consume the amount
 - keep parsing in bundle/member order without indexing helpers
 
@@ -272,7 +272,7 @@ If you want to learn by example, these are the best files to read next:
 - `examples/2-Basic.sol`: host plus a built-in command hook
 - `examples/3-Command.sol`: custom command id and command event
 - `examples/4-Batch.sol`: batching request input and building balance output
-- `examples/5-Route.sol`: bundled route input plus protocol blocks
+- `examples/5-Data.sol`: bundled data input plus protocol blocks
 - `test/commands.test.ts`: concrete request and response examples
 - `test/helpers/blocks.ts`: block encoders you can reuse in off-chain tooling
 

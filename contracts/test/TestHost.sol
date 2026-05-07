@@ -104,8 +104,8 @@ contract TestHost is
     function init(Cur memory input) internal override {
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
-        if (key == Keys.Route) {
-            inputData = input.unpackRaw(Keys.Route);
+        if (key == Keys.Data) {
+            inputData = input.unpackRaw(Keys.Data);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];
@@ -117,8 +117,8 @@ contract TestHost is
     function destroy(Cur memory input) internal override {
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
-        if (key == Keys.Route) {
-            inputData = input.unpackRaw(Keys.Route);
+        if (key == Keys.Data) {
+            inputData = input.unpackRaw(Keys.Data);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];

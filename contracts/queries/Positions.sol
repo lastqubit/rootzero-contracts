@@ -41,7 +41,7 @@ abstract contract GetPosition is QueryBase, GetPositionHook {
     /// @dev Allocates from the configured fixed response payload length so each hook call
     ///      can append one `RESPONSE` block directly into the output stream.
     /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
-    /// @return Block-stream response containing one `response(bytes data)` block per position block.
+    /// @return Block-stream response containing one `response(bytes payload)` block per position block.
     function getPosition(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups) = cursor(request, 1);
         Writer memory response = Writers.allocBytes(groups, positionResponseSize);

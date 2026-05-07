@@ -30,22 +30,20 @@ library Keys {
     bytes4 constant Fee = bytes4(keccak256("fee(uint amount)"));
     /// @dev Hard stop / iteration sentinel - ()
     bytes4 constant Break = bytes4(keccak256("break()"));
-    /// @dev Bundle wrapper - (bytes data); payload is an embedded block stream
-    bytes4 constant Bundle = bytes4(keccak256("bundle(bytes data)"));
-    /// @dev List wrapper - (bytes data); payload is an embedded repeated block stream
-    bytes4 constant List = bytes4(keccak256("list(bytes data)"));
-    /// @dev Frame wrapper - (bytes data); payload is schema-defined fields, optionally followed by block-stream items
-    bytes4 constant Frame = bytes4(keccak256("frame(bytes data)"));
-    /// @dev Extensible routing field - (bytes data); layout is command-defined
-    bytes4 constant Route = bytes4(keccak256("route(bytes data)"));
-    /// @dev Extensible list item field - (bytes data); layout is implementation-defined
-    bytes4 constant Item = bytes4(keccak256("item(bytes data)"));
-    /// @dev EVM-encoded payload field - (bytes data); layout follows standard ABI tuple encoding
-    bytes4 constant Evm = bytes4(keccak256("evm(bytes data)"));
-    /// @dev Extensible query field - (bytes data); layout is query-defined, key is always `Keys.Query`
-    bytes4 constant Query = bytes4(keccak256("query(bytes data)"));
-    /// @dev Extensible response field - (bytes data); layout is response-defined, key is always `Keys.Response`
-    bytes4 constant Response = bytes4(keccak256("response(bytes data)"));
+    /// @dev Bundle wrapper - (bytes payload); payload is an embedded block stream
+    bytes4 constant Bundle = bytes4(keccak256("bundle(bytes payload)"));
+    /// @dev List wrapper - (bytes payload); payload is an embedded repeated block stream
+    bytes4 constant List = bytes4(keccak256("list(bytes payload)"));
+    /// @dev Frame wrapper - (bytes payload); payload is schema-defined fields, optionally followed by block-stream items
+    bytes4 constant Frame = bytes4(keccak256("frame(bytes payload)"));
+    /// @dev Extensible data field - (bytes payload); layout is schema-defined
+    bytes4 constant Data = bytes4(keccak256("data(bytes payload)"));
+    /// @dev EVM-encoded payload field - (bytes payload); layout follows standard ABI tuple encoding
+    bytes4 constant Evm = bytes4(keccak256("evm(bytes payload)"));
+    /// @dev Extensible query field - (bytes payload); layout is query-defined, key is always `Keys.Query`
+    bytes4 constant Query = bytes4(keccak256("query(bytes payload)"));
+    /// @dev Extensible response field - (bytes payload); layout is response-defined, key is always `Keys.Response`
+    bytes4 constant Response = bytes4(keccak256("response(bytes payload)"));
     /// @dev Plain scalar amount - (uint amount)
     bytes4 constant Quantity = bytes4(keccak256("quantity(uint amount)"));
     /// @dev Ratio or rate value - (uint value)
@@ -60,8 +58,8 @@ library Keys {
     );
     /// @dev Sub-command invocation - (uint target, uint value, bytes request)
     bytes4 constant Step = bytes4(keccak256("step(uint target, uint value, bytes request)"));
-    /// @dev Raw external call - (uint target, uint value, bytes data)
-    bytes4 constant Call = bytes4(keccak256("call(uint target, uint value, bytes data)"));
+    /// @dev Raw external call - (uint target, uint value, bytes payload)
+    bytes4 constant Call = bytes4(keccak256("call(uint target, uint value, bytes payload)"));
     /// @dev Authentication proof - (uint cid, uint deadline, bytes proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256("auth(uint cid, uint deadline, bytes proof)"));
     /// @dev Asset descriptor without amount - (bytes32 asset, bytes32 meta)

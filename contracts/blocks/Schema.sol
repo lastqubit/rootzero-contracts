@@ -16,7 +16,7 @@ pragma solidity ^0.8.33;
 //   and can be decoded with `abi.decode`
 // - chain-specific payload blocks are request-only escape hatches and should never be used for pipeline state
 // - prefer ordinary protocol blocks whenever possible; chain-specific payload blocks should be a last resort
-// - prefer frames for typed custom payloads; reserved extensible blocks such as `route(...)` and `item(...)`
+// - prefer frames for typed custom payloads; reserved extensible blocks such as `data(...)`
 //   should be used only when a stable protocol-level key or opaque escape hatch is needed
 //
 // Schema DSL:
@@ -33,7 +33,8 @@ pragma solidity ^0.8.33;
 //   per-operation prime blocks
 // - `&` bundles adjacent blocks into one bundle block
 // - `+` frames adjacent fixed-layout block payloads into one frame block
-// - `+&` appends adjacent blocks to a frame as full block-stream items, preserving their headers
+// - `+&` appends the following block to a frame as a full block-stream item, preserving its header
+// - use one `+&` per appended tail block, e.g. `amount(...) +& fee(...) +& data(...)`
 // - leading `&` is shorthand for an anonymous bundle
 // - leading `+&` is shorthand for an anonymous frame with only a block-stream tail
 // - `&`, `+`, and `+&` follow the same grouping and normalization rules, except they emit different payload forms
@@ -93,21 +94,22 @@ pragma solidity ^0.8.33;
 // - framed members must be fixed-layout block forms because frame payloads contain no child lengths or block keys
 // - anonymous frame field groups must also be fixed-layout and contribute only their fields, in order
 // - `+&` members keep their ordinary block encoding inside the frame payload, so dynamic blocks are allowed there
-// - `+&` starts a block-stream tail inside the frame; fixed-layout `+` members may not follow it
+// - each block-stream tail member is introduced with `+&`; after the first `+&`, fixed-layout `+` members
+//   may not follow
 // - frames may be bundled like ordinary block items, but bundles/lists cannot be framed
 // - prime blocks of the same type should be grouped together so the prime run is contiguous
 // - primary / driving blocks should be the prime item; auxiliary batch-wide blocks should follow
 //   as global `;` siblings
-// - `route(<fields...>)`, `item(<fields...>)`, `evm(<fields...>)`, `query(<fields...>)`,
-//   and `response(<fields...>)` are reserved extensible schema forms whose keys are always
-//   `Keys.Route`, `Keys.Item`, `Keys.Evm`, `Keys.Query`, and `Keys.Response` respectively
+// - `data(<fields...>)`, `evm(<fields...>)`, `query(<fields...>)`, and `response(<fields...>)`
+//   are reserved extensible schema forms whose keys are always
+//   `Keys.Data`, `Keys.Evm`, `Keys.Query`, and `Keys.Response` respectively
 // - these extensible forms work like dynamic `bytes` blocks: they may carry arbitrary
 //   payload bytes while keeping one fixed key per semantic block type
-// - prefer `frame = ...`, `(fields...)`, and `+&` tails over `route(...)` and `item(...)` when the payload
+// - prefer `frame = ...`, `(fields...)`, and `+&` tails over `data(...)` when the payload
 //   can be described by the schema DSL; frames give off-chain tools typed layouts and better generated APIs
 // - `evm(<fields...>)` differs from bundle/list payloads: its bytes are not an embedded block stream
 // - `evm(uint foo, uint bar)` is a schema declaration only; on-chain the block key is still `Keys.Evm`
-//   and the payload can be decoded from `bytes data` using the local runtime's native decoder
+//   and the payload can be decoded from `bytes payload` using the local runtime's native decoder
 // - on EVM, `evm(bool flag)` occupies one full 32-byte ABI word, exactly like `abi.encode(flag)`
 // - anonymous `&` compiles to a `Keys.Bundle` block whose self payload is the bundled member block stream
 // - anonymous `[]` compiles to a `Keys.List` block whose self payload is the repeated item block stream
@@ -130,7 +132,7 @@ pragma solidity ^0.8.33;
 // - `steps[] = asset(...) & account(...)` means a named list whose repeated item is the bundle
 //   `asset(...) & account(...)`
 // - `steps[]? = asset(...) & account(...)` means that named list may be absent
-// - `memo? = evm(bytes data)` means an optional named local item whose payload, when present, is EVM-encoded
+// - `memo? = evm(bytes payload)` means an optional named local item whose payload, when present, is EVM-encoded
 // - `payment = amount(...) + fee(...)` means a named frame whose payload is
 //   `asset | meta | amount | fee` and whose on-chain key is derived from that raw schema string
 // - `payment = amount(...) + (uint fee, uint rate)` means a named frame whose payload is
@@ -138,6 +140,8 @@ pragma solidity ^0.8.33;
 // - `payment = (uint fee, uint rate)` means a named frame whose payload is `fee | rate`
 // - `payment = amount(...) +& fee(...)` means a named frame whose payload is
 //   `asset | meta | amount | [fee key | fee len | fee amount]`
+// - `payment = amount(...) +& fee(...) +& data(bytes memo)` means a named frame whose payload is
+//   `asset | meta | amount | [fee key | fee len | fee amount] | [data key | data len | memo]`
 // - `payment = amount(...) +& fee(...)?` means a named frame with an amount prefix and optional fee block tail
 // - `payment = amount(...) +& list? = fee(...)` means a named frame with an amount prefix and
 //   an optional anonymous list block tail
@@ -151,7 +155,7 @@ pragma solidity ^0.8.33;
 //   it compiles to a bundle containing one amount block followed by one frame block
 // - `amount(...) & fee(...) +& account(...)` means `amount(...) & (fee(...) +& account(...))`;
 //   it compiles to a bundle containing one amount block followed by one frame block with an account block tail
-// - `bundle = account(...) & evm(bytes routeData)` means an anonymous child bundle with those bundled members
+// - `bundle = account(...) & evm(bytes payloadData)` means an anonymous child bundle with those bundled members
 // - `bundle? = account(...) & auth(...)` means that anonymous bundle may be absent
 // - `frame = amount(...) + fee(...)` means an anonymous child frame with those framed payload fields
 // - `frame? = amount(...) + fee(...)` means that anonymous frame may be absent
@@ -208,7 +212,7 @@ library Schemas {
     string constant Allocation = "allocation(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Allowance = "allowance(uint host, bytes32 asset, bytes32 meta, uint amount)";
     string constant Transaction = "transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)";
-    string constant Call = "call(uint target, uint value, bytes data)";
+    string constant Call = "call(uint target, uint value, bytes payload)";
     string constant Step = "step(uint target, uint value, bytes request)";
     string constant Bounty = "bounty(uint amount, bytes32 relayer)";
     string constant Quantity = "quantity(uint amount)";
@@ -216,11 +220,10 @@ library Schemas {
     string constant Rate = "rate(uint value)";
     string constant Bounds = "bounds(int min, int max)";
     string constant Auth = "auth(uint cid, uint deadline, bytes proof)";
-    string constant Route = "route(bytes data)";
-    string constant Item = "item(bytes data)";
-    string constant Evm = "evm(bytes data)";
-    string constant Query = "query(bytes data)";
-    string constant Response = "response(bytes data)";
+    string constant Data = "data(bytes payload)";
+    string constant Evm = "evm(bytes payload)";
+    string constant Query = "query(bytes payload)";
+    string constant Response = "response(bytes payload)";
     string constant Break = "break()";
 }
 

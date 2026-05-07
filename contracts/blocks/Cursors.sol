@@ -291,13 +291,13 @@ library Cursors {
         return cur.isAt(key) ? take(cur, key) : cur.slice(cur.i, cur.i);
     }
 
-    /// @notice Consume an optional ROUTE block at the current position and return a cursor over the full block slice.
-    /// If the current block is not ROUTE, returns an empty cursor and leaves `cur.i` unchanged.
-    /// Otherwise behaves like `take(cur, Keys.Route)`.
-    /// @param cur Cursor positioned at an optional ROUTE block.
-    /// @return out Cursor scoped to the full ROUTE block, or empty when no ROUTE block is present.
-    function maybeRoute(Cur memory cur) internal pure returns (Cur memory out) {
-        return maybeTake(cur, Keys.Route);
+    /// @notice Consume an optional DATA block at the current position and return a cursor over the full block slice.
+    /// If the current block is not DATA, returns an empty cursor and leaves `cur.i` unchanged.
+    /// Otherwise behaves like `take(cur, Keys.Data)`.
+    /// @param cur Cursor positioned at an optional DATA block.
+    /// @return out Cursor scoped to the full DATA block, or empty when no DATA block is present.
+    function maybeData(Cur memory cur) internal pure returns (Cur memory out) {
+        return maybeTake(cur, Keys.Data);
     }
 
     /// @notice Enter a List block, prime its member run, and return the group count.

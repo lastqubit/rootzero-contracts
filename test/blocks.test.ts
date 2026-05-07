@@ -21,7 +21,7 @@ import {
   encodeAccountBlock,
   encodeAccountAssetBlock,
   encodeHostAccountAssetBlock,
-  encodeRouteBlock,
+  encodeDataBlock,
   encodeStepBlock,
   encodeTxBlock,
   encodeUserAccount,
@@ -254,9 +254,9 @@ describe("Cursors", () => {
     });
 
     it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const route = encodeAccountBlock(encodeUserAccount("0x12"));
+      const member = encodeAccountBlock(encodeUserAccount("0x12"));
       const minimum = encodeMinimumBlock(asset, meta, amount);
-      const bundle = encodeBundleBlock(route, minimum);
+      const bundle = encodeBundleBlock(member, minimum);
       const [inputI, end] = await helper.testBundle(bundle);
       expect(inputI).to.equal(8n);
       expect(end).to.equal(BigInt(ethers.getBytes(bundle).length));
@@ -311,35 +311,35 @@ describe("Cursors", () => {
 
     it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
       const payload = encodeAccountBlock(encodeUserAccount("0x12"));
-      const route = encodeRouteBlock(payload);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testTake(route, Keys.Route);
+      const data = encodeDataBlock(payload);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testTake(data, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
-      expect(outLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
       expect(outBound).to.equal(0n);
-      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(data).length));
     });
 
     it("take reverts when the current block key does not match", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      await expect(helper.testTake(source, Keys.Route))
+      await expect(helper.testTake(source, Keys.Data))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("maybeTake returns a sliced cursor and advances when the current block matches", async () => {
       const payload = encodeAccountBlock(encodeUserAccount("0x34"));
-      const route = encodeRouteBlock(payload);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(route, Keys.Route);
+      const data = encodeDataBlock(payload);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(data, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
-      expect(outLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
       expect(outBound).to.equal(0n);
-      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(data).length));
     });
 
     it("maybeTake returns an empty cursor and does not advance when the current block does not match", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(source, Keys.Route);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(source, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(0n);
@@ -347,9 +347,9 @@ describe("Cursors", () => {
       expect(inputI).to.equal(0n);
     });
 
-    it("maybeRoute returns an empty cursor and does not advance when the current block is not ROUTE", async () => {
+    it("maybeData returns an empty cursor and does not advance when the current block is not DATA", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeRoute(source);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeData(source);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(0n);
