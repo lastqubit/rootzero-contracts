@@ -30,8 +30,6 @@ library Keys {
     bytes4 constant Fee = bytes4(keccak256(bytes(Schemas.Fee)));
     /// @dev Hard stop / iteration sentinel - ()
     bytes4 constant Break = bytes4(keccak256(bytes(Schemas.Break)));
-    /// @dev Bundle wrapper - (bytes payload); payload is an embedded block stream
-    bytes4 constant Bundle = bytes4(keccak256(bytes(Schemas.Bundle)));
     /// @dev List wrapper - (bytes payload); payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256(bytes(Schemas.List)));
     /// @dev Frame wrapper - (bytes payload); payload is schema-defined fields, optionally followed by block-stream items

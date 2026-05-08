@@ -77,7 +77,7 @@ abstract contract MyCommand is CommandBase {
             }
         }
 
-        request.end();
+        request.ensureEnd();
         return "";
     }
 }

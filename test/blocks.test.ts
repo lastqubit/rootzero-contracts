@@ -10,7 +10,6 @@ import {
   encodeBalanceBlock,
   encodeBoundsBlock,
   encodeBountyBlock,
-  encodeBundleBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
@@ -251,15 +250,6 @@ describe("Cursors", () => {
       const source = concat(encodeFeeBlock(3n), encodeAccountBlock(encodeUserAccount("0x12")));
       await expect(helper.testMaybeOnly(source, Keys.Fee))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
-    });
-
-    it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const member = encodeAccountBlock(encodeUserAccount("0x12"));
-      const minimum = encodeMinimumBlock(asset, meta, amount);
-      const bundle = encodeBundleBlock(member, minimum);
-      const [inputI, end] = await helper.testBundle(bundle);
-      expect(inputI).to.equal(8n);
-      expect(end).to.equal(BigInt(ethers.getBytes(bundle).length));
     });
 
     it("resume moves the cursor to the provided end offset", async () => {

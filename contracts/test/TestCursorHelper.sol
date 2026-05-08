@@ -201,12 +201,6 @@ contract TestCursorHelper {
         return cur.maybeOnly(key);
     }
 
-    function testBundle(bytes calldata source) external pure returns (uint inputI, uint next) {
-        Cur memory cur = Cursors.open(source);
-        next = cur.bundle();
-        return (cur.i, next);
-    }
-
     function testResume(bytes calldata source, uint end) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
         cur.resume(end);
@@ -373,7 +367,7 @@ contract TestCursorHelper {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.end();
+        cur.ensureEnd();
         return true;
     }
 
@@ -383,7 +377,7 @@ contract TestCursorHelper {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.end();
+        cur.ensureEnd();
         return true;
     }
 

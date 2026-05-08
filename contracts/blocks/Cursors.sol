@@ -47,6 +47,7 @@ library Cursors {
     error UnexpectedValue();
     /// @dev Prime block counts are not divisible by, or do not match, their declared group sizes.
     error BadRatio();
+
     // -------------------------------------------------------------------------
     // Cursor construction and navigation
     // -------------------------------------------------------------------------
@@ -156,6 +157,7 @@ library Cursors {
     /// Does not advance the cursor.
     /// @param cur Source cursor.
     /// @param i Byte offset of the block within the source region.
+    /// @param end Required next offset after the block; 0 means no exact-end check.
     /// @param key Expected block type key; reverts if actual key differs.
     /// @param min Minimum acceptable payload length (inclusive).
     /// @param max Maximum acceptable payload length (inclusive); 0 means unbounded.
@@ -164,6 +166,7 @@ library Cursors {
     function expect(
         Cur memory cur,
         uint i,
+        uint end,
         bytes4 key,
         uint min,
         uint max
@@ -173,6 +176,20 @@ library Cursors {
         abs = cur.offset + i + 8;
         next = i + 8 + len;
         if (len < min || (max != 0 && len > max)) revert InvalidBlock();
+        if (end != 0 && next != end) revert IncompleteCursor();
+    }
+
+    /// @notice Validate and consume the current block, advancing `cur.i` past it.
+    /// @param cur Cursor to advance.
+    /// @param end Required next offset after the block; 0 means no exact-end check.
+    /// @param key Expected block type key.
+    /// @param min Minimum payload length.
+    /// @param max Maximum payload length (0 = unbounded).
+    /// @return abs Absolute calldata offset of the payload start.
+    function consume(Cur memory cur, uint end, bytes4 key, uint min, uint max) internal pure returns (uint abs) {
+        uint next;
+        (abs, next) = expect(cur, cur.i, end, key, min, max);
+        cur.i = next;
     }
 
     /// @notice Count consecutive blocks of the same key starting at `i`.
@@ -235,29 +252,6 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
-    /// @notice Validate and consume the current block, advancing `cur.i` past it.
-    /// @param cur Cursor to advance.
-    /// @param key Expected block type key.
-    /// @param min Minimum payload length.
-    /// @param max Maximum payload length (0 = unbounded).
-    /// @return abs Absolute calldata offset of the payload start.
-    function consume(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint abs) {
-        uint next;
-        (abs, next) = expect(cur, cur.i, key, min, max);
-        cur.i = next;
-    }
-
-    /// @notice Enter a Bundle block at the current position and return the next offset.
-    /// Advances `cur.i` past the bundle header so the bundled members can be parsed
-    /// directly from the same cursor. The returned `next` is the byte offset
-    /// immediately after the bundle payload, relative to the current cursor region.
-    /// @param cur Cursor positioned at a bundle block; advanced past the 8-byte header.
-    /// @return next Byte offset immediately after the bundle payload.
-    function bundle(Cur memory cur) internal pure returns (uint next) {
-        (, next) = expect(cur, cur.i, Keys.Bundle, 0, 0);
-        cur.i += 8;
-    }
-
     /// @notice Enter a List block at the current position and return the next offset.
     /// Advances `cur.i` past the list header so the list members can be parsed
     /// directly from the same cursor. The returned `next` is the byte offset
@@ -265,7 +259,7 @@ library Cursors {
     /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
     /// @return next Byte offset immediately after the list payload.
     function list(Cur memory cur) internal pure returns (uint next) {
-        (, next) = expect(cur, cur.i, Keys.List, 0, 0);
+        (, next) = expect(cur, cur.i, 0, Keys.List, 0, 0);
         cur.i += 8;
     }
 
@@ -276,7 +270,7 @@ library Cursors {
     /// @param key Expected block type key.
     /// @return out Cursor scoped to the full block.
     function take(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
-        (, uint next) = expect(cur, cur.i, key, 0, 0);
+        (, uint next) = expect(cur, cur.i, 0, key, 0, 0);
         out = cur.slice(cur.i, next);
         cur.i = next;
     }
@@ -311,20 +305,6 @@ library Cursors {
         if (cur.bound != next) revert IncompleteCursor();
     }
 
-    /// @notice Assert that the cursor has consumed exactly up to `bound`.
-    /// Reverts with `IncompleteCursor` if `bound` is zero or `cur.i != cur.bound`.
-    /// @param cur Cursor to check.
-    function complete(Cur memory cur) internal pure {
-        if (cur.bound == 0 || cur.i != cur.bound) revert IncompleteCursor();
-    }
-
-    /// @notice Assert that the cursor has consumed its entire source region.
-    /// Reverts with `IncompleteCursor` when `cur.i != cur.len`.
-    /// @param cur Cursor to check.
-    function end(Cur memory cur) internal pure {
-        if (cur.i != cur.len) revert IncompleteCursor();
-    }
-
     /// @notice Resume parsing after a nested region delimited by `resumeAt`.
     /// Reverts with `IncompleteCursor` if `cur.i` has advanced past `resumeAt` or `resumeAt`
     /// exceeds the cursor region length. Otherwise moves `cur.i` to `end`.
@@ -342,6 +322,20 @@ library Cursors {
     /// @param ensureAt Relative offset that `cur.i` must match exactly.
     function ensure(Cur memory cur, uint ensureAt) internal pure {
         if (ensureAt > cur.len || cur.i != ensureAt) revert IncompleteCursor();
+    }
+
+    /// @notice Assert that the cursor has consumed its entire source region.
+    /// Reverts with `IncompleteCursor` when `cur.i != cur.len`.
+    /// @param cur Cursor to check.
+    function ensureEnd(Cur memory cur) internal pure {
+        if (cur.i != cur.len) revert IncompleteCursor();
+    }
+
+    /// @notice Assert that the cursor has consumed exactly up to `bound`.
+    /// Reverts with `IncompleteCursor` if `bound` is zero or `cur.i != cur.bound`.
+    /// @param cur Cursor to check.
+    function complete(Cur memory cur) internal pure {
+        if (cur.bound == 0 || cur.i != cur.bound) revert IncompleteCursor();
     }
 
     /// @notice Assert completion and finalise a writer in one step.
@@ -485,12 +479,7 @@ library Cursors {
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     /// @return Encoded CUSTODY block bytes.
-    function toCustodyBlock(
-        uint host,
-        bytes32 asset,
-        bytes32 meta,
-        uint amount
-    ) internal pure returns (bytes memory) {
+    function toCustodyBlock(uint host, bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
         return createBlock128(Keys.Custody, bytes32(host), asset, meta, bytes32(amount));
     }
 
@@ -580,7 +569,7 @@ library Cursors {
     /// @param key Expected dynamic block key.
     /// @return data Raw block payload bytes.
     function unpackRaw(Cur memory cur, bytes4 key) internal pure returns (bytes calldata data) {
-        (uint abs, uint next) = expect(cur, cur.i, key, 0, 0);
+        (uint abs, uint next) = expect(cur, cur.i, 0, key, 0, 0);
         data = msg.data[abs:cur.offset + next];
         cur.i = next;
     }
@@ -590,7 +579,7 @@ library Cursors {
     /// @param key Expected dynamic block key.
     /// @return value Decoded bytes32.
     function unpack32(Cur memory cur, bytes4 key) internal pure returns (bytes32 value) {
-        uint abs = consume(cur, key, 32, 32);
+        uint abs = consume(cur, 0, key, 32, 32);
         value = bytes32(msg.data[abs:abs + 32]);
     }
 
@@ -600,7 +589,7 @@ library Cursors {
     /// @return a First decoded bytes32.
     /// @return b Second decoded bytes32.
     function unpack64(Cur memory cur, bytes4 key) internal pure returns (bytes32 a, bytes32 b) {
-        uint abs = consume(cur, key, 64, 64);
+        uint abs = consume(cur, 0, key, 64, 64);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
     }
@@ -612,7 +601,7 @@ library Cursors {
     /// @return b Second decoded bytes32.
     /// @return c Third decoded bytes32.
     function unpack96(Cur memory cur, bytes4 key) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
-        uint abs = consume(cur, key, 96, 96);
+        uint abs = consume(cur, 0, key, 96, 96);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);
@@ -625,11 +614,8 @@ library Cursors {
     /// @return b Second decoded bytes32.
     /// @return c Third decoded bytes32.
     /// @return d Fourth decoded bytes32.
-    function unpack128(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
-        uint abs = consume(cur, key, 128, 128);
+    function unpack128(Cur memory cur, bytes4 key) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
+        uint abs = consume(cur, 0, key, 128, 128);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);
@@ -648,7 +634,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e) {
-        uint abs = consume(cur, key, 160, 160);
+        uint abs = consume(cur, 0, key, 160, 160);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);
@@ -693,7 +679,7 @@ library Cursors {
     /// @return head Fixed 32-byte head.
     /// @return tail Variable-length payload bytes after the fixed head.
     function unpackHead32(Cur memory cur, bytes4 key) internal pure returns (bytes32 head, bytes calldata tail) {
-        uint abs = consume(cur, key, 32, 0);
+        uint abs = consume(cur, 0, key, 32, 0);
         head = bytes32(msg.data[abs:abs + 32]);
         tail = msg.data[abs + 32:cur.offset + cur.i];
     }
@@ -708,7 +694,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 a, bytes32 b, bytes calldata tail) {
-        uint abs = consume(cur, key, 64, 0);
+        uint abs = consume(cur, 0, key, 64, 0);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         tail = msg.data[abs + 64:cur.offset + cur.i];
@@ -725,7 +711,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes calldata tail) {
-        uint abs = consume(cur, key, 96, 0);
+        uint abs = consume(cur, 0, key, 96, 0);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);
@@ -744,7 +730,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes calldata tail) {
-        uint abs = consume(cur, key, 128, 0);
+        uint abs = consume(cur, 0, key, 128, 0);
         a = bytes32(msg.data[abs:abs + 32]);
         b = bytes32(msg.data[abs + 32:abs + 64]);
         c = bytes32(msg.data[abs + 64:abs + 96]);
@@ -764,7 +750,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 96, 96);
+        uint abs = consume(cur, 0, key, 96, 96);
         asset = bytes32(msg.data[abs:abs + 32]);
         meta = bytes32(msg.data[abs + 32:abs + 64]);
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
@@ -781,7 +767,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         account = bytes32(msg.data[abs:abs + 32]);
         asset = bytes32(msg.data[abs + 32:abs + 64]);
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -799,7 +785,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         host = uint(bytes32(msg.data[abs:abs + 32]));
         asset = bytes32(msg.data[abs + 32:abs + 64]);
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -817,7 +803,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (uint host, bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         host = uint(bytes32(msg.data[abs:abs + 32]));
         account = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
@@ -836,7 +822,7 @@ library Cursors {
         Cur memory cur,
         bytes4 key
     ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 160, 160);
+        uint abs = consume(cur, 0, key, 160, 160);
         from = bytes32(msg.data[abs:abs + 32]);
         to = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
@@ -895,7 +881,7 @@ library Cursors {
     /// @return asset Asset identifier.
     /// @return meta Asset metadata slot.
     function unpackAccountAsset(Cur memory cur) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, Keys.AccountAsset, 96, 96);
+        uint abs = consume(cur, 0, Keys.AccountAsset, 96, 96);
         account = bytes32(msg.data[abs:abs + 32]);
         asset = bytes32(msg.data[abs + 32:abs + 64]);
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -923,7 +909,7 @@ library Cursors {
     /// @return min Lower signed bound.
     /// @return max Upper signed bound.
     function unpackBounds(Cur memory cur) internal pure returns (int min, int max) {
-        uint abs = consume(cur, Keys.Bounds, 64, 64);
+        uint abs = consume(cur, 0, Keys.Bounds, 64, 64);
         assembly ("memory-safe") {
             min := calldataload(abs)
             max := calldataload(add(abs, 0x20))
@@ -1095,9 +1081,7 @@ library Cursors {
     /// @return asset Asset identifier.
     /// @return meta Asset metadata slot.
     /// @return amount Token amount.
-    function unpackCustody(
-        Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    function unpackCustody(Cur memory cur) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
         return unpackHostAmount(cur, Keys.Custody);
     }
 
@@ -1162,7 +1146,7 @@ library Cursors {
     /// @return deadline Expiry timestamp.
     /// @return proof Raw proof bytes (layout: `[bytes20 signer][bytes65 sig]`).
     function expectAuth(Cur memory cur, uint i, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
-        (uint abs, uint next) = expect(cur, i, Keys.Auth, 149, 0);
+        (uint abs, uint next) = expect(cur, i, 0, Keys.Auth, 149, 0);
         if (uint(bytes32(msg.data[abs:abs + 32])) != cid) revert UnexpectedValue();
         deadline = uint(bytes32(msg.data[abs + 32:abs + 64]));
         proof = msg.data[abs + 64:cur.offset + next];
@@ -1183,7 +1167,7 @@ library Cursors {
         bytes4 key,
         bytes32 asset
     ) internal pure returns (bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 96, 96);
+        uint abs = consume(cur, 0, key, 96, 96);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
         meta = bytes32(msg.data[abs + 32:abs + 64]);
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
@@ -1201,7 +1185,7 @@ library Cursors {
         bytes32 asset,
         bytes32 meta
     ) internal pure returns (uint amount) {
-        uint abs = consume(cur, key, 96, 96);
+        uint abs = consume(cur, 0, key, 96, 96);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != meta) revert UnexpectedValue();
         amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
@@ -1213,7 +1197,7 @@ library Cursors {
     /// @param asset Expected asset identifier.
     /// @return meta Metadata slot from the block.
     function requireUnitAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure returns (bytes32 meta) {
-        uint abs = consume(cur, key, 96, 96);
+        uint abs = consume(cur, 0, key, 96, 96);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
         meta = bytes32(msg.data[abs + 32:abs + 64]);
         if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
@@ -1240,7 +1224,7 @@ library Cursors {
         bytes4 key,
         uint host
     ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         asset = bytes32(msg.data[abs + 32:abs + 64]);
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1260,7 +1244,7 @@ library Cursors {
         uint host,
         bytes32 asset
     ) internal pure returns (bytes32 meta, uint amount) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1279,7 +1263,7 @@ library Cursors {
         uint host,
         bytes32 asset
     ) internal pure returns (bytes32 meta) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
         meta = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1299,7 +1283,7 @@ library Cursors {
         uint host,
         bytes32 account
     ) internal pure returns (bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != account) revert UnexpectedValue();
         asset = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1318,7 +1302,7 @@ library Cursors {
         bytes4 key,
         uint host
     ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, key, 128, 128);
+        uint abs = consume(cur, 0, key, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         account = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
@@ -1362,7 +1346,7 @@ library Cursors {
         uint i = find(cur, 0, Keys.Node);
         if (i == cur.len) return backup;
 
-        (uint abs, ) = expect(cur, i, Keys.Node, 32, 32);
+        (uint abs, ) = expect(cur, i, 0, Keys.Node, 32, 32);
         return uint(bytes32(msg.data[abs:abs + 32]));
     }
 
@@ -1386,7 +1370,7 @@ library Cursors {
         uint i = find(cur, 0, Keys.Account);
         if (i == cur.len) return backup;
 
-        (uint abs, ) = expect(cur, i, Keys.Account, 32, 32);
+        (uint abs, ) = expect(cur, i, 0, Keys.Account, 32, 32);
         return bytes32(msg.data[abs:abs + 32]);
     }
 
@@ -1399,7 +1383,7 @@ library Cursors {
         uint i = find(cur, cur.bound, Keys.Node);
         if (i == cur.len) return backup;
 
-        (uint abs, ) = expect(cur, i, Keys.Node, 32, 32);
+        (uint abs, ) = expect(cur, i, 0, Keys.Node, 32, 32);
         return uint(bytes32(msg.data[abs:abs + 32]));
     }
 
@@ -1412,7 +1396,7 @@ library Cursors {
         uint i = find(cur, cur.bound, Keys.Account);
         if (i == cur.len) return backup;
 
-        (uint abs, ) = expect(cur, i, Keys.Account, 32, 32);
+        (uint abs, ) = expect(cur, i, 0, Keys.Account, 32, 32);
         return bytes32(msg.data[abs:abs + 32]);
     }
 

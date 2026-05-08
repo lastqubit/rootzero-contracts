@@ -6,7 +6,7 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodePayoutBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeBundleBlock, concat
+  concat
 } from "./helpers/blocks.js";
 
 describe("Commands", () => {

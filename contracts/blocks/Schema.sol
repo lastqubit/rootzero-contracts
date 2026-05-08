@@ -35,7 +35,6 @@ pragma solidity ^0.8.33;
 //
 // Signed blocks:
 // - an authenticated input segment ends with one trailing AUTH block
-// - auth is typically grouped with the signed payload in one bundle, with AUTH as the final member
 // - only the final AUTH is treated specially; earlier AUTH blocks remain ordinary signed bytes
 // - the signed slice runs from the segment start through the AUTH head, excluding only AUTH proof bytes
 // - `cid` binds the signature to one command; `deadline` acts as expiry and nonce
@@ -73,7 +72,6 @@ library Schemas {
     string constant Query = "#query { bytes payload }";
     string constant Response = "#response { bytes payload }";
     string constant Break = "#break";
-    string constant Bundle = "#bundle { bytes payload }";
     string constant Frame = "#frame { bytes payload }";
 }
 

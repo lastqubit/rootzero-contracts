@@ -27,7 +27,6 @@ export const Keys = {
   Break: blockKey("#break"),
   Auth: blockKey("#auth { uint cid, uint deadline, bytes proof }"),
   Bounty: blockKey("#bounty { uint amount, bytes32 relayer }"),
-  Bundle: blockKey("#bundle { bytes payload }"),
   List: blockKey("#list { bytes payload }"),
   Frame: blockKey("#frame { bytes payload }"),
   Data: blockKey("#data { bytes payload }"),
@@ -75,20 +74,6 @@ function block(key: string, payload: string): string {
 
 export function encodeAmountBlock(asset: string, meta: string, amount: bigint): string {
   return block(Keys.Amount, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
-}
-
-export function encodeAmountBlockWithNode(asset: string, meta: string, amount: bigint, nodeId: bigint): string {
-  return encodeBundleBlock(
-    encodeAmountBlock(asset, meta, amount),
-    encodeNodeBlock(nodeId),
-  );
-}
-
-export function encodeAmountBlockWithAccount(asset: string, meta: string, amount: bigint, account: string): string {
-  return encodeBundleBlock(
-    encodeAmountBlock(asset, meta, amount),
-    encodeAccountBlock(account),
-  );
 }
 
 export function encodeBalanceBlock(asset: string, meta: string, amount: bigint): string {
@@ -183,28 +168,12 @@ export function encodeBreakBlock(): string {
   return block(Keys.Break, "0x");
 }
 
-export function encodeBundleBlock(...members: string[]): string {
-  return block(Keys.Bundle, concat(...members));
-}
-
 export function encodeListBlock(...members: string[]): string {
   return block(Keys.List, concat(...members));
 }
 
 export function encodeFrameBlock(...payloads: string[]): string {
   return block(Keys.Frame, concat(...payloads));
-}
-
-export function encodeDataBlockWithAmount(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeDataBlock(data), encodeAmountBlock(asset, meta, amount));
-}
-
-export function encodeDataBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeDataBlock(data), encodeMinimumBlock(asset, meta, amount));
-}
-
-export function encodeBundleBlockWithMinimum(data: string, asset: string, meta: string, amount: bigint): string {
-  return encodeBundleBlock(encodeDataBlock(data), encodeMinimumBlock(asset, meta, amount));
 }
 
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
