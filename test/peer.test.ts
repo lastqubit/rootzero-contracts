@@ -34,7 +34,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerAllowanceId(),
         "peerAllowance",
         ethers.encodeBytes32String("1:0"),
-        "amount(bytes32 asset, bytes32 meta, uint amount)",
+        "#amount { bytes32 asset, bytes32 meta, uint amount }",
         "",
         false,
       );
@@ -46,7 +46,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerBalancePullId(),
         "peerBalancePull",
         ethers.encodeBytes32String("1:0"),
-        "balance(bytes32 asset, bytes32 meta, uint amount)",
+        "#balance { bytes32 asset, bytes32 meta, uint amount }",
         "",
         false,
       );

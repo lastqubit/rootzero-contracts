@@ -21,7 +21,7 @@ abstract contract WithdrawHook {
 /// For internal balance credits, use `creditAccount` instead.
 abstract contract Withdraw is CommandBase, WithdrawHook {
     string private constant NAME = "withdraw";
-    string private constant REQUEST = string.concat(Schemas.Empty, ";", Schemas.Account, "?");
+    string private constant REQUEST = string.concat(Schemas.Unit, ", maybe ", Schemas.Account);
 
     uint internal immutable withdrawId = commandId(NAME);
 

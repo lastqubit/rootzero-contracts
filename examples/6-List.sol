@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 // Example 6: List Blocks
 //
-// `asset(...)[]` means: one LIST block whose payload is a stream of ASSET blocks.
+// `many #asset { ... }` means: one LIST block whose payload is a stream of ASSET blocks.
 // That does not change the top-level request model: requests are still batches of
-// top-level blocks. So a command with INPUT = `asset(...)[]` accepts:
+// top-level blocks. So a command with INPUT = `many #asset { ... }` accepts:
 //
 //   LIST(asset, asset, ...)
 //   LIST(asset, ...)
@@ -26,14 +26,14 @@ using Cursors for Cur;
 
 string constant NAME = "myCommand";
 
-// Lists are declared by taking one item shape and adding `[]`.
-// Here the item shape is `asset(bytes32 asset, bytes32 meta)`, so:
+// Lists are declared with the `many` prefix.
+// Here the item shape is `#asset { bytes32 asset, bytes32 meta }`, so:
 //
-//   asset(bytes32 asset, bytes32 meta)[]
+//   many #asset { bytes32 asset, bytes32 meta }
 //
 // means "one LIST block whose payload is a repeated stream of ASSET blocks".
 // The request can still batch multiple such LIST blocks at the top level.
-string constant INPUT = string.concat(Schemas.Asset, "[]");
+string constant INPUT = string.concat("many ", Schemas.Asset);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);

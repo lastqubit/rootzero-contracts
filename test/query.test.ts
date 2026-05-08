@@ -26,13 +26,13 @@ describe("Queries", () => {
         await query.incrementQueryId(),
         "incrementQuery",
         ethers.encodeBytes32String("1:1"),
-        "query(uint foo)",
-        "response(uint bar)",
+        "#query { uint foo }",
+        "#response { uint bar }",
       );
   });
 
   describe("incrementQuery", () => {
-    it("accepts `query(uint foo)` and returns `response(uint bar)`", async () => {
+    it("accepts `#query { uint foo }` and returns `#response { uint bar }`", async () => {
       const request = encodeQueryBlock(pad32(7n));
 
       const result: string = await query.incrementQuery.staticCall(request);

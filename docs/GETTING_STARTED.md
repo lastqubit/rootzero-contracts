@@ -162,27 +162,30 @@ import {Cursors, Cur, Schemas} from "@rootzero/contracts/Cursors.sol";
 using Cursors for Cur;
 
 string constant NAME = "myCommand";
-string constant DATA = "data(uint foo, uint bar)";
-string constant INPUT = string.concat(DATA, "&", Schemas.Amount);
+string constant INPUT = string.concat("#data { uint foo, uint bar, ", Schemas.Amount, " }");
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, INPUT, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", INPUT, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external onlyCommand(c.account) returns (bytes memory) {
         Cur memory input = cursor(c.request);
-        uint next = input.bundle();
+        uint abs = input.consume(Keys.Data, 64, 0);
+        uint foo = uint(bytes32(msg.data[abs:abs + 32]));
+        uint bar = uint(bytes32(msg.data[abs + 32:abs + 64]));
+        Cur memory tail = input.slice(abs + 64 - input.offset, input.i);
 
-        bytes calldata data = input.unpackRaw(Keys.Data);
-        (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-        input.ensure(next);
+        (bytes32 asset, bytes32 meta, uint amount) = tail.unpackAmount();
+        tail.end();
+        input.end();
 
-        data;
+        foo;
+        bar;
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
 }
@@ -198,21 +201,21 @@ There are three important ideas here:
 
 Cursor parsing is the nicest way to read structured command input.
 
-If your request contains a bundled input like:
+If your request contains a custom data block with a child block tail like:
 
-- `data(uint foo) & amount(bytes32 asset, bytes32 meta, uint amount)`
+- `#data { uint foo, #amount { bytes32 asset, bytes32 meta, uint amount } }`
 
 your command can:
 
 - open it with `cursor(c.request)` or `Cursors.open(...)`
 - consume the data first
-- then consume the amount
-- keep parsing in bundle/member order without indexing helpers
+- then consume the amount from the data block's tail
+- keep parsing in schema order without indexing helpers
 
 For simple projects, it is perfectly fine to:
 
 - publish the full input schema string in the `Command` event
-- encode bundled input blocks off-chain
+- encode schema-shaped input blocks off-chain
 - decode them sequentially with cursor helpers inside the command
 
 ## Step 7: Return State With Writers
@@ -272,7 +275,7 @@ If you want to learn by example, these are the best files to read next:
 - `examples/2-Basic.sol`: host plus a built-in command hook
 - `examples/3-Command.sol`: custom command id and command event
 - `examples/4-Batch.sol`: batching request input and building balance output
-- `examples/5-Data.sol`: bundled data input plus protocol blocks
+- `examples/5-Data.sol`: generic data input with a child protocol block
 - `test/commands.test.ts`: concrete request and response examples
 - `test/helpers/blocks.ts`: block encoders you can reuse in off-chain tooling
 
@@ -289,6 +292,6 @@ If you want to learn by example, these are the best files to read next:
 1. Deploy a plain `Host`.
 2. Add one built-in command such as `DebitAccount` or `Deposit`.
 3. Use the TypeScript block helpers to build requests.
-4. Only then add a custom command with bundled input and cursor parsing.
+4. Only then add a custom command with a data block tail and cursor parsing.
 
 That path keeps the first integration small and easy to debug.

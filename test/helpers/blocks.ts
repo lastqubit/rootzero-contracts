@@ -7,40 +7,40 @@ export function blockKey(schema: string): string {
 
 // Known block keys
 export const Keys = {
-  Amount: blockKey("amount(bytes32 asset, bytes32 meta, uint amount)"),
-  Balance: blockKey("balance(bytes32 asset, bytes32 meta, uint amount)"),
-  Allocation: blockKey("allocation(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  Allowance: blockKey("allowance(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  Custody: blockKey("custody(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  Bounds: blockKey("bounds(int min, int max)"),
-  Fee: blockKey("fee(uint amount)"),
-  Account: blockKey("account(bytes32 account)"),
-  Payout: blockKey("payout(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
-  Node: blockKey("node(uint id)"),
-  Asset: blockKey("asset(bytes32 asset, bytes32 meta)"),
-  Quantity: blockKey("quantity(uint amount)"),
-  Step: blockKey("step(uint target, uint value, bytes request)"),
-  Call: blockKey("call(uint target, uint value, bytes payload)"),
-  Transaction: blockKey("transaction(bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)"),
-  Minimum: blockKey("minimum(bytes32 asset, bytes32 meta, uint amount)"),
-  Maximum: blockKey("maximum(bytes32 asset, bytes32 meta, uint amount)"),
-  Break: blockKey("break()"),
-  Auth: blockKey("auth(uint cid, uint deadline, bytes proof)"),
-  Bounty: blockKey("bounty(uint amount, bytes32 relayer)"),
-  Bundle: blockKey("bundle(bytes payload)"),
-  List: blockKey("list(bytes payload)"),
-  Frame: blockKey("frame(bytes payload)"),
-  Data: blockKey("data(bytes payload)"),
-  Evm: blockKey("evm(bytes payload)"),
-  Query: blockKey("query(bytes payload)"),
-  Response: blockKey("response(bytes payload)"),
-  Status: blockKey("status(bool ok)"),
-  AssetAmount: blockKey("assetAmount(bytes32 asset, bytes32 meta, uint amount)"),
-  AccountAsset: blockKey("accountAsset(bytes32 account, bytes32 asset, bytes32 meta)"),
-  AccountAmount: blockKey("accountAmount(bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
-  HostAmount: blockKey("hostAmount(uint host, bytes32 asset, bytes32 meta, uint amount)"),
-  HostAccountAsset: blockKey("hostAccountAsset(uint host, bytes32 account, bytes32 asset, bytes32 meta)"),
-  HostAccountAmount: blockKey("hostAccountAmount(uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount)"),
+  Amount: blockKey("#amount { bytes32 asset, bytes32 meta, uint amount }"),
+  Balance: blockKey("#balance { bytes32 asset, bytes32 meta, uint amount }"),
+  Allocation: blockKey("#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }"),
+  Allowance: blockKey("#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }"),
+  Custody: blockKey("#custody { uint host, bytes32 asset, bytes32 meta, uint amount }"),
+  Bounds: blockKey("#bounds { int min, int max }"),
+  Fee: blockKey("#fee { uint amount }"),
+  Account: blockKey("#account { bytes32 account }"),
+  Payout: blockKey("#payout { bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
+  Node: blockKey("#node { uint id }"),
+  Asset: blockKey("#asset { bytes32 asset, bytes32 meta }"),
+  Quantity: blockKey("#quantity { uint amount }"),
+  Step: blockKey("#step { uint target, uint value, bytes request }"),
+  Call: blockKey("#call { uint target, uint value, bytes payload }"),
+  Transaction: blockKey("#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }"),
+  Minimum: blockKey("#minimum { bytes32 asset, bytes32 meta, uint amount }"),
+  Maximum: blockKey("#maximum { bytes32 asset, bytes32 meta, uint amount }"),
+  Break: blockKey("#break"),
+  Auth: blockKey("#auth { uint cid, uint deadline, bytes proof }"),
+  Bounty: blockKey("#bounty { uint amount, bytes32 relayer }"),
+  Bundle: blockKey("#bundle { bytes payload }"),
+  List: blockKey("#list { bytes payload }"),
+  Frame: blockKey("#frame { bytes payload }"),
+  Data: blockKey("#data { bytes payload }"),
+  Evm: blockKey("#evm { bytes payload }"),
+  Query: blockKey("#query { bytes payload }"),
+  Response: blockKey("#response { bytes payload }"),
+  Status: blockKey("#status { bool ok }"),
+  AssetAmount: blockKey("#assetAmount { bytes32 asset, bytes32 meta, uint amount }"),
+  AccountAsset: blockKey("#accountAsset { bytes32 account, bytes32 asset, bytes32 meta }"),
+  AccountAmount: blockKey("#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
+  HostAmount: blockKey("#hostAmount { uint host, bytes32 asset, bytes32 meta, uint amount }"),
+  HostAccountAsset: blockKey("#hostAccountAsset { uint host, bytes32 account, bytes32 asset, bytes32 meta }"),
+  HostAccountAmount: blockKey("#hostAccountAmount { uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
 } as const;
 
 // Pad a bigint or hex string to 32 bytes
@@ -176,7 +176,7 @@ export function encodeResponseBlock(data: string): string {
 }
 
 export function encodeStatusBlock(ok: boolean): string {
-  return block(Keys.Status, pad32(ok ? 1n : 0n));
+  return block(Keys.Status, ok ? "0x01" : "0x00");
 }
 
 export function encodeBreakBlock(): string {

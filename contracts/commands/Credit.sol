@@ -22,7 +22,7 @@ abstract contract CreditAccountHook {
 /// An optional ACCOUNT block in the request overrides the default `c.account` destination.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     string private constant NAME = "creditAccount";
-    string private constant REQUEST = string.concat(Schemas.Empty, ";", Schemas.Account, "?");
+    string private constant REQUEST = string.concat(Schemas.Unit, ", maybe ", Schemas.Account);
 
     uint internal immutable creditAccountId = commandId(NAME);
 

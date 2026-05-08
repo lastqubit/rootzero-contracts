@@ -7,8 +7,8 @@ import {QueryBase} from "../queries/Base.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-string constant INPUT = "query(uint foo)";
-string constant OUTPUT = "response(uint bar)";
+string constant INPUT = "#query { uint foo }";
+string constant OUTPUT = "#response { uint bar }";
 
 contract TestQuery is QueryBase {
     string private constant NAME = "incrementQuery";

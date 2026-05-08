@@ -6,27 +6,19 @@ pragma solidity ^0.8.33;
 // Data blocks let a command accept arbitrary command-specific parameters
 // alongside standard protocol blocks, without breaking the rootzero wire format.
 //
-// In the current cursor model, bundled inputs are handled explicitly:
-// create a cursor for the request, call `bundle()`, then consume the bundle
-// members from the returned cursor.
-//
-// This example expects a bundle containing a DATA block carrying a `host` ID
-// and an AMOUNT block. The command reads both, forwards the asset to that host,
-// and returns a CUSTODY block confirming the held asset.
+// This example expects one DATA block carrying a fixed `host` ID followed by
+// an AMOUNT child block in the DATA block tail. The command reads both, forwards
+// the asset to that host, and returns a CUSTODY block confirming the held asset.
 
-import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext} from "../contracts/Commands.sol";
 import {Cursors, Cur, Schemas, Keys} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
 string constant NAME = "myCommand";
 
-// DATA describes the custom payload schema (a single uint - the target host ID).
-string constant DATA = "data(uint host)";
-
 // INPUT is the full input schema published with the Command event.
-// The "&" separator means: a DATA block bundled together with an AMOUNT block.
-string constant INPUT = string.concat(DATA, "&", Schemas.Amount);
+string constant INPUT = string.concat("#data { uint host, ", Schemas.Amount, " }");
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
@@ -40,21 +32,22 @@ abstract contract MyCommand is CommandBase {
     function sendToHost(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
-        // Create a cursor for the request, then unwrap the bundle into a
-        // second cursor over its member stream.
+        // Create a cursor for the request, then consume the DATA block while
+        // allowing a child block tail after the fixed host field.
         Cur memory input = cursor(c.request);
-        input.bundle();
+        uint abs = input.consume(Keys.Data, 32, 0);
+        uint targetHost = uint(bytes32(msg.data[abs:abs + 32]));
+        Cur memory tail = input.slice(abs + 32 - input.offset, input.i);
 
-        // The first bundled member is the DATA block.
-        uint host = input.unpackUint(Keys.Data);
-
-        // The second bundled member is the AMOUNT block.
-        (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
+        // The DATA tail contains the AMOUNT child block.
+        (bytes32 asset, bytes32 meta, uint amount) = tail.unpackAmount();
+        tail.end();
+        input.end();
 
         // Delegate to the implementer to move the asset to the selected host.
-        sendToHost(host, asset, meta, amount);
+        sendToHost(targetHost, asset, meta, amount);
 
-        // Return a CUSTODY block recording that this asset is now held by `host`.
-        return Cursors.toCustodyBlock(host, asset, meta, amount);
+        // Return a CUSTODY block recording that this asset is now held by `targetHost`.
+        return Cursors.toCustodyBlock(targetHost, asset, meta, amount);
     }
 }

@@ -108,7 +108,7 @@ library Writers {
     /// @param count Number of blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocStatuses(uint count) internal pure returns (Writer memory writer) {
-        return alloc32s(count);
+        return allocFromCount(count, Sizes.Status);
     }
 
     /// @notice Allocate a writer sized for exactly `count` ASSET blocks.
@@ -626,10 +626,10 @@ library Writers {
     }
 
     /// @notice Append a STATUS form block.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B32`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Status`.
     /// @param ok Status value to encode.
     function appendStatus(Writer memory writer, bool ok) internal pure {
-        commit(writer, writeBlock32(writer.dst, writer.i, Keys.Status, ok ? bytes32(uint(1)) : bytes32(0), 32));
+        commit(writer, writeBlock32(writer.dst, writer.i, Keys.Status, ok ? bytes32(uint(1) << 248) : bytes32(0), 1));
     }
 
     /// @notice Append a BALANCE block using separate field values.
