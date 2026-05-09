@@ -24,39 +24,29 @@ library Keys {
     bytes4 constant Minimum = bytes4(keccak256(bytes(Schemas.Minimum)));
     /// @dev Maximum allowable spend - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Maximum = bytes4(keccak256(bytes(Schemas.Maximum)));
-    /// @dev Signed min/max bounds - (int min, int max)
-    bytes4 constant Bounds = bytes4(keccak256(bytes(Schemas.Bounds)));
     /// @dev Fee amount - (uint amount)
     bytes4 constant Fee = bytes4(keccak256(bytes(Schemas.Fee)));
-    /// @dev Hard stop / iteration sentinel - ()
-    bytes4 constant Break = bytes4(keccak256(bytes(Schemas.Break)));
-    /// @dev List wrapper - (bytes payload); payload is an embedded repeated block stream
+    /// @dev List wrapper; payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256(bytes(Schemas.List)));
-    /// @dev Frame wrapper - (bytes payload); payload is schema-defined fields, optionally followed by block-stream items
-    bytes4 constant Frame = bytes4(keccak256(bytes(Schemas.Frame)));
-    /// @dev Extensible data field - (bytes payload); layout is schema-defined
+    /// @dev Extensible data field; layout is schema-defined
     bytes4 constant Data = bytes4(keccak256(bytes(Schemas.Data)));
-    /// @dev EVM-encoded payload field - (bytes payload); layout follows standard ABI tuple encoding
+    /// @dev EVM-encoded payload field; layout follows standard ABI tuple encoding
     bytes4 constant Evm = bytes4(keccak256(bytes(Schemas.Evm)));
-    /// @dev Extensible query field - (bytes payload); layout is query-defined, key is always `Keys.Query`
-    bytes4 constant Query = bytes4(keccak256(bytes(Schemas.Query)));
-    /// @dev Extensible response field - (bytes payload); layout is response-defined, key is always `Keys.Response`
-    bytes4 constant Response = bytes4(keccak256(bytes(Schemas.Response)));
-    /// @dev Plain scalar amount - (uint amount)
-    bytes4 constant Quantity = bytes4(keccak256(bytes(Schemas.Quantity)));
-    /// @dev Ratio or rate value - (uint value)
-    bytes4 constant Rate = bytes4(keccak256(bytes(Schemas.Rate)));
+    /// @dev Reserved raw bytes child block.
+    bytes4 constant Bytes = bytes4(keccak256(bytes(Schemas.Bytes)));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256(bytes(Schemas.Account)));
     /// @dev Transfer payout request - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Payout = bytes4(keccak256(bytes(Schemas.Payout)));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(keccak256(bytes(Schemas.Transaction)));
-    /// @dev Sub-command invocation - (uint target, uint value, bytes request)
+    /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)
     bytes4 constant Step = bytes4(keccak256(bytes(Schemas.Step)));
-    /// @dev Raw external call - (uint target, uint value, bytes payload)
+    /// @dev Raw external call - (uint target, uint value, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256(bytes(Schemas.Call)));
-    /// @dev Authentication proof - (uint cid, uint deadline, bytes proof); must appear last in its segment
+    /// @dev Cross-chain command envelope - (uint target, bytes32 account, bytes32 ticket, #bytes as state, #bytes as request)
+    bytes4 constant Envelope = bytes4(keccak256(bytes(Schemas.Envelope)));
+    /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256(bytes(Schemas.Auth)));
     /// @dev Asset descriptor without amount - (bytes32 asset, bytes32 meta)
     bytes4 constant Asset = bytes4(keccak256(bytes(Schemas.Asset)));

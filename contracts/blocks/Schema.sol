@@ -16,10 +16,11 @@ pragma solidity ^0.8.33;
 // - `maybe #x { ... }` marks an optional block item
 // - `many #x { ... }` emits one generic list block containing repeated `#x` items
 // - fixed fields are packed in declaration order
-// - one dynamic tail is allowed per block: final `bytes payload` or raw child block stream
+// - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
-// - generic `#data` uses the stable key derived from `#data { bytes payload }`
-// - generic lists use the stable key derived from `#list { bytes payload }`
+// - `#bytes` is a reserved child block that stores raw bytes and has no body
+// - generic `#data` uses the stable key derived from `#data`
+// - generic lists use the stable key derived from `#list`
 // - keys are derived from canonical v2 schema strings
 // - see `docs/SCHEMA_DSL_V2.md` for the full working spec
 //
@@ -58,21 +59,16 @@ library Schemas {
     string constant Allocation = "#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
-    string constant Call = "#call { uint target, uint value, bytes payload }";
-    string constant Step = "#step { uint target, uint value, bytes request }";
+    string constant Call = "#call { uint target, uint value, #bytes as payload }";
+    string constant Step = "#step { uint target, uint value, #bytes as request }";
+    string constant Envelope = "#envelope { uint target, bytes32 account, bytes32 ticket, #bytes as state, #bytes as request }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
-    string constant Quantity = "#quantity { uint amount }";
     string constant Fee = "#fee { uint amount }";
-    string constant Rate = "#rate { uint value }";
-    string constant Bounds = "#bounds { int min, int max }";
-    string constant Auth = "#auth { uint cid, uint deadline, bytes proof }";
-    string constant Data = "#data { bytes payload }";
-    string constant List = "#list { bytes payload }";
-    string constant Evm = "#evm { bytes payload }";
-    string constant Query = "#query { bytes payload }";
-    string constant Response = "#response { bytes payload }";
-    string constant Break = "#break";
-    string constant Frame = "#frame { bytes payload }";
+    string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";
+    string constant Bytes = "#bytes";
+    string constant Data = "#data";
+    string constant List = "#list";
+    string constant Evm = "#evm";
 }
 
 /// @title Forms
@@ -107,16 +103,14 @@ library Sizes {
     uint constant B160 = Header + 5 * Word;
     /// @dev AUTH proof segment only: 20-byte signer + 65-byte signature = 85 bytes
     uint constant Proof = 85;
-    /// @dev AUTH block: 8 header + 32 cid + 32 deadline + 85 proof = 157 bytes
-    uint constant Auth = B64 + Proof;
+    /// @dev AUTH block: 8 header + 32 cid + 32 deadline + nested BYTES block with 85-byte proof = 165 bytes
+    uint constant Auth = B64 + Header + Proof;
     /// @dev STATUS block: 8 header + 1 bool byte = 9 bytes
     uint constant Status = Header + 1;
     /// @dev AMOUNT block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Amount = B96;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Balance = B96;
-    /// @dev BOUNDS block: 8 header + 32 min + 32 max = 72 bytes
-    uint constant Bounds = B64;
     /// @dev FEE block: 8 header + 32 amount = 40 bytes
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes

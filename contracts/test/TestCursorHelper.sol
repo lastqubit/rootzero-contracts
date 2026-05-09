@@ -70,14 +70,14 @@ contract TestCursorHelper {
 
     function testWriterRejectsSecond32Block(bytes32 value) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc32s(1);
-        w.appendBlock32(Keys.Response, value, 32);
-        w.appendBlock32(Keys.Response, value, 32);
+        w.appendBlock32(Keys.Data, value, 32);
+        w.appendBlock32(Keys.Data, value, 32);
         return w.finish();
     }
 
     function testWriterRejectsOversizedDynamicBlock(bytes memory data) external pure returns (bytes memory) {
         Writer memory w = Writers.allocBytes(1, 32);
-        w.appendBlock(Keys.Response, data);
+        w.appendBlock(Keys.Data, data);
         return w.finish();
     }
 
@@ -98,11 +98,6 @@ contract TestCursorHelper {
     ) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackAccountAsset();
-    }
-
-    function testUnpackBounds(bytes calldata source) external pure returns (int min, int max) {
-        Cur memory cur = Cursors.open(source);
-        return cur.unpackBounds();
     }
 
     function testUnpackFee(bytes calldata source) external pure returns (uint amount) {
@@ -141,15 +136,15 @@ contract TestCursorHelper {
     function testPrimeRun(bytes calldata source, uint group)
         external
         pure
-        returns (bytes4 key, uint count, uint quotient, uint offset, uint i, uint len, uint bound)
+        returns (bytes4 key, uint groups, uint offset, uint i, uint len, uint bound)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        (key, count, quotient) = cur.primeRun(group);
-        return (key, count, quotient, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
+        (key, groups) = cur.primeRun(group);
+        return (key, groups, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {

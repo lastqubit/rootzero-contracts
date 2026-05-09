@@ -12,27 +12,22 @@ export const Keys = {
   Allocation: blockKey("#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }"),
   Allowance: blockKey("#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }"),
   Custody: blockKey("#custody { uint host, bytes32 asset, bytes32 meta, uint amount }"),
-  Bounds: blockKey("#bounds { int min, int max }"),
   Fee: blockKey("#fee { uint amount }"),
   Account: blockKey("#account { bytes32 account }"),
   Payout: blockKey("#payout { bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
   Node: blockKey("#node { uint id }"),
   Asset: blockKey("#asset { bytes32 asset, bytes32 meta }"),
-  Quantity: blockKey("#quantity { uint amount }"),
-  Step: blockKey("#step { uint target, uint value, bytes request }"),
-  Call: blockKey("#call { uint target, uint value, bytes payload }"),
+  Step: blockKey("#step { uint target, uint value, #bytes as request }"),
+  Call: blockKey("#call { uint target, uint value, #bytes as payload }"),
   Transaction: blockKey("#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }"),
   Minimum: blockKey("#minimum { bytes32 asset, bytes32 meta, uint amount }"),
   Maximum: blockKey("#maximum { bytes32 asset, bytes32 meta, uint amount }"),
-  Break: blockKey("#break"),
-  Auth: blockKey("#auth { uint cid, uint deadline, bytes proof }"),
+  Auth: blockKey("#auth { uint cid, uint deadline, #bytes as proof }"),
   Bounty: blockKey("#bounty { uint amount, bytes32 relayer }"),
-  List: blockKey("#list { bytes payload }"),
-  Frame: blockKey("#frame { bytes payload }"),
-  Data: blockKey("#data { bytes payload }"),
-  Evm: blockKey("#evm { bytes payload }"),
-  Query: blockKey("#query { bytes payload }"),
-  Response: blockKey("#response { bytes payload }"),
+  Bytes: blockKey("#bytes"),
+  List: blockKey("#list"),
+  Data: blockKey("#data"),
+  Evm: blockKey("#evm"),
   Status: blockKey("#status { bool ok }"),
   AssetAmount: blockKey("#assetAmount { bytes32 asset, bytes32 meta, uint amount }"),
   AccountAsset: blockKey("#accountAsset { bytes32 account, bytes32 asset, bytes32 meta }"),
@@ -48,10 +43,6 @@ export function pad32(value: bigint | string): string {
     return ethers.zeroPadValue(ethers.toBeHex(value), 32);
   }
   return ethers.zeroPadValue(value, 32);
-}
-
-export function padInt32(value: bigint): string {
-  return ethers.zeroPadValue(ethers.toBeHex(BigInt.asUintN(256, value)), 32);
 }
 
 const USER_PREFIX = 0x20010102n;
@@ -120,14 +111,6 @@ export function encodeAssetBlock(asset: string, meta: string): string {
   return block(Keys.Asset, ethers.concat([pad32(asset), pad32(meta)]));
 }
 
-export function encodeQuantityBlock(amount: bigint): string {
-  return block(Keys.Quantity, pad32(amount));
-}
-
-export function encodeBoundsBlock(min: bigint, max: bigint): string {
-  return block(Keys.Bounds, ethers.concat([padInt32(min), padInt32(max)]));
-}
-
 export function encodeFeeBlock(amount: bigint): string {
   return block(Keys.Fee, pad32(amount));
 }
@@ -137,11 +120,15 @@ export function encodeTxBlock(from: string, to: string, asset: string, meta: str
 }
 
 export function encodeStepBlock(target: bigint, value: bigint, request: string): string {
-  return block(Keys.Step, ethers.concat([pad32(target), pad32(value), request]));
+  return block(Keys.Step, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(request)]));
 }
 
 export function encodeCallBlock(target: bigint, value: bigint, data: string): string {
-  return block(Keys.Call, ethers.concat([pad32(target), pad32(value), data]));
+  return block(Keys.Call, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(data)]));
+}
+
+export function encodeBytesBlock(data: string): string {
+  return block(Keys.Bytes, data);
 }
 
 export function encodeDataBlock(data: string): string {
@@ -152,32 +139,16 @@ export function encodeEvmBlock(data: string): string {
   return block(Keys.Evm, data);
 }
 
-export function encodeQueryBlock(data: string): string {
-  return block(Keys.Query, data);
-}
-
-export function encodeResponseBlock(data: string): string {
-  return block(Keys.Response, data);
-}
-
 export function encodeStatusBlock(ok: boolean): string {
   return block(Keys.Status, ok ? "0x01" : "0x00");
-}
-
-export function encodeBreakBlock(): string {
-  return block(Keys.Break, "0x");
 }
 
 export function encodeListBlock(...members: string[]): string {
   return block(Keys.List, concat(...members));
 }
 
-export function encodeFrameBlock(...payloads: string[]): string {
-  return block(Keys.Frame, concat(...payloads));
-}
-
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
-  return block(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), proof]));
+  return block(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), encodeBytesBlock(proof)]));
 }
 
 export function encodeMinimumBlock(asset: string, meta: string, amount: bigint): string {

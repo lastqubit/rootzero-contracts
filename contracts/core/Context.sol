@@ -30,7 +30,7 @@ abstract contract RootZeroContext {
     /// @return groups Number of block groups in the run (`prime block count / group`).
     function cursor(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
         cur = Cursors.open(source);
-        (, , groups) = cur.primeRun(group);
+        (, groups) = cur.primeRun(group);
     }
 
     /// @notice Open a cursor, prime it, and assert that its group count matches `expectedGroups`.
@@ -42,7 +42,7 @@ abstract contract RootZeroContext {
     /// @return cur Cursor with `bound` set to the end of the first run.
     function cursor(bytes calldata source, uint group, uint expectedGroups) internal pure returns (Cur memory cur) {
         cur = Cursors.open(source);
-        (, , uint groups) = cur.primeRun(group);
+        (, uint groups) = cur.primeRun(group);
         if (groups != expectedGroups) revert Cursors.BadRatio();
     }
 }

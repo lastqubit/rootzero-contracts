@@ -8,12 +8,10 @@ import {
   encodeAuthBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
-  encodeBoundsBlock,
   encodeBountyBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
-  encodeFrameBlock,
   encodeMaximumBlock,
   encodeMinimumBlock,
   encodeNodeBlock,
@@ -143,15 +141,14 @@ describe("Cursors", () => {
     const meta = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
 
-    it("primeRun sets key, count, len, and bound for a prime run", async () => {
+    it("primeRun returns key and groups, and sets len and bound for a prime run", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
       const c = encodeBalanceBlock(asset, meta, 3n);
       const source = concat(a, b, c);
-      const [key, count, quotient, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
+      const [key, groups, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
       expect(key).to.equal(Keys.Amount);
-      expect(count).to.equal(2n);
-      expect(quotient).to.equal(2n);
+      expect(groups).to.equal(2n);
       expect(offset).to.equal(0n);
       expect(i).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(source).length));
@@ -286,17 +283,20 @@ describe("Cursors", () => {
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
-    it("frame uses a shared key and carries merged payload fields without child headers", async () => {
-      const frame = encodeFrameBlock(
-        ethers.concat([asset, meta, ethers.zeroPadValue(ethers.toBeHex(amount), 32)]),
+    it("data uses a shared key and carries merged payload fields without child headers", async () => {
+      const payload = ethers.concat([
+        asset,
+        meta,
+        ethers.zeroPadValue(ethers.toBeHex(amount), 32),
         ethers.zeroPadValue(ethers.toBeHex(77n), 32),
-      );
+      ]);
+      const data = encodeDataBlock(payload);
 
-      expect(frame.slice(0, 10)).to.equal(Keys.Frame);
-      expect(await helper.testPeek(frame, 0n)).to.deep.equal([Keys.Frame, 128n]);
-      expect(ethers.getBytes(frame).length).to.equal(136);
-      expect(frame).to.not.include(Keys.Amount.slice(2));
-      expect(frame).to.not.include(Keys.Fee.slice(2));
+      expect(data.slice(0, 10)).to.equal(Keys.Data);
+      expect(await helper.testPeek(data, 0n)).to.deep.equal([Keys.Data, 128n]);
+      expect(ethers.getBytes(data).length).to.equal(136);
+      expect(data).to.not.include(Keys.Amount.slice(2));
+      expect(data).to.not.include(Keys.Fee.slice(2));
     });
 
     it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
@@ -377,11 +377,6 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
     });
 
-    it("unpackBounds preserves signed min and max values", async () => {
-      const source = encodeBoundsBlock(-5n, 42n);
-      expect(await helper.testUnpackBounds(source)).to.deep.equal([-5n, 42n]);
-    });
-
     it("unpackFee returns the fee amount", async () => {
       const source = encodeFeeBlock(77n);
       expect(await helper.testUnpackFee(source)).to.equal(77n);
@@ -406,7 +401,7 @@ describe("Cursors", () => {
       const [deadline, outProof, i] = await helper.testRequireAuth(source, 77n);
       expect(deadline).to.equal(123456n);
       expect(outProof).to.equal(proof);
-      expect(i).to.equal(157n);
+      expect(i).to.equal(165n);
     });
 
     it("complete reverts ZeroCursor when prime run is empty", async () => {

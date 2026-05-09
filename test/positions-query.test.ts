@@ -3,7 +3,7 @@ import { deploy } from "./helpers/setup.js";
 import {
   concat,
   encodeAccountAssetBlock,
-  encodeResponseBlock,
+  encodeDataBlock,
   pad32,
 } from "./helpers/blocks.js";
 
@@ -18,7 +18,7 @@ describe("GetPosition", () => {
       encodeAccountAssetBlock(account, asset, meta),
     );
 
-    expect(result).to.equal(encodeResponseBlock(pad32(11n)));
+    expect(result).to.equal(encodeDataBlock(pad32(11n)));
   });
 
   it("maps multiple asset blocks into matching response blocks in order", async () => {
@@ -37,8 +37,8 @@ describe("GetPosition", () => {
     const result: string = await query.getPosition.staticCall(request);
 
     expect(result).to.equal(concat(
-      encodeResponseBlock(pad32(11n)),
-      encodeResponseBlock(pad32(22n)),
+      encodeDataBlock(pad32(11n)),
+      encodeDataBlock(pad32(22n)),
     ));
   });
 });

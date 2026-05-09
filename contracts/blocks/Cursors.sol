@@ -214,20 +214,19 @@ library Cursors {
     /// @notice Initialise the cursor for a grouped iteration pass.
     /// Reads the key of the first block, counts the consecutive run of that key,
     /// stores the run end in `cur.bound`, validates that the count is a
-    /// multiple of `group`, and returns both the raw block count and the
-    /// normalized quotient (`count / group`).
+    /// multiple of `group`, and returns the run key and normalized group count.
     /// @param cur Cursor to prime; `cur.bound` is updated in place.
     /// @param group Expected group size (e.g. 1 for single-asset, 2 for paired input/output).
     /// @return key Block type identifier of the run.
-    /// @return count Total number of blocks in the run (always a multiple of `group`).
-    /// @return quotient Number of groups represented by the run (`count / group`).
-    function primeRun(Cur memory cur, uint group) internal pure returns (bytes4 key, uint count, uint quotient) {
+    /// @return groups Number of groups represented by the run (`block count / group`).
+    function primeRun(Cur memory cur, uint group) internal pure returns (bytes4 key, uint groups) {
         if (group == 0) revert ZeroGroup();
         key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
+        uint count;
         (count, cur.bound) = countRun(cur, cur.i, key);
         if (count == 0) revert ZeroCursor();
         if (count % group != 0) revert BadRatio();
-        quotient = count / group;
+        groups = count / group;
     }
 
     /// @notice Scan forward from `i` for the first block matching `key`.
@@ -301,7 +300,7 @@ library Cursors {
     /// @return next Byte offset immediately after the list payload.
     function list(Cur memory cur, uint group) internal pure returns (uint groups, uint next) {
         next = list(cur);
-        (, , groups) = cur.primeRun(group);
+        (, groups) = cur.primeRun(group);
         if (cur.bound != next) revert IncompleteCursor();
     }
 
@@ -414,6 +413,13 @@ library Cursors {
         return bytes.concat(key, bytes4(uint32(0xa0)), a, b, c, d, e);
     }
 
+    /// @notice Encode a reserved BYTES block with a raw payload.
+    /// @param data Raw payload bytes.
+    /// @return Encoded BYTES block bytes.
+    function createBytesBlock(bytes memory data) internal pure returns (bytes memory) {
+        return bytes.concat(Keys.Bytes, bytes4(uint32(data.length)), data);
+    }
+
     /// @notice Encode a block with a 32-byte fixed head followed by a variable-length tail.
     /// @param key Block type key.
     /// @param head Fixed 32-byte head payload.
@@ -449,10 +455,10 @@ library Cursors {
     /// @notice Encode a STEP block.
     /// @param target Command target identifier.
     /// @param value Native value forwarded with the step.
-    /// @param request Variable-length nested request payload.
+    /// @param request Raw nested request payload.
     /// @return Encoded STEP block bytes.
     function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
-        return createBlockHead64(Keys.Step, bytes32(target), bytes32(value), request);
+        return createBlockHead64(Keys.Step, bytes32(target), bytes32(value), createBytesBlock(request));
     }
 
     /// @notice Encode a CALL block.
@@ -461,7 +467,7 @@ library Cursors {
     /// @param data Raw calldata payload for the target.
     /// @return Encoded CALL block bytes.
     function toCallBlock(uint target, uint value, bytes memory data) internal pure returns (bytes memory) {
-        return createBlockHead64(Keys.Call, bytes32(target), bytes32(value), data);
+        return createBlockHead64(Keys.Call, bytes32(target), bytes32(value), createBytesBlock(data));
     }
 
     /// @notice Encode a BALANCE block.
@@ -574,6 +580,13 @@ library Cursors {
         cur.i = next;
     }
 
+    /// @notice Consume a reserved BYTES block and return its raw payload.
+    /// @param cur Cursor; advanced past the BYTES block.
+    /// @return data Raw BYTES payload.
+    function unpackBytes(Cur memory cur) internal pure returns (bytes calldata data) {
+        return unpackRaw(cur, Keys.Bytes);
+    }
+
     /// @notice Consume a dynamic block with a single bytes32 payload.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected dynamic block key.
@@ -669,73 +682,6 @@ library Cursors {
     function unpack3Uint(Cur memory cur, bytes4 key) internal pure returns (uint a, uint b, uint c) {
         (bytes32 x, bytes32 y, bytes32 z) = unpack96(cur, key);
         return (uint(x), uint(y), uint(z));
-    }
-
-    // Generic fixed-head decoders
-
-    /// @notice Consume a dynamic block with a 32-byte fixed head followed by a variable-length tail.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return head Fixed 32-byte head.
-    /// @return tail Variable-length payload bytes after the fixed head.
-    function unpackHead32(Cur memory cur, bytes4 key) internal pure returns (bytes32 head, bytes calldata tail) {
-        uint abs = consume(cur, 0, key, 32, 0);
-        head = bytes32(msg.data[abs:abs + 32]);
-        tail = msg.data[abs + 32:cur.offset + cur.i];
-    }
-
-    /// @notice Consume a dynamic block with a 64-byte fixed head followed by a variable-length tail.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return a First fixed head word.
-    /// @return b Second fixed head word.
-    /// @return tail Variable-length payload bytes after the fixed head.
-    function unpackHead64(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 a, bytes32 b, bytes calldata tail) {
-        uint abs = consume(cur, 0, key, 64, 0);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-        tail = msg.data[abs + 64:cur.offset + cur.i];
-    }
-
-    /// @notice Consume a dynamic block with a 96-byte fixed head followed by a variable-length tail.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return a First fixed head word.
-    /// @return b Second fixed head word.
-    /// @return c Third fixed head word.
-    /// @return tail Variable-length payload bytes after the fixed head.
-    function unpackHead96(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes calldata tail) {
-        uint abs = consume(cur, 0, key, 96, 0);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-        c = bytes32(msg.data[abs + 64:abs + 96]);
-        tail = msg.data[abs + 96:cur.offset + cur.i];
-    }
-
-    /// @notice Consume a dynamic block with a 128-byte fixed head followed by a variable-length tail.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return a First fixed head word.
-    /// @return b Second fixed head word.
-    /// @return c Third fixed head word.
-    /// @return d Fourth fixed head word.
-    /// @return tail Variable-length payload bytes after the fixed head.
-    function unpackHead128(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes calldata tail) {
-        uint abs = consume(cur, 0, key, 128, 0);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-        c = bytes32(msg.data[abs + 64:abs + 96]);
-        d = bytes32(msg.data[abs + 96:abs + 128]);
-        tail = msg.data[abs + 128:cur.offset + cur.i];
     }
 
     // Generic typed-shape decoders
@@ -846,20 +792,6 @@ library Cursors {
         node = uint(unpack32(cur, Keys.Node));
     }
 
-    /// @notice Consume a RATE block and return the value.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Encoded ratio or rate.
-    function unpackRate(Cur memory cur) internal pure returns (uint value) {
-        value = uint(unpack32(cur, Keys.Rate));
-    }
-
-    /// @notice Consume a QUANTITY block and return the amount.
-    /// @param cur Cursor; advanced past the block.
-    /// @return amount Scalar quantity value.
-    function unpackQuantity(Cur memory cur) internal pure returns (uint amount) {
-        amount = uint(unpack32(cur, Keys.Quantity));
-    }
-
     /// @notice Consume a FEE block and return the amount.
     /// @param cur Cursor; advanced past the block.
     /// @return amount Fee amount.
@@ -902,18 +834,6 @@ library Cursors {
         (bytes32 x, bytes32 y) = unpack64(cur, Keys.Bounty);
         amount = uint(x);
         relayer = y;
-    }
-
-    /// @notice Consume a BOUNDS block and return the signed min and max values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return min Lower signed bound.
-    /// @return max Upper signed bound.
-    function unpackBounds(Cur memory cur) internal pure returns (int min, int max) {
-        uint abs = consume(cur, 0, Keys.Bounds, 64, 64);
-        assembly ("memory-safe") {
-            min := calldataload(abs)
-            max := calldataload(add(abs, 0x20))
-        }
     }
 
     /// @notice Consume an AMOUNT block and return its fields as separate values.
@@ -1115,25 +1035,37 @@ library Cursors {
     // Type-specific dynamic decoders
 
     /// @notice Consume a STEP block and return its sub-command invocation fields.
-    /// The `req` slice covers any additional payload bytes after the fixed head.
+    /// The `req` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Destination node ID for the sub-command.
     /// @return value Native value to forward with the call.
     /// @return req Embedded request bytes for the sub-command.
     function unpackStep(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata req) {
-        (bytes32 a, bytes32 b, bytes calldata tail) = unpackHead64(cur, Keys.Step);
-        return (uint(a), uint(b), tail);
+        uint start = cur.i;
+        (uint abs, uint next) = expect(cur, start, 0, Keys.Step, 64 + Sizes.Header, 0);
+        target = uint(bytes32(msg.data[abs:abs + 32]));
+        value = uint(bytes32(msg.data[abs + 32:abs + 64]));
+
+        (abs, ) = expect(cur, start + Sizes.Header + 64, next, Keys.Bytes, 0, 0);
+        req = msg.data[abs:cur.offset + next];
+        cur.i = next;
     }
 
     /// @notice Consume a CALL block and return its target invocation fields.
-    /// The `data` slice covers any additional payload bytes after the fixed head.
+    /// The `data` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Target node ID to call.
     /// @return value Native value to forward with the call.
     /// @return data Raw calldata payload for the target.
     function unpackCall(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata data) {
-        (bytes32 a, bytes32 b, bytes calldata tail) = unpackHead64(cur, Keys.Call);
-        return (uint(a), uint(b), tail);
+        uint start = cur.i;
+        (uint abs, uint next) = expect(cur, start, 0, Keys.Call, 64 + Sizes.Header, 0);
+        target = uint(bytes32(msg.data[abs:abs + 32]));
+        value = uint(bytes32(msg.data[abs + 32:abs + 64]));
+
+        (abs, ) = expect(cur, start + Sizes.Header + 64, next, Keys.Bytes, 0, 0);
+        data = msg.data[abs:cur.offset + next];
+        cur.i = next;
     }
 
     // Type-specific validators
@@ -1146,10 +1078,12 @@ library Cursors {
     /// @return deadline Expiry timestamp.
     /// @return proof Raw proof bytes (layout: `[bytes20 signer][bytes65 sig]`).
     function expectAuth(Cur memory cur, uint i, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
-        (uint abs, uint next) = expect(cur, i, 0, Keys.Auth, 149, 0);
+        (uint abs, uint next) = expect(cur, i, 0, Keys.Auth, 64 + Sizes.Header + Sizes.Proof, 0);
         if (uint(bytes32(msg.data[abs:abs + 32])) != cid) revert UnexpectedValue();
         deadline = uint(bytes32(msg.data[abs + 32:abs + 64]));
-        proof = msg.data[abs + 64:cur.offset + next];
+
+        (abs, ) = expect(cur, i + Sizes.Header + 64, next, Keys.Bytes, Sizes.Proof, Sizes.Proof);
+        proof = msg.data[abs:abs + Sizes.Proof];
     }
 
     // -------------------------------------------------------------------------
@@ -1329,7 +1263,7 @@ library Cursors {
     /// @return proof Raw proof bytes.
     function requireAuth(Cur memory cur, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
         (deadline, proof) = expectAuth(cur, cur.i, cid);
-        cur.i += Sizes.Header + 64 + proof.length;
+        cur.i += Sizes.Auth;
     }
 
     // -------------------------------------------------------------------------

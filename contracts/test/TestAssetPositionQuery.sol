@@ -12,7 +12,7 @@ contract TestGetPositionQuery is GetPosition {
     bytes32 public immutable secondAsset = bytes32(uint(0xA22));
     bytes32 public immutable secondMeta = bytes32(uint(0xB22));
 
-    constructor() GetPosition("#response { uint position }", 32) {}
+    constructor() GetPosition("uint position", 32) {}
 
     function appendPosition(
         bytes32,
@@ -23,6 +23,6 @@ contract TestGetPositionQuery is GetPosition {
         uint resolved = 0;
         if (asset == firstAsset && meta == firstMeta) resolved = 11;
         if (asset == secondAsset && meta == secondMeta) resolved = 22;
-        response.appendBlock(Keys.Response, abi.encode(resolved));
+        response.appendBlock(Keys.Data, abi.encode(resolved));
     }
 }

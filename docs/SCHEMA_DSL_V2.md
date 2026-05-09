@@ -9,8 +9,8 @@ The main goals are:
 - keep block definitions compact
 - avoid postfix modifiers like `?` and `[]`
 - allow aliases as explicit schema metadata
-- describe dynamic payloads with one simple rule: fixed fields first, optional
-  tail last
+- describe dynamic payloads with one simple rule: fixed fields first, then an
+  optional child-block tail
 - support nested child blocks with explicit parent boundaries
 
 ## Block Atoms
@@ -27,7 +27,7 @@ A block without braces has no payload.
 
 ```txt
 #unit
-#break
+#reset
 ```
 
 Empty braces are not allowed. A zero-payload block must omit braces:
@@ -68,7 +68,7 @@ Braces define parent-child boundaries. Commas separate siblings inside the
 current boundary.
 
 Order is significant. Top-level items, fixed fields, child blocks in a
-block-stream tail, and repeated items inside a list are interpreted in the exact
+child-block tail, and repeated items inside a list are interpreted in the exact
 order declared by the schema.
 
 Trailing commas are invalid at every level.
@@ -100,7 +100,7 @@ items of the declared shape.
 The generic list key is derived from:
 
 ```txt
-#list { bytes payload }
+#list
 ```
 
 For example:
@@ -120,9 +120,9 @@ where no list block is emitted.
 `many` never repeats the block in place. It always wraps the declared block in
 one generic list block.
 
-The repeated item is a normal block item. It can have fixed fields, a raw
-`bytes` tail, or a block-stream tail just like any other block.
-The repeated item may also be `#data`.
+The repeated item is a normal block item. It can have fixed fields followed by
+a child-block tail just like any other block.
+The repeated item may also be `#data` or `#bytes`.
 Nested `many` is allowed anywhere a block item is allowed.
 
 `maybe many` makes the entire generic list block optional. It does not make
@@ -275,7 +275,7 @@ suffixes in encounter order.
 For example:
 
 ```txt
-#bounds { uint amount, uint amount }
+#range { uint amount, uint amount }
 ```
 
 presents as:
@@ -327,11 +327,11 @@ For a zero-payload block without braces, the hash input is the block atom name:
 
 Reserved generic-key forms are exceptions:
 
-- `#data` uses the key derived from `#data { bytes payload }`, regardless of
-  its declared body
+- `#bytes` uses the key derived from `#bytes`. It is a reserved raw bytes
+  block with no body.
+- `#data` uses the key derived from `#data`, regardless of its declared body
 - `many #x { ... }` emits a generic list block whose key is derived from
-  `#list { bytes payload }`, then stores repeated `#x` items inside the list
-  payload
+  `#list`, then stores repeated `#x` items inside the list payload
 
 Formatting differences should be normalized by tooling before hashing. Solidity
 code that hashes schema strings directly should use canonical constants rather
@@ -362,22 +362,22 @@ Canonical example:
 
 ## Fixed Fields And Tails
 
-A block payload has one fixed part and may have one dynamic tail.
+A block payload has one fixed part and may have one dynamic child-block tail.
 
 ```txt
-block = fixed fields + optional tail
-tail = bytes | block stream
+block = fixed fields + optional child-block stream
 ```
 
-Fixed fields always come first. A block can have at most one dynamic tail. The
-tail is either raw `bytes` or a block stream, and it is always last.
+Fixed fields always come first. Once the first child block item appears, the
+remainder of the payload is a block stream. Raw dynamic bytes are represented by
+the reserved `#bytes` child block.
 
 Invalid:
 
 ```txt
-#x { uint a, bytes payload, #child { uint b } }
 #x { #child { uint a }, uint b }
-#x { bytes payload, uint a }
+#x { #bytes as payload, uint a }
+#x { #bytes payload }
 ```
 
 ## Wire Format
@@ -417,17 +417,16 @@ int128
 int256
 bool
 bytes1 through bytes32
-bytes
 ```
 
 `uint` means `uint256`. `int` means `int256`.
 
 Other integer widths, such as `uint24` or `int40`, are not part of the core DSL.
 
-`bytes` without a size is dynamic and is only allowed as the final raw bytes
-tail.
+Unsized `bytes` is not a field type. Use the reserved `#bytes` block for raw
+dynamic bytes.
 
-`string` is not part of the core schema DSL. Text payloads should use `bytes`
+`string` is not part of the core schema DSL. Text payloads should use `#bytes`
 and define their interpretation at the command or tooling layer.
 
 Array syntax is not part of the core schema DSL. Forms such as `uint[]`,
@@ -467,7 +466,7 @@ Parsing is case-sensitive. `#Amount` and `#amount` are different block names.
 Keywords and field types are lowercase.
 
 Reserved words cannot be used as block names, field names, or aliases. Reserved
-words include prefix/alias keywords and field type names:
+words include prefix/alias keywords, reserved block names, and field type names:
 
 ```txt
 maybe
@@ -492,7 +491,21 @@ int256
 bytes1 through bytes32
 ```
 
-The block names `data` and `list` are reserved generic-key block names.
+The block names `bytes`, `data`, and `list` are reserved generic-key block names.
+`#bytes` is the reserved raw bytes block and must be written without a body.
+It cannot be renamed inline; use an alias when the raw bytes need a presentation
+name:
+
+```txt
+#bytes as payload
+```
+
+This is invalid:
+
+```txt
+#bytes payload
+```
+
 Users should not write `#list { ... }` directly. List blocks are authored with
 `many`.
 The generic data block follows the normal zero-payload rule, so `#data` is valid
@@ -551,8 +564,7 @@ Other bool byte values are invalid.
 `bytesN` values are encoded as exactly `N` bytes with no padding.
 
 The fixed head length is the sum of the encoded fixed field sizes. If the block
-has a raw `bytes` tail or a block-stream tail, the tail starts immediately after
-the fixed head.
+has a child-block tail, the tail starts immediately after the fixed head.
 
 ## No Structural Wrapper Blocks
 
@@ -560,7 +572,7 @@ The v2 format should not need special structural block forms such as `bundle`.
 Every block already has the same general shape:
 
 ```txt
-fixed fields + optional tail
+fixed fields + optional child-block tail
 ```
 
 If a block needs to carry child blocks, it declares those child blocks directly
@@ -590,12 +602,12 @@ blocks declared inside it. Its schema body describes how to interpret the
 payload, but does not create a new key.
 
 Aside from key derivation, `#data` behaves like any other block. It can have
-fixed fields, a raw `bytes` tail, or a block-stream tail.
+fixed fields followed by a child-block tail.
 
 The generic data key is derived from:
 
 ```txt
-#data { bytes payload }
+#data
 ```
 
 Examples:
@@ -604,6 +616,7 @@ Examples:
 #data { uint host }
 #data { uint foo, bytes32 tag }
 #data { uint foo, #rate { uint amount } }
+#data { #bytes as payload }
 ```
 
 Use `#data` when the payload shape is local/custom and a stable generic key is
@@ -624,7 +637,7 @@ expands to:
 #data { uint host }
 ```
 
-Multiple fields and a block-stream tail are also allowed:
+Multiple fields and a child-block tail are also allowed:
 
 ```txt
 uint foo, bytes32 tag, maybe #rate { uint amount }
@@ -650,9 +663,9 @@ Use the explicit form when the generic data block has no fixed fields:
 #data { #rate { uint amount } }
 ```
 
-## Block-Stream Tails
+## Child-Block Tails
 
-Nested `#` items inside a block define a block-stream tail.
+Nested `#` items inside a block define a child-block tail.
 
 ```txt
 #config { uint foo, #rate { uint amount } }
@@ -661,10 +674,10 @@ Nested `#` items inside a block define a block-stream tail.
 This means:
 
 - `config` has fixed field `uint foo`
-- the remainder of the `config` payload is a block stream
+- the remainder of the `config` payload is a child-block stream
 - that tail stream contains a `rate` block
 
-Block-stream tails are encoded directly as raw child block bytes inside the
+Child-block tails are encoded directly as raw child block bytes inside the
 parent payload. There is no extra stream wrapper block. The parent payload
 length bounds the tail, and each child block's own header delimits that child.
 
@@ -677,7 +690,7 @@ Tail items can use the same prefix modifiers and aliases:
 ```
 
 Once the first nested block item appears, the rest of the payload is the
-block-stream tail. Fixed fields may not appear after tail items.
+child-block tail. Fixed fields may not appear after tail items.
 
 Inline tail blocks do not need terminators. Their closing brace ends the child
 block, and commas separate sibling fields or blocks.
@@ -699,8 +712,8 @@ marked child, not to the parent.
 ## Nested Child Blocks
 
 Nested child blocks should be supported. A block should always behave the same
-way wherever it appears: it can have fixed fields, and it can optionally end
-with either a bytes tail or a block-stream tail.
+way wherever it appears: it can have fixed fields followed by an optional
+child-block tail.
 
 Because child blocks can themselves have child blocks, the schema needs an
 unambiguous way to show which parent each child belongs to.
@@ -740,23 +753,33 @@ config
       fixed: uint amount
       tail:
         proof
-          fixed: bytes payload
+          tail:
+            bytes
 ```
 
 Braces are the parent-child boundary syntax for nested block tails.
 
-## Bytes Tails
+## Raw Bytes Blocks
 
-A block can end with a dynamic `bytes` field when its dynamic part is raw bytes.
-That final `bytes` field represents the raw bytes tail.
+Raw dynamic bytes are represented by the reserved `#bytes` child block.
 
 ```txt
-#data { bytes payload }
-#call { uint target, uint value, bytes payload }
+#data { #bytes as payload }
+#call { uint target, uint value, #bytes as payload }
 ```
 
-The `bytes` tail must be last. Fixed fields and child block tails may not follow
-it.
+`#bytes` has no body and no fixed fields or child blocks. It cannot have an
+inline name. If a schema needs a presentation name for the bytes, use an alias:
+
+```txt
+#bytes as payload
+```
+
+The encoded `#bytes` block uses the normal block header:
+
+```txt
+[BYTES_KEY][uint32 payloadLen][raw bytes]
+```
 
 ## Examples
 
@@ -778,7 +801,7 @@ List block:
 many #asset { bytes32 asset, bytes32 meta }
 ```
 
-Fixed block with optional block-stream tail:
+Fixed block with optional child-block tail:
 
 ```txt
 #payment { bytes32 asset, bytes32 meta, uint amount, maybe #fee { uint amount } }
