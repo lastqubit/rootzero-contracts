@@ -121,18 +121,6 @@ contract TestCursorHelper {
         return (value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function testLoad160(bytes calldata source, uint offset)
-        external
-        pure
-        returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e)
-    {
-        uint sourceOffset;
-        assembly ("memory-safe") {
-            sourceOffset := source.offset
-        }
-        return Cursors.load160(sourceOffset + offset);
-    }
-
     function testPrimeRun(bytes calldata source, uint group)
         external
         pure
@@ -287,6 +275,14 @@ contract TestCursorHelper {
         Cur memory cur = Cursors.open(source);
         (target, value, req) = cur.unpackStep();
         return (target, value, req, cur.i);
+    }
+
+    function testUnpackContext(
+        bytes calldata source
+    ) external pure returns (bytes32 account, bytes calldata state, bytes calldata request, uint i) {
+        Cur memory cur = Cursors.open(source);
+        (account, state, request) = cur.unpackContext();
+        return (account, state, request, cur.i);
     }
 
     function testRequireAmount(

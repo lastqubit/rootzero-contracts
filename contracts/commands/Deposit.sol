@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, CommandPayable, Keys } from "./Base.sol";
+import { CommandContext, CommandBase, Payable, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
-import { Budget, Values } from "../utils/Value.sol";
+import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 using Writers for Writer;
@@ -46,7 +46,7 @@ abstract contract Deposit is CommandBase, DepositHook {
 
     function deposit(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
@@ -63,7 +63,7 @@ abstract contract Deposit is CommandBase, DepositHook {
 /// @title DepositPayable
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
-abstract contract DepositPayable is CommandPayable, DepositPayableHook {
+abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
     string private constant NAME = "depositPayable";
 
     uint internal immutable depositPayableId = commandId(NAME);
@@ -74,10 +74,10 @@ abstract contract DepositPayable is CommandPayable, DepositPayableHook {
 
     function depositPayable(
         CommandContext calldata c
-    ) external payable onlyCommand(c.account) returns (bytes memory) {
+    ) external payable onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups) = cursor(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
-        Budget memory budget = Values.fromMsg();
+        Budget memory budget = valueBudget();
 
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();

@@ -51,10 +51,6 @@ describe("Commands", () => {
   // ── Deposit ───────────────────────────────────────────────────────────────
 
   describe("deposit", () => {
-    it("activeAccount matches c.account", async () => {
-      expect(await host.getActiveAccount.staticCall(ctx())).to.equal(userAccount);
-    });
-
     it("emits DepositCalled for a single AMOUNT block and returns BALANCE blocks", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       const meta  = ethers.ZeroHash;

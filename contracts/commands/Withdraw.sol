@@ -31,7 +31,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
 
     function withdraw(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory) {
         (Cur memory state, ) = cursor(c.state, 1);
         bytes32 to = Cursors.resolveAccount(c.request, c.account);
 

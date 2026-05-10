@@ -251,6 +251,20 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
+    /// @notice Enter a block at the current position and return its next offset.
+    /// Advances `cur.i` past the block header so the payload can be parsed
+    /// directly from the same cursor. The returned `next` is the byte offset
+    /// immediately after the block payload, relative to the current cursor region.
+    /// @param cur Cursor positioned at the expected block; advanced past the 8-byte header.
+    /// @param key Expected block key.
+    /// @param min Minimum acceptable payload length.
+    /// @param max Maximum acceptable payload length; 0 means unbounded.
+    /// @return next Byte offset immediately after the block payload.
+    function enter(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint next) {
+        (, next) = expect(cur, cur.i, 0, key, min, max);
+        cur.i += Sizes.Header;
+    }
+
     /// @notice Enter a List block at the current position and return the next offset.
     /// Advances `cur.i` past the list header so the list members can be parsed
     /// directly from the same cursor. The returned `next` is the byte offset
@@ -258,8 +272,7 @@ library Cursors {
     /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
     /// @return next Byte offset immediately after the list payload.
     function list(Cur memory cur) internal pure returns (uint next) {
-        (, next) = expect(cur, cur.i, 0, Keys.List, 0, 0);
-        cur.i += 8;
+        next = enter(cur, Keys.List, 0, 0);
     }
 
     /// @notice Consume a block with the given key at the current position and return a cursor over the full block slice.
@@ -312,6 +325,16 @@ library Cursors {
     function resume(Cur memory cur, uint resumeAt) internal pure {
         if (resumeAt > cur.len || cur.i > resumeAt) revert IncompleteCursor();
         cur.i = resumeAt;
+    }
+
+    /// @notice Exit a nested region at an exact boundary.
+    /// Reverts with `IncompleteCursor` if `exitAt` exceeds the cursor region length
+    /// or `cur.i != exitAt`. Otherwise leaves `cur.i` at `exitAt`.
+    /// @param cur Cursor to advance.
+    /// @param exitAt Relative end offset of the nested region.
+    function exit(Cur memory cur, uint exitAt) internal pure {
+        if (exitAt > cur.len || cur.i != exitAt) revert IncompleteCursor();
+        cur.i = exitAt;
     }
 
     /// @notice Ensure that parsing has reached an exact nested-region boundary.
@@ -493,74 +516,80 @@ library Cursors {
     // Raw calldata loaders
     // -------------------------------------------------------------------------
 
-    /// @notice Load one 32-byte word from calldata.
-    /// @dev Performs no bounds, key, length, or cursor checks.
-    /// @param abs Absolute calldata offset of the word start.
-    /// @return a Loaded word.
-    function load32(uint abs) internal pure returns (bytes32 a) {
+    /// @notice Load the next calldata word from the cursor and advance by `n` bytes.
+    /// @dev Performs no bounds, key, length, or cursor checks. Always loads 32 bytes;
+    ///      callers may cast the returned word to `bytesN` when `n < 32`.
+    /// @param cur Cursor whose current position is advanced by `n` bytes.
+    /// @param n Number of bytes to advance.
+    /// @return value Loaded word.
+    function nextWord(Cur memory cur, uint n) internal pure returns (bytes32 value) {
+        uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
-            a := calldataload(abs)
+            value := calldataload(abs)
         }
+        cur.i += n;
     }
 
-    /// @notice Load two 32-byte words from calldata.
+    /// @notice Load the next 16 bytes from the cursor and advance by 16 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
-    /// @param abs Absolute calldata offset of the first word.
+    /// @param cur Cursor whose current position is advanced by 16 bytes.
+    /// @return value Loaded bytes16 value.
+    function next16(Cur memory cur) internal pure returns (bytes16 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 16;
+    }
+
+    /// @notice Load the next 32-byte word from the cursor and advance by one word.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 32 bytes.
+    /// @return value Loaded word.
+    function next32(Cur memory cur) internal pure returns (bytes32 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 32;
+    }
+
+    /// @notice Load the next two 32-byte words from the cursor and advance by 64 bytes.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 64 bytes.
     /// @return a First loaded word.
     /// @return b Second loaded word.
-    function load64(uint abs) internal pure returns (bytes32 a, bytes32 b) {
+    function next64(Cur memory cur) internal pure returns (bytes32 a, bytes32 b) {
+        uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
         }
+        cur.i += 64;
     }
 
-    /// @notice Load three 32-byte words from calldata.
+    /// @notice Load the next three 32-byte words from the cursor and advance by 96 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
-    /// @param abs Absolute calldata offset of the first word.
+    /// @param cur Cursor whose current position is advanced by 96 bytes.
     /// @return a First loaded word.
     /// @return b Second loaded word.
     /// @return c Third loaded word.
-    function load96(uint abs) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+    function next96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+        uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
             c := calldataload(add(abs, 0x40))
         }
+        cur.i += 96;
     }
 
-    /// @notice Load four 32-byte words from calldata.
-    /// @dev Performs no bounds, key, length, or cursor checks.
-    /// @param abs Absolute calldata offset of the first word.
-    /// @return a First loaded word.
-    /// @return b Second loaded word.
-    /// @return c Third loaded word.
-    /// @return d Fourth loaded word.
-    function load128(uint abs) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
-        assembly ("memory-safe") {
-            a := calldataload(abs)
-            b := calldataload(add(abs, 0x20))
-            c := calldataload(add(abs, 0x40))
-            d := calldataload(add(abs, 0x60))
-        }
-    }
-
-    /// @notice Load five 32-byte words from calldata.
-    /// @dev Performs no bounds, key, length, or cursor checks.
-    /// @param abs Absolute calldata offset of the first word.
-    /// @return a First loaded word.
-    /// @return b Second loaded word.
-    /// @return c Third loaded word.
-    /// @return d Fourth loaded word.
-    /// @return e Fifth loaded word.
-    function load160(uint abs) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e) {
-        assembly ("memory-safe") {
-            a := calldataload(abs)
-            b := calldataload(add(abs, 0x20))
-            c := calldataload(add(abs, 0x40))
-            d := calldataload(add(abs, 0x60))
-            e := calldataload(add(abs, 0x80))
-        }
+    /// @notice Consume the next 32-byte word and require it to match `expected`.
+    /// @dev Performs no bounds, key, length, or cursor checks beyond the value comparison.
+    /// @param cur Cursor whose current position is advanced by 32 bytes.
+    /// @param expected Required word value.
+    function require32(Cur memory cur, bytes32 expected) internal pure {
+        if (next32(cur) != expected) revert UnexpectedValue();
     }
 
     // -------------------------------------------------------------------------
@@ -1041,14 +1070,11 @@ library Cursors {
     /// @return value Native value to forward with the call.
     /// @return req Embedded request bytes for the sub-command.
     function unpackStep(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata req) {
-        uint start = cur.i;
-        (uint abs, uint next) = expect(cur, start, 0, Keys.Step, 64 + Sizes.Header, 0);
-        target = uint(bytes32(msg.data[abs:abs + 32]));
-        value = uint(bytes32(msg.data[abs + 32:abs + 64]));
-
-        (abs, ) = expect(cur, start + Sizes.Header + 64, next, Keys.Bytes, 0, 0);
-        req = msg.data[abs:cur.offset + next];
-        cur.i = next;
+        uint end = cur.enter(Keys.Step, 64 + Sizes.Header, 0);
+        target = uint(cur.next32());
+        value = uint(cur.next32());
+        req = cur.unpackBytes();
+        cur.exit(end);
     }
 
     /// @notice Consume a CALL block and return its target invocation fields.
@@ -1058,14 +1084,27 @@ library Cursors {
     /// @return value Native value to forward with the call.
     /// @return data Raw calldata payload for the target.
     function unpackCall(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata data) {
-        uint start = cur.i;
-        (uint abs, uint next) = expect(cur, start, 0, Keys.Call, 64 + Sizes.Header, 0);
-        target = uint(bytes32(msg.data[abs:abs + 32]));
-        value = uint(bytes32(msg.data[abs + 32:abs + 64]));
+        uint end = cur.enter(Keys.Call, 64 + Sizes.Header, 0);
+        target = uint(cur.next32());
+        value = uint(cur.next32());
+        data = cur.unpackBytes();
+        cur.exit(end);
+    }
 
-        (abs, ) = expect(cur, start + Sizes.Header + 64, next, Keys.Bytes, 0, 0);
-        data = msg.data[abs:cur.offset + next];
-        cur.i = next;
+    /// @notice Consume a CONTEXT block and return its command context fields.
+    /// The `state` and `request` slices are the raw payloads of the required BYTES children.
+    /// @param cur Cursor; advanced past the block.
+    /// @return account Command account identifier.
+    /// @return state Embedded state block stream.
+    /// @return request Embedded request block stream.
+    function unpackContext(
+        Cur memory cur
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
+        uint end = cur.enter(Keys.Context, 32 + 2 * Sizes.Header, 0);
+        account = cur.next32();
+        state = cur.unpackBytes();
+        request = cur.unpackBytes();
+        cur.exit(end);
     }
 
     // Type-specific validators

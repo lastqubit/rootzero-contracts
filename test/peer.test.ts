@@ -2,9 +2,11 @@ import { expect } from "chai";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
+  encodeContextBlock,
   encodeAmountBlock,
   encodeBalanceBlock,
   encodeNodeBlock,
+  encodeStepBlock,
   encodeTxBlock,
   encodeUserAccount,
 } from "./helpers/blocks.js";
@@ -50,15 +52,28 @@ describe("Peer Entrypoints", () => {
         "",
         false,
       );
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
+        await host.getPeerPipePayableId(),
+        "peerPipePayable",
+        ethers.encodeBytes32String("1:0"),
+        "#context { bytes32 account, #bytes as state, #bytes as request }",
+        "",
+        true,
+      );
   });
 
   async function callAs(
     signerIndex: number,
-    method: "peerAllowance(bytes)" | "peerBalancePull(bytes)" | "peerSettle(bytes)",
-    request = "0x"
+    method: "peerAllowance(bytes)" | "peerBalancePull(bytes)" | "peerSettle(bytes)" | "peerPipePayable(bytes)",
+    request = "0x",
+    overrides: Record<string, bigint> = {}
   ) {
     const signer = await getSigner(signerIndex);
-    return (host.connect(signer) as any)[method](request);
+    return (host.connect(signer) as any)[method](request, overrides);
   }
 
   async function callerHost(signerIndex: number) {
@@ -206,6 +221,38 @@ describe("Peer Entrypoints", () => {
     it("reverts ZeroCursor when request is empty", async () => {
       await expect(callAs(1, method))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("peerPipePayable", () => {
+    const method = "peerPipePayable(bytes)";
+    const account = encodeUserAccount("0x44");
+
+    it("unpacks CONTEXT blocks and dispatches request as pipe steps", async () => {
+      const step = encodeStepBlock(123n, 5n, "0xabcd");
+      const request = encodeContextBlock(account, "0x", step);
+      const startCount = await host.stepCount();
+
+      const tx = await callAs(1, method, request, { value: 5n });
+
+      await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 5n);
+    });
+
+    it("returns the final state from the last context", async () => {
+      const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), ethers.ZeroHash, 77n);
+      const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
+      const signer = await getSigner(1);
+
+      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
+
+      expect(result).to.equal(state);
+    });
+
+    it("reverts UnusedValue when payable budget is not fully spent", async () => {
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+
+      await expect(callAs(1, method, request, { value: 2n }))
+        .to.be.revertedWithCustomError(host, "UnusedValue");
     });
   });
 });

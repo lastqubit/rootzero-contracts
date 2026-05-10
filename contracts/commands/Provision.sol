@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, CommandPayable, Keys} from "./Base.sol";
+import {CommandContext, CommandBase, Payable, Keys} from "./Base.sol";
 import {HostAmount, Cursors, Cur, Schemas, Writer, Writers} from "../Cursors.sol";
-import {Budget, Values} from "../utils/Value.sol";
+import {Budget} from "../utils/Value.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
@@ -40,7 +40,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
         emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false);
     }
 
-    function provision(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
+    function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups) = cursor(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
 
@@ -58,7 +58,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
 /// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
-abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
+abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook {
     string private constant NAME = "provisionPayable";
 
     uint internal immutable provisionPayableId = commandId(NAME);
@@ -69,10 +69,10 @@ abstract contract ProvisionPayable is CommandPayable, ProvisionPayableHook {
 
     function provisionPayable(
         CommandContext calldata c
-    ) external payable onlyCommand(c.account) returns (bytes memory) {
+    ) external payable onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups) = cursor(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
-        Budget memory budget = Values.fromMsg();
+        Budget memory budget = valueBudget();
 
         while (request.i < request.bound) {
             HostAmount memory allocation = request.unpackAllocationValue();

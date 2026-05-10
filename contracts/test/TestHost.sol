@@ -231,9 +231,6 @@ contract TestHost is
         return trusted[node];
     }
 
-    function getActiveAccount(CommandContext calldata) external pure returns (bytes32) {
-        return activeAccount();
-    }
 }
 
 

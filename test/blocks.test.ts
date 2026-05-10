@@ -17,6 +17,7 @@ import {
   encodeNodeBlock,
   encodeAccountBlock,
   encodeAccountAssetBlock,
+  encodeContextBlock,
   encodeHostAccountAssetBlock,
   encodeDataBlock,
   encodeStepBlock,
@@ -105,14 +106,6 @@ describe("Cursors", () => {
       expect(bytes.length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.Bounty);
       expect(ethers.hexlify(bytes.slice(4, 8))).to.equal("0x00000040");
-    });
-
-    it("load160 reads raw calldata words from an absolute payload offset", async () => {
-      const words = [1n, 2n, 3n, 4n, 5n].map((value) => ethers.zeroPadValue(ethers.toBeHex(value), 32));
-      const source = concat(encodeFeeBlock(99n), ethers.concat(words));
-      const offset = BigInt(ethers.getBytes(encodeFeeBlock(99n)).length);
-
-      expect(await helper.testLoad160(source, offset)).to.deep.equal(words);
     });
 
     it("finish reverts EmptyRequest when writer is unused", async () => {
@@ -375,6 +368,18 @@ describe("Cursors", () => {
       expect(value).to.equal(55n);
       expect(outReq).to.equal(req);
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
+    });
+
+    it("unpackContext consumes account, state, and request bytes", async () => {
+      const account = encodeUserAccount("0x12");
+      const state = encodeBalanceBlock(asset, meta, amount);
+      const request = encodeAmountBlock(asset, meta, 7n);
+      const context = encodeContextBlock(account, state, request);
+      const [outAccount, outState, outRequest, i] = await helper.testUnpackContext(context);
+      expect(outAccount).to.equal(account);
+      expect(outState).to.equal(state);
+      expect(outRequest).to.equal(request);
+      expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
     it("unpackFee returns the fee amount", async () => {

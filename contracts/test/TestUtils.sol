@@ -6,8 +6,9 @@ import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids, Selectors } from "../utils/Ids.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, isLocalChain, isLocalFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { Budget, Values } from "../utils/Value.sol";
+import { Payable } from "../commands/Base.sol";
 
-contract TestUtils {
+contract TestUtils is Payable {
     function testAddrOr(address addr, address or_) external pure returns (address) {
         return addrOr(addr, or_);
     }
@@ -193,7 +194,7 @@ contract TestUtils {
     }
 
     function testMsgValue() external payable returns (uint) {
-        Budget memory budget = Values.fromMsg();
+        Budget memory budget = valueBudget();
         return budget.remaining;
     }
 

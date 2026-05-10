@@ -25,21 +25,17 @@ struct CommandContext {
 abstract contract CommandBase is NodeCalls, CommandEvent {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
-    /// @dev Thrown when the raw active account word in calldata does not match the decoded context account.
-    error ActiveAccountMismatch();
     /// @dev Thrown when `onlyAdmin` finds that `account` is not the admin account.
     error NotAdmin();
 
-    /// @dev Restrict execution to trusted callers whose decoded context account matches the active calldata account.
-    modifier onlyCommand(bytes32 account) {
-        if (activeAccount() != account) revert ActiveAccountMismatch();
+    /// @dev Restrict execution to trusted callers.
+    modifier onlyCommand() {
         enforceCaller(msg.sender);
         _;
     }
 
     /// @dev Restrict execution to trusted callers using the host's admin account.
     modifier onlyAdmin(bytes32 account) {
-        if (activeAccount() != account) revert ActiveAccountMismatch();
         if (account != adminAccount) revert NotAdmin();
         enforceCaller(msg.sender);
         _;
@@ -67,36 +63,46 @@ abstract contract CommandBase is NodeCalls, CommandEvent {
         return Ids.toCommand(Selectors.command(name), address(this));
     }
 
-    /// @notice Return the active command account directly from the fixed tuple head in calldata.
-    /// @dev Command entrypoints use the ABI shape `name((bytes32,bytes,bytes))`, so the tuple head
-    /// starts at byte 36 of `msg.data`, with the account field at bytes [36:68).
-    function activeAccount() internal pure returns (bytes32 account) {
-        account = bytes32(msg.data[36:68]);
-    }
 }
 
-/// @title CommandPayable
-/// @notice Abstract base for commands that accept native value (`msg.value`).
+/// @title Payable
+/// @notice Abstract mixin for entrypoints that accept native value (`msg.value`).
 /// Provides a shared settlement hook for any unspent value remaining in the
-/// command's mutable budget after execution completes.
-abstract contract CommandPayable is CommandBase {
-    /// @dev Thrown when a payable command completes with unspent native value.
+/// mutable budget after execution completes.
+abstract contract Payable {
+    /// @dev Thrown when a payable entrypoint completes with unspent native value.
     /// Override `settleValue` to implement refund or forwarding behavior instead.
     error UnusedValue(uint remaining);
 
-    /// @notice Drains the command budget and settles any remaining native value.
-    /// @dev Calls the amount-based `settleValue` hook only when some value remains.
-    /// @param account Caller's account identifier for the current invocation.
-    /// @param budget Mutable native-value budget used during command execution.
-    function settleValue(bytes32 account, Budget memory budget) internal {
-        uint remaining = Values.drain(budget);
-        if (remaining != 0) settleValue(account, remaining);
+    /// @notice Create a native-value budget from the current call's `msg.value`.
+    /// @return Budget initialised with the full `msg.value`.
+    function valueBudget() internal view returns (Budget memory) {
+        return Budget({remaining: msg.value});
     }
 
-    /// @notice Handles leftover native value after a payable command has finished.
-    /// @dev Override this hook to refund or redirect unused value for a command.
+    /// @notice Deduct `amount` from the budget and return it.
+    /// @param budget Mutable budget to deduct from.
+    /// @param amount Native value to spend.
+    /// @return The same `amount`, ready to forward to a callee.
+    function useValue(Budget memory budget, uint amount) internal pure returns (uint) {
+        return Values.use(budget, amount);
+    }
+
+    /// @notice Drains the budget and settles any remaining native value.
+    /// @dev Calls the amount-based `settleValue` hook only when some value remains.
+    /// @param account Account identifier for the current invocation.
+    /// @param budget Mutable native-value budget used during execution.
+    function settleValue(bytes32 account, Budget memory budget) internal {
+        uint value = budget.remaining;
+        if (value == 0) return;
+        budget.remaining = 0;
+        settleValue(account, value);
+    }
+
+    /// @notice Handles leftover native value after payable execution has finished.
+    /// @dev Override this hook to refund or redirect unused value.
     /// The default implementation rejects any leftover amount.
-    /// @param account Caller's account identifier for the current invocation.
+    /// @param account Account identifier for the current invocation.
     /// @param remaining Unspent native value left in the budget, in wei.
     function settleValue(bytes32 account, uint remaining) internal virtual {
         account;

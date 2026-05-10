@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, CommandPayable, Keys} from "./Base.sol";
+import {CommandBase, CommandContext, Payable, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
 import {Accounts} from "../utils/Accounts.sol";
-import {Budget, Values} from "../utils/Value.sol";
+import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
 
@@ -27,12 +27,36 @@ abstract contract PipePayableHook {
     ) internal virtual returns (bytes memory);
 }
 
+abstract contract PipePayableCore is Payable, PipePayableHook {
+    error UnexpectedState();
+
+    function pipe(
+        bytes32 account,
+        bytes memory state,
+        bytes calldata steps,
+        Budget memory budget
+    ) internal returns (bytes memory) {
+        Cur memory input = Cursors.open(steps);
+        input.primeRun(1);
+
+        while (input.i < input.bound) {
+            (uint target, uint value, bytes calldata request) = input.unpackStep();
+            uint spend = useValue(budget, value);
+            state = dispatchCommand(target, account, state, request, spend);
+        }
+
+        settleValue(account, budget);
+        input.complete();
+        return state;
+    }
+}
+
 /// @title PipePayable
 /// @notice Command that sequences multiple sub-command STEP invocations in a single transaction.
 /// Each STEP block carries a command node, native value to forward, and an embedded request.
 /// State threads through the steps: each step's output becomes the next step's state.
 /// Admin accounts are not permitted to use `pipePayable`.
-abstract contract PipePayable is CommandPayable, PipePayableHook {
+abstract contract PipePayable is CommandBase, PipePayableCore {
     string private constant NAME = "pipePayable";
 
     uint internal immutable pipePayableId = commandId(NAME);
@@ -41,27 +65,8 @@ abstract contract PipePayable is CommandPayable, PipePayableHook {
         emit Command(host, pipePayableId, NAME, "1:0:0", Schemas.Step, Keys.Empty, Keys.Empty, true);
     }
 
-    function pipe(
-        bytes32 account,
-        bytes memory state,
-        bytes calldata steps,
-        Budget memory budget
-    ) internal returns (bytes memory) {
-        (Cur memory input, ) = cursor(steps, 1);
-
-        while (input.i < input.bound) {
-            (uint target, uint value, bytes calldata request) = input.unpackStep();
-            uint spend = Values.use(budget, value);
-            state = dispatchCommand(target, account, state, request, spend);
-        }
-
-        settleValue(account, budget);
-        input.complete();
-        return state;
-    }
-
     /// @notice Execute the pipePayable command.
-    function pipePayable(CommandContext calldata c) external payable onlyCommand(c.account) returns (bytes memory) {
-        return pipe(Accounts.ensureNotAdmin(c.account), c.state, c.request, Values.fromMsg());
+    function pipePayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory) {
+        return pipe(Accounts.ensureNotAdmin(c.account), c.state, c.request, valueBudget());
     }
 }

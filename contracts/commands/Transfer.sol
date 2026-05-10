@@ -48,7 +48,7 @@ abstract contract Transfer is CommandBase, TransferHook {
 
     function transfer(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory) {
         return transfer(c.account, c.request);
     }
 }

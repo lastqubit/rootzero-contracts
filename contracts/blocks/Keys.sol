@@ -44,8 +44,8 @@ library Keys {
     bytes4 constant Step = bytes4(keccak256(bytes(Schemas.Step)));
     /// @dev Raw external call - (uint target, uint value, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256(bytes(Schemas.Call)));
-    /// @dev Cross-chain command envelope - (uint target, bytes32 account, bytes32 ticket, #bytes as state, #bytes as request)
-    bytes4 constant Envelope = bytes4(keccak256(bytes(Schemas.Envelope)));
+    /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
+    bytes4 constant Context = bytes4(keccak256(bytes(Schemas.Context)));
     /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256(bytes(Schemas.Auth)));
     /// @dev Asset descriptor without amount - (bytes32 asset, bytes32 meta)
