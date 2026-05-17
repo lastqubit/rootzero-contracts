@@ -42,7 +42,7 @@ abstract contract Transfer is CommandBase, TransferHook {
             transfer(value);
         }
 
-        input.complete();
+        input.close();
         return "";
     }
 

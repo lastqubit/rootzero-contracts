@@ -42,6 +42,7 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
             response.appendStatus(allowed);
         }
 
-        return query.complete(response);
+        query.close();
+        return response.finish();
     }
 }

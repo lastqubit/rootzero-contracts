@@ -179,6 +179,16 @@ describe("Cursors", () => {
       expect(await helper.testIsAtCurrent(source, Keys.Balance)).to.equal(true);
     });
 
+    it("hasAt checks a block key at an arbitrary source position", async () => {
+      const a = encodeAmountBlock(asset, meta, 1n);
+      const b = encodeBalanceBlock(asset, meta, 2n);
+      const source = concat(a, b);
+      const i = BigInt(ethers.getBytes(a).length);
+      expect(await helper.testHasAt(source, i, Keys.Balance)).to.equal(true);
+      expect(await helper.testHasAt(source, i, Keys.Amount)).to.equal(false);
+      expect(await helper.testHasAt(source, BigInt(ethers.getBytes(source).length), Keys.Balance)).to.equal(false);
+    });
+
     it("countRun counts consecutive matching blocks from i", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
@@ -242,28 +252,28 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("resume moves the cursor to the provided end offset", async () => {
+    it("skipTo moves the cursor to the provided end offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
-      expect(await helper.testResume(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
+      expect(await helper.testSkipTo(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
-    it("resume reverts IncompleteCursor when the cursor has passed the end offset", async () => {
+    it("skipTo reverts IncompleteCursor when the cursor has passed the end offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const end = BigInt(ethers.getBytes(source).length - ethers.getBytes(encodeAssetBlock(meta, asset)).length);
-      await expect(helper.testResumePastEnd(source, end))
+      await expect(helper.testSkipToPastEnd(source, end))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("ensure succeeds when the cursor is exactly at the requested offset", async () => {
+    it("exit succeeds when the cursor is exactly at the requested offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const at = BigInt(ethers.getBytes(source).length);
-      expect(await helper.testEnsure(source, at)).to.equal(at);
+      expect(await helper.testExit(source, at)).to.equal(at);
     });
 
-    it("ensure reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
+    it("exit reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const at = BigInt(ethers.getBytes(encodeAssetBlock(asset, meta)).length);
-      await expect(helper.testEnsureMismatch(source, at))
+      await expect(helper.testExitMismatch(source, at))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
@@ -409,31 +419,31 @@ describe("Cursors", () => {
       expect(i).to.equal(165n);
     });
 
-    it("complete reverts ZeroCursor when prime run is empty", async () => {
-      await expect(helper.testCursorCompleteEmpty("0x", 1n))
+    it("close reverts ZeroCursor when prime run is empty", async () => {
+      await expect(helper.testCursorCloseEmpty("0x", 1n))
         .to.be.revertedWithCustomError(helper, "ZeroCursor");
     });
 
-    it("complete reverts IncompleteCursor when prime input remains", async () => {
+    it("close reverts IncompleteCursor when prime input remains", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      await expect(helper.testCursorCompletePartial(source, 1n))
+      await expect(helper.testCursorClosePartial(source, 1n))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("complete succeeds after the prime run is consumed", async () => {
+    it("close succeeds after the prime run is consumed", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      expect(await helper.testCursorCompleteConsumed(source, 1n)).to.equal(true);
+      expect(await helper.testCursorCloseConsumed(source, 1n)).to.equal(true);
     });
 
-    it("end reverts IncompleteCursor when bytes remain in the cursor region", async () => {
+    it("complete reverts IncompleteCursor when bytes remain in the cursor region", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      await expect(helper.testCursorEndPartial(source))
+      await expect(helper.testCursorCompletePartial(source))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("end succeeds after the full cursor region is consumed", async () => {
+    it("complete succeeds after the full cursor region is consumed", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      expect(await helper.testCursorEndConsumed(source)).to.equal(true);
+      expect(await helper.testCursorCompleteConsumed(source)).to.equal(true);
     });
 
     it("accountAfter returns the tail account or backup", async () => {

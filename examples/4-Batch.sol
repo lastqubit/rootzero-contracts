@@ -44,7 +44,8 @@ abstract contract MyCommand is CommandBase {
 
         // Finalize by checking the cursor completed its prime run, then
         // return the encoded BALANCE blocks.
-        return inputs.complete(writer);
+        inputs.close();
+        return writer.finish();
     }
 }
 

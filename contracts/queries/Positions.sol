@@ -6,11 +6,12 @@ import {Forms} from "../blocks/Schema.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
+using Writers for Writer;
 
 abstract contract GetPositionHook {
-    /// @notice Resolve the position payload for one requested position.
-    /// Concrete implementations must append exactly one DATA block whose payload
-    /// length matches `positionResponseSize`.
+    /// @notice Append the position response for one requested position.
+    /// Concrete implementations must append exactly one response block matching
+    /// the query output schema.
     /// @param account Requested account identifier.
     /// @param asset Requested asset identifier.
     /// @param meta Requested asset metadata slot.
@@ -26,31 +27,30 @@ abstract contract GetPositionHook {
 /// @title GetPosition
 /// @notice Rootzero query that resolves one dynamic position response for each requested position.
 /// The request is a run of `ACCOUNT_ASSET` form blocks.
-/// The response returns one dynamic DATA block per position entry, preserving request order.
+/// The response returns one output-schema block per position entry, preserving request order.
 abstract contract GetPosition is QueryBase, GetPositionHook {
     string private constant NAME = "getPosition";
-    uint public immutable getPositionId = queryId(NAME);
-    uint internal immutable positionResponseSize;
 
-    constructor(string memory output, uint responseSize) {
-        positionResponseSize = responseSize;
+    uint public immutable getPositionId = queryId(NAME);
+
+    constructor(string memory output) {
         emit Query(host, getPositionId, NAME, "1:1", Forms.AccountAsset, output);
     }
 
     /// @notice Resolve positions for a run of requested `(account, asset, meta)` tuples.
-    /// @dev Allocates from the configured fixed response payload length so each hook call
-    ///      can append one DATA block directly into the output stream.
+    /// @dev Allocates from a per-block capacity hint and grows when position outputs exceed it.
     /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
-    /// @return Block-stream response containing one DATA block per position block.
+    /// @return Block-stream response containing one output-schema block per position block.
     function getPosition(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups) = cursor(request, 1);
-        Writer memory response = Writers.allocBytes(groups, positionResponseSize);
+        Writer memory response = Writers.allocAny(groups);
 
         while (query.i < query.bound) {
             (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackAccountAsset();
             appendPosition(account, asset, meta, response);
         }
 
-        return query.complete(response);
+        query.close();
+        return response.finish();
     }
 }

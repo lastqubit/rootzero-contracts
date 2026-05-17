@@ -12,9 +12,21 @@ struct Writer {
     uint i;
     /// @dev Logical buffer capacity in bytes; writers should not advance past this limit.
     uint end;
+    /// @dev Whether append helpers may expand the backing buffer when more capacity is needed.
+    bool growable;
     /// @dev Destination buffer. Physical capacity may be padded up to a full 32-byte word;
     ///      final length is set to `i` by `finish`.
     bytes dst;
+}
+
+/// @title Hints
+/// @notice Initial per-block capacity estimates for growable writers.
+library Hints {
+    uint constant Any = 128;
+    uint constant Bytes = 128;
+    uint constant Step = 256;
+    uint constant Call = 256;
+    uint constant Context = 512;
 }
 
 /// @title Writers
@@ -47,7 +59,15 @@ library Writers {
         // Extra 32 bytes ensure mstore in write/append32 never reaches past allocated memory,
         // even when a sub-word packed write starts within the last 31 bytes of the logical region.
         uint padded = ((len + 31) & ~uint(31)) + 32;
-        writer = Writer({i: 0, end: len, dst: new bytes(padded)});
+        writer = Writer({i: 0, end: len, growable: false, dst: new bytes(padded)});
+    }
+
+    /// @notice Allocate a growable writer with an initial logical byte capacity.
+    /// @param hint Initial logical byte capacity to allocate.
+    /// @return writer Freshly allocated growable writer positioned at index 0.
+    function dynamic(uint hint) internal pure returns (Writer memory writer) {
+        writer = alloc(hint);
+        writer.growable = true;
     }
 
     /// @notice Core allocation routine used by all counted `alloc*` helpers.
@@ -60,6 +80,16 @@ library Writers {
         writer = alloc(count * blockLen);
     }
 
+    /// @notice Core allocation routine used by counted growable `alloc*` helpers.
+    /// Computes `count * hint` and allocates an expandable writer with that initial capacity.
+    /// @param count Number of output blocks.
+    /// @param hint Initial logical byte capacity per output block.
+    /// @return writer Allocated growable writer.
+    function allocFromHint(uint count, uint hint) internal pure returns (Writer memory writer) {
+        if (count == 0) revert EmptyRequest();
+        writer = dynamic(count * hint);
+    }
+
     /// @notice Allocate a writer sized for exactly `count` dynamic blocks with a shared payload length.
     /// Each block reserves `Sizes.Header + payloadLen` bytes.
     /// @param count Number of blocks to allocate space for.
@@ -67,6 +97,22 @@ library Writers {
     /// @return writer Allocated writer.
     function allocBytes(uint count, uint payloadLen) internal pure returns (Writer memory writer) {
         return allocFromCount(count, Sizes.Header + payloadLen);
+    }
+
+    /// @notice Allocate a writer for `count` variable-sized blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded blocks exceed the initial hint.
+    /// @param count Number of blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocAny(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Any);
+    }
+
+    /// @notice Allocate a writer for `count` BYTES blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded bytes blocks exceed the initial hint.
+    /// @param count Number of bytes blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocBytes(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Bytes);
     }
 
     /// @notice Allocate a writer sized for exactly `count` 32-byte-payload blocks.
@@ -153,6 +199,30 @@ library Writers {
         return alloc160s(count);
     }
 
+    /// @notice Allocate a writer for `count` STEP blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded steps exceed the initial hint.
+    /// @param count Number of step blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocSteps(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Step);
+    }
+
+    /// @notice Allocate a writer for `count` CALL blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded calls exceed the initial hint.
+    /// @param count Number of call blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocCalls(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Call);
+    }
+
+    /// @notice Allocate a writer for `count` CONTEXT blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded contexts exceed the initial hint.
+    /// @param count Number of context blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocContexts(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Context);
+    }
+
     // -------------------------------------------------------------------------
     // Fixed-width write helpers
     // -------------------------------------------------------------------------
@@ -170,14 +240,6 @@ library Writers {
             p := add(add(dst, 0x20), i)
             mstore(p, header)
         }
-    }
-
-    /// @notice Commit a logical writer advance after a low-level write.
-    /// @dev Low-level write helpers validate the padded backing buffer. This
-    ///      enforces the caller-requested logical capacity recorded in `end`.
-    function commit(Writer memory writer, uint next) private pure {
-        if (next > writer.end) revert WriterOverflow();
-        writer.i = next;
     }
 
     /// @notice Write raw bytes directly into `dst` at byte offset `i` without a block header.
@@ -431,55 +493,102 @@ library Writers {
         }
     }
 
-    /// @notice Write a dynamic block with a fixed 32-byte head word.
-    /// @param dst Destination buffer; must have at least `i + Sizes.B32 + tail.length` bytes.
+    /// @notice Write a block with a 32-byte head and two nested BYTES payloads.
+    /// @param dst Destination buffer; must have at least `i + Sizes.B32 + 2 * Sizes.Header + b.length + c.length` bytes.
     /// @param i Write offset within `dst`.
-    /// @param key Block type key.
+    /// @param key Block key.
     /// @param a Fixed head word.
-    /// @param tail Dynamic payload bytes appended after the head.
+    /// @param b First raw nested payload.
+    /// @param c Second raw nested payload.
     /// @return next Byte offset immediately after the written block.
-    function writeBlockHead32(
+    function writeBlock32BytesBytes(
         bytes memory dst,
         uint i,
         bytes4 key,
         bytes32 a,
-        bytes memory tail
+        bytes memory b,
+        bytes memory c
     ) internal pure returns (uint next) {
-        uint len = 32 + tail.length;
+        uint bLen = b.length;
+        uint cLen = c.length;
+        uint len = 32 + 2 * Sizes.Header + bLen + cLen;
         next = i + Sizes.Header + len;
-        if (i + Sizes.B32 + tail.length > dst.length) revert WriterOverflow();
+        if (next > dst.length) revert WriterOverflow();
+
         uint p = writeHeader(dst, i, key, uint32(max32(len)));
         assembly ("memory-safe") {
             mstore(add(p, 0x08), a)
-            mcopy(add(p, 0x28), add(tail, 0x20), mload(tail))
+        }
+
+        uint q = writeHeader(dst, i + Sizes.Header + 32, Keys.Bytes, uint32(max32(bLen)));
+        assembly ("memory-safe") {
+            mcopy(add(q, 0x08), add(b, 0x20), mload(b))
+        }
+
+        uint r = writeHeader(dst, i + Sizes.Header + 32 + Sizes.Header + bLen, Keys.Bytes, uint32(max32(cLen)));
+        assembly ("memory-safe") {
+            mcopy(add(r, 0x08), add(c, 0x20), mload(c))
         }
     }
 
-    /// @notice Write a dynamic block with a fixed 64-byte head.
-    /// @param dst Destination buffer; must have at least `i + Sizes.B64 + tail.length` bytes.
+    /// @notice Write a block with a 64-byte head and nested BYTES payload.
+    /// @param dst Destination buffer; must have at least `i + Sizes.B64 + Sizes.Header + c.length` bytes.
     /// @param i Write offset within `dst`.
-    /// @param key Block type key.
-    /// @param a First fixed head word.
-    /// @param b Second fixed head word.
-    /// @param tail Dynamic payload bytes appended after the head.
+    /// @param key Block key.
+    /// @param a First head word.
+    /// @param b Second head word.
+    /// @param c Raw nested payload.
     /// @return next Byte offset immediately after the written block.
-    function writeBlockHead64(
+    function writeBlock64Bytes(
         bytes memory dst,
         uint i,
         bytes4 key,
         bytes32 a,
         bytes32 b,
-        bytes memory tail
+        bytes memory c
     ) internal pure returns (uint next) {
-        uint len = 64 + tail.length;
+        uint cLen = c.length;
+        uint len = 64 + Sizes.Header + cLen;
         next = i + Sizes.Header + len;
-        if (i + Sizes.B64 + tail.length > dst.length) revert WriterOverflow();
+        if (next > dst.length) revert WriterOverflow();
+
         uint p = writeHeader(dst, i, key, uint32(max32(len)));
         assembly ("memory-safe") {
             mstore(add(p, 0x08), a)
             mstore(add(p, 0x28), b)
-            mcopy(add(p, 0x48), add(tail, 0x20), mload(tail))
         }
+
+        uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
+        assembly ("memory-safe") {
+            mcopy(add(q, 0x08), add(c, 0x20), mload(c))
+        }
+    }
+
+    /// @notice Reserve logical capacity and advance the writer.
+    /// Fixed writers revert when `touch` exceeds capacity; growable writers expand.
+    /// @return i Original write offset.
+    function reserve(Writer memory writer, uint next, uint touch) private pure returns (uint i) {
+        i = writer.i;
+        if (touch > writer.end) {
+            if (!writer.growable) revert WriterOverflow();
+
+            uint end = writer.end == 0 ? 64 : writer.end * 2;
+            while (end < touch) {
+                end *= 2;
+            }
+
+            uint padded = ((end + 31) & ~uint(31)) + 32;
+            bytes memory src = writer.dst;
+            bytes memory dst = new bytes(padded);
+            assembly ("memory-safe") {
+                mcopy(add(dst, 0x20), add(src, 0x20), i)
+            }
+            writer.end = end;
+            writer.dst = dst;
+        }
+
+        if (next > writer.end) revert WriterOverflow();
+        writer.i = next;
     }
 
     // -------------------------------------------------------------------------
@@ -490,7 +599,9 @@ library Writers {
     /// @param writer Destination writer; `i` is advanced by `data.length`.
     /// @param data Bytes to append.
     function append(Writer memory writer, bytes memory data) internal pure {
-        commit(writer, write(writer.dst, writer.i, data));
+        uint next = writer.i + data.length;
+        uint i = reserve(writer, next, next);
+        write(writer.dst, i, data);
     }
 
     /// @notice Append a raw 32-byte word without a block header.
@@ -498,7 +609,10 @@ library Writers {
     /// @param value Word to append.
     /// @param keep Number of bytes to keep from the word (1..32).
     function append32(Writer memory writer, bytes32 value, uint keep) internal pure {
-        commit(writer, write32(writer.dst, writer.i, value, keep));
+        uint i = writer.i;
+        uint next = i + keep;
+        i = reserve(writer, next, i + 32);
+        write32(writer.dst, i, value, keep);
     }
 
     /// @notice Append two raw 32-byte words without a block header.
@@ -507,7 +621,10 @@ library Writers {
     /// @param b Second word to append.
     /// @param keep Number of bytes to keep from the final word (1..32).
     function append64(Writer memory writer, bytes32 a, bytes32 b, uint keep) internal pure {
-        commit(writer, write64(writer.dst, writer.i, a, b, keep));
+        uint i = writer.i;
+        uint next = i + 32 + keep;
+        i = reserve(writer, next, i + 64);
+        write64(writer.dst, i, a, b, keep);
     }
 
     /// @notice Append three raw 32-byte words without a block header.
@@ -517,7 +634,10 @@ library Writers {
     /// @param c Third word to append.
     /// @param keep Number of bytes to keep from the final word (1..32).
     function append96(Writer memory writer, bytes32 a, bytes32 b, bytes32 c, uint keep) internal pure {
-        commit(writer, write96(writer.dst, writer.i, a, b, c, keep));
+        uint i = writer.i;
+        uint next = i + 64 + keep;
+        i = reserve(writer, next, i + 96);
+        write96(writer.dst, i, a, b, c, keep);
     }
 
     /// @notice Append a dynamic block.
@@ -525,7 +645,9 @@ library Writers {
     /// @param key Block type key.
     /// @param data Dynamic payload bytes.
     function appendBlock(Writer memory writer, bytes4 key, bytes memory data) internal pure {
-        commit(writer, writeBlock(writer.dst, writer.i, key, data));
+        uint next = writer.i + Sizes.Header + data.length;
+        uint i = reserve(writer, next, next);
+        writeBlock(writer.dst, i, key, data);
     }
 
     /// @notice Append a fixed-width 32-byte-payload block.
@@ -534,7 +656,10 @@ library Writers {
     /// @param a First payload word.
     /// @param keep Number of bytes to keep from the final payload word (1..32).
     function appendBlock32(Writer memory writer, bytes4 key, bytes32 a, uint keep) internal pure {
-        commit(writer, writeBlock32(writer.dst, writer.i, key, a, keep));
+        uint i = writer.i;
+        uint next = i + Sizes.Header + keep;
+        i = reserve(writer, next, i + Sizes.B32);
+        writeBlock32(writer.dst, i, key, a, keep);
     }
 
     /// @notice Append a fixed-width 64-byte-payload block.
@@ -544,7 +669,10 @@ library Writers {
     /// @param b Second payload word.
     /// @param keep Number of bytes to keep from the final payload word (1..32).
     function appendBlock64(Writer memory writer, bytes4 key, bytes32 a, bytes32 b, uint keep) internal pure {
-        commit(writer, writeBlock64(writer.dst, writer.i, key, a, b, keep));
+        uint i = writer.i;
+        uint next = i + Sizes.Header + 32 + keep;
+        i = reserve(writer, next, i + Sizes.B64);
+        writeBlock64(writer.dst, i, key, a, b, keep);
     }
 
     /// @notice Append a fixed-width 96-byte-payload block.
@@ -555,7 +683,10 @@ library Writers {
     /// @param c Third payload word.
     /// @param keep Number of bytes to keep from the final payload word (1..32).
     function appendBlock96(Writer memory writer, bytes4 key, bytes32 a, bytes32 b, bytes32 c, uint keep) internal pure {
-        commit(writer, writeBlock96(writer.dst, writer.i, key, a, b, c, keep));
+        uint i = writer.i;
+        uint next = i + Sizes.Header + 64 + keep;
+        i = reserve(writer, next, i + Sizes.B96);
+        writeBlock96(writer.dst, i, key, a, b, c, keep);
     }
 
     /// @notice Append a fixed-width 128-byte-payload block.
@@ -575,7 +706,10 @@ library Writers {
         bytes32 d,
         uint keep
     ) internal pure {
-        commit(writer, writeBlock128(writer.dst, writer.i, key, a, b, c, d, keep));
+        uint i = writer.i;
+        uint next = i + Sizes.Header + 96 + keep;
+        i = reserve(writer, next, i + Sizes.B128);
+        writeBlock128(writer.dst, i, key, a, b, c, d, keep);
     }
 
     /// @notice Append a fixed-width 160-byte-payload block.
@@ -597,39 +731,88 @@ library Writers {
         bytes32 e,
         uint keep
     ) internal pure {
-        commit(writer, writeBlock160(writer.dst, writer.i, key, a, b, c, d, e, keep));
+        uint i = writer.i;
+        uint next = i + Sizes.Header + 128 + keep;
+        i = reserve(writer, next, i + Sizes.B160);
+        writeBlock160(writer.dst, i, key, a, b, c, d, e, keep);
     }
 
-    /// @notice Append a dynamic block with a fixed 32-byte head word.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B32 + tail.length`.
-    /// @param key Block type key.
+    /// @notice Append a block with a 32-byte head and two nested BYTES payloads.
+    /// @param writer Destination writer; `i` is advanced by the encoded block length.
+    /// @param key Block key.
     /// @param a Fixed head word.
-    /// @param tail Dynamic payload bytes appended after the head.
-    function appendBlockHead32(Writer memory writer, bytes4 key, bytes32 a, bytes memory tail) internal pure {
-        commit(writer, writeBlockHead32(writer.dst, writer.i, key, a, tail));
-    }
-
-    /// @notice Append a dynamic block with a fixed 64-byte head.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B64 + tail.length`.
-    /// @param key Block type key.
-    /// @param a First fixed head word.
-    /// @param b Second fixed head word.
-    /// @param tail Dynamic payload bytes appended after the head.
-    function appendBlockHead64(
+    /// @param b First raw nested payload.
+    /// @param c Second raw nested payload.
+    function appendBlock32BytesBytes(
         Writer memory writer,
         bytes4 key,
         bytes32 a,
-        bytes32 b,
-        bytes memory tail
+        bytes memory b,
+        bytes memory c
     ) internal pure {
-        commit(writer, writeBlockHead64(writer.dst, writer.i, key, a, b, tail));
+        uint i = writer.i;
+        uint next = i + Sizes.B32 + 2 * Sizes.Header + b.length + c.length;
+        i = reserve(writer, next, next);
+        writeBlock32BytesBytes(writer.dst, i, key, a, b, c);
+    }
+
+    /// @notice Append a block with a 64-byte head and nested BYTES payload.
+    /// @param writer Destination writer; `i` is advanced by the encoded block length.
+    /// @param key Block key.
+    /// @param a First head word.
+    /// @param b Second head word.
+    /// @param c Raw nested payload.
+    function appendBlock64Bytes(Writer memory writer, bytes4 key, bytes32 a, bytes32 b, bytes memory c) internal pure {
+        uint i = writer.i;
+        uint next = i + Sizes.B64 + Sizes.Header + c.length;
+        i = reserve(writer, next, next);
+        writeBlock64Bytes(writer.dst, i, key, a, b, c);
+    }
+
+    /// @notice Append a BYTES block.
+    /// @param writer Destination writer; `i` is advanced by the encoded BYTES block length.
+    /// @param data Raw bytes payload.
+    function appendBytes(Writer memory writer, bytes memory data) internal pure {
+        appendBlock(writer, Keys.Bytes, data);
+    }
+
+    /// @notice Append a STEP block with a nested request BYTES payload.
+    /// @param writer Destination writer; `i` is advanced by the encoded STEP block length.
+    /// @param target Command target identifier.
+    /// @param value Native value forwarded with the step.
+    /// @param request Raw nested request payload.
+    function appendStep(Writer memory writer, uint target, uint value, bytes memory request) internal pure {
+        appendBlock64Bytes(writer, Keys.Step, bytes32(target), bytes32(value), request);
+    }
+
+    /// @notice Append a CALL block with a nested payload BYTES block.
+    /// @param writer Destination writer; `i` is advanced by the encoded CALL block length.
+    /// @param target Call target identifier.
+    /// @param value Native value forwarded with the call.
+    /// @param data Raw nested call payload.
+    function appendCall(Writer memory writer, uint target, uint value, bytes memory data) internal pure {
+        appendBlock64Bytes(writer, Keys.Call, bytes32(target), bytes32(value), data);
+    }
+
+    /// @notice Append a CONTEXT block with nested state and request BYTES payloads.
+    /// @param writer Destination writer; `i` is advanced by the encoded CONTEXT block length.
+    /// @param account Command account identifier.
+    /// @param state Raw nested state payload.
+    /// @param request Raw nested request payload.
+    function appendContext(
+        Writer memory writer,
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) internal pure {
+        appendBlock32BytesBytes(writer, Keys.Context, account, state, request);
     }
 
     /// @notice Append a STATUS form block.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Status`.
     /// @param ok Status value to encode.
     function appendStatus(Writer memory writer, bool ok) internal pure {
-        commit(writer, writeBlock32(writer.dst, writer.i, Keys.Status, ok ? bytes32(uint(1) << 248) : bytes32(0), 1));
+        appendBlock32(writer, Keys.Status, ok ? bytes32(uint(1) << 248) : bytes32(0), 1);
     }
 
     /// @notice Append a BALANCE block using separate field values.
@@ -638,17 +821,14 @@ library Writers {
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     function appendBalance(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        commit(writer, writeBlock96(writer.dst, writer.i, Keys.Balance, asset, meta, bytes32(amount), 32));
+        appendBlock96(writer, Keys.Balance, asset, meta, bytes32(amount), 32);
     }
 
     /// @notice Append a BALANCE block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Balance fields to encode.
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
-        commit(
-            writer,
-            writeBlock96(writer.dst, writer.i, Keys.Balance, value.asset, value.meta, bytes32(value.amount), 32)
-        );
+        appendBalance(writer, value.asset, value.meta, value.amount);
     }
 
     /// @notice Append an AMOUNT block using separate field values.
@@ -657,17 +837,14 @@ library Writers {
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     function appendAmount(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        commit(writer, writeBlock96(writer.dst, writer.i, Keys.Amount, asset, meta, bytes32(amount), 32));
+        appendBlock96(writer, Keys.Amount, asset, meta, bytes32(amount), 32);
     }
 
     /// @notice Append an AMOUNT block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Amount fields to encode.
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
-        commit(
-            writer,
-            writeBlock96(writer.dst, writer.i, Keys.Amount, value.asset, value.meta, bytes32(value.amount), 32)
-        );
+        appendAmount(writer, value.asset, value.meta, value.amount);
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block using separate field values.
@@ -683,29 +860,14 @@ library Writers {
         bytes32 meta,
         uint amount
     ) internal pure {
-        commit(
-            writer,
-            writeBlock128(writer.dst, writer.i, Keys.AccountAmount, account, asset, meta, bytes32(amount), 32)
-        );
+        appendBlock128(writer, Keys.AccountAmount, account, asset, meta, bytes32(amount), 32);
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
     /// @param value Account amount fields to encode.
     function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
-        commit(
-            writer,
-            writeBlock128(
-                writer.dst,
-                writer.i,
-                Keys.AccountAmount,
-                value.account,
-                value.asset,
-                value.meta,
-                bytes32(value.amount),
-                32
-            )
-        );
+        appendAccountAmount(writer, value.account, value.asset, value.meta, value.amount);
     }
 
     /// @notice Append an ASSET block.
@@ -713,7 +875,7 @@ library Writers {
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.
     function appendAsset(Writer memory writer, bytes32 asset, bytes32 meta) internal pure {
-        commit(writer, writeBlock64(writer.dst, writer.i, Keys.Asset, asset, meta, 32));
+        appendBlock64(writer, Keys.Asset, asset, meta, 32);
     }
 
     /// @notice Append a BOUNTY block to the writer.
@@ -721,7 +883,7 @@ library Writers {
     /// @param amount Relayer reward amount.
     /// @param relayer Relayer account identifier.
     function appendBounty(Writer memory writer, uint amount, bytes32 relayer) internal pure {
-        commit(writer, writeBlock64(writer.dst, writer.i, Keys.Bounty, bytes32(amount), relayer, 32));
+        appendBlock64(writer, Keys.Bounty, bytes32(amount), relayer, 32);
     }
 
     /// @notice Append a CUSTODY block using separate field values.
@@ -731,10 +893,7 @@ library Writers {
     /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     function appendCustody(Writer memory writer, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        commit(
-            writer,
-            writeBlock128(writer.dst, writer.i, Keys.Custody, bytes32(host), asset, meta, bytes32(amount), 32)
-        );
+        appendBlock128(writer, Keys.Custody, bytes32(host), asset, meta, bytes32(amount), 32);
     }
 
     /// @notice Append a CUSTODY block from a host and asset amount.
@@ -742,57 +901,29 @@ library Writers {
     /// @param host Host node ID.
     /// @param value Custody fields to encode.
     function appendCustody(Writer memory writer, uint host, AssetAmount memory value) internal pure {
-        commit(
-            writer,
-            writeBlock128(
-                writer.dst,
-                writer.i,
-                Keys.Custody,
-                bytes32(host),
-                value.asset,
-                value.meta,
-                bytes32(value.amount),
-                32
-            )
-        );
+        appendCustody(writer, host, value.asset, value.meta, value.amount);
     }
 
     /// @notice Append a CUSTODY block from a host amount struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param value Custody fields to encode.
     function appendCustody(Writer memory writer, HostAmount memory value) internal pure {
-        commit(
-            writer,
-            writeBlock128(
-                writer.dst,
-                writer.i,
-                Keys.Custody,
-                bytes32(value.host),
-                value.asset,
-                value.meta,
-                bytes32(value.amount),
-                32
-            )
-        );
+        appendCustody(writer, value.host, value.asset, value.meta, value.amount);
     }
 
     /// @notice Append a TRANSACTION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
     /// @param value Transfer record fields to encode.
     function appendTransaction(Writer memory writer, Tx memory value) internal pure {
-        commit(
+        appendBlock160(
             writer,
-            writeBlock160(
-                writer.dst,
-                writer.i,
-                Keys.Transaction,
-                bytes32(value.from),
-                bytes32(value.to),
-                value.asset,
-                value.meta,
-                bytes32(value.amount),
-                32
-            )
+            Keys.Transaction,
+            bytes32(value.from),
+            bytes32(value.to),
+            value.asset,
+            value.meta,
+            bytes32(value.amount),
+            32
         );
     }
 

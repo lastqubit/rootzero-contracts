@@ -41,7 +41,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
             creditAccount(to, asset, meta, amount);
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }

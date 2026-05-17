@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Tx} from "../core/Types.sol";
 import {Sizes} from "./Schema.sol";
 import {Keys} from "./Keys.sol";
-import {Writer, Writers} from "./Writers.sol";
 
 /// @notice Zero-copy view into a calldata block stream.
 /// All positions (`i`, `bound`) are byte offsets relative to the start of the source region.
@@ -76,6 +75,26 @@ library Cursors {
         return cur;
     }
 
+    /// @notice Advance the cursor by `n` bytes within the source region.
+    /// Reverts with `IncompleteCursor` if `n` exceeds the remaining cursor region length.
+    /// @param cur Cursor to advance.
+    /// @param n Number of bytes to skip from the current read position.
+    function skip(Cur memory cur, uint n) internal pure returns (Cur memory) {
+        if (n > cur.len - cur.i) revert IncompleteCursor();
+        cur.i += n;
+        return cur;
+    }
+
+    /// @notice Advance the cursor to a later absolute position within the source region.
+    /// Reverts with `IncompleteCursor` if `i` exceeds the cursor region length or is before `cur.i`.
+    /// @param cur Cursor to advance.
+    /// @param i New read position (byte offset relative to source start).
+    function skipTo(Cur memory cur, uint i) internal pure returns (Cur memory) {
+        if (i > cur.len || cur.i > i) revert IncompleteCursor();
+        cur.i = i;
+        return cur;
+    }
+
     /// @notice Create a subcursor over the half-open range `[from, to)` within the source region.
     /// The returned cursor starts at position zero within that sliced region.
     /// @param cur Source cursor.
@@ -104,7 +123,19 @@ library Cursors {
     /// @param to End byte offset within the source region (exclusive).
     /// @return data Calldata view over the requested sub-range.
     function raw(Cur memory cur, uint from, uint to) internal pure returns (bytes calldata data) {
-        data = cur.slice(from, to).raw();
+        if (from > to || to > cur.len) revert MalformedBlocks();
+        if (cur.len > msg.data.length || cur.offset > msg.data.length - cur.len) revert MalformedBlocks();
+        data = msg.data[cur.offset + from:cur.offset + to];
+    }
+
+    /// @notice Hash a sub-range of the cursor region.
+    /// Does not advance the cursor; `from` and `to` are relative to the source region.
+    /// @param cur Source cursor.
+    /// @param from Start byte offset within the source region (inclusive).
+    /// @param to End byte offset within the source region (exclusive).
+    /// @return digest Keccak256 hash of the requested sub-range.
+    function hash(Cur memory cur, uint from, uint to) internal pure returns (bytes32 digest) {
+        digest = keccak256(cur.raw(from, to));
     }
 
     /// @notice Read a block header at position `i` without advancing the cursor.
@@ -113,11 +144,11 @@ library Cursors {
     /// @return key Four-byte block type identifier.
     /// @return len Payload byte length declared in the header.
     function peek(Cur memory cur, uint i) internal pure returns (bytes4 key, uint len) {
-        if (i + 8 > cur.len) revert MalformedBlocks();
+        if (i + Sizes.Header > cur.len) revert MalformedBlocks();
         uint abs = cur.offset + i;
         key = bytes4(msg.data[abs:abs + 4]);
         len = uint32(bytes4(msg.data[abs + 4:abs + 8]));
-        if (i + 8 + len > cur.len) revert MalformedBlocks();
+        if (i + Sizes.Header + len > cur.len) revert MalformedBlocks();
     }
 
     /// @notice Return the byte offset immediately past the block at the current cursor position.
@@ -129,28 +160,42 @@ library Cursors {
         return cur.i + Sizes.Header + len;
     }
 
+    /// @notice Return true if position `i` is at a block header with the given key.
+    /// Returns false when `i` is out of bounds or the key differs.
+    /// @param cur Source cursor.
+    /// @param i Byte offset of the block header within the source region.
+    /// @param key Expected block type identifier.
+    /// @return Whether the block header at `i` uses `key`.
+    function hasAt(Cur memory cur, uint i, bytes4 key) internal pure returns (bool) {
+        if (i > cur.len || Sizes.Header > cur.len - i) return false;
+        uint abs = cur.offset + i;
+        return bytes4(msg.data[abs:abs + 4]) == key;
+    }
+
     /// @notice Return true if the current cursor position is at a block header with the given key.
     /// Returns false when `cur.i` is out of bounds or the key differs.
     /// @param cur Source cursor.
     /// @param key Expected block type identifier.
     /// @return Whether the block header at `cur.i` uses `key`.
     function isAt(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        if (cur.i + 8 > cur.len) return false;
-        uint abs = cur.offset + cur.i;
-        return bytes4(msg.data[abs:abs + 4]) == key;
+        return cur.hasAt(cur.i, key);
     }
 
-    /// @notice Return whether the remaining cursor region is empty or exactly one block with `key`.
-    /// Returns false for an empty remaining region. Reverts if the next block has another key or
-    /// if a matching block is followed by trailing bytes.
-    /// @param cur Source cursor.
-    /// @param key Expected optional block key.
-    /// @return Whether the remaining region contains exactly one block with `key`.
-    function maybeOnly(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        if (cur.i == cur.len) return false;
-        if (!cur.isAt(key)) revert InvalidBlock();
-        if (cur.past() != cur.len) revert IncompleteCursor();
-        return true;
+    /// @notice Enter a block at the current position and return its next offset.
+    /// Advances `cur.i` past the block header so the payload can be parsed
+    /// directly from the same cursor. The returned `next` is the byte offset
+    /// immediately after the block payload, relative to the current cursor region.
+    /// @param cur Cursor positioned at the expected block; advanced past the 8-byte header.
+    /// @param key Expected block key.
+    /// @param min Minimum acceptable payload length.
+    /// @param max Maximum acceptable payload length; 0 means unbounded.
+    /// @return next Byte offset immediately after the block payload.
+    function enter(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint next) {
+        (bytes4 current, uint len) = peek(cur, cur.i);
+        if (current != key) revert InvalidBlock();
+        if (len < min || (max != 0 && len > max)) revert InvalidBlock();
+        next = cur.i + Sizes.Header + len;
+        cur.i += Sizes.Header;
     }
 
     /// @notice Validate a block at position `i` and return its payload location.
@@ -173,9 +218,9 @@ library Cursors {
     ) internal pure returns (uint abs, uint next) {
         (bytes4 current, uint len) = peek(cur, i);
         if (current != key) revert InvalidBlock();
-        abs = cur.offset + i + 8;
-        next = i + 8 + len;
         if (len < min || (max != 0 && len > max)) revert InvalidBlock();
+        abs = cur.offset + i + Sizes.Header;
+        next = i + Sizes.Header + len;
         if (end != 0 && next != end) revert IncompleteCursor();
     }
 
@@ -203,7 +248,7 @@ library Cursors {
         while (next < cur.len) {
             (bytes4 current, uint len) = peek(cur, next);
             if (current != key) break;
-            next += 8 + len;
+            next += Sizes.Header + len;
 
             unchecked {
                 ++total;
@@ -238,7 +283,7 @@ library Cursors {
         while (i < cur.len) {
             (bytes4 current, uint len) = peek(cur, i);
             if (current == key) return i;
-            i += 8 + len;
+            i += Sizes.Header + len;
         }
         return cur.len;
     }
@@ -249,20 +294,6 @@ library Cursors {
     /// @return Byte offset of the matching block, or `cur.len` if not found.
     function find(Cur memory cur, bytes4 key) internal pure returns (uint) {
         return find(cur, cur.i, key);
-    }
-
-    /// @notice Enter a block at the current position and return its next offset.
-    /// Advances `cur.i` past the block header so the payload can be parsed
-    /// directly from the same cursor. The returned `next` is the byte offset
-    /// immediately after the block payload, relative to the current cursor region.
-    /// @param cur Cursor positioned at the expected block; advanced past the 8-byte header.
-    /// @param key Expected block key.
-    /// @param min Minimum acceptable payload length.
-    /// @param max Maximum acceptable payload length; 0 means unbounded.
-    /// @return next Byte offset immediately after the block payload.
-    function enter(Cur memory cur, bytes4 key, uint min, uint max) internal pure returns (uint next) {
-        (, next) = expect(cur, cur.i, 0, key, min, max);
-        cur.i += Sizes.Header;
     }
 
     /// @notice Enter a List block at the current position and return the next offset.
@@ -285,6 +316,19 @@ library Cursors {
         (, uint next) = expect(cur, cur.i, 0, key, 0, 0);
         out = cur.slice(cur.i, next);
         cur.i = next;
+    }
+
+    /// @notice Return whether the remaining cursor region is empty or exactly one block with `key`.
+    /// Returns false for an empty remaining region. Reverts if the next block has another key or
+    /// if a matching block is followed by trailing bytes.
+    /// @param cur Source cursor.
+    /// @param key Expected optional block key.
+    /// @return Whether the remaining region contains exactly one block with `key`.
+    function maybeOnly(Cur memory cur, bytes4 key) internal pure returns (bool) {
+        if (cur.i == cur.len) return false;
+        if (!cur.isAt(key)) revert InvalidBlock();
+        if (cur.past() != cur.len) revert IncompleteCursor();
+        return true;
     }
 
     /// @notice Consume an optional block with the given key and return a cursor over the full block slice.
@@ -317,61 +361,40 @@ library Cursors {
         if (cur.bound != next) revert IncompleteCursor();
     }
 
-    /// @notice Resume parsing after a nested region delimited by `resumeAt`.
-    /// Reverts with `IncompleteCursor` if `cur.i` has advanced past `resumeAt` or `resumeAt`
-    /// exceeds the cursor region length. Otherwise moves `cur.i` to `end`.
-    /// @param cur Cursor to advance.
-    /// @param resumeAt Relative end offset of the nested region to resume after.
-    function resume(Cur memory cur, uint resumeAt) internal pure {
-        if (resumeAt > cur.len || cur.i > resumeAt) revert IncompleteCursor();
-        cur.i = resumeAt;
-    }
-
     /// @notice Exit a nested region at an exact boundary.
-    /// Reverts with `IncompleteCursor` if `exitAt` exceeds the cursor region length
-    /// or `cur.i != exitAt`. Otherwise leaves `cur.i` at `exitAt`.
-    /// @param cur Cursor to advance.
-    /// @param exitAt Relative end offset of the nested region.
-    function exit(Cur memory cur, uint exitAt) internal pure {
-        if (exitAt > cur.len || cur.i != exitAt) revert IncompleteCursor();
-        cur.i = exitAt;
-    }
-
-    /// @notice Ensure that parsing has reached an exact nested-region boundary.
-    /// Reverts with `IncompleteCursor` if `ensureAt` exceeds the cursor region length
-    /// or `cur.i != ensureAt`.
+    /// Reverts with `IncompleteCursor` if `end` exceeds the cursor region length
+    /// or `cur.i != end`.
     /// @param cur Cursor to check.
-    /// @param ensureAt Relative offset that `cur.i` must match exactly.
-    function ensure(Cur memory cur, uint ensureAt) internal pure {
-        if (ensureAt > cur.len || cur.i != ensureAt) revert IncompleteCursor();
-    }
-
-    /// @notice Assert that the cursor has consumed its entire source region.
-    /// Reverts with `IncompleteCursor` when `cur.i != cur.len`.
-    /// @param cur Cursor to check.
-    function ensureEnd(Cur memory cur) internal pure {
-        if (cur.i != cur.len) revert IncompleteCursor();
+    /// @param end Relative end offset of the nested region.
+    function exit(Cur memory cur, uint end) internal pure {
+        if (end > cur.len || cur.i != end) revert IncompleteCursor();
     }
 
     /// @notice Assert that the cursor has consumed exactly up to `bound`.
     /// Reverts with `IncompleteCursor` if `bound` is zero or `cur.i != cur.bound`.
     /// @param cur Cursor to check.
-    function complete(Cur memory cur) internal pure {
+    function close(Cur memory cur) internal pure {
         if (cur.bound == 0 || cur.i != cur.bound) revert IncompleteCursor();
     }
 
-    /// @notice Assert completion and finalise a writer in one step.
+    /// @notice Assert that the cursor has consumed its entire source region.
+    /// Reverts with `IncompleteCursor` when `cur.i != cur.len`.
     /// @param cur Cursor to check.
-    /// @param writer Writer to finalise.
-    /// @return Trimmed output bytes from the writer.
-    function complete(Cur memory cur, Writer memory writer) internal pure returns (bytes memory) {
-        if (cur.bound == 0 || cur.i != cur.bound) revert IncompleteCursor();
-        return Writers.finish(writer);
+    function complete(Cur memory cur) internal pure {
+        if (cur.i != cur.len) revert IncompleteCursor();
     }
 
     // -------------------------------------------------------------------------
     // Block factory helpers
     // -------------------------------------------------------------------------
+
+    /// @notice Encode a block with a raw payload.
+    /// @param key Block type key.
+    /// @param data Raw payload bytes.
+    /// @return Encoded block bytes.
+    function createBlock(bytes4 key, bytes memory data) internal pure returns (bytes memory) {
+        return bytes.concat(key, bytes4(uint32(data.length)), data);
+    }
 
     /// @notice Encode a block with a single 32-byte payload word.
     /// @param key Block type key.
@@ -436,35 +459,11 @@ library Cursors {
         return bytes.concat(key, bytes4(uint32(0xa0)), a, b, c, d, e);
     }
 
-    /// @notice Encode a reserved BYTES block with a raw payload.
+    /// @notice Encode a BYTES block with a raw payload.
     /// @param data Raw payload bytes.
     /// @return Encoded BYTES block bytes.
-    function createBytesBlock(bytes memory data) internal pure returns (bytes memory) {
-        return bytes.concat(Keys.Bytes, bytes4(uint32(data.length)), data);
-    }
-
-    /// @notice Encode a block with a 32-byte fixed head followed by a variable-length tail.
-    /// @param key Block type key.
-    /// @param head Fixed 32-byte head payload.
-    /// @param tail Variable-length payload bytes appended after the head.
-    /// @return Encoded block bytes.
-    function createBlockHead32(bytes4 key, bytes32 head, bytes memory tail) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x20 + tail.length)), head, tail);
-    }
-
-    /// @notice Encode a block with a 64-byte fixed head followed by a variable-length tail.
-    /// @param key Block type key.
-    /// @param a First fixed payload word.
-    /// @param b Second fixed payload word.
-    /// @param tail Variable-length payload bytes appended after the fixed head.
-    /// @return Encoded block bytes.
-    function createBlockHead64(
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes memory tail
-    ) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x40 + tail.length)), a, b, tail);
+    function toBytesBlock(bytes memory data) internal pure returns (bytes memory) {
+        return createBlock(Keys.Bytes, data);
     }
 
     /// @notice Encode a BOUNTY block.
@@ -473,24 +472,6 @@ library Cursors {
     /// @return Encoded BOUNTY block bytes.
     function toBountyBlock(uint bounty, bytes32 relayer) internal pure returns (bytes memory) {
         return createBlock64(Keys.Bounty, bytes32(bounty), relayer);
-    }
-
-    /// @notice Encode a STEP block.
-    /// @param target Command target identifier.
-    /// @param value Native value forwarded with the step.
-    /// @param request Raw nested request payload.
-    /// @return Encoded STEP block bytes.
-    function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
-        return createBlockHead64(Keys.Step, bytes32(target), bytes32(value), createBytesBlock(request));
-    }
-
-    /// @notice Encode a CALL block.
-    /// @param target Target node identifier.
-    /// @param value Native value forwarded with the call.
-    /// @param data Raw calldata payload for the target.
-    /// @return Encoded CALL block bytes.
-    function toCallBlock(uint target, uint value, bytes memory data) internal pure returns (bytes memory) {
-        return createBlockHead64(Keys.Call, bytes32(target), bytes32(value), createBytesBlock(data));
     }
 
     /// @notice Encode a BALANCE block.
@@ -512,17 +493,48 @@ library Cursors {
         return createBlock128(Keys.Custody, bytes32(host), asset, meta, bytes32(amount));
     }
 
+    /// @notice Encode a STEP block.
+    /// @param target Command target identifier.
+    /// @param value Native value forwarded with the step.
+    /// @param request Raw nested request payload.
+    /// @return Encoded STEP block bytes.
+    function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
+        return createBlock(Keys.Step, bytes.concat(bytes32(target), bytes32(value), toBytesBlock(request)));
+    }
+
+    /// @notice Encode a CALL block.
+    /// @param target Target node identifier.
+    /// @param value Native value forwarded with the call.
+    /// @param data Raw calldata payload for the target.
+    /// @return Encoded CALL block bytes.
+    function toCallBlock(uint target, uint value, bytes memory data) internal pure returns (bytes memory) {
+        return createBlock(Keys.Call, bytes.concat(bytes32(target), bytes32(value), toBytesBlock(data)));
+    }
+
+    /// @notice Encode a CONTEXT block.
+    /// @param account Command account identifier.
+    /// @param state Embedded state block stream.
+    /// @param request Embedded request block stream.
+    /// @return Encoded CONTEXT block bytes.
+    function toContextBlock(
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) internal pure returns (bytes memory) {
+        return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
+    }
+
     // -------------------------------------------------------------------------
     // Raw calldata loaders
     // -------------------------------------------------------------------------
 
-    /// @notice Load the next calldata word from the cursor and advance by `n` bytes.
+    /// @notice Read the next calldata word from the cursor and advance by `n` bytes.
     /// @dev Performs no bounds, key, length, or cursor checks. Always loads 32 bytes;
     ///      callers may cast the returned word to `bytesN` when `n < 32`.
     /// @param cur Cursor whose current position is advanced by `n` bytes.
     /// @param n Number of bytes to advance.
     /// @return value Loaded word.
-    function nextWord(Cur memory cur, uint n) internal pure returns (bytes32 value) {
+    function read(Cur memory cur, uint n) internal pure returns (bytes32 value) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             value := calldataload(abs)
@@ -530,11 +542,11 @@ library Cursors {
         cur.i += n;
     }
 
-    /// @notice Load the next 16 bytes from the cursor and advance by 16 bytes.
+    /// @notice Read the next 16 bytes from the cursor and advance by 16 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 16 bytes.
     /// @return value Loaded bytes16 value.
-    function next16(Cur memory cur) internal pure returns (bytes16 value) {
+    function read16(Cur memory cur) internal pure returns (bytes16 value) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             value := calldataload(abs)
@@ -542,11 +554,11 @@ library Cursors {
         cur.i += 16;
     }
 
-    /// @notice Load the next 32-byte word from the cursor and advance by one word.
+    /// @notice Read the next 32-byte word from the cursor and advance by one word.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 32 bytes.
     /// @return value Loaded word.
-    function next32(Cur memory cur) internal pure returns (bytes32 value) {
+    function read32(Cur memory cur) internal pure returns (bytes32 value) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             value := calldataload(abs)
@@ -554,12 +566,12 @@ library Cursors {
         cur.i += 32;
     }
 
-    /// @notice Load the next two 32-byte words from the cursor and advance by 64 bytes.
+    /// @notice Read the next two 32-byte words from the cursor and advance by 64 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 64 bytes.
     /// @return a First loaded word.
     /// @return b Second loaded word.
-    function next64(Cur memory cur) internal pure returns (bytes32 a, bytes32 b) {
+    function read64(Cur memory cur) internal pure returns (bytes32 a, bytes32 b) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             a := calldataload(abs)
@@ -568,13 +580,13 @@ library Cursors {
         cur.i += 64;
     }
 
-    /// @notice Load the next three 32-byte words from the cursor and advance by 96 bytes.
+    /// @notice Read the next three 32-byte words from the cursor and advance by 96 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 96 bytes.
     /// @return a First loaded word.
     /// @return b Second loaded word.
     /// @return c Third loaded word.
-    function next96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
+    function read96(Cur memory cur) internal pure returns (bytes32 a, bytes32 b, bytes32 c) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             a := calldataload(abs)
@@ -589,7 +601,7 @@ library Cursors {
     /// @param cur Cursor whose current position is advanced by 32 bytes.
     /// @param expected Required word value.
     function require32(Cur memory cur, bytes32 expected) internal pure {
-        if (next32(cur) != expected) revert UnexpectedValue();
+        if (read32(cur) != expected) revert UnexpectedValue();
     }
 
     // -------------------------------------------------------------------------
@@ -682,35 +694,6 @@ library Cursors {
         c = bytes32(msg.data[abs + 64:abs + 96]);
         d = bytes32(msg.data[abs + 96:abs + 128]);
         e = bytes32(msg.data[abs + 128:abs + 160]);
-    }
-
-    /// @notice Consume a dynamic block with a single uint payload.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return value Decoded uint value.
-    function unpackUint(Cur memory cur, bytes4 key) internal pure returns (uint value) {
-        value = uint(unpack32(cur, key));
-    }
-
-    /// @notice Consume a dynamic block with two uint payload words.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return a First decoded uint.
-    /// @return b Second decoded uint.
-    function unpack2Uint(Cur memory cur, bytes4 key) internal pure returns (uint a, uint b) {
-        (bytes32 x, bytes32 y) = unpack64(cur, key);
-        return (uint(x), uint(y));
-    }
-
-    /// @notice Consume a dynamic block with three uint payload words.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected dynamic block key.
-    /// @return a First decoded uint.
-    /// @return b Second decoded uint.
-    /// @return c Third decoded uint.
-    function unpack3Uint(Cur memory cur, bytes4 key) internal pure returns (uint a, uint b, uint c) {
-        (bytes32 x, bytes32 y, bytes32 z) = unpack96(cur, key);
-        return (uint(x), uint(y), uint(z));
     }
 
     // Generic typed-shape decoders
@@ -1071,8 +1054,8 @@ library Cursors {
     /// @return req Embedded request bytes for the sub-command.
     function unpackStep(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata req) {
         uint end = cur.enter(Keys.Step, 64 + Sizes.Header, 0);
-        target = uint(cur.next32());
-        value = uint(cur.next32());
+        target = uint(cur.read32());
+        value = uint(cur.read32());
         req = cur.unpackBytes();
         cur.exit(end);
     }
@@ -1085,8 +1068,8 @@ library Cursors {
     /// @return data Raw calldata payload for the target.
     function unpackCall(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata data) {
         uint end = cur.enter(Keys.Call, 64 + Sizes.Header, 0);
-        target = uint(cur.next32());
-        value = uint(cur.next32());
+        target = uint(cur.read32());
+        value = uint(cur.read32());
         data = cur.unpackBytes();
         cur.exit(end);
     }
@@ -1101,7 +1084,7 @@ library Cursors {
         Cur memory cur
     ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
         uint end = cur.enter(Keys.Context, 32 + 2 * Sizes.Header, 0);
-        account = cur.next32();
+        account = cur.read32();
         state = cur.unpackBytes();
         request = cur.unpackBytes();
         cur.exit(end);
@@ -1379,19 +1362,19 @@ library Cursors {
     /// The signed slice covers from `cur.i` up to (but not including) the AUTH proof bytes.
     /// @param cur Source cursor; `bound` marks the end of the primary data region.
     /// @param cid Command ID that the signature must be bound to.
-    /// @return hash keccak256 of the signed message slice.
+    /// @return digest keccak256 of the signed message slice.
     /// @return deadline Expiry timestamp from the AUTH block.
     /// @return proof Raw proof bytes (layout: `[bytes20 signer][bytes65 sig]`).
     function authLast(
         Cur memory cur,
         uint cid
-    ) internal pure returns (bytes32 hash, uint deadline, bytes calldata proof) {
+    ) internal pure returns (bytes32 digest, uint deadline, bytes calldata proof) {
         if (cur.len - cur.i < Sizes.Auth) revert MalformedBlocks();
 
         uint i = cur.len - Sizes.Auth;
         if (i < cur.bound) revert MalformedBlocks();
 
         (deadline, proof) = expectAuth(cur, i, cid);
-        hash = keccak256(msg.data[cur.offset + cur.i:cur.offset + cur.len - Sizes.Proof]);
+        digest = cur.hash(cur.i, cur.len - Sizes.Proof);
     }
 }

@@ -27,7 +27,7 @@ abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook {
             allowAsset(asset, meta);
         }
 
-        assets.complete();
+        assets.close();
         return "";
     }
 }

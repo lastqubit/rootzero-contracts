@@ -27,7 +27,7 @@ abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook {
             denyAsset(asset, meta);
         }
 
-        assets.complete();
+        assets.close();
         return "";
     }
 }

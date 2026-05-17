@@ -59,7 +59,7 @@ abstract contract MyCommand is CommandBase {
             emit AssetSeen(listIndex, asset, meta);
         }
 
-        input.ensure(next);
+        input.exit(next);
     }
 
     function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
@@ -77,7 +77,7 @@ abstract contract MyCommand is CommandBase {
             }
         }
 
-        request.ensureEnd();
+        request.complete();
         return "";
     }
 }

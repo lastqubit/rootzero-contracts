@@ -29,7 +29,7 @@ abstract contract Unauthorize is CommandBase, AdminEvent {
             unauthorize(node);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

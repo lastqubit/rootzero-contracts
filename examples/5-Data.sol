@@ -47,7 +47,7 @@ abstract contract MyCommand is CommandBase {
 
         (uint targetHost, bytes32 asset, bytes32 meta, uint amount) = unpackInput(input);
         
-        input.ensureEnd();
+        input.complete();
 
         // Delegate to the implementer to move the asset to the selected host.
         sendToHost(targetHost, asset, meta, amount);

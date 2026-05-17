@@ -12,7 +12,7 @@ contract TestGetPositionQuery is GetPosition {
     bytes32 public immutable secondAsset = bytes32(uint(0xA22));
     bytes32 public immutable secondMeta = bytes32(uint(0xB22));
 
-    constructor() GetPosition("uint position", 32) {}
+    constructor() GetPosition("uint position") {}
 
     function appendPosition(
         bytes32,

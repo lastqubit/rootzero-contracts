@@ -23,10 +23,11 @@ contract TestQuery is QueryBase {
         Writer memory writer = Writers.alloc32s(groups);
 
         while (input.i < input.bound) {
-            uint foo = input.unpackUint(Keys.Data);
+            uint foo = uint(input.unpack32(Keys.Data));
             writer.appendBlock32(Keys.Data, bytes32(foo + 1), 32);
         }
 
-        out = input.complete(writer);
+        input.close();
+        out = writer.finish();
     }
 }

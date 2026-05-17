@@ -34,7 +34,7 @@ abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
             denyAsset(asset, meta);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

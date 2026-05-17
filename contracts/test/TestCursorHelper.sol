@@ -150,6 +150,11 @@ contract TestCursorHelper {
         return cur.isAt(key);
     }
 
+    function testHasAt(bytes calldata source, uint i, bytes4 key) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        return cur.hasAt(i, key);
+    }
+
     function testCountRun(bytes calldata source, uint i, bytes4 key) external pure returns (uint total, uint next) {
         Cur memory cur = Cursors.open(source);
         return cur.countRun(i, key);
@@ -184,32 +189,32 @@ contract TestCursorHelper {
         return cur.maybeOnly(key);
     }
 
-    function testResume(bytes calldata source, uint end) external pure returns (uint i) {
+    function testSkipTo(bytes calldata source, uint end) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
-        cur.resume(end);
+        cur = cur.skipTo(end);
         return cur.i;
     }
 
-    function testResumePastEnd(bytes calldata source, uint end) external pure returns (bool) {
+    function testSkipToPastEnd(bytes calldata source, uint end) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.i = end + 1;
-        cur.resume(end);
+        cur.skipTo(end);
         return true;
     }
 
-    function testEnsure(bytes calldata source, uint at) external pure returns (uint i) {
+    function testExit(bytes calldata source, uint at) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
         cur.i = at;
-        cur.ensure(at);
+        cur.exit(at);
         return cur.i;
     }
 
-    function testEnsureMismatch(bytes calldata source, uint at) external pure returns (bool) {
+    function testExitMismatch(bytes calldata source, uint at) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         if (at < cur.len) {
             cur.i = at + 1;
         }
-        cur.ensure(at);
+        cur.exit(at);
         return true;
     }
 
@@ -323,52 +328,52 @@ contract TestCursorHelper {
         return cur.authLast(cid);
     }
 
-    function testCursorCompleteEmpty(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCloseEmpty(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorCompletePartial(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorClosePartial(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
         if (cur.bound > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorCompleteConsumed(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCloseConsumed(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
         while (cur.i < cur.bound) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorEndPartial(bytes calldata source) external pure returns (bool) {
+    function testCursorCompletePartial(bytes calldata source) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         if (cur.len > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.ensureEnd();
+        cur.complete();
         return true;
     }
 
-    function testCursorEndConsumed(bytes calldata source) external pure returns (bool) {
+    function testCursorCompleteConsumed(bytes calldata source) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         while (cur.i < cur.len) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.ensureEnd();
+        cur.complete();
         return true;
     }
 

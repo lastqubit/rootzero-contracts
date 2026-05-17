@@ -55,7 +55,7 @@ abstract contract MyCommand is CommandBase {
             emit PaymentSeen(asset, meta, amount, fee);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

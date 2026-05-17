@@ -40,7 +40,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
             withdraw(to, asset, meta, amount);
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }

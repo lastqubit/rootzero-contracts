@@ -32,7 +32,7 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
             callAddr(addr, useValue(budget, value), data);
         }
 
-        request.complete();
+        request.close();
         settleValue(c.account, budget);
         return "";
     }

@@ -26,7 +26,7 @@ abstract contract PeerSettle is PeerBase, TransferHook {
             transfer(state.unpackTxValue());
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }

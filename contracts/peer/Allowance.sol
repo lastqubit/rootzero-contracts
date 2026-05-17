@@ -29,7 +29,7 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook {
             allowance(peer, asset, meta, amount);
         }
 
-        amounts.complete();
+        amounts.close();
         return "";
     }
 }

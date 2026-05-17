@@ -43,7 +43,8 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
             writer.appendBalance(asset, meta, amount);
         }
 
-        return input.complete(writer);
+        input.close();
+        return writer.finish();
     }
 
     function debitAccount(

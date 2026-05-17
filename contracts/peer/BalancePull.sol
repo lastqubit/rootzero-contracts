@@ -37,7 +37,7 @@ abstract contract PeerBalancePull is PeerBase, BalancePullHook {
             balancePull(peer, asset, meta, amount);
         }
 
-        input.complete();
+        input.close();
         return "";
     }
 }

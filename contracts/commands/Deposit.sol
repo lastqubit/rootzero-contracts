@@ -56,7 +56,8 @@ abstract contract Deposit is CommandBase, DepositHook {
             writer.appendBalance(asset, meta, amount);
         }
 
-        return request.complete(writer);
+        request.close();
+        return writer.finish();
     }
 }
 
@@ -86,7 +87,8 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
         }
 
         settleValue(c.account, budget);
-        return request.complete(writer);
+        request.close();
+        return writer.finish();
     }
 }
 

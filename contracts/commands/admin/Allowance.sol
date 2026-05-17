@@ -37,7 +37,7 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
             allowance(peer, asset, meta, amount);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

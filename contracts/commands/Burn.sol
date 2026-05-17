@@ -36,7 +36,7 @@ abstract contract Burn is CommandBase, BurnHook {
             burn(c.account, asset, meta, amount);
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }
