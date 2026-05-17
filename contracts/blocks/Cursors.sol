@@ -65,6 +65,17 @@ library Cursors {
         cur.len = source.length;
     }
 
+    /// @notice Create a cursor and prime it for a grouped iteration pass.
+    /// Equivalent to `open(source)` followed by `primeRun(group)`.
+    /// @param source Calldata slice that forms the block stream.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @return cur Cursor with `bound` set to the end of the first run.
+    /// @return groups Number of block groups in the run (`prime block count / group`).
+    function init(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
+        cur = open(source);
+        (, groups) = cur.primeRun(group);
+    }
+
     /// @notice Move the cursor to an absolute position within the source region.
     /// @param cur Cursor to update.
     /// @param i New read position (byte offset relative to source start).

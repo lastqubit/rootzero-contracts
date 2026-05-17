@@ -40,8 +40,7 @@ abstract contract PipePayableCore is Payable {
         bytes calldata steps,
         Budget memory budget
     ) internal returns (bytes memory) {
-        Cur memory input = Cursors.open(steps);
-        input.primeRun(1);
+        (Cur memory input, ) = Cursors.init(steps, 1);
 
         while (input.i < input.bound) {
             (uint target, uint value, bytes calldata request) = input.unpackStep();
