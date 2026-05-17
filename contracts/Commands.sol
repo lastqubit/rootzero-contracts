@@ -10,7 +10,7 @@ import { Burn, BurnHook } from "./commands/Burn.sol";
 import { CreditAccount, CreditAccountHook } from "./commands/Credit.sol";
 import { DebitAccount, DebitAccountHook } from "./commands/Debit.sol";
 import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./commands/Deposit.sol";
-import { PipePayable, PipePayableCore, PipePayableHook } from "./commands/Pipe.sol";
+import { PipePayable, PipePayableCore } from "./commands/Pipe.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
 import { Transfer, TransferHook } from "./commands/Transfer.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";

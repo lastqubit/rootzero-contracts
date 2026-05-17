@@ -27,11 +27,10 @@ abstract contract PeerPipePayable is PeerBase, PipePayableCore {
 
         while (input.i < input.bound) {
             (bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackContext();
-            bytes memory out = pipe(account, state, steps, budget);
-            if (out.length != 0) revert UnexpectedState();
+            pipe(account, state, steps, budget);
         }
 
-        input.complete();
+        input.close();
         return "";
     }
 }

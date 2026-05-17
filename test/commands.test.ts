@@ -440,15 +440,15 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(22n, startCount + 1n, 9n);
     });
 
-    it("returns the final threaded state", async () => {
+    it("reverts UnexpectedState when final threaded state is non-empty", async () => {
       const state = encodeBalanceBlock(
         ethers.zeroPadValue("0x99", 32),
         ethers.ZeroHash,
         123n
       );
       const request = encodeStepBlock(0n, 0n, "0x");
-      const result = await host.pipePayable.staticCall(ctx({ account: userAccount, state, request }));
-      expect(result).to.equal(state);
+      await expect(host.pipePayable.staticCall(ctx({ account: userAccount, state, request })))
+        .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
     it("reverts InvalidAccount when account is admin account", async () => {
@@ -470,6 +470,19 @@ describe("Commands", () => {
       await expect(
         (host.connect(await getSigner(0)) as any).pipePayable(ctx({ account: userAccount, request }), { value: 0n })
       ).to.be.revertedWithCustomError(host, "InsufficientValue");
+    });
+  });
+
+  describe("stagePayable", () => {
+    it("returns the final threaded state", async () => {
+      const state = encodeBalanceBlock(
+        ethers.zeroPadValue("0x99", 32),
+        ethers.ZeroHash,
+        123n
+      );
+      const request = encodeStepBlock(0n, 0n, "0x");
+      const result = await host.stagePayable.staticCall(ctx({ account: userAccount, state, request }));
+      expect(result).to.equal(state);
     });
   });
 });

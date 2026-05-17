@@ -9,7 +9,7 @@ import { CommandContext } from "../commands/Base.sol";
 import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
-import { PipePayable } from "../commands/Pipe.sol";
+import { PipePayable, StagePayable } from "../commands/Pipe.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
@@ -32,6 +32,7 @@ contract TestHost is
     Provision,
     ProvisionPayable,
     PipePayable,
+    StagePayable,
     Init,
     Destroy,
     AllowAssets,
@@ -185,6 +186,10 @@ contract TestHost is
 
     function getPipePayableId() external view returns (uint) {
         return pipePayableId;
+    }
+
+    function getStagePayableId() external view returns (uint) {
+        return stagePayableId;
     }
 
     function getInitId() external view returns (uint) {
