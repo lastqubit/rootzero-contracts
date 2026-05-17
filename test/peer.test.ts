@@ -238,14 +238,13 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 5n);
     });
 
-    it("returns the final state from the last context", async () => {
+    it("reverts UnexpectedState when a context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), ethers.ZeroHash, 77n);
       const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
       const signer = await getSigner(1);
 
-      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
-
-      expect(result).to.equal(state);
+      await expect((host.connect(signer) as any)[method].staticCall(request))
+        .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
     it("reverts UnusedValue when payable budget is not fully spent", async () => {

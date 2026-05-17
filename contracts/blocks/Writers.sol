@@ -564,14 +564,17 @@ library Writers {
         }
     }
 
-    /// @notice Reserve logical capacity and advance the writer.
-    /// Fixed writers revert when `touch` exceeds capacity; growable writers expand.
+    /// @notice Reserve physical write space and advance the logical writer position.
+    /// Fixed writers may use padded backing space but cannot advance past logical capacity;
+    /// growable writers expand when `touch` exceeds current capacity.
     /// @return i Original write offset.
     function reserve(Writer memory writer, uint next, uint touch) private pure returns (uint i) {
         i = writer.i;
-        if (touch > writer.end) {
+        if (touch > writer.dst.length) {
             if (!writer.growable) revert WriterOverflow();
+        }
 
+        if (touch > writer.end && writer.growable) {
             uint end = writer.end == 0 ? 64 : writer.end * 2;
             while (end < touch) {
                 end *= 2;
