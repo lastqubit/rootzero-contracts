@@ -510,24 +510,29 @@ library Writers {
         bytes memory c
     ) internal pure returns (uint next) {
         uint bLen = b.length;
-        uint cLen = c.length;
-        uint len = 32 + 2 * Sizes.Header + bLen + cLen;
+        uint len = 32 + 2 * Sizes.Header + bLen + c.length;
         next = i + Sizes.Header + len;
         if (next > dst.length) revert WriterOverflow();
 
-        uint p = writeHeader(dst, i, key, uint32(max32(len)));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
+        {
+            uint p = writeHeader(dst, i, key, uint32(max32(len)));
+            assembly ("memory-safe") {
+                mstore(add(p, 0x08), a)
+            }
         }
 
-        uint q = writeHeader(dst, i + Sizes.Header + 32, Keys.Bytes, uint32(max32(bLen)));
-        assembly ("memory-safe") {
-            mcopy(add(q, 0x08), add(b, 0x20), mload(b))
+        {
+            uint q = writeHeader(dst, i + Sizes.Header + 32, Keys.Bytes, uint32(max32(bLen)));
+            assembly ("memory-safe") {
+                mcopy(add(q, 0x08), add(b, 0x20), mload(b))
+            }
         }
 
-        uint r = writeHeader(dst, i + Sizes.Header + 32 + Sizes.Header + bLen, Keys.Bytes, uint32(max32(cLen)));
-        assembly ("memory-safe") {
-            mcopy(add(r, 0x08), add(c, 0x20), mload(c))
+        {
+            uint r = writeHeader(dst, i + Sizes.Header + 32 + Sizes.Header + bLen, Keys.Bytes, uint32(max32(c.length)));
+            assembly ("memory-safe") {
+                mcopy(add(r, 0x08), add(c, 0x20), mload(c))
+            }
         }
     }
 
@@ -552,15 +557,19 @@ library Writers {
         next = i + Sizes.Header + len;
         if (next > dst.length) revert WriterOverflow();
 
-        uint p = writeHeader(dst, i, key, uint32(max32(len)));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
-            mstore(add(p, 0x28), b)
+        {
+            uint p = writeHeader(dst, i, key, uint32(max32(len)));
+            assembly ("memory-safe") {
+                mstore(add(p, 0x08), a)
+                mstore(add(p, 0x28), b)
+            }
         }
 
-        uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
-        assembly ("memory-safe") {
-            mcopy(add(q, 0x08), add(c, 0x20), mload(c))
+        {
+            uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
+            assembly ("memory-safe") {
+                mcopy(add(q, 0x08), add(c, 0x20), mload(c))
+            }
         }
     }
 
