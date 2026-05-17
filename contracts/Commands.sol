@@ -27,7 +27,7 @@ import { PeerAllowance } from "./peer/Allowance.sol";
 import { PeerBalancePull, BalancePullHook } from "./peer/BalancePull.sol";
 import { PeerAllowAssets } from "./peer/AllowAssets.sol";
 import { PeerDenyAssets } from "./peer/DenyAssets.sol";
-import { PeerPipePayable } from "./peer/Pipe.sol";
+import { PeerPipePayable, PeerStagePayable } from "./peer/Pipe.sol";
 import { PeerSettle } from "./peer/Settle.sol";
 
 

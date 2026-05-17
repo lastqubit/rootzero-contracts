@@ -64,11 +64,28 @@ describe("Peer Entrypoints", () => {
         "",
         true,
       );
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
+        await host.getPeerStagePayableId(),
+        "peerStagePayable",
+        ethers.encodeBytes32String("1:1"),
+        "#context { bytes32 account, #bytes as state, #bytes as request }",
+        "#context { bytes32 account, #bytes as state, #bytes as request }",
+        true,
+      );
   });
 
   async function callAs(
     signerIndex: number,
-    method: "peerAllowance(bytes)" | "peerBalancePull(bytes)" | "peerSettle(bytes)" | "peerPipePayable(bytes)",
+    method:
+      | "peerAllowance(bytes)"
+      | "peerBalancePull(bytes)"
+      | "peerSettle(bytes)"
+      | "peerPipePayable(bytes)"
+      | "peerStagePayable(bytes)",
     request = "0x",
     overrides: Record<string, bigint> = {}
   ) {
@@ -252,6 +269,21 @@ describe("Peer Entrypoints", () => {
 
       await expect(callAs(1, method, request, { value: 2n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
+    });
+  });
+
+  describe("peerStagePayable", () => {
+    const method = "peerStagePayable(bytes)";
+    const account = encodeUserAccount("0x44");
+
+    it("returns one context with final state and empty request", async () => {
+      const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), ethers.ZeroHash, 77n);
+      const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
+      const signer = await getSigner(1);
+
+      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
+
+      expect(result).to.equal(encodeContextBlock(account, state, "0x"));
     });
   });
 });
