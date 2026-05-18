@@ -106,7 +106,6 @@ The built-in commands are easiest to use when you know which blocks they expect.
 - `transfer`: reads `PAYOUT` blocks
 - `debitAccount`: reads `AMOUNT`, returns `BALANCE`
 - `provision`: reads `ALLOCATION`, returns `CUSTODY` state
-- `pipePayable`: reads `STEP` blocks and runs them in order
 
 ### Commands That Read `state`
 
@@ -283,7 +282,7 @@ If you want to learn by example, these are the best files to read next:
 
 - Passing data in `state` when the command expects it in `request`
 - Forgetting to emit a `Command` event for a custom command
-- Using an admin account with user-only command flows such as `pipePayable`
+- Using an admin account where a user account is expected
 - Trying to parse raw bytes manually when a built-in reader already exists
 - Starting with a custom command when a built-in module already matches the job
 

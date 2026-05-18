@@ -412,10 +412,10 @@ describe("Commands", () => {
 
   // ── Pipe ──────────────────────────────────────────────────────────────────
 
-  describe("pipePayable", () => {
+  describe("pipeline", () => {
     it("executes STEP blocks and emits StepDispatched", async () => {
       const request = encodeStepBlock(0n, 0n, "0x");
-      const tx = await callAs(0, "pipePayable", ctx({ account: userAccount, request }));
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request);
       await expect(tx).to.emit(host, "StepDispatched");
     });
 
@@ -424,7 +424,7 @@ describe("Commands", () => {
         encodeStepBlock(0n, 0n, "0x"),
         encodeStepBlock(0n, 0n, "0x")
       );
-      const tx = await callAs(0, "pipePayable", ctx({ account: userAccount, request }));
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request);
       const count: bigint = await host.stepCount();
       expect(count).to.be.gte(2n);
     });
@@ -435,7 +435,7 @@ describe("Commands", () => {
         encodeStepBlock(22n, 9n, "0xabcd")
       );
       const startCount = await host.stepCount();
-      const tx = await callAs(0, "pipePayable", ctx({ account: userAccount, request }), { value: 16n });
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request, { value: 16n });
       await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
       await expect(tx).to.emit(host, "StepDispatched").withArgs(22n, startCount + 1n, 9n);
     });
@@ -447,19 +447,12 @@ describe("Commands", () => {
         123n
       );
       const request = encodeStepBlock(0n, 0n, "0x");
-      await expect(host.pipePayable.staticCall(ctx({ account: userAccount, state, request })))
+      await expect(host.testPipe.staticCall(userAccount, state, request))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
-    it("reverts InvalidAccount when account is admin account", async () => {
-      const request = encodeStepBlock(0n, 0n, "0x");
-      await expect(
-        callAs(0, "pipePayable", ctx({ account: adminAccount, request }))
-      ).to.be.revertedWithCustomError(host, "InvalidAccount");
-    });
-
     it("reverts ZeroCursor when no STEP blocks", async () => {
-      await expect(callAs(0, "pipePayable", ctx({ account: userAccount })))
+      await expect(callAs(0, "testPipe", userAccount, "0x", "0x"))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
 
@@ -468,21 +461,8 @@ describe("Commands", () => {
       const largeValue = ethers.parseEther("1000");
       const request = encodeStepBlock(0n, largeValue, "0x");
       await expect(
-        (host.connect(await getSigner(0)) as any).pipePayable(ctx({ account: userAccount, request }), { value: 0n })
+        (host.connect(await getSigner(0)) as any).testPipe(userAccount, "0x", request, { value: 0n })
       ).to.be.revertedWithCustomError(host, "InsufficientValue");
-    });
-  });
-
-  describe("stagePayable", () => {
-    it("returns the final threaded state", async () => {
-      const state = encodeBalanceBlock(
-        ethers.zeroPadValue("0x99", 32),
-        ethers.ZeroHash,
-        123n
-      );
-      const request = encodeStepBlock(0n, 0n, "0x");
-      const result = await host.stagePayable.staticCall(ctx({ account: userAccount, state, request }));
-      expect(result).to.equal(state);
     });
   });
 });
