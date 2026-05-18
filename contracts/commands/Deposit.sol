@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, Payable, Keys } from "./Base.sol";
+import { CommandContext, CommandBase, Keys } from "./Base.sol";
+import { Payable } from "../core/Payable.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
 import { Budget } from "../utils/Value.sol";
 

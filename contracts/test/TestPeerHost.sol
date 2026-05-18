@@ -4,11 +4,11 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { PeerAllowance } from "../peer/Allowance.sol";
 import { PeerBalancePull } from "../peer/BalancePull.sol";
-import { PeerPipePayable, PeerStagePayable } from "../peer/Pipe.sol";
+import { PeerPipePayable } from "../peer/Pipe.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { Tx } from "../Cursors.sol";
 
-contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable, PeerStagePayable {
+contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerSettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
@@ -30,7 +30,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerSettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function dispatchCommand(
+    function dispatch(
         uint cid,
         bytes32,
         bytes memory state,
@@ -45,7 +45,6 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
     function getPeerBalancePullId() external view returns (uint) { return peerBalancePullId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
     function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
-    function getPeerStagePayableId() external view returns (uint) { return peerStagePayableId; }
     function getAdminAccount() external view returns (bytes32) { return adminAccount; }
 }
 
