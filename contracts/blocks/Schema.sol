@@ -21,7 +21,7 @@ pragma solidity ^0.8.33;
 // - `#bytes` is a reserved child block that stores raw bytes and has no body
 // - generic `#data` uses the stable key derived from `#data`
 // - generic lists use the stable key derived from `#list`
-// - keys are derived from canonical v2 schema strings
+// - keys are derived from block names, e.g. bytes4(keccak256("#amount"))
 // - see `docs/SCHEMA_DSL_V2.md` for the full working spec
 //
 // Pipeline state:
@@ -42,9 +42,9 @@ pragma solidity ^0.8.33;
 // - current helpers assume proof layout `[bytes20 signer][bytes65 sig]`
 
 /// @title Schemas
-/// @notice Human-readable ABI-signature string constants for each block type.
-/// These strings are the canonical source from which `Keys` constants are derived
-/// and are used when emitting schema descriptors in command events.
+/// @notice Human-readable schema string constants for each block type.
+/// These strings describe payload layout for discovery events and docs; block
+/// keys are derived only from block names.
 library Schemas {
     string constant Unit = "#unit";
     string constant Node = "#node { uint id }";

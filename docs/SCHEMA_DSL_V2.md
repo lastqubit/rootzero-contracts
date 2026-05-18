@@ -225,48 +225,31 @@ Aliases are allowed on any block item, including the prime item.
 
 ## Key Derivation
 
-Keys are derived from the new schema syntax, not from the old ABI-signature
-syntax.
-
-Keys are derived from a canonical normalized v2 form. If a key is created
-directly in Solidity, the string literal must already be in that canonical form.
-This matters most for standardized blocks, where shared constants can ensure the
-format is correct. Many custom command schemas can use the generic `#data` form,
-whose key is always the same.
-
-For an ordinary block with a body, the key hash input is the block atom from `#`
-through the matching `}`.
+Keys are derived from the block name only. The hash input is the block atom,
+including the `#` prefix and excluding any fields, child blocks, modifiers, or
+aliases.
 
 ```txt
-#balance { uint amount }
+bytes4(keccak256("#balance"))
 ```
 
-hashes the canonical v2 block atom:
+The full schema still defines the payload layout:
 
 ```txt
-#balance { uint amount }
+#balance { bytes32 asset, bytes32 meta, uint amount }
 ```
 
-For a block with child blocks, the parent hash input includes the child
-declarations inside the braces exactly as they appear in canonical form:
+but its runtime key is derived from `#balance` alone.
 
-```txt
-#payment { bytes32 asset, bytes32 meta, uint amount, maybe #fee { uint amount } }
-```
-
-This means the parent block key commits to both its fixed fields and its
-declared child block usage, including child modifiers and aliases.
-
-Field names are part of the canonical block atom and therefore part of key
-derivation. These produce different keys:
+Blocks should not be overloaded. A block name should have one clear protocol
+meaning, so the name itself is enough to identify the block type. These two
+schemas would produce the same key and should not coexist as distinct protocol
+blocks:
 
 ```txt
 #fee { uint amount }
 #fee { uint value }
 ```
-
-Even though field names affect keys, block names should not be overloaded by
-convention. A block name should have one clear protocol meaning.
 
 Name conflicts are allowed because names do not affect payload encoding. When
 off-chain tools present conflicting sibling names, they should append zero-based
@@ -292,13 +275,13 @@ Duplicate child block types inside the same tail are allowed. Order remains
 significant, and presentation tools should suffix conflicting child names in
 encounter order.
 
-Modifiers and aliases do not change the modified block's own runtime key:
+Modifiers and aliases do not change runtime keys:
 
 ```txt
 maybe #account { bytes32 account } as recipient
 ```
 
-uses the same emitted `account` block key as:
+uses the same emitted block key as:
 
 ```txt
 #account { bytes32 account }
@@ -306,9 +289,8 @@ uses the same emitted `account` block key as:
 
 Both forms can use the same `account` unpack helper.
 
-When modifiers or aliases appear on child declarations inside a parent block
-body, they are part of the parent key. These produce different `payment` keys,
-but the emitted `fee` child block still uses the same `fee` key in all cases:
+Likewise, these all use the same `#payment` parent key and the same `#fee`
+child key:
 
 ```txt
 #payment { uint amount, #fee { uint value } }
@@ -316,35 +298,18 @@ but the emitted `fee` child block still uses the same `fee` key in all cases:
 #payment { uint amount, #fee { uint value } as fee }
 ```
 
-Even though modifiers and aliases affect key derivation, block names should not
-be overloaded by convention. A block name should have one clear protocol meaning.
-
-For a zero-payload block without braces, the hash input is the block atom name:
-
-```txt
-#unit
-```
-
-Reserved generic-key forms are exceptions:
+Reserved generic-key forms follow the same name-only rule:
 
 - `#bytes` uses the key derived from `#bytes`. It is a reserved raw bytes
   block with no body.
-- `#data` uses the key derived from `#data`, regardless of its declared body
+- `#data` uses the key derived from `#data`, regardless of its declared body.
 - `many #x { ... }` emits a generic list block whose key is derived from
-  `#list`, then stores repeated `#x` items inside the list payload
+  `#list`, then stores repeated `#x` items inside the list payload.
 
-Formatting differences should be normalized by tooling before hashing. Solidity
-code that hashes schema strings directly should use canonical constants rather
-than hand-written variants.
+Formatting normalization still matters for schema descriptors, tooling, and
+human-readable discovery output, but it does not affect runtime keys.
 
-Normalization preserves declaration order. It does not sort fields, child
-blocks, top-level items, or list items.
-
-Type spellings are not normalized before hashing. `uint` and `uint256` encode
-the same width, but they are distinct canonical schema spellings and produce
-different keys. The same applies to `int` and `int256`.
-
-The canonical normalized form uses:
+The canonical normalized schema form uses:
 
 - one space after a block name before `{`
 - one space after `{`
@@ -353,8 +318,6 @@ The canonical normalized form uses:
 - single spaces between type and field name
 - prefixes written as `maybe`, `many`, or `maybe many`
 - no extra whitespace
-
-Canonical example:
 
 ```txt
 #name { type field, type field, maybe #child { type field } }

@@ -1,41 +1,41 @@
 import { ethers } from "ethers";
 
-// Block key derivation: bytes4(keccak256(schema))
-export function blockKey(schema: string): string {
-  return ethers.dataSlice(ethers.id(schema), 0, 4);
+// Block key derivation: bytes4(keccak256("#name"))
+export function blockKey(name: string): string {
+  return ethers.dataSlice(ethers.id(name), 0, 4);
 }
 
 // Known block keys
 export const Keys = {
-  Amount: blockKey("#amount { bytes32 asset, bytes32 meta, uint amount }"),
-  Balance: blockKey("#balance { bytes32 asset, bytes32 meta, uint amount }"),
-  Allocation: blockKey("#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }"),
-  Allowance: blockKey("#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }"),
-  Custody: blockKey("#custody { uint host, bytes32 asset, bytes32 meta, uint amount }"),
-  Fee: blockKey("#fee { uint amount }"),
-  Account: blockKey("#account { bytes32 account }"),
-  Payout: blockKey("#payout { bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
-  Node: blockKey("#node { uint id }"),
-  Asset: blockKey("#asset { bytes32 asset, bytes32 meta }"),
-  Step: blockKey("#step { uint target, uint value, #bytes as request }"),
-  Call: blockKey("#call { uint target, uint value, #bytes as payload }"),
-  Context: blockKey("#context { bytes32 account, #bytes as state, #bytes as request }"),
-  Transaction: blockKey("#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }"),
-  Minimum: blockKey("#minimum { bytes32 asset, bytes32 meta, uint amount }"),
-  Maximum: blockKey("#maximum { bytes32 asset, bytes32 meta, uint amount }"),
-  Auth: blockKey("#auth { uint cid, uint deadline, #bytes as proof }"),
-  Bounty: blockKey("#bounty { uint amount, bytes32 relayer }"),
+  Amount: blockKey("#amount"),
+  Balance: blockKey("#balance"),
+  Allocation: blockKey("#allocation"),
+  Allowance: blockKey("#allowance"),
+  Custody: blockKey("#custody"),
+  Fee: blockKey("#fee"),
+  Account: blockKey("#account"),
+  Payout: blockKey("#payout"),
+  Node: blockKey("#node"),
+  Asset: blockKey("#asset"),
+  Step: blockKey("#step"),
+  Call: blockKey("#call"),
+  Context: blockKey("#context"),
+  Transaction: blockKey("#transaction"),
+  Minimum: blockKey("#minimum"),
+  Maximum: blockKey("#maximum"),
+  Auth: blockKey("#auth"),
+  Bounty: blockKey("#bounty"),
   Bytes: blockKey("#bytes"),
   List: blockKey("#list"),
   Data: blockKey("#data"),
   Evm: blockKey("#evm"),
-  Status: blockKey("#status { bool ok }"),
-  AssetAmount: blockKey("#assetAmount { bytes32 asset, bytes32 meta, uint amount }"),
-  AccountAsset: blockKey("#accountAsset { bytes32 account, bytes32 asset, bytes32 meta }"),
-  AccountAmount: blockKey("#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
-  HostAmount: blockKey("#hostAmount { uint host, bytes32 asset, bytes32 meta, uint amount }"),
-  HostAccountAsset: blockKey("#hostAccountAsset { uint host, bytes32 account, bytes32 asset, bytes32 meta }"),
-  HostAccountAmount: blockKey("#hostAccountAmount { uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount }"),
+  Status: blockKey("#status"),
+  AssetAmount: blockKey("#assetAmount"),
+  AccountAsset: blockKey("#accountAsset"),
+  AccountAmount: blockKey("#accountAmount"),
+  HostAmount: blockKey("#hostAmount"),
+  HostAccountAsset: blockKey("#hostAccountAsset"),
+  HostAccountAmount: blockKey("#hostAccountAmount"),
 } as const;
 
 // Pad a bigint or hex string to 32 bytes
