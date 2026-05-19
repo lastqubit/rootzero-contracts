@@ -6,7 +6,7 @@ pragma solidity ^0.8.33;
 // - `payloadLen` is big-endian and covers only the block payload
 // - payload layout is block-specific
 //
-// Schema DSL v2:
+// Schema:
 // - blocks are written as `#name { fields }`
 // - a block without braces has no payload, e.g. `#unit`
 // - commas separate siblings at every level
@@ -22,7 +22,7 @@ pragma solidity ^0.8.33;
 // - generic `#data` uses the stable key derived from `#data`
 // - generic lists use the stable key derived from `#list`
 // - keys are derived from block names, e.g. bytes4(keccak256("#amount"))
-// - see `docs/SCHEMA_DSL_V2.md` for the full working spec
+// - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
 // - `balance(...)` and `custody(...)` are live, linear state in the active command pipeline

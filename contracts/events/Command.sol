@@ -14,8 +14,7 @@ abstract contract CommandEvent is EventEmitter {
     /// @param shape Per-operation prime block counts encoded as `request:state:output`.
     /// Blocks outside the prime runs are global batch blocks and are excluded
     /// from the counts.
-    /// @param request Schema DSL string describing the request shape; use `empty;...`
-    /// when the request has global blocks but no prime blocks.
+    /// @param request Schema string describing the request shape.
     /// @param state Block key expected for input state, or `Keys.Empty`.
     /// @param output Block key produced for output state, or `Keys.Empty`.
     /// @param acceptsValue Whether the command entrypoint accepts nonzero `msg.value`.
