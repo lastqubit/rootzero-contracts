@@ -579,25 +579,23 @@ library Writers {
     /// @return i Original write offset.
     function reserve(Writer memory writer, uint next, uint touch) private pure returns (uint i) {
         i = writer.i;
-        if (touch > writer.dst.length) {
-            if (!writer.growable) revert WriterOverflow();
-        }
+        if (writer.growable) {
+            if (touch > writer.end) {
+                uint end = writer.end == 0 ? 64 : writer.end * 2;
+                while (end < touch) {
+                    end *= 2;
+                }
 
-        if (touch > writer.end && writer.growable) {
-            uint end = writer.end == 0 ? 64 : writer.end * 2;
-            while (end < touch) {
-                end *= 2;
+                uint padded = ((end + 31) & ~uint(31)) + 32;
+                bytes memory src = writer.dst;
+                bytes memory dst = new bytes(padded);
+                assembly ("memory-safe") {
+                    mcopy(add(dst, 0x20), add(src, 0x20), i)
+                }
+                writer.end = end;
+                writer.dst = dst;
             }
-
-            uint padded = ((end + 31) & ~uint(31)) + 32;
-            bytes memory src = writer.dst;
-            bytes memory dst = new bytes(padded);
-            assembly ("memory-safe") {
-                mcopy(add(dst, 0x20), add(src, 0x20), i)
-            }
-            writer.end = end;
-            writer.dst = dst;
-        }
+        } else if (touch > writer.dst.length) revert WriterOverflow();
 
         if (next > writer.end) revert WriterOverflow();
         writer.i = next;
