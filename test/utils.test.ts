@@ -503,6 +503,16 @@ describe("Utils", () => {
     it("useValue reverts InsufficientValue when amount exceeds remaining", async () => {
       await expectCustomError(utils.testUseValue(101n, 100n), "InsufficientValue");
     });
+
+    it("allocate deducts amount from parent and returns a child budget", async () => {
+      const [subRemaining, parentRemaining] = await utils.testAllocate(30n, 100n);
+      expect(subRemaining).to.equal(30n);
+      expect(parentRemaining).to.equal(70n);
+    });
+
+    it("allocate reverts InsufficientValue when amount exceeds remaining", async () => {
+      await expectCustomError(utils.testAllocate(101n, 100n), "InsufficientValue");
+    });
   });
 
   // ── Strings ───────────────────────────────────────────────────────────────

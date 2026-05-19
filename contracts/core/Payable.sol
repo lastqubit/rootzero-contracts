@@ -26,6 +26,14 @@ abstract contract Payable {
         return Values.use(budget, amount);
     }
 
+    /// @notice Deduct `amount` from the budget and return it as a new sub-budget.
+    /// @param budget Mutable parent budget to deduct from.
+    /// @param amount Native value to assign to the sub-budget.
+    /// @return A new budget with `amount` remaining.
+    function allocateValue(Budget memory budget, uint amount) internal pure returns (Budget memory) {
+        return Values.allocate(budget, amount);
+    }
+
     /// @notice Drains the budget and settles any remaining native value.
     /// @dev Calls the amount-based `settleValue` hook only when some value remains.
     /// @param account Account identifier for the current invocation.

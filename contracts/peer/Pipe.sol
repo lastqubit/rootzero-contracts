@@ -29,7 +29,7 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
 
         while (input.i < input.bound) {
             (bytes32 account, uint value, bytes calldata state, bytes calldata steps) = input.unpackContext();
-            pipe(account, state, steps, Budget({remaining: useValue(budget, value)}));
+            pipe(account, state, steps, allocateValue(budget, value));
         }
 
         input.close();
