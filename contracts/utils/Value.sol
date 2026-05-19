@@ -23,4 +23,13 @@ library Values {
         budget.remaining -= amount;
         return amount;
     }
+
+    /// @notice Deduct `amount` from the budget and return it as a new sub-budget.
+    /// Reverts if `amount` exceeds `budget.remaining`.
+    /// @param budget Mutable parent budget to deduct from.
+    /// @param amount Native value to assign to the sub-budget, in wei.
+    /// @return A new budget with `amount` remaining.
+    function allocate(Budget memory budget, uint amount) internal pure returns (Budget memory) {
+        return Budget({remaining: use(budget, amount)});
+    }
 }

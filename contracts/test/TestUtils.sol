@@ -204,6 +204,16 @@ contract TestUtils is Payable {
         remainingAfter = budget.remaining;
     }
 
+    function testAllocate(
+        uint amount,
+        uint remaining
+    ) external pure returns (uint subRemaining, uint parentRemainingAfter) {
+        Budget memory budget = Budget({remaining: remaining});
+        Budget memory sub = Values.allocate(budget, amount);
+        subRemaining = sub.remaining;
+        parentRemainingAfter = budget.remaining;
+    }
+
     function testBytes32ToString(bytes32 value) external pure returns (string memory) {
         return bytes32ToString(value);
     }
