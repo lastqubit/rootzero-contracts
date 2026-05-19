@@ -5,11 +5,10 @@ import { Host } from "../core/Host.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
 import { Transfer } from "../commands/Transfer.sol";
-import { CommandContext } from "../commands/Base.sol";
 import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
-import { PipePayable } from "../commands/Pipe.sol";
+import { Pipeline } from "../core/Pipeline.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
@@ -31,7 +30,7 @@ contract TestHost is
     DebitAccount,
     Provision,
     ProvisionPayable,
-    PipePayable,
+    Pipeline,
     Init,
     Destroy,
     AllowAssets,
@@ -104,8 +103,8 @@ contract TestHost is
     function init(Cur memory input) internal override {
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
-        if (key == Keys.Route) {
-            inputData = input.unpackRaw(Keys.Route);
+        if (key == Keys.Data) {
+            inputData = input.unpackRaw(Keys.Data);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];
@@ -117,8 +116,8 @@ contract TestHost is
     function destroy(Cur memory input) internal override {
         (bytes4 key, uint len) = input.peek(input.i);
         bytes calldata inputData;
-        if (key == Keys.Route) {
-            inputData = input.unpackRaw(Keys.Route);
+        if (key == Keys.Data) {
+            inputData = input.unpackRaw(Keys.Data);
         } else {
             uint next = input.i + 8 + len;
             inputData = msg.data[input.offset + input.i:input.offset + next];
@@ -139,7 +138,7 @@ contract TestHost is
         emit AllowanceCalled(peer, asset, meta, amount);
     }
 
-    function dispatchCommand(
+    function dispatch(
         uint cid,
         bytes32,
         bytes memory state,
@@ -148,6 +147,10 @@ contract TestHost is
     ) internal override returns (bytes memory) {
         emit StepDispatched(cid, stepCount++, value);
         return state;
+    }
+
+    function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
+        pipe(account, state, steps, valueBudget());
     }
 
     // Expose internal host/admin IDs for tests
@@ -181,10 +184,6 @@ contract TestHost is
 
     function getProvisionPayableId() external view returns (uint) {
         return provisionPayableId;
-    }
-
-    function getPipePayableId() external view returns (uint) {
-        return pipePayableId;
     }
 
     function getInitId() external view returns (uint) {
@@ -231,9 +230,6 @@ contract TestHost is
         return trusted[node];
     }
 
-    function getActiveAccount(CommandContext calldata) external pure returns (bytes32) {
-        return activeAccount();
-    }
 }
 
 

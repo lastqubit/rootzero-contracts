@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-// Example 7: Frame Blocks
+// Example 7: Custom Data Shape
 //
-// `frame = amount(...) +& fee(...)?` means: one anonymous FRAME block whose
-// payload is the merged payload fields of AMOUNT followed by an optional full
-// FEE block, preserving the FEE child header when present.
+// A schema that starts with fixed fields is shorthand for one generic DATA
+// block. This keeps custom command shapes short while still using `Keys.Data`
+// at runtime.
 //
 // For:
 //
-//   frame = amount(bytes32 asset, bytes32 meta, uint amount) +& fee(uint amount)?
+//   bytes32 asset, bytes32 meta, uint amount, maybe #fee { uint amount }
 //
 // the encoded request item is:
 //
-//   FRAME(asset | meta | amount | FEE(fee))
+//   DATA(asset | meta | amount | FEE(fee))
 //
-// The Command event publishes the schema, while every encoded frame uses the
-// same `Keys.Frame` runtime key.
+// The Command event publishes the schema, while every encoded custom data block
+// uses the same `Keys.Data` runtime key.
 
 import {Host} from "../contracts/Core.sol";
 import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
@@ -26,12 +26,10 @@ using Cursors for Cur;
 
 string constant NAME = "myCommand";
 
-// `frame = ...` describes an anonymous frame, so encoded inputs use the shared
-// `Keys.Frame` runtime key.
-string constant INPUT = string.concat("frame = ", Schemas.Amount, "+&", Schemas.Fee, "?");
+string constant INPUT = string.concat("bytes32 asset, bytes32 meta, uint amount, maybe ", Schemas.Fee);
 
 function unpackPayment(Cur memory input) pure returns (bytes32 asset, bytes32 meta, uint amount, Cur memory fee) {
-    uint abs = input.consume(Keys.Frame, 96, 0);
+    uint abs = input.consume(0, Keys.Data, 96, 0);
     asset = bytes32(msg.data[abs:abs + 32]);
     meta = bytes32(msg.data[abs + 32:abs + 64]);
     amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
@@ -49,7 +47,7 @@ abstract contract MyCommand is CommandBase {
     function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
         (Cur memory request, ) = cursor(c.request, 1);
 
-        // The request can batch multiple FRAME blocks. Each one is decoded
+        // The request can batch multiple DATA blocks. Each one is decoded
         // with the command-local unpack helper above.
         while (request.i < request.bound) {
             (bytes32 asset, bytes32 meta, uint amount, Cur memory tail) = unpackPayment(request);
@@ -57,7 +55,7 @@ abstract contract MyCommand is CommandBase {
             emit PaymentSeen(asset, meta, amount, fee);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

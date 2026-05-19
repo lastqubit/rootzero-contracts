@@ -15,19 +15,6 @@ Most consumers should start from the package root entry points:
 - `@rootzero/contracts/Utils.sol` — IDs, assets, accounts, layout, and value helpers
 - `@rootzero/contracts/Events.sol` — reusable event emitters and event contracts
 
-## Start Here
-
-If you are new to rootzero, read [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) first.
-
-It walks through:
-
-- the host and command mental model
-- which built-in commands expect `request` vs `state`
-- a minimal host example
-- a built-in command example
-- a custom command example
-- simple TypeScript request encoding
-
 ## Block Wire Format
 
 All request and response data is encoded as a binary block stream. Each block is:
@@ -36,15 +23,15 @@ All request and response data is encoded as a binary block stream. Each block is
 [bytes4 key][bytes4 payloadLen][payload]
 ```
 
-`key` is `bytes4(keccak256(schemaString))` — see `Keys` for the full set. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory.
+`key` is `bytes4(keccak256("#name"))`; see `Keys` for the full set and [`docs/Schema.md`](docs/Schema.md) for the schema format. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory.
 
 ## Schemas, Forms, And State
 
 Protocol blocks use schema strings and four-byte keys:
 
-- `Schemas` describes semantic protocol blocks such as `amount(...)`, `balance(...)`, `custody(...)`, and `payout(...)`.
-- `Forms` describes reusable structural blocks such as `accountAsset(...)` and `accountAmount(...)`, mostly used by queries.
-- `Keys` contains the runtime `bytes4` keys derived from those schema/form strings.
+- `Schemas` describes semantic protocol blocks such as `#amount`, `#balance`, `#custody`, and `#payout`.
+- `Forms` describes reusable structural blocks such as `#accountAsset` and `#accountAmount`, mostly used by queries.
+- `Keys` contains the runtime `bytes4` keys derived from block names.
 
 Every command declares its input and output pipeline state with block keys in the `Command` event. Use `Keys.Empty` when a command expects or returns no state.
 
@@ -80,9 +67,10 @@ Extend `CommandBase` to define a command mixin that runs inside the protocol's t
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Keys } from "@rootzero/contracts/Commands.sol";
-import { Cursors, Cur, Schemas } from "@rootzero/contracts/Cursors.sol";
+import { Cursors, Cur, Schemas, Writer, Writers } from "@rootzero/contracts/Cursors.sol";
 
 using Cursors for Cur;
+using Writers for Writer;
 
 string constant NAME = "myCommand";
 
@@ -90,16 +78,22 @@ abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory input, , ) = cursor(c.request, 1);
-        (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-        input.complete();
-        return Cursors.toBalanceBlock(asset, meta, amount);
+    ) external onlyCommand returns (bytes memory) {
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
+
+        while (request.i < request.bound) {
+            (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
+            writer.appendBalance(asset, meta, amount);
+        }
+
+        request.close();
+        return writer.finish();
     }
 }
 ```

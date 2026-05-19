@@ -28,7 +28,7 @@ abstract contract Burn is CommandBase, BurnHook {
         emit Command(host, burnId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false);
     }
 
-    function burn(CommandContext calldata c) external onlyCommand(c.account) returns (bytes memory) {
+    function burn(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         (Cur memory state, ) = cursor(c.state, 1);
 
         while (state.i < state.bound) {
@@ -36,7 +36,7 @@ abstract contract Burn is CommandBase, BurnHook {
             burn(c.account, asset, meta, amount);
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }

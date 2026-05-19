@@ -29,7 +29,7 @@ abstract contract Authorize is CommandBase, AdminEvent {
             authorize(node);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

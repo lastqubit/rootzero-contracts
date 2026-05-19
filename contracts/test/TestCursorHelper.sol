@@ -70,14 +70,14 @@ contract TestCursorHelper {
 
     function testWriterRejectsSecond32Block(bytes32 value) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc32s(1);
-        w.appendBlock32(Keys.Response, value, 32);
-        w.appendBlock32(Keys.Response, value, 32);
+        w.appendBlock32(Keys.Data, value, 32);
+        w.appendBlock32(Keys.Data, value, 32);
         return w.finish();
     }
 
     function testWriterRejectsOversizedDynamicBlock(bytes memory data) external pure returns (bytes memory) {
         Writer memory w = Writers.allocBytes(1, 32);
-        w.appendBlock(Keys.Response, data);
+        w.appendBlock(Keys.Data, data);
         return w.finish();
     }
 
@@ -98,11 +98,6 @@ contract TestCursorHelper {
     ) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackAccountAsset();
-    }
-
-    function testUnpackBounds(bytes calldata source) external pure returns (int min, int max) {
-        Cur memory cur = Cursors.open(source);
-        return cur.unpackBounds();
     }
 
     function testUnpackFee(bytes calldata source) external pure returns (uint amount) {
@@ -126,30 +121,18 @@ contract TestCursorHelper {
         return (value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function testLoad160(bytes calldata source, uint offset)
-        external
-        pure
-        returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e)
-    {
-        uint sourceOffset;
-        assembly ("memory-safe") {
-            sourceOffset := source.offset
-        }
-        return Cursors.load160(sourceOffset + offset);
-    }
-
     function testPrimeRun(bytes calldata source, uint group)
         external
         pure
-        returns (bytes4 key, uint count, uint quotient, uint offset, uint i, uint len, uint bound)
+        returns (bytes4 key, uint groups, uint offset, uint i, uint len, uint bound)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        (key, count, quotient) = cur.primeRun(group);
-        return (key, count, quotient, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
+        (key, groups) = cur.primeRun(group);
+        return (key, groups, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {
@@ -165,6 +148,11 @@ contract TestCursorHelper {
     function testIsAtCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         return cur.isAt(key);
+    }
+
+    function testHasAt(bytes calldata source, uint i, bytes4 key) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        return cur.hasAt(i, key);
     }
 
     function testCountRun(bytes calldata source, uint i, bytes4 key) external pure returns (uint total, uint next) {
@@ -201,38 +189,32 @@ contract TestCursorHelper {
         return cur.maybeOnly(key);
     }
 
-    function testBundle(bytes calldata source) external pure returns (uint inputI, uint next) {
+    function testSkipTo(bytes calldata source, uint end) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
-        next = cur.bundle();
-        return (cur.i, next);
-    }
-
-    function testResume(bytes calldata source, uint end) external pure returns (uint i) {
-        Cur memory cur = Cursors.open(source);
-        cur.resume(end);
+        cur = cur.skipTo(end);
         return cur.i;
     }
 
-    function testResumePastEnd(bytes calldata source, uint end) external pure returns (bool) {
+    function testSkipToPastEnd(bytes calldata source, uint end) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.i = end + 1;
-        cur.resume(end);
+        cur.skipTo(end);
         return true;
     }
 
-    function testEnsure(bytes calldata source, uint at) external pure returns (uint i) {
+    function testExit(bytes calldata source, uint at) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
         cur.i = at;
-        cur.ensure(at);
+        cur.exit(at);
         return cur.i;
     }
 
-    function testEnsureMismatch(bytes calldata source, uint at) external pure returns (bool) {
+    function testExitMismatch(bytes calldata source, uint at) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         if (at < cur.len) {
             cur.i = at + 1;
         }
-        cur.ensure(at);
+        cur.exit(at);
         return true;
     }
 
@@ -270,7 +252,7 @@ contract TestCursorHelper {
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 
-    function testMaybeRoute(bytes calldata source)
+    function testMaybeData(bytes calldata source)
         external
         pure
         returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
@@ -280,7 +262,7 @@ contract TestCursorHelper {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        Cur memory out = cur.maybeRoute();
+        Cur memory out = cur.maybeData();
         return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
     }
 
@@ -298,6 +280,14 @@ contract TestCursorHelper {
         Cur memory cur = Cursors.open(source);
         (target, value, req) = cur.unpackStep();
         return (target, value, req, cur.i);
+    }
+
+    function testUnpackContext(
+        bytes calldata source
+    ) external pure returns (bytes32 account, uint value, bytes calldata state, bytes calldata request, uint i) {
+        Cur memory cur = Cursors.open(source);
+        (account, value, state, request) = cur.unpackContext();
+        return (account, value, state, request, cur.i);
     }
 
     function testRequireAmount(
@@ -338,52 +328,52 @@ contract TestCursorHelper {
         return cur.authLast(cid);
     }
 
-    function testCursorCompleteEmpty(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCloseEmpty(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorCompletePartial(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorClosePartial(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
         if (cur.bound > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorCompleteConsumed(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCloseConsumed(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         cur.primeRun(group);
         while (cur.i < cur.bound) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.complete();
+        cur.close();
         return true;
     }
 
-    function testCursorEndPartial(bytes calldata source) external pure returns (bool) {
+    function testCursorCompletePartial(bytes calldata source) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         if (cur.len > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.end();
+        cur.complete();
         return true;
     }
 
-    function testCursorEndConsumed(bytes calldata source) external pure returns (bool) {
+    function testCursorCompleteConsumed(bytes calldata source) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
         while (cur.i < cur.len) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.end();
+        cur.complete();
         return true;
     }
 

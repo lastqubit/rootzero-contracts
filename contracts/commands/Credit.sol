@@ -22,7 +22,7 @@ abstract contract CreditAccountHook {
 /// An optional ACCOUNT block in the request overrides the default `c.account` destination.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     string private constant NAME = "creditAccount";
-    string private constant REQUEST = string.concat(Schemas.Empty, ";", Schemas.Account, "?");
+    string private constant REQUEST = string.concat(Schemas.Unit, ", maybe ", Schemas.Account);
 
     uint internal immutable creditAccountId = commandId(NAME);
 
@@ -32,7 +32,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
 
     function creditAccount(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory) {
         (Cur memory state, ) = cursor(c.state, 1);
         bytes32 to = Cursors.resolveAccount(c.request, c.account);
 
@@ -41,7 +41,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
             creditAccount(to, asset, meta, amount);
         }
 
-        state.complete();
+        state.close();
         return "";
     }
 }

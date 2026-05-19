@@ -8,20 +8,18 @@ import {
   encodeAuthBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
-  encodeBoundsBlock,
   encodeBountyBlock,
-  encodeBundleBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
-  encodeFrameBlock,
   encodeMaximumBlock,
   encodeMinimumBlock,
   encodeNodeBlock,
   encodeAccountBlock,
   encodeAccountAssetBlock,
+  encodeContextBlock,
   encodeHostAccountAssetBlock,
-  encodeRouteBlock,
+  encodeDataBlock,
   encodeStepBlock,
   encodeTxBlock,
   encodeUserAccount,
@@ -110,14 +108,6 @@ describe("Cursors", () => {
       expect(ethers.hexlify(bytes.slice(4, 8))).to.equal("0x00000040");
     });
 
-    it("load160 reads raw calldata words from an absolute payload offset", async () => {
-      const words = [1n, 2n, 3n, 4n, 5n].map((value) => ethers.zeroPadValue(ethers.toBeHex(value), 32));
-      const source = concat(encodeFeeBlock(99n), ethers.concat(words));
-      const offset = BigInt(ethers.getBytes(encodeFeeBlock(99n)).length);
-
-      expect(await helper.testLoad160(source, offset)).to.deep.equal(words);
-    });
-
     it("finish reverts EmptyRequest when writer is unused", async () => {
       await expect(helper.testWriterFinishIncomplete()).to.be.revertedWithCustomError(helper, "EmptyRequest");
     });
@@ -144,15 +134,14 @@ describe("Cursors", () => {
     const meta = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
 
-    it("primeRun sets key, count, len, and bound for a prime run", async () => {
+    it("primeRun returns key and groups, and sets len and bound for a prime run", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
       const b = encodeAmountBlock(asset, meta, 2n);
       const c = encodeBalanceBlock(asset, meta, 3n);
       const source = concat(a, b, c);
-      const [key, count, quotient, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
+      const [key, groups, offset, i, len, bound] = await helper.testPrimeRun(source, 1n);
       expect(key).to.equal(Keys.Amount);
-      expect(count).to.equal(2n);
-      expect(quotient).to.equal(2n);
+      expect(groups).to.equal(2n);
       expect(offset).to.equal(0n);
       expect(i).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(source).length));
@@ -188,6 +177,16 @@ describe("Cursors", () => {
     it("isAt returns true for a truncated block when the current header key matches", async () => {
       const source = "0x" + Keys.Balance.slice(2) + "00000060";
       expect(await helper.testIsAtCurrent(source, Keys.Balance)).to.equal(true);
+    });
+
+    it("hasAt checks a block key at an arbitrary source position", async () => {
+      const a = encodeAmountBlock(asset, meta, 1n);
+      const b = encodeBalanceBlock(asset, meta, 2n);
+      const source = concat(a, b);
+      const i = BigInt(ethers.getBytes(a).length);
+      expect(await helper.testHasAt(source, i, Keys.Balance)).to.equal(true);
+      expect(await helper.testHasAt(source, i, Keys.Amount)).to.equal(false);
+      expect(await helper.testHasAt(source, BigInt(ethers.getBytes(source).length), Keys.Balance)).to.equal(false);
     });
 
     it("countRun counts consecutive matching blocks from i", async () => {
@@ -253,37 +252,28 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("bundle returns a relative subcursor and advances the source cursor", async () => {
-      const route = encodeAccountBlock(encodeUserAccount("0x12"));
-      const minimum = encodeMinimumBlock(asset, meta, amount);
-      const bundle = encodeBundleBlock(route, minimum);
-      const [inputI, end] = await helper.testBundle(bundle);
-      expect(inputI).to.equal(8n);
-      expect(end).to.equal(BigInt(ethers.getBytes(bundle).length));
-    });
-
-    it("resume moves the cursor to the provided end offset", async () => {
+    it("skipTo moves the cursor to the provided end offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
-      expect(await helper.testResume(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
+      expect(await helper.testSkipTo(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
-    it("resume reverts IncompleteCursor when the cursor has passed the end offset", async () => {
+    it("skipTo reverts IncompleteCursor when the cursor has passed the end offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const end = BigInt(ethers.getBytes(source).length - ethers.getBytes(encodeAssetBlock(meta, asset)).length);
-      await expect(helper.testResumePastEnd(source, end))
+      await expect(helper.testSkipToPastEnd(source, end))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("ensure succeeds when the cursor is exactly at the requested offset", async () => {
+    it("exit succeeds when the cursor is exactly at the requested offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const at = BigInt(ethers.getBytes(source).length);
-      expect(await helper.testEnsure(source, at)).to.equal(at);
+      expect(await helper.testExit(source, at)).to.equal(at);
     });
 
-    it("ensure reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
+    it("exit reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
       const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
       const at = BigInt(ethers.getBytes(encodeAssetBlock(asset, meta)).length);
-      await expect(helper.testEnsureMismatch(source, at))
+      await expect(helper.testExitMismatch(source, at))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
@@ -296,50 +286,53 @@ describe("Cursors", () => {
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
-    it("frame uses a shared key and carries merged payload fields without child headers", async () => {
-      const frame = encodeFrameBlock(
-        ethers.concat([asset, meta, ethers.zeroPadValue(ethers.toBeHex(amount), 32)]),
+    it("data uses a shared key and carries merged payload fields without child headers", async () => {
+      const payload = ethers.concat([
+        asset,
+        meta,
+        ethers.zeroPadValue(ethers.toBeHex(amount), 32),
         ethers.zeroPadValue(ethers.toBeHex(77n), 32),
-      );
+      ]);
+      const data = encodeDataBlock(payload);
 
-      expect(frame.slice(0, 10)).to.equal(Keys.Frame);
-      expect(await helper.testPeek(frame, 0n)).to.deep.equal([Keys.Frame, 128n]);
-      expect(ethers.getBytes(frame).length).to.equal(136);
-      expect(frame).to.not.include(Keys.Amount.slice(2));
-      expect(frame).to.not.include(Keys.Fee.slice(2));
+      expect(data.slice(0, 10)).to.equal(Keys.Data);
+      expect(await helper.testPeek(data, 0n)).to.deep.equal([Keys.Data, 128n]);
+      expect(ethers.getBytes(data).length).to.equal(136);
+      expect(data).to.not.include(Keys.Amount.slice(2));
+      expect(data).to.not.include(Keys.Fee.slice(2));
     });
 
     it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
       const payload = encodeAccountBlock(encodeUserAccount("0x12"));
-      const route = encodeRouteBlock(payload);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testTake(route, Keys.Route);
+      const data = encodeDataBlock(payload);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testTake(data, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
-      expect(outLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
       expect(outBound).to.equal(0n);
-      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(data).length));
     });
 
     it("take reverts when the current block key does not match", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      await expect(helper.testTake(source, Keys.Route))
+      await expect(helper.testTake(source, Keys.Data))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("maybeTake returns a sliced cursor and advances when the current block matches", async () => {
       const payload = encodeAccountBlock(encodeUserAccount("0x34"));
-      const route = encodeRouteBlock(payload);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(route, Keys.Route);
+      const data = encodeDataBlock(payload);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(data, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
-      expect(outLen).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
       expect(outBound).to.equal(0n);
-      expect(inputI).to.equal(BigInt(ethers.getBytes(route).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(data).length));
     });
 
     it("maybeTake returns an empty cursor and does not advance when the current block does not match", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(source, Keys.Route);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeTake(source, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(0n);
@@ -347,9 +340,9 @@ describe("Cursors", () => {
       expect(inputI).to.equal(0n);
     });
 
-    it("maybeRoute returns an empty cursor and does not advance when the current block is not ROUTE", async () => {
+    it("maybeData returns an empty cursor and does not advance when the current block is not DATA", async () => {
       const source = encodeBalanceBlock(asset, meta, amount);
-      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeRoute(source);
+      const [outOffset, outI, outLen, outBound, inputI] = await helper.testMaybeData(source);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(0n);
@@ -387,9 +380,18 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
     });
 
-    it("unpackBounds preserves signed min and max values", async () => {
-      const source = encodeBoundsBlock(-5n, 42n);
-      expect(await helper.testUnpackBounds(source)).to.deep.equal([-5n, 42n]);
+    it("unpackContext consumes account, value, state, and request bytes", async () => {
+      const account = encodeUserAccount("0x12");
+      const value = 55n;
+      const state = encodeBalanceBlock(asset, meta, amount);
+      const request = encodeAmountBlock(asset, meta, 7n);
+      const context = encodeContextBlock(account, value, state, request);
+      const [outAccount, outValue, outState, outRequest, i] = await helper.testUnpackContext(context);
+      expect(outAccount).to.equal(account);
+      expect(outValue).to.equal(value);
+      expect(outState).to.equal(state);
+      expect(outRequest).to.equal(request);
+      expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
     it("unpackFee returns the fee amount", async () => {
@@ -416,34 +418,34 @@ describe("Cursors", () => {
       const [deadline, outProof, i] = await helper.testRequireAuth(source, 77n);
       expect(deadline).to.equal(123456n);
       expect(outProof).to.equal(proof);
-      expect(i).to.equal(157n);
+      expect(i).to.equal(165n);
     });
 
-    it("complete reverts ZeroCursor when prime run is empty", async () => {
-      await expect(helper.testCursorCompleteEmpty("0x", 1n))
+    it("close reverts ZeroCursor when prime run is empty", async () => {
+      await expect(helper.testCursorCloseEmpty("0x", 1n))
         .to.be.revertedWithCustomError(helper, "ZeroCursor");
     });
 
-    it("complete reverts IncompleteCursor when prime input remains", async () => {
+    it("close reverts IncompleteCursor when prime input remains", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      await expect(helper.testCursorCompletePartial(source, 1n))
+      await expect(helper.testCursorClosePartial(source, 1n))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("complete succeeds after the prime run is consumed", async () => {
+    it("close succeeds after the prime run is consumed", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      expect(await helper.testCursorCompleteConsumed(source, 1n)).to.equal(true);
+      expect(await helper.testCursorCloseConsumed(source, 1n)).to.equal(true);
     });
 
-    it("end reverts IncompleteCursor when bytes remain in the cursor region", async () => {
+    it("complete reverts IncompleteCursor when bytes remain in the cursor region", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      await expect(helper.testCursorEndPartial(source))
+      await expect(helper.testCursorCompletePartial(source))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("end succeeds after the full cursor region is consumed", async () => {
+    it("complete succeeds after the full cursor region is consumed", async () => {
       const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
-      expect(await helper.testCursorEndConsumed(source)).to.equal(true);
+      expect(await helper.testCursorCompleteConsumed(source)).to.equal(true);
     });
 
     it("accountAfter returns the tail account or backup", async () => {

@@ -42,6 +42,7 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
             response.appendAccountAmount(account, asset, meta, amount);
         }
 
-        return query.complete(response);
+        query.close();
+        return response.finish();
     }
 }

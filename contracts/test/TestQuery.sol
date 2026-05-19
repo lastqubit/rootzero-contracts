@@ -7,8 +7,8 @@ import {QueryBase} from "../queries/Base.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-string constant INPUT = "query(uint foo)";
-string constant OUTPUT = "response(uint bar)";
+string constant INPUT = "uint foo";
+string constant OUTPUT = "uint bar";
 
 contract TestQuery is QueryBase {
     string private constant NAME = "incrementQuery";
@@ -23,10 +23,11 @@ contract TestQuery is QueryBase {
         Writer memory writer = Writers.alloc32s(groups);
 
         while (input.i < input.bound) {
-            uint foo = input.unpackUint(Keys.Query);
-            writer.appendBlock32(Keys.Response, bytes32(foo + 1), 32);
+            uint foo = uint(input.unpack32(Keys.Data));
+            writer.appendBlock32(Keys.Data, bytes32(foo + 1), 32);
         }
 
-        out = input.complete(writer);
+        input.close();
+        out = writer.finish();
     }
 }

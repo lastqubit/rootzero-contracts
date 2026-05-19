@@ -8,16 +8,10 @@ struct Budget {
 }
 
 /// @title Values
-/// @notice Native-value (ETH) budget tracking for commands that accept `msg.value`.
+/// @notice Native-value budget mutation helpers.
 library Values {
     /// @dev Thrown when a call attempts to spend more native value than remains in the budget.
     error InsufficientValue();
-
-    /// @notice Create a budget from the current call's `msg.value`.
-    /// @return Budget initialised with the full `msg.value`.
-    function fromMsg() internal view returns (Budget memory) {
-        return Budget({remaining: msg.value});
-    }
 
     /// @notice Deduct `amount` from the budget and return it.
     /// Reverts if `amount` exceeds `budget.remaining`.
@@ -27,15 +21,6 @@ library Values {
     function use(Budget memory budget, uint amount) internal pure returns (uint) {
         if (amount > budget.remaining) revert InsufficientValue();
         budget.remaining -= amount;
-        return amount;
-    }
-
-    /// @notice Deduct all remaining native value from the budget and return it.
-    /// @param budget Mutable budget to drain.
-    /// @return Remaining native value before the budget was emptied.
-    function drain(Budget memory budget) internal pure returns (uint) {
-        uint amount = budget.remaining;
-        budget.remaining = 0;
         return amount;
     }
 }

@@ -4,8 +4,7 @@ import { deploy } from "./helpers/setup.js";
 import {
   concat,
   pad32,
-  encodeQueryBlock,
-  encodeResponseBlock,
+  encodeDataBlock,
 } from "./helpers/blocks.js";
 
 describe("Queries", () => {
@@ -26,31 +25,31 @@ describe("Queries", () => {
         await query.incrementQueryId(),
         "incrementQuery",
         ethers.encodeBytes32String("1:1"),
-        "query(uint foo)",
-        "response(uint bar)",
+        "uint foo",
+        "uint bar",
       );
   });
 
   describe("incrementQuery", () => {
-    it("accepts `query(uint foo)` and returns `response(uint bar)`", async () => {
-      const request = encodeQueryBlock(pad32(7n));
+    it("accepts `uint foo` DATA blocks and returns `uint bar` DATA blocks", async () => {
+      const request = encodeDataBlock(pad32(7n));
 
       const result: string = await query.incrementQuery.staticCall(request);
 
-      expect(result).to.equal(encodeResponseBlock(pad32(8n)));
+      expect(result).to.equal(encodeDataBlock(pad32(8n)));
     });
 
-    it("maps multiple typed QUERY blocks into matching RESPONSE blocks", async () => {
+    it("maps multiple typed DATA query blocks into matching DATA response blocks", async () => {
       const request = concat(
-        encodeQueryBlock(pad32(11n)),
-        encodeQueryBlock(pad32(22n)),
+        encodeDataBlock(pad32(11n)),
+        encodeDataBlock(pad32(22n)),
       );
 
       const result: string = await query.incrementQuery.staticCall(request);
 
       expect(result).to.equal(concat(
-        encodeResponseBlock(pad32(12n)),
-        encodeResponseBlock(pad32(23n)),
+        encodeDataBlock(pad32(12n)),
+        encodeDataBlock(pad32(23n)),
       ));
     });
   });

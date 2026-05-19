@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandPayable, Keys} from "../Base.sol";
+import {CommandBase, CommandContext, Keys} from "../Base.sol";
+import {Payable} from "../../core/Payable.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
 import {AdminEvent} from "../../events/Admin.sol";
-import {Budget, Values} from "../../utils/Value.sol";
+import {Budget} from "../../utils/Value.sol";
 import {Ids} from "../../utils/Ids.sol";
 
 using Cursors for Cur;
@@ -13,7 +14,7 @@ using Cursors for Cur;
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
 /// Each CALL block specifies a target node ID, native value, and raw calldata payload.
 /// Only callable by the admin account.
-abstract contract ExecutePayable is CommandPayable, AdminEvent {
+abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
     string private constant NAME = "executePayable";
 
     uint internal immutable executePayableId = commandId(NAME);
@@ -24,15 +25,15 @@ abstract contract ExecutePayable is CommandPayable, AdminEvent {
 
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, ) = cursor(c.request, 1);
-        Budget memory budget = Values.fromMsg();
+        Budget memory budget = valueBudget();
 
         while (request.i < request.bound) {
             (uint target, uint value, bytes calldata data) = request.unpackCall();
             address addr = Ids.nodeAddr(target);
-            callAddr(addr, Values.use(budget, value), data);
+            callAddr(addr, useValue(budget, value), data);
         }
 
-        request.complete();
+        request.close();
         settleValue(c.account, budget);
         return "";
     }

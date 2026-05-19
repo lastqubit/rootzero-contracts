@@ -78,4 +78,15 @@ abstract contract AccessControl is RootZeroContext, AccessEvent {
         }
         return caller;
     }
+
+    /// @notice Assert that `caller` is the commander and return it.
+    /// Used by admin modifiers to keep governance authority separate from peer trust.
+    /// @param caller Address to validate.
+    /// @return The same `caller` value if it is the commander.
+    function enforceCommander(address caller) internal view returns (address) {
+        if (caller == address(0) || caller != commander) {
+            revert UnauthorizedCaller(caller);
+        }
+        return caller;
+    }
 }

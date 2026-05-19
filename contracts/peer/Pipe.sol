@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-3.0-only
+pragma solidity ^0.8.33;
+
+import {PeerBase} from "./Base.sol";
+import {Pipeline} from "../core/Pipeline.sol";
+import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Budget} from "../utils/Value.sol";
+
+using Cursors for Cur;
+
+/// @title PeerPipePayable
+/// @notice Peer that consumes CONTEXT blocks and executes each context request as a STEP stream.
+/// Each CONTEXT block carries an account, state, and request; the request is passed to the
+/// shared pipeline as the step stream.
+abstract contract PeerPipePayable is PeerBase, Pipeline {
+    string private constant NAME = "peerPipePayable";
+    uint internal immutable peerPipePayableId = peerId(NAME);
+
+    constructor() {
+        emit Peer(host, peerPipePayableId, NAME, "1:0", Schemas.Context, "", true);
+    }
+
+    /// @notice Execute peer-supplied contexts through the shared payable pipe.
+    /// @dev Each context receives its own explicit value sub-budget. Any top-level
+    ///      `msg.value` not assigned to a context remains on this host.
+    function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
+        (Cur memory input, ) = cursor(request, 1);
+        Budget memory budget = valueBudget();
+
+        while (input.i < input.bound) {
+            (bytes32 account, uint value, bytes calldata state, bytes calldata steps) = input.unpackContext();
+            pipe(account, state, steps, Budget({remaining: useValue(budget, value)}));
+        }
+
+        input.close();
+        return "";
+    }
+}

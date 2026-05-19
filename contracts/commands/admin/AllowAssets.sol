@@ -34,7 +34,7 @@ abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
             allowAsset(asset, meta);
         }
 
-        request.complete();
+        request.close();
         return "";
     }
 }

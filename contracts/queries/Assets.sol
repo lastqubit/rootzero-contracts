@@ -30,8 +30,8 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
     }
 
     /// @notice Resolve allowlist status for a run of requested `(asset, meta)` tuples.
-    /// @param request Block-stream request consisting of `asset(asset, meta)*`.
-    /// @return Block-stream response containing one `status(ok)` per asset block.
+    /// @param request Block-stream request consisting of `#asset { bytes32 asset, bytes32 meta }` blocks.
+    /// @return Block-stream response containing one `#status { bool ok }` per asset block.
     function isAllowedAsset(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups) = cursor(request, 1);
         Writer memory response = Writers.allocStatuses(groups);
@@ -42,6 +42,7 @@ abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
             response.appendStatus(allowed);
         }
 
-        return query.complete(response);
+        query.close();
+        return response.finish();
     }
 }
