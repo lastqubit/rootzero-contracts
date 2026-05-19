@@ -284,10 +284,10 @@ contract TestCursorHelper {
 
     function testUnpackContext(
         bytes calldata source
-    ) external pure returns (bytes32 account, bytes calldata state, bytes calldata request, uint i) {
+    ) external pure returns (bytes32 account, uint value, bytes calldata state, bytes calldata request, uint i) {
         Cur memory cur = Cursors.open(source);
-        (account, state, request) = cur.unpackContext();
-        return (account, state, request, cur.i);
+        (account, value, state, request) = cur.unpackContext();
+        return (account, value, state, request, cur.i);
     }
 
     function testRequireAmount(

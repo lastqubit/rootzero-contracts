@@ -35,7 +35,7 @@ const outPkg = {
   private: false,
   license: pkg.license,
   type: pkg.type,
-  files: ["**/*.sol", "README.md", "LICENSE", "docs/GETTING_STARTED.md"],
+  files: ["**/*.sol", "README.md", "LICENSE", "docs/Schema.md"],
   publishConfig: pkg.publishConfig
 };
 

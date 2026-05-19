@@ -67,9 +67,10 @@ Extend `CommandBase` to define a command mixin that runs inside the protocol's t
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Keys } from "@rootzero/contracts/Commands.sol";
-import { Cursors, Cur, Schemas } from "@rootzero/contracts/Cursors.sol";
+import { Cursors, Cur, Schemas, Writer, Writers } from "@rootzero/contracts/Cursors.sol";
 
 using Cursors for Cur;
+using Writers for Writer;
 
 string constant NAME = "myCommand";
 
@@ -77,16 +78,22 @@ abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
     }
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand(c.account) returns (bytes memory) {
-        (Cur memory input, , ) = cursor(c.request, 1);
-        (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-        input.complete();
-        return Cursors.toBalanceBlock(asset, meta, amount);
+    ) external onlyCommand returns (bytes memory) {
+        (Cur memory request, uint groups) = cursor(c.request, 1);
+        Writer memory writer = Writers.allocBalances(groups);
+
+        while (request.i < request.bound) {
+            (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
+            writer.appendBalance(asset, meta, amount);
+        }
+
+        request.close();
+        return writer.finish();
     }
 }
 ```

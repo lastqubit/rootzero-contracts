@@ -60,7 +60,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerPipePayableId(),
         "peerPipePayable",
         ethers.encodeBytes32String("1:0"),
-        "#context { bytes32 account, #bytes as state, #bytes as request }",
+        "#context { bytes32 account, uint value, #bytes as state, #bytes as request }",
         "",
         true,
       );
@@ -235,7 +235,7 @@ describe("Peer Entrypoints", () => {
 
     it("unpacks CONTEXT blocks and dispatches request as pipe steps", async () => {
       const step = encodeStepBlock(123n, 5n, "0xabcd");
-      const request = encodeContextBlock(account, "0x", step);
+      const request = encodeContextBlock(account, 5n, "0x", step);
       const startCount = await host.stepCount();
 
       const tx = await callAs(1, method, request, { value: 5n });
@@ -243,20 +243,45 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 5n);
     });
 
+    it("allocates independent value sub-budgets across multiple contexts", async () => {
+      const first = encodeContextBlock(account, 2n, "0x", encodeStepBlock(111n, 2n, "0x"));
+      const second = encodeContextBlock(account, 3n, "0x", encodeStepBlock(222n, 3n, "0x"));
+      const startCount = await host.stepCount();
+
+      const tx = await callAs(1, method, concat(first, second), { value: 5n });
+
+      await expect(tx).to.emit(host, "StepDispatched").withArgs(111n, startCount, 2n);
+      await expect(tx).to.emit(host, "StepDispatched").withArgs(222n, startCount + 1n, 3n);
+    });
+
     it("reverts UnexpectedState when a context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), ethers.ZeroHash, 77n);
-      const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
+      const request = encodeContextBlock(account, 0n, state, encodeStepBlock(0n, 0n, "0x"));
       const signer = await getSigner(1);
 
       await expect((host.connect(signer) as any)[method].staticCall(request))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
-    it("reverts UnusedValue when payable budget is not fully spent", async () => {
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("reverts UnusedValue when a context sub-budget is not fully spent", async () => {
+      const request = encodeContextBlock(account, 2n, "0x", encodeStepBlock(0n, 1n, "0x"));
 
       await expect(callAs(1, method, request, { value: 2n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
+    });
+
+    it("keeps top-level value that is not allocated to contexts", async () => {
+      const request = encodeContextBlock(account, 1n, "0x", encodeStepBlock(0n, 1n, "0x"));
+      const provider = await getProvider();
+      const hostAddress = await host.getAddress();
+
+      const tx = await callAs(1, method, request, { value: 2n });
+      const receipt = await tx.wait();
+      if (!receipt || receipt.status === 0) throw new Error("peerPipePayable tx reverted");
+
+      const before = await provider.getBalance(hostAddress, receipt.blockNumber - 1);
+      const after = await provider.getBalance(hostAddress, receipt.blockNumber);
+      expect(after - before).to.equal(2n);
     });
   });
 });

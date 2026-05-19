@@ -59,6 +59,15 @@ describe("Admin Commands", () => {
       expect(await host.isAuthorized(node2)).to.be.true;
     });
 
+    it("reverts UnauthorizedCaller when a trusted non-commander tries to authorize", async () => {
+      const trustedSigner = await getSigner(1);
+      const trustedAddress = await trustedSigner.getAddress();
+      await callAs(0, "authorize", adminCtx(encodeNodeBlock(await hostIdFor(trustedAddress))));
+
+      await expect(callAs(1, "authorize", adminCtx(encodeNodeBlock(0xddd001n))))
+        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+    });
+
     it("reverts NotAdmin for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x01", 32);
       const request = encodeNodeBlock(1n);
@@ -222,32 +231,26 @@ describe("Admin Commands", () => {
         .withArgs(await host.getAddress(), 0n, 123n, "0x123456");
     });
 
-    it("can still call into another host when that target trusts the caller", async () => {
-      const source = host;
-      const target = await deploy("TestHost", commander);
-
-      const sourceHostId = await hostIdFor(await source.getAddress());
-
-      await target.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
+    it("can govern another host through its commander host", async () => {
+      const source = await deploy("TestCommanderHost", commander);
+      const sourceAdminAccount = await source.getAdminAccount();
+      const target = await deploy("TestHost", await source.getAddress());
 
       const inputData = "0x123456";
       const targetCtx = { account: await target.getAdminAccount(), meta: ethers.ZeroHash, state: "0x", request: encodeDataBlock(inputData) };
       const calldata = target.interface.encodeFunctionData("init", [targetCtx]);
       const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
-      await expect(callAs(0, "executePayable", adminCtx(request)))
+      await expect(source.executePayable({ account: sourceAdminAccount, meta: ethers.ZeroHash, state: "0x", request }))
         .to.emit(target, "InitCalled")
         .withArgs(inputData);
     });
 
     it("processes multiple CALL blocks in one request", async () => {
-      const targetA = await deploy("TestHost", commander);
-      const targetB = await deploy("TestHost", commander);
-
-      const sourceHostId = await hostIdFor(await host.getAddress());
-
-      await targetA.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
-      await targetB.authorize(adminCtx(encodeNodeBlock(sourceHostId)));
+      const source = await deploy("TestCommanderHost", commander);
+      const sourceAdminAccount = await source.getAdminAccount();
+      const targetA = await deploy("TestHost", await source.getAddress());
+      const targetB = await deploy("TestHost", await source.getAddress());
 
       const calldataA = targetA.interface.encodeFunctionData("init", [{
         account: await targetA.getAdminAccount(),
@@ -262,10 +265,10 @@ describe("Admin Commands", () => {
         request: encodeDataBlock("0xbb")
       }]);
 
-      const tx = await callAs(0, "executePayable", adminCtx(concat(
+      const tx = await source.executePayable({ account: sourceAdminAccount, meta: ethers.ZeroHash, state: "0x", request: concat(
         encodeCallBlock(await hostIdFor(await targetA.getAddress()), 0n, calldataA),
         encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
-      )));
+      )});
 
       await expect(tx).to.emit(targetA, "InitCalled").withArgs("0xaa");
       await expect(tx).to.emit(targetB, "DestroyCalled").withArgs("0xbb");

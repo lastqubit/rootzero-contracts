@@ -26,15 +26,15 @@ abstract contract CommandBase is NodeCalls, CommandEvent {
     /// @dev Thrown when `onlyAdmin` finds that `account` is not the admin account.
     error NotAdmin();
 
-    /// @dev Restrict execution to trusted callers.
-    modifier onlyCommand() {
-        enforceCaller(msg.sender);
+    /// @dev Restrict execution to the commander using the host's admin account.
+    modifier onlyAdmin(bytes32 account) {
+        if (account != adminAccount) revert NotAdmin();
+        enforceCommander(msg.sender);
         _;
     }
 
-    /// @dev Restrict execution to trusted callers using the host's admin account.
-    modifier onlyAdmin(bytes32 account) {
-        if (account != adminAccount) revert NotAdmin();
+    /// @dev Restrict execution to trusted callers.
+    modifier onlyCommand() {
         enforceCaller(msg.sender);
         _;
     }
@@ -60,5 +60,4 @@ abstract contract CommandBase is NodeCalls, CommandEvent {
     function commandId(string memory name) internal view returns (uint) {
         return Ids.toCommand(Selectors.command(name), address(this));
     }
-
 }

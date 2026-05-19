@@ -380,13 +380,15 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
     });
 
-    it("unpackContext consumes account, state, and request bytes", async () => {
+    it("unpackContext consumes account, value, state, and request bytes", async () => {
       const account = encodeUserAccount("0x12");
+      const value = 55n;
       const state = encodeBalanceBlock(asset, meta, amount);
       const request = encodeAmountBlock(asset, meta, 7n);
-      const context = encodeContextBlock(account, state, request);
-      const [outAccount, outState, outRequest, i] = await helper.testUnpackContext(context);
+      const context = encodeContextBlock(account, value, state, request);
+      const [outAccount, outValue, outState, outRequest, i] = await helper.testUnpackContext(context);
       expect(outAccount).to.equal(account);
+      expect(outValue).to.equal(value);
       expect(outState).to.equal(state);
       expect(outRequest).to.equal(request);
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));

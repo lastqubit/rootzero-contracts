@@ -536,6 +536,52 @@ library Writers {
         }
     }
 
+    /// @notice Write a block with a 64-byte head and two nested BYTES payloads.
+    /// @param dst Destination buffer; must have at least `i + Sizes.B64 + 2 * Sizes.Header + c.length + d.length` bytes.
+    /// @param i Write offset within `dst`.
+    /// @param key Block key.
+    /// @param a First head word.
+    /// @param b Second head word.
+    /// @param c First raw nested payload.
+    /// @param d Second raw nested payload.
+    /// @return next Byte offset immediately after the written block.
+    function writeBlock64BytesBytes(
+        bytes memory dst,
+        uint i,
+        bytes4 key,
+        bytes32 a,
+        bytes32 b,
+        bytes memory c,
+        bytes memory d
+    ) internal pure returns (uint next) {
+        uint cLen = c.length;
+        uint len = 64 + 2 * Sizes.Header + cLen + d.length;
+        next = i + Sizes.Header + len;
+        if (next > dst.length) revert WriterOverflow();
+
+        {
+            uint p = writeHeader(dst, i, key, uint32(max32(len)));
+            assembly ("memory-safe") {
+                mstore(add(p, 0x08), a)
+                mstore(add(p, 0x28), b)
+            }
+        }
+
+        {
+            uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
+            assembly ("memory-safe") {
+                mcopy(add(q, 0x08), add(c, 0x20), mload(c))
+            }
+        }
+
+        {
+            uint r = writeHeader(dst, i + Sizes.Header + 64 + Sizes.Header + cLen, Keys.Bytes, uint32(max32(d.length)));
+            assembly ("memory-safe") {
+                mcopy(add(r, 0x08), add(d, 0x20), mload(d))
+            }
+        }
+    }
+
     /// @notice Write a block with a 64-byte head and nested BYTES payload.
     /// @param dst Destination buffer; must have at least `i + Sizes.B64 + Sizes.Header + c.length` bytes.
     /// @param i Write offset within `dst`.
@@ -766,6 +812,27 @@ library Writers {
         writeBlock32BytesBytes(writer.dst, i, key, a, b, c);
     }
 
+    /// @notice Append a block with a 64-byte head and two nested BYTES payloads.
+    /// @param writer Destination writer; `i` is advanced by the encoded block length.
+    /// @param key Block key.
+    /// @param a First head word.
+    /// @param b Second head word.
+    /// @param c First raw nested payload.
+    /// @param d Second raw nested payload.
+    function appendBlock64BytesBytes(
+        Writer memory writer,
+        bytes4 key,
+        bytes32 a,
+        bytes32 b,
+        bytes memory c,
+        bytes memory d
+    ) internal pure {
+        uint i = writer.i;
+        uint next = i + Sizes.B64 + 2 * Sizes.Header + c.length + d.length;
+        i = reserve(writer, next, next);
+        writeBlock64BytesBytes(writer.dst, i, key, a, b, c, d);
+    }
+
     /// @notice Append a block with a 64-byte head and nested BYTES payload.
     /// @param writer Destination writer; `i` is advanced by the encoded block length.
     /// @param key Block key.
@@ -804,18 +871,20 @@ library Writers {
         appendBlock64Bytes(writer, Keys.Call, bytes32(target), bytes32(value), data);
     }
 
-    /// @notice Append a CONTEXT block with nested state and request BYTES payloads.
+    /// @notice Append a CONTEXT block with a value budget and nested state/request BYTES payloads.
     /// @param writer Destination writer; `i` is advanced by the encoded CONTEXT block length.
     /// @param account Command account identifier.
+    /// @param value Native value budget assigned to the context.
     /// @param state Raw nested state payload.
     /// @param request Raw nested request payload.
     function appendContext(
         Writer memory writer,
         bytes32 account,
+        uint value,
         bytes memory state,
         bytes memory request
     ) internal pure {
-        appendBlock32BytesBytes(writer, Keys.Context, account, state, request);
+        appendBlock64BytesBytes(writer, Keys.Context, account, bytes32(value), state, request);
     }
 
     /// @notice Append a STATUS form block.

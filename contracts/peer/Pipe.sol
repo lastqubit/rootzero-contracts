@@ -21,13 +21,15 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
     }
 
     /// @notice Execute peer-supplied contexts through the shared payable pipe.
+    /// @dev Each context receives its own explicit value sub-budget. Any top-level
+    ///      `msg.value` not assigned to a context remains on this host.
     function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
         (Cur memory input, ) = cursor(request, 1);
         Budget memory budget = valueBudget();
 
         while (input.i < input.bound) {
-            (bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackContext();
-            pipe(account, state, steps, budget);
+            (bytes32 account, uint value, bytes calldata state, bytes calldata steps) = input.unpackContext();
+            pipe(account, state, steps, Budget({remaining: useValue(budget, value)}));
         }
 
         input.close();

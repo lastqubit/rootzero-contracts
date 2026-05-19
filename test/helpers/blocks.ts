@@ -128,8 +128,8 @@ export function encodeCallBlock(target: bigint, value: bigint, data: string): st
   return block(Keys.Call, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(data)]));
 }
 
-export function encodeContextBlock(account: string, state: string, request: string): string {
-  return block(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
+export function encodeContextBlock(account: string, value: bigint, state: string, request: string): string {
+  return block(Keys.Context, ethers.concat([pad32(account), pad32(value), encodeBytesBlock(state), encodeBytesBlock(request)]));
 }
 
 export function encodeBytesBlock(data: string): string {
