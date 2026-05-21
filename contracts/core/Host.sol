@@ -30,10 +30,7 @@ abstract contract Host is Authorize, Unauthorize, ExecutePayable, IntroductionEv
     /// @param version Protocol version number to publish in the announcement.
     /// @param namespace Human-readable namespace string for the host.
     constructor(address cmdr, uint16 version, string memory namespace) AccessControl(cmdr) {
-        if (cmdr == address(0) || cmdr == address(this) || cmdr.code.length == 0) {
-            introduce(host, block.number, version, namespace);
-            return;
-        }
+        if (cmdr == address(0) || cmdr == address(this) || cmdr.code.length == 0) return;
         IHostIntroduction(cmdr).introduce(host, block.number, version, namespace);
     }
 
@@ -43,7 +40,7 @@ abstract contract Host is Authorize, Unauthorize, ExecutePayable, IntroductionEv
     /// @param blocknum Block number at which the host was deployed.
     /// @param version Protocol version the host implements.
     /// @param namespace Human-readable namespace string for the host.
-    function introduce(uint id, uint blocknum, uint16 version, string memory namespace) public {
+    function introduce(uint id, uint blocknum, uint16 version, string calldata namespace) external {
         emit Introduction(id, blocknum, version, namespace);
     }
 
