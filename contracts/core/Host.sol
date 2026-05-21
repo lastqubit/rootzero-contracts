@@ -11,11 +11,11 @@ import {IntroductionEvent} from "../events/Introduction.sol";
 /// @notice Interface implemented by hosts that accept introductions from other hosts.
 interface IHostIntroduction {
     /// @notice Record a host introduction claim.
-    /// @param id Host node ID.
+    /// @param peer Host node ID being introduced.
     /// @param blocknum Block number at which the introduction was made.
     /// @param version Protocol version the host is running.
     /// @param namespace Human-readable namespace or label for the host.
-    function introduce(uint id, uint blocknum, uint16 version, string calldata namespace) external;
+    function introduce(uint peer, uint blocknum, uint16 version, string calldata namespace) external;
 }
 
 /// @title Host
@@ -36,12 +36,12 @@ abstract contract Host is Authorize, Unauthorize, ExecutePayable, IntroductionEv
 
     /// @notice Record a host introduction claim.
     /// @dev This event is informational only; it does not authorize or trust the introduced host.
-    /// @param id Host node ID.
+    /// @param peer Host node ID being introduced.
     /// @param blocknum Block number at which the host was deployed.
     /// @param version Protocol version the host implements.
     /// @param namespace Human-readable namespace string for the host.
-    function introduce(uint id, uint blocknum, uint16 version, string calldata namespace) external {
-        emit Introduction(id, blocknum, version, namespace);
+    function introduce(uint peer, uint blocknum, uint16 version, string calldata namespace) external {
+        emit Introduction(peer, blocknum, version, namespace);
     }
 
     /// @notice Accept native ETH transfers (e.g. from command value flows).
