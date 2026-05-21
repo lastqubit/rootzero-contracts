@@ -524,17 +524,28 @@ library Cursors {
 
     /// @notice Encode a CONTEXT block.
     /// @param account Command account identifier.
-    /// @param value Native value budget assigned to the context.
     /// @param state Embedded state block stream.
     /// @param request Embedded request block stream.
     /// @return Encoded CONTEXT block bytes.
-    function toContextBlock(
-        bytes32 account,
+    function toContextBlock(bytes32 account, bytes memory state, bytes memory request) internal pure returns (bytes memory) {
+        return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
+    }
+
+    /// @notice Encode a RELAY block.
+    /// @param target Command target identifier.
+    /// @param value Native value assigned to the relay.
+    /// @param account Command account identifier.
+    /// @param state Embedded state block stream.
+    /// @param request Embedded request block stream.
+    /// @return Encoded RELAY block bytes.
+    function toRelayBlock(
+        uint target,
         uint value,
+        bytes32 account,
         bytes memory state,
         bytes memory request
     ) internal pure returns (bytes memory) {
-        return createBlock(Keys.Context, bytes.concat(account, bytes32(value), toBytesBlock(state), toBytesBlock(request)));
+        return createBlock(Keys.Relay, bytes.concat(bytes32(target), bytes32(value), toContextBlock(account, state, request)));
     }
 
     // -------------------------------------------------------------------------
@@ -1091,17 +1102,30 @@ library Cursors {
     /// The `state` and `request` slices are the raw payloads of the required BYTES children.
     /// @param cur Cursor; advanced past the block.
     /// @return account Command account identifier.
-    /// @return value Native value budget assigned to the context.
     /// @return state Embedded state block stream.
     /// @return request Embedded request block stream.
-    function unpackContext(
-        Cur memory cur
-    ) internal pure returns (bytes32 account, uint value, bytes calldata state, bytes calldata request) {
-        uint end = cur.enter(Keys.Context, 64 + 2 * Sizes.Header, 0);
+    function unpackContext(Cur memory cur) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
+        uint end = cur.enter(Keys.Context, 32 + 2 * Sizes.Header, 0);
         account = cur.read32();
-        value = uint(cur.read32());
         state = cur.unpackBytes();
         request = cur.unpackBytes();
+        cur.exit(end);
+    }
+
+    /// @notice Consume a RELAY block and return its target, value, and context fields.
+    /// @param cur Cursor; advanced past the block.
+    /// @return target Destination command/node ID.
+    /// @return value Native value assigned to the relay.
+    /// @return account Command account identifier.
+    /// @return state Embedded state block stream.
+    /// @return request Embedded request block stream.
+    function unpackRelay(
+        Cur memory cur
+    ) internal pure returns (uint target, uint value, bytes32 account, bytes calldata state, bytes calldata request) {
+        uint end = cur.enter(Keys.Relay, 64 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
+        target = uint(cur.read32());
+        value = uint(cur.read32());
+        (account, state, request) = cur.unpackContext();
         cur.exit(end);
     }
 
