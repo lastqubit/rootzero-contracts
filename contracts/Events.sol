@@ -14,12 +14,11 @@ import { DebtEvent } from "./events/Debt.sol";
 import { DepositEvent } from "./events/Deposit.sol";
 import { AssetPositionEvent } from "./events/Position.sol";
 import { EventEmitter } from "./events/Emitter.sol";
-import { GovernedEvent } from "./events/Governed.sol";
 import { HostAnnouncedEvent } from "./events/Host.sol";
 import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
-import { PipedEvent } from "./events/Piped.sol";
+import { RootedEvent } from "./events/Rooted.sol";
 import { SwapEvent } from "./events/Swap.sol";
 import { WithdrawalEvent } from "./events/Withdraw.sol";
 
