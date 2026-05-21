@@ -59,9 +59,10 @@ library Schemas {
     string constant Allocation = "#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
+    string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
+    string constant Relay = "#relay { uint target, uint value, #context { bytes32 account, #bytes as state, #bytes as request } }";
     string constant Call = "#call { uint target, uint value, #bytes as payload }";
     string constant Step = "#step { uint target, uint value, #bytes as request }";
-    string constant Context = "#context { bytes32 account, uint value, #bytes as state, #bytes as request }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
     string constant Fee = "#fee { uint amount }";
     string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";
@@ -81,7 +82,8 @@ library Forms {
     string constant AccountAmount = "#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
     string constant HostAmount = "#hostAmount { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant HostAccountAsset = "#hostAccountAsset { uint host, bytes32 account, bytes32 asset, bytes32 meta }";
-    string constant HostAccountAmount = "#hostAccountAmount { uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
+    string constant HostAccountAmount =
+        "#hostAccountAmount { uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
 }
 
 /// @title Sizes

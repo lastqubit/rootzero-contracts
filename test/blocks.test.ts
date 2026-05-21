@@ -9,6 +9,7 @@ import {
   encodeAssetBlock,
   encodeBalanceBlock,
   encodeBountyBlock,
+  encodeRelayBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
@@ -84,6 +85,14 @@ describe("Cursors", () => {
       const data: string = await helper.testWriteTxBlock(from_, to_, asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(168);
       expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, meta, amount]);
+    });
+
+    it("writeRelayBlock matches the canonical relay encoding", async () => {
+      const account = encodeUserAccount("0x12");
+      const state = encodeBalanceBlock(asset, meta, amount);
+      const request = encodeAmountBlock(asset, meta, 7n);
+      const data: string = await helper.testWriteRelayBlock(123n, 55n, account, state, request);
+      expect(data).to.equal(encodeRelayBlock(123n, 55n, account, state, request));
     });
 
     it("toBalanceBlock returns a valid encoded BALANCE block", async () => {
@@ -380,18 +389,30 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
     });
 
-    it("unpackContext consumes account, value, state, and request bytes", async () => {
+    it("unpackContext consumes account, state, and request bytes", async () => {
       const account = encodeUserAccount("0x12");
-      const value = 55n;
       const state = encodeBalanceBlock(asset, meta, amount);
       const request = encodeAmountBlock(asset, meta, 7n);
-      const context = encodeContextBlock(account, value, state, request);
-      const [outAccount, outValue, outState, outRequest, i] = await helper.testUnpackContext(context);
+      const context = encodeContextBlock(account, state, request);
+      const [outAccount, outState, outRequest, i] = await helper.testUnpackContext(context);
       expect(outAccount).to.equal(account);
-      expect(outValue).to.equal(value);
       expect(outState).to.equal(state);
       expect(outRequest).to.equal(request);
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
+    });
+
+    it("unpackRelay consumes target, value, and nested context bytes", async () => {
+      const account = encodeUserAccount("0x12");
+      const state = encodeBalanceBlock(asset, meta, amount);
+      const request = encodeAmountBlock(asset, meta, 7n);
+      const relay = encodeRelayBlock(123n, 55n, account, state, request);
+      const [target, value, outAccount, outState, outRequest, i] = await helper.testUnpackRelay(relay);
+      expect(target).to.equal(123n);
+      expect(value).to.equal(55n);
+      expect(outAccount).to.equal(account);
+      expect(outState).to.equal(state);
+      expect(outRequest).to.equal(request);
+      expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
     });
 
     it("unpackFee returns the fee amount", async () => {

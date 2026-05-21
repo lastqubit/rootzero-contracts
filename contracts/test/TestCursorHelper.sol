@@ -40,6 +40,18 @@ contract TestCursorHelper {
         return w.finish();
     }
 
+    function testWriteRelayBlock(
+        uint target,
+        uint value,
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) external pure returns (bytes memory) {
+        Writer memory w = Writers.allocRelays(1);
+        w.appendRelay(target, value, account, state, request);
+        return w.finish();
+    }
+
     function testToBountyBlock(uint amount, bytes32 relayer) external pure returns (bytes memory) {
         return Cursors.toBountyBlock(amount, relayer);
     }
@@ -282,12 +294,24 @@ contract TestCursorHelper {
         return (target, value, req, cur.i);
     }
 
-    function testUnpackContext(
-        bytes calldata source
-    ) external pure returns (bytes32 account, uint value, bytes calldata state, bytes calldata request, uint i) {
+    function testUnpackContext(bytes calldata source)
+        external
+        pure
+        returns (bytes32 account, bytes calldata state, bytes calldata request, uint i)
+    {
         Cur memory cur = Cursors.open(source);
-        (account, value, state, request) = cur.unpackContext();
-        return (account, value, state, request, cur.i);
+        (account, state, request) = cur.unpackContext();
+        return (account, state, request, cur.i);
+    }
+
+    function testUnpackRelay(bytes calldata source)
+        external
+        pure
+        returns (uint target, uint value, bytes32 account, bytes calldata state, bytes calldata request, uint i)
+    {
+        Cur memory cur = Cursors.open(source);
+        (target, value, account, state, request) = cur.unpackRelay();
+        return (target, value, account, state, request, cur.i);
     }
 
     function testRequireAmount(

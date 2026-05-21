@@ -72,13 +72,13 @@ abstract contract NodeCalls is AccessControl {
     }
 
     /// @notice Encode and call a trusted command node.
-    /// @param ctx Command execution context.
-    /// @param cid Command node ID embedding the target selector.
+    /// @param id Command node ID embedding the target selector.
     /// @param value Native value to forward in wei.
+    /// @param ctx Command execution context.
     /// @return Decoded command output block stream.
-    function callCommand(CommandContext memory ctx, uint cid, uint value) internal returns (bytes memory) {
-        bytes4 selector = Ids.commandSelector(cid);
+    function callCommand(uint id, uint value, CommandContext memory ctx) internal returns (bytes memory) {
+        bytes4 selector = Ids.commandSelector(id);
         bytes memory data = abi.encodeWithSelector(selector, ctx);
-        return abi.decode(callTo(cid, value, data), (bytes));
+        return abi.decode(callTo(id, value, data), (bytes));
     }
 }
