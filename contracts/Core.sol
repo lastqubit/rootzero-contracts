@@ -7,14 +7,12 @@ pragma solidity ^0.8.33;
 import { AccessControl } from "./core/Access.sol";
 import { Balances } from "./core/Balances.sol";
 import { RootZeroContext } from "./core/Context.sol";
-import { Host } from "./core/Host.sol";
+import { Host, IHostIntroduction } from "./core/Host.sol";
 import { FailedCall, NodeCalls } from "./core/Calls.sol";
 import { Payable } from "./core/Payable.sol";
 import { Pipeline } from "./core/Pipeline.sol";
 import { AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Tx } from "./core/Types.sol";
 import { Validator } from "./core/Validator.sol";
-import { HostDiscovery } from "./core/Host.sol";
-import { IHostDiscovery } from "./interfaces/IHostDiscovery.sol";
 
 
 

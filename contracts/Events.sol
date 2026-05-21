@@ -14,7 +14,7 @@ import { DebtEvent } from "./events/Debt.sol";
 import { DepositEvent } from "./events/Deposit.sol";
 import { AssetPositionEvent } from "./events/Position.sol";
 import { EventEmitter } from "./events/Emitter.sol";
-import { HostAnnouncedEvent } from "./events/Host.sol";
+import { IntroductionEvent } from "./events/Introduction.sol";
 import { ListingEvent } from "./events/Listing.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
