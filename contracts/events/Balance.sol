@@ -3,10 +3,10 @@ pragma solidity ^0.8.33;
 
 import { EventEmitter } from "./Emitter.sol";
 
-string constant ABI = "event Balance(bytes32 indexed account, bytes32 asset, bytes32 meta, uint balance, int change, uint access)";
-
 /// @notice Emitted when an account balance changes.
 abstract contract BalanceEvent is EventEmitter {
+    string private constant ABI = "event Balance(bytes32 indexed account, bytes32 asset, bytes32 meta, uint balance, int change, uint access)";
+
     /// @param account Account identifier whose balance changed.
     /// @param asset Asset identifier.
     /// @param meta Asset metadata slot.

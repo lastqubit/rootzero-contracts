@@ -3,11 +3,11 @@ pragma solidity ^0.8.33;
 
 import {EventEmitter} from "./Emitter.sol";
 
-string constant ABI = "event AssetPosition(bytes32 indexed account, bytes32 asset, bytes32 meta, uint value, uint queryId)";
-
 /// @notice Emitted when the reported value of an asset-backed position changes or is observed.
 /// A value of 0 should be interpreted as a closed position.
 abstract contract AssetPositionEvent is EventEmitter {
+    string private constant ABI = "event AssetPosition(bytes32 indexed account, bytes32 asset, bytes32 meta, uint value, uint queryId)";
+
     /// @param account Account identifier that owns or is associated with the position.
     /// @param asset Asset identifier for the asset class.
     /// @param meta Asset metadata slot carrying the position context.

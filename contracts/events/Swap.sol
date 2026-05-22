@@ -3,10 +3,10 @@ pragma solidity ^0.8.33;
 
 import { EventEmitter } from "./Emitter.sol";
 
-string constant ABI = "event Swap(bytes32 indexed account, bytes32 assetIn, uint amountIn, bytes32 assetOut, uint amountOut)";
-
 /// @notice Emitted when an account swaps one asset for another.
 abstract contract SwapEvent is EventEmitter {
+    string private constant ABI = "event Swap(bytes32 indexed account, bytes32 assetIn, uint amountIn, bytes32 assetOut, uint amountOut)";
+
     /// @param account Account identifier performing the swap.
     /// @param assetIn Input asset identifier.
     /// @param amountIn Input amount spent.
