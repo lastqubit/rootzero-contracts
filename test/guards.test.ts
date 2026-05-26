@@ -21,7 +21,7 @@ describe("Guard Actions", () => {
     adminAccount = await host.getAdminAccount();
 
     const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
-    await host.guard(adminCtx(encodeAccountBlock(guardianAccount)));
+    await host.appoint(adminCtx(encodeAccountBlock(guardianAccount)));
   });
 
   function adminCtx(request: string) {

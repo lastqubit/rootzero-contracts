@@ -21,14 +21,14 @@ import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 // Admin commands
 import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Allowance, AllowanceHook } from "./commands/admin/Allowance.sol";
+import { Appoint } from "./commands/admin/Appoint.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
 import { Destroy, DestroyHook } from "./commands/admin/Destroy.sol";
 import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
+import { Dismiss } from "./commands/admin/Dismiss.sol";
 import { ExecutePayable } from "./commands/admin/Execute.sol";
-import { Guard } from "./commands/admin/Guard.sol";
 import { Init, InitHook } from "./commands/admin/Init.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
-import { Unguard } from "./commands/admin/Unguard.sol";
 
 // Peer endpoints
 import { PeerBase, encodePeerCall } from "./peer/Base.sol";

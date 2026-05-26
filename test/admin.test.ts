@@ -130,13 +130,13 @@ describe("Admin Commands", () => {
     });
   });
 
-  describe("guard", () => {
+  describe("appoint", () => {
     it("enables guardian account and emits Guardian event", async () => {
       const guardianAddress = await (await getSigner(2)).getAddress();
       const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
       const request = encodeAccountBlock(guardianAccount);
 
-      await expect(callAs(0, "guard", adminCtx(request)))
+      await expect(callAs(0, "appoint", adminCtx(request)))
         .to.emit(host, "Guardian")
         .withArgs(await host.host(), guardianAccount, true);
 
@@ -147,32 +147,32 @@ describe("Admin Commands", () => {
       const fakeAdmin = ethers.zeroPadValue("0x13", 32);
       const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(2)).getAddress());
 
-      await expect(callAs(0, "guard", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
+      await expect(callAs(0, "appoint", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts InvalidAccount for non-guardian account blocks", async () => {
       const userAccount = await utils.testToUserAccount(await (await getSigner(2)).getAddress());
 
-      await expect(callAs(0, "guard", adminCtx(encodeAccountBlock(userAccount))))
+      await expect(callAs(0, "appoint", adminCtx(encodeAccountBlock(userAccount))))
         .to.be.revertedWithCustomError(host, "InvalidAccount");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
-      await expect(callAs(0, "guard", adminCtx("0x")))
+      await expect(callAs(0, "appoint", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });
 
-  describe("unguard", () => {
+  describe("dismiss", () => {
     it("disables guardian account and emits Guardian event with false", async () => {
       const guardianAddress = await (await getSigner(3)).getAddress();
       const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
       const request = encodeAccountBlock(guardianAccount);
 
-      await callAs(0, "guard", adminCtx(request));
+      await callAs(0, "appoint", adminCtx(request));
 
-      await expect(callAs(0, "unguard", adminCtx(request)))
+      await expect(callAs(0, "dismiss", adminCtx(request)))
         .to.emit(host, "Guardian")
         .withArgs(await host.host(), guardianAccount, false);
 
@@ -183,12 +183,12 @@ describe("Admin Commands", () => {
       const fakeAdmin = ethers.zeroPadValue("0x14", 32);
       const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(3)).getAddress());
 
-      await expect(callAs(0, "unguard", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
+      await expect(callAs(0, "dismiss", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
-      await expect(callAs(0, "unguard", adminCtx("0x")))
+      await expect(callAs(0, "dismiss", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });

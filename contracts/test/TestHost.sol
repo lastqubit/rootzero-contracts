@@ -204,12 +204,12 @@ contract TestHost is
         return unauthorizeId;
     }
 
-    function getGuardId() external view returns (uint) {
-        return guardCommandId;
+    function getAppointId() external view returns (uint) {
+        return appointId;
     }
 
-    function getUnguardId() external view returns (uint) {
-        return unguardId;
+    function getDismissId() external view returns (uint) {
+        return dismissId;
     }
 
     function getExecutePayableId() external view returns (uint) {
