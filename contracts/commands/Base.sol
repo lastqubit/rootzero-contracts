@@ -23,24 +23,16 @@ struct CommandContext {
 abstract contract CommandBase is NodeCalls, CommandEvent {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
-    /// @dev Thrown when `onlyAdmin` finds that `account` is not the admin account.
-    error NotAdmin();
 
     /// @dev Restrict execution to the commander using the host's admin account.
     modifier onlyAdmin(bytes32 account) {
-        if (account != adminAccount) revert NotAdmin();
+        if (account != admin) revert AccessDenied();
         enforceCommander(msg.sender);
         _;
     }
 
     /// @dev Restrict execution to trusted callers.
     modifier onlyCommand() {
-        enforceCaller(msg.sender);
-        _;
-    }
-
-    /// @dev Restrict execution to callers whose host node is trusted.
-    modifier onlyTrusted() {
         enforceCaller(msg.sender);
         _;
     }

@@ -14,6 +14,7 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
+import { Revoke } from "../guards/Revoke.sol";
 import { HostAmount, Tx } from "../core/Types.sol";
 import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
@@ -35,7 +36,8 @@ contract TestHost is
     Destroy,
     AllowAssets,
     DenyAssets,
-    Allowance
+    Allowance,
+    Revoke
 {
     event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
@@ -202,6 +204,14 @@ contract TestHost is
         return unauthorizeId;
     }
 
+    function getGuardId() external view returns (uint) {
+        return guardCommandId;
+    }
+
+    function getUnguardId() external view returns (uint) {
+        return unguardId;
+    }
+
     function getExecutePayableId() external view returns (uint) {
         return executePayableId;
     }
@@ -218,8 +228,12 @@ contract TestHost is
         return allowanceId;
     }
 
+    function getRevokeId() external view returns (uint) {
+        return revokeId;
+    }
+
     function getAdminAccount() external view returns (bytes32) {
-        return adminAccount;
+        return admin;
     }
 
     function getCommander() external view returns (address) {
@@ -227,7 +241,15 @@ contract TestHost is
     }
 
     function isAuthorized(uint node) external view returns (bool) {
-        return trusted[node];
+        return nodes[node];
+    }
+
+    function setGuardianAccount(bytes32 account, bool active) external {
+        setGuardian(account, active);
+    }
+
+    function isGuardianAddress(address addr) external view returns (bool) {
+        return isGuardian(addr);
     }
 
 }

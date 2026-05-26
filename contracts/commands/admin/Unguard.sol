@@ -6,35 +6,30 @@ import { Cursors, Cur, Schemas } from "../../Cursors.sol";
 import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
-/// @title Authorize
-/// @notice Admin command that grants authorization to a list of node IDs.
-/// Each NODE block in the request is authorized on the host.
+/// @title Unguard
+/// @notice Admin command that revokes guardian status from a list of account IDs.
+/// Each ACCOUNT block in the request is disabled as a guardian on the host.
 /// Only callable by the admin account.
-abstract contract Authorize is CommandBase, AdminEvent {
-    string private constant NAME = "authorize";
+abstract contract Unguard is CommandBase, AdminEvent {
+    string private constant NAME = "unguard";
 
-    uint internal immutable authorizeId = commandId(NAME);
+    uint internal immutable unguardId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, authorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, unguardId, NAME, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false);
     }
 
-    function authorize(
+    function unguard(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, ) = cursor(c.request, 1);
 
         while (request.i < request.bound) {
-            uint node = request.unpackNode();
-            setNode(node, true);
+            bytes32 account = request.unpackAccount();
+            setGuardian(account, false);
         }
 
         request.close();
         return "";
     }
 }
-
-
-
-
-

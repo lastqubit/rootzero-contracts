@@ -10,7 +10,7 @@ pragma solidity ^0.8.33;
 // describes one DATA block. The block carries a fixed `host` ID followed by an
 // AMOUNT child block in its tail.
 
-import {CommandBase, CommandContext} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext} from "../contracts/Endpoints.sol";
 import {Cursors, Cur, Schemas, Keys} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -42,7 +42,7 @@ abstract contract MyCommand is CommandBase {
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
-    function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         Cur memory input = cursor(c.request);
 
         (uint targetHost, bytes32 asset, bytes32 meta, uint amount) = unpackInput(input);

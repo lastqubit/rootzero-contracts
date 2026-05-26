@@ -17,6 +17,10 @@ contract TestUtils is Payable {
         return Accounts.toAdmin(addr);
     }
 
+    function testToGuardianAccount(address addr) external view returns (bytes32) {
+        return Accounts.toGuardian(addr);
+    }
+
     function testToUserAccount(address addr) external pure returns (bytes32) {
         return Accounts.toUser(addr);
     }
@@ -29,12 +33,32 @@ contract TestUtils is Payable {
         return Accounts.isAdmin(account);
     }
 
+    function testIsGuardianAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isGuardian(account);
+    }
+
     function testIsUserAccount(bytes32 account) external pure returns (bool) {
         return Accounts.isUser(account);
     }
 
     function testIsKeccakAccount(bytes32 account) external pure returns (bool) {
         return Accounts.isKeccak(account);
+    }
+
+    function testAdminAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.admin(account);
+    }
+
+    function testGuardianAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.guardian(account);
+    }
+
+    function testUserAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.user(account);
+    }
+
+    function testKeccakAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.keccak(account);
     }
 
     function testToKeccakAccount(bytes32 head, bytes32 meta) external pure returns (bytes32) {
@@ -129,12 +153,20 @@ contract TestUtils is Payable {
         return Ids.toPeer(Selectors.peer(bytes32ToString(name)), addr);
     }
 
+    function testToGuardId(bytes32 name, address addr) external view returns (uint) {
+        return Ids.toGuard(Selectors.guard(bytes32ToString(name)), addr);
+    }
+
     function testToCommandSelector(bytes32 name) external pure returns (bytes4) {
         return Selectors.command(bytes32ToString(name));
     }
 
     function testToPeerSelector(bytes32 name) external pure returns (bytes4) {
         return Selectors.peer(bytes32ToString(name));
+    }
+
+    function testToGuardSelector(bytes32 name) external pure returns (bytes4) {
+        return Selectors.guard(bytes32ToString(name));
     }
 
     function testIsHost(uint id) external pure returns (bool) {
@@ -147,6 +179,10 @@ contract TestUtils is Payable {
 
     function testIsPeer(uint id) external pure returns (bool) {
         return Ids.isPeer(id);
+    }
+
+    function testIsGuard(uint id) external pure returns (bool) {
+        return Ids.isGuard(id);
     }
 
     function testLocalNodeAddr(uint node) external view returns (address) {
@@ -167,6 +203,10 @@ contract TestUtils is Payable {
 
     function testEnsurePeer(uint id) external pure returns (uint) {
         return Ids.peer(id);
+    }
+
+    function testEnsureGuard(uint id) external pure returns (uint) {
+        return Ids.guard(id);
     }
 
     function testApplyBps(uint amount, uint16 bps) external pure returns (uint) {

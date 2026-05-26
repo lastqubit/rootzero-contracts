@@ -10,7 +10,7 @@ pragma solidity ^0.8.33;
 // Use Writers when you need to build the response incrementally rather than
 // returning a single pre-encoded block.
 
-import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
 import {Cur, Cursors, Writer, Writers, Schemas} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -27,7 +27,7 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyTrusted returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory) {
         // Create the request cursor from CommandContext.request, then size
         // the writer from the group count returned by the cursor helper.
         (Cur memory inputs, uint groups) = cursor(c.request, 1);

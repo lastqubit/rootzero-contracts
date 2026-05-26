@@ -5,6 +5,7 @@ import { encodeNodeBlock, pad32 } from "./helpers/blocks.js";
 
 describe("Access Control", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
+  let utils: Awaited<ReturnType<typeof deploy>>;
   let commander: string;
   let stranger: string;
   let hostAddress: string;
@@ -15,6 +16,7 @@ describe("Access Control", () => {
     stranger  = await signers[1].getAddress();
 
     host = await deploy("TestHost", commander);
+    utils = await deploy("TestUtils");
     hostAddress = await host.getAddress();
   });
 
@@ -45,16 +47,16 @@ describe("Access Control", () => {
     ).to.be.revertedWithCustomError(host, "ZeroCursor");
   });
 
-  it("stranger is not trusted and gets UnauthorizedCaller", async () => {
+  it("stranger is not trusted and gets AccessDenied", async () => {
     const adminAccount: string = await host.getAdminAccount();
     const ctx = { account: adminAccount, meta: ethers.ZeroHash, state: "0x", request: "0x" };
     const signers = await getSigners(2);
     await expect(
       host.connect(signers[1]).authorize(ctx)
-    ).to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+    ).to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
-  it("authorize emits Access event with allow=true", async () => {
+  it("authorize emits Node event with active=true", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0xdeadbeefn << 192n; // some non-zero node id
@@ -62,7 +64,7 @@ describe("Access Control", () => {
     const ctx = { account: adminAccount, meta: ethers.ZeroHash, state: "0x", request: nodeBlock };
 
     await expect(host.connect(signers[0]).authorize(ctx))
-      .to.emit(host, "Access")
+      .to.emit(host, "Node")
       .withArgs(await host.host(), dummyNode, true);
   });
 
@@ -76,7 +78,7 @@ describe("Access Control", () => {
     expect(await host.isAuthorized(dummyNode)).to.be.true;
   });
 
-  it("unauthorize emits Access event with allow=false", async () => {
+  it("unauthorize emits Node event with active=false", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0x11111111n << 192n;
@@ -85,7 +87,7 @@ describe("Access Control", () => {
     // Then unauthorize
     await expect(
       host.connect(signers[0]).unauthorize({ account: adminAccount, meta: ethers.ZeroHash, state: "0x", request: encodeNodeBlock(dummyNode) })
-    ).to.emit(host, "Access").withArgs(await host.host(), dummyNode, false);
+    ).to.emit(host, "Node").withArgs(await host.host(), dummyNode, false);
   });
 
   it("node is not authorized after unauthorize call", async () => {
@@ -99,6 +101,16 @@ describe("Access Control", () => {
 
   it("isAuthorized mapping returns false for node 0", async () => {
     expect(await host.isAuthorized(0n)).to.be.false;
+  });
+
+  it("isGuardian converts an address to its guardian account", async () => {
+    const guardianAddress = await (await getSigner(2)).getAddress();
+    const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+
+    expect(await host.isGuardianAddress(guardianAddress)).to.be.false;
+
+    await host.setGuardianAccount(guardianAccount, true);
+    expect(await host.isGuardianAddress(guardianAddress)).to.be.true;
   });
 
   it("falls back to the host address when commander is zero", async () => {

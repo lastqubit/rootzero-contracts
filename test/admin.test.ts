@@ -2,12 +2,13 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
-  encodeNodeBlock, encodeAssetBlock, encodeAllowanceBlock,
+  encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
   encodeDataBlock, encodeCallBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
+  let utils: Awaited<ReturnType<typeof deploy>>;
   let commander: string;
   let adminAccount: string;
 
@@ -15,6 +16,7 @@ describe("Admin Commands", () => {
     const signer = await getSigner(0);
     commander = await signer.getAddress();
     host = await deploy("TestHost", commander);
+    utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
   });
 
@@ -41,11 +43,11 @@ describe("Admin Commands", () => {
   // ── Authorize ─────────────────────────────────────────────────────────────
 
   describe("authorize", () => {
-    it("authorizes a node and emits Access event", async () => {
+    it("authorizes a node and emits Node event", async () => {
       const nodeId = 0xaaa000n;
       const request = encodeNodeBlock(nodeId);
       await expect(callAs(0, "authorize", adminCtx(request)))
-        .to.emit(host, "Access")
+        .to.emit(host, "Node")
         .withArgs(await host.host(), nodeId, true);
       expect(await host.isAuthorized(nodeId)).to.be.true;
     });
@@ -59,20 +61,20 @@ describe("Admin Commands", () => {
       expect(await host.isAuthorized(node2)).to.be.true;
     });
 
-    it("reverts UnauthorizedCaller when a trusted non-commander tries to authorize", async () => {
+    it("reverts AccessDenied when a trusted non-commander tries to authorize", async () => {
       const trustedSigner = await getSigner(1);
       const trustedAddress = await trustedSigner.getAddress();
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(await hostIdFor(trustedAddress))));
 
       await expect(callAs(1, "authorize", adminCtx(encodeNodeBlock(0xddd001n))))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x01", 32);
       const request = encodeNodeBlock(1n);
       await expect(callAs(0, "authorize", userCtx(fakeAdmin, request)))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
@@ -89,10 +91,10 @@ describe("Admin Commands", () => {
         .withArgs(inputData);
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x11", 32);
       await expect(callAs(0, "init", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts MalformedBlocks for empty request", async () => {
@@ -104,26 +106,89 @@ describe("Admin Commands", () => {
   // ── Unauthorize ───────────────────────────────────────────────────────────
 
   describe("unauthorize", () => {
-    it("revokes node and emits Access event with false", async () => {
+    it("revokes node and emits Node event with false", async () => {
       const nodeId = 0xccc001n;
       // authorize first
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(nodeId)));
       // then unauthorize
       await expect(callAs(0, "unauthorize", adminCtx(encodeNodeBlock(nodeId))))
-        .to.emit(host, "Access")
+        .to.emit(host, "Node")
         .withArgs(await host.host(), nodeId, false);
       expect(await host.isAuthorized(nodeId)).to.be.false;
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x02", 32);
       const request = encodeNodeBlock(1n);
       await expect(callAs(0, "unauthorize", userCtx(fakeAdmin, request)))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
       await expect(callAs(0, "unauthorize", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("guard", () => {
+    it("enables guardian account and emits Guardian event", async () => {
+      const guardianAddress = await (await getSigner(2)).getAddress();
+      const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+      const request = encodeAccountBlock(guardianAccount);
+
+      await expect(callAs(0, "guard", adminCtx(request)))
+        .to.emit(host, "Guardian")
+        .withArgs(await host.host(), guardianAccount, true);
+
+      expect(await host.isGuardianAddress(guardianAddress)).to.be.true;
+    });
+
+    it("reverts AccessDenied for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x13", 32);
+      const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(2)).getAddress());
+
+      await expect(callAs(0, "guard", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts InvalidAccount for non-guardian account blocks", async () => {
+      const userAccount = await utils.testToUserAccount(await (await getSigner(2)).getAddress());
+
+      await expect(callAs(0, "guard", adminCtx(encodeAccountBlock(userAccount))))
+        .to.be.revertedWithCustomError(host, "InvalidAccount");
+    });
+
+    it("reverts ZeroCursor for empty request", async () => {
+      await expect(callAs(0, "guard", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("unguard", () => {
+    it("disables guardian account and emits Guardian event with false", async () => {
+      const guardianAddress = await (await getSigner(3)).getAddress();
+      const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+      const request = encodeAccountBlock(guardianAccount);
+
+      await callAs(0, "guard", adminCtx(request));
+
+      await expect(callAs(0, "unguard", adminCtx(request)))
+        .to.emit(host, "Guardian")
+        .withArgs(await host.host(), guardianAccount, false);
+
+      expect(await host.isGuardianAddress(guardianAddress)).to.be.false;
+    });
+
+    it("reverts AccessDenied for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x14", 32);
+      const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(3)).getAddress());
+
+      await expect(callAs(0, "unguard", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor for empty request", async () => {
+      await expect(callAs(0, "unguard", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });
@@ -150,10 +215,10 @@ describe("Admin Commands", () => {
       await expect(tx).to.emit(host, "AllowAssetCalled").withArgs(a2, m);
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x03", 32);
       await expect(callAs(0, "allowAssets", userCtx(fakeAdmin, encodeAssetBlock(ethers.zeroPadValue("0x01", 32), ethers.ZeroHash))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
@@ -173,10 +238,10 @@ describe("Admin Commands", () => {
         .withArgs(asset, meta);
     });
 
-    it("reverts NotAdmin for non-admin", async () => {
+    it("reverts AccessDenied for non-admin", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x04", 32);
       await expect(callAs(0, "denyAssets", userCtx(fakeAdmin, encodeAssetBlock(ethers.zeroPadValue("0x01", 32), ethers.ZeroHash))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
@@ -199,11 +264,11 @@ describe("Admin Commands", () => {
         .withArgs(hostId, asset, meta, amount);
     });
 
-    it("reverts NotAdmin for non-admin", async () => {
+    it("reverts AccessDenied for non-admin", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x05", 32);
       const request = encodeAllowanceBlock(1n, ethers.zeroPadValue("0x01", 32), ethers.ZeroHash, 1n);
       await expect(callAs(0, "allowance", userCtx(fakeAdmin, request)))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor for empty request", async () => {
@@ -213,11 +278,11 @@ describe("Admin Commands", () => {
   });
 
   describe("executePayable", () => {
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x07", 32);
       const request = encodeCallBlock(0n, 0n, "0x");
       await expect(callAs(0, "executePayable", userCtx(fakeAdmin, request)))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("executes raw calldata against a target node without prior authorization", async () => {
@@ -320,10 +385,10 @@ describe("Admin Commands", () => {
         .withArgs(inputData);
     });
 
-    it("reverts NotAdmin for non-admin account", async () => {
+    it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x12", 32);
       await expect(callAs(0, "destroy", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
-        .to.be.revertedWithCustomError(host, "NotAdmin");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts MalformedBlocks for empty request", async () => {

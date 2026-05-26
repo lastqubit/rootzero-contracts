@@ -23,8 +23,8 @@ describe("Commands", () => {
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
-    // USER_PREFIX = (0x2001 << 16) | (0x01 << 8) | 0x02 = 0x20010102
-    const USER_PREFIX = 0x20010102n;
+    // USER_PREFIX = (0x2001 << 16) | (0x01 << 8) | 0x03 = 0x20010103
+    const USER_PREFIX = 0x20010103n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (addrBig << 32n)), 32
     );
@@ -88,12 +88,12 @@ describe("Commands", () => {
       ));
     });
 
-    it("reverts UnauthorizedCaller for untrusted caller", async () => {
+    it("reverts AccessDenied for untrusted caller", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       const request = encodeAmountBlock(asset, ethers.ZeroHash, 1n);
       await expect(
         callAs(1, "deposit", ctx({ request }))
-      ).to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+      ).to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor when request has no AMOUNT blocks", async () => {

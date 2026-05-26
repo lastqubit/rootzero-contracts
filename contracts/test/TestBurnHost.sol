@@ -12,7 +12,7 @@ contract TestBurnHost is Host, Burn {
         Host(address(0), 1, "test")
         Burn()
     {
-        if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
+        if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);
     }
 
     function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
@@ -24,7 +24,7 @@ contract TestBurnHost is Host, Burn {
     }
 
     function getBurnId() external view returns (uint) { return burnId; }
-    function getAdminAccount() external view returns (bytes32) { return adminAccount; }
+    function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 
 

@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
-import { commandSelector, peerSelector } from "./helpers/blocks.js";
+import { commandSelector, guardSelector, peerSelector } from "./helpers/blocks.js";
 
 async function expectCustomError(promise: Promise<unknown>, name: string) {
   try {
@@ -53,6 +53,16 @@ describe("Utils", () => {
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
     });
 
+    it("toGuardianAccount encodes guardian prefix, chainId and address", async () => {
+      const result: string = await utils.testToGuardianAccount(signerAddress);
+      const val = BigInt(result);
+      const prefix = (val >> 224n) & 0xffffffffn;
+      expect(prefix).to.equal(0x20010102n);
+
+      const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
+      expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
+    });
+
     it("toUserAccount encodes user prefix without chain-specific chainId", async () => {
       const result: string = await utils.testToUserAccount(signerAddress);
       const val = BigInt(result);
@@ -71,6 +81,16 @@ describe("Utils", () => {
       expect(await utils.testIsAdminAccount(userAccount)).to.be.false;
     });
 
+    it("isGuardianAccount returns true for guardian account", async () => {
+      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
+      expect(await utils.testIsGuardianAccount(guardianAccount)).to.be.true;
+    });
+
+    it("isGuardianAccount returns false for admin and user accounts", async () => {
+      expect(await utils.testIsGuardianAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
+      expect(await utils.testIsGuardianAccount(await utils.testToUserAccount(signerAddress))).to.be.false;
+    });
+
     it("isUserAccount returns true for user account", async () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
       expect(await utils.testIsUserAccount(userAccount)).to.be.true;
@@ -78,11 +98,13 @@ describe("Utils", () => {
 
     it("isUserAccount returns false for admin and keccak accounts", async () => {
       expect(await utils.testIsUserAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
+      expect(await utils.testIsUserAccount(await utils.testToGuardianAccount(signerAddress))).to.be.false;
       expect(await utils.testIsUserAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.false;
     });
 
     it("isAccount returns true for supported account IDs", async () => {
       expect(await utils.testIsAccount(await utils.testToAdminAccount(signerAddress))).to.be.true;
+      expect(await utils.testIsAccount(await utils.testToGuardianAccount(signerAddress))).to.be.true;
       expect(await utils.testIsAccount(await utils.testToUserAccount(signerAddress))).to.be.true;
       expect(await utils.testIsAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.true;
     });
@@ -97,12 +119,37 @@ describe("Utils", () => {
       expect(await utils.testIsKeccakAccount(await utils.testToUserAccount(signerAddress))).to.be.false;
     });
 
+    it("typed account helpers return matching accounts", async () => {
+      const adminAccount = await utils.testToAdminAccount(signerAddress);
+      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
+      const userAccount = await utils.testToUserAccount(signerAddress);
+      const keccakAccount = await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32));
+
+      expect(await utils.testAdminAccount(adminAccount)).to.equal(adminAccount);
+      expect(await utils.testGuardianAccount(guardianAccount)).to.equal(guardianAccount);
+      expect(await utils.testUserAccount(userAccount)).to.equal(userAccount);
+      expect(await utils.testKeccakAccount(keccakAccount)).to.equal(keccakAccount);
+    });
+
+    it("typed account helpers reject mismatched accounts", async () => {
+      const adminAccount = await utils.testToAdminAccount(signerAddress);
+      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
+      const userAccount = await utils.testToUserAccount(signerAddress);
+      const keccakAccount = await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32));
+
+      await expectCustomError(utils.testAdminAccount(userAccount), "InvalidAccount");
+      await expectCustomError(utils.testGuardianAccount(adminAccount), "InvalidAccount");
+      await expectCustomError(utils.testUserAccount(guardianAccount), "InvalidAccount");
+      await expectCustomError(utils.testKeccakAccount(userAccount), "InvalidAccount");
+      await expectCustomError(utils.testGuardianAccount(keccakAccount), "InvalidAccount");
+    });
+
     it("toKeccakAccount uses the keccak account prefix and truncated witness hash", async () => {
       const head = ethers.zeroPadValue("0x12", 32);
       const meta = ethers.zeroPadValue("0x34", 32);
       const account = await utils.testToKeccakAccount(head, meta);
       const prefix = (BigInt(account) >> 224n) & 0xffffffffn;
-      expect(prefix).to.equal(0x20000103n);
+      expect(prefix).to.equal(0x20000104n);
 
       const digest = BigInt(ethers.keccak256(ethers.concat([head, meta])));
       const payload = BigInt(account) & ((1n << 224n) - 1n);
@@ -362,9 +409,20 @@ describe("Utils", () => {
       expect(await utils.testIsPeer(pid)).to.be.true;
     });
 
+    it("isGuard returns true for guard ID", async () => {
+      const name = ethers.encodeBytes32String("revoke");
+      const gid: bigint = await utils.testToGuardId(name, signerAddress);
+      expect(await utils.testIsGuard(gid)).to.be.true;
+    });
+
     it("isPeer returns false for host ID", async () => {
       const hid: bigint = await utils.testToHostId(signerAddress);
       expect(await utils.testIsPeer(hid)).to.be.false;
+    });
+
+    it("isGuard returns false for host ID", async () => {
+      const hid: bigint = await utils.testToHostId(signerAddress);
+      expect(await utils.testIsGuard(hid)).to.be.false;
     });
 
     it("localNodeAddr extracts address from host ID", async () => {
@@ -404,6 +462,13 @@ describe("Utils", () => {
       expect(result).to.equal(pid);
     });
 
+    it("ensureGuard succeeds for guard ID", async () => {
+      const name = ethers.encodeBytes32String("revoke");
+      const gid: bigint = await utils.testToGuardId(name, signerAddress);
+      const result: bigint = await utils.testEnsureGuard(gid);
+      expect(result).to.equal(gid);
+    });
+
     it("toCommandSelector matches the TypeScript helper", async () => {
       const name = ethers.encodeBytes32String("deposit");
       expect(await utils.testToCommandSelector(name)).to.equal(commandSelector("deposit"));
@@ -412,6 +477,11 @@ describe("Utils", () => {
     it("toPeerSelector matches the TypeScript helper", async () => {
       const name = ethers.encodeBytes32String("peerAllowance");
       expect(await utils.testToPeerSelector(name)).to.equal(peerSelector("peerAllowance"));
+    });
+
+    it("toGuardSelector matches the TypeScript helper", async () => {
+      const name = ethers.encodeBytes32String("revoke");
+      expect(await utils.testToGuardSelector(name)).to.equal(guardSelector("revoke"));
     });
 
     it("localHostAddr reverts for a foreign-chain host id", async () => {

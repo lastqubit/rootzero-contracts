@@ -19,7 +19,7 @@ pragma solidity ^0.8.33;
 // - the command emits one event per ASSET item, so the behavior is easy to test
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
 import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -62,7 +62,7 @@ abstract contract MyCommand is CommandBase {
         input.exit(next);
     }
 
-    function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         Cur memory request = cursor(c.request);
         uint listIndex;
 

@@ -14,7 +14,7 @@ describe("Burn", () => {
     const commander = await signer.getAddress();
     host = await deploy("TestBurnHost", commander);
 
-    const USER_PREFIX = 0x20010102n;
+    const USER_PREFIX = 0x20010103n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (BigInt(commander) << 32n)),
       32
@@ -73,10 +73,10 @@ describe("Burn", () => {
 
   // ── Target / access guards ─────────────────────────────────────────────────
 
-  it("reverts UnauthorizedCaller for an untrusted caller", async () => {
+  it("reverts AccessDenied for an untrusted caller", async () => {
     const state = encodeBalanceBlock(ethers.zeroPadValue("0xf2", 32), ethers.ZeroHash, 1n);
     await expect(callAs(1, ctx({ state })))
-      .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+      .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
   // ── Error cases ────────────────────────────────────────────────────────────

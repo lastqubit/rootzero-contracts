@@ -26,6 +26,8 @@ library Ids {
     uint32 constant Peer = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Peer);
     /// @dev Full 4-byte type prefix for query nodes.
     uint32 constant Query = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
+    /// @dev Full 4-byte type prefix for guard action nodes.
+    uint32 constant Guard = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Guard);
 
     /// @notice Return true if `id` is a host node ID.
     function isHost(uint id) internal pure returns (bool) {
@@ -47,6 +49,11 @@ library Ids {
         return uint32(id >> 224) == Query;
     }
 
+    /// @notice Return true if `id` is a guard action node ID.
+    function isGuard(uint id) internal pure returns (bool) {
+        return uint32(id >> 224) == Guard;
+    }
+
     /// @notice Return true if `id` is a local node ID for this contract.
     function isLocalNode(uint id) internal view returns (bool) {
         return isLocalFamily(id, Node) && address(uint160(id)) == address(this);
@@ -60,28 +67,12 @@ library Ids {
         return id;
     }
 
-    /// @notice Assert that `id` is a command ID and return its embedded ABI selector.
-    /// @param id Node ID to validate.
-    /// @return selector 4-byte command selector stored in bits [191:160].
-    function commandSelector(uint id) internal pure returns (bytes4 selector) {
-        if (!isCommand(id)) revert InvalidId();
-        return bytes4(uint32(id >> 160));
-    }
-
     /// @notice Assert that `id` is a peer ID and return it unchanged.
     /// @param id Node ID to validate.
     /// @return pid The same `id` value if it is a peer.
     function peer(uint id) internal pure returns (uint pid) {
         if (!isPeer(id)) revert InvalidId();
         return id;
-    }
-
-    /// @notice Assert that `id` is a peer ID and return its embedded ABI selector.
-    /// @param id Node ID to validate.
-    /// @return selector 4-byte peer selector stored in bits [191:160].
-    function peerSelector(uint id) internal pure returns (bytes4 selector) {
-        if (!isPeer(id)) revert InvalidId();
-        return bytes4(uint32(id >> 160));
     }
 
     /// @notice Assert that `id` is a query ID and return it unchanged.
@@ -92,12 +83,40 @@ library Ids {
         return id;
     }
 
+    /// @notice Assert that `id` is a guard action ID and return it unchanged.
+    /// @param id Node ID to validate.
+    /// @return guardId The same `id` value if it is a guard action.
+    function guard(uint id) internal pure returns (uint guardId) {
+        if (!isGuard(id)) revert InvalidId();
+        return id;
+    }
+
+    /// @notice Assert that `id` is a command ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte command selector stored in bits [191:160].
+    function commandSelector(uint id) internal pure returns (bytes4 selector) {
+        return bytes4(uint32(command(id) >> 160));
+    }
+
+    /// @notice Assert that `id` is a peer ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte peer selector stored in bits [191:160].
+    function peerSelector(uint id) internal pure returns (bytes4 selector) {
+        return bytes4(uint32(peer(id) >> 160));
+    }
+
     /// @notice Assert that `id` is a query ID and return its embedded ABI selector.
     /// @param id Node ID to validate.
     /// @return selector 4-byte query selector stored in bits [191:160].
     function querySelector(uint id) internal pure returns (bytes4 selector) {
-        if (!isQuery(id)) revert InvalidId();
-        return bytes4(uint32(id >> 160));
+        return bytes4(uint32(query(id) >> 160));
+    }
+
+    /// @notice Assert that `id` is a guard action ID and return its embedded ABI selector.
+    /// @param id Node ID to validate.
+    /// @return selector 4-byte guard selector stored in bits [191:160].
+    function guardSelector(uint id) internal pure returns (bytes4 selector) {
+        return bytes4(uint32(guard(id) >> 160));
     }
 
     /// @notice Assert that `id` is the host ID of `addr` on the current chain.
@@ -146,6 +165,16 @@ library Ids {
         return id;
     }
 
+    /// @notice Build a chain-local guard action ID for the given selector and contract.
+    /// @param selector 4-byte ABI selector of the guard action entry point.
+    /// @param target Guard action contract address.
+    /// @return Guard action node ID embedding both the selector and address.
+    function toGuard(bytes4 selector, address target) internal view returns (uint) {
+        uint id = toLocalBase(Guard) | uint(uint160(target));
+        id |= uint(uint32(selector)) << 160;
+        return id;
+    }
+
     /// @notice Extract the contract address from any local node ID.
     /// Reverts if `id` does not belong to the local node family.
     /// @param id Node ID (host, command, or peer).
@@ -174,6 +203,8 @@ library Selectors {
     string constant PeerArgs = "(bytes)";
     /// @dev ABI argument encoding for query entry points: `(bytes)`.
     string constant QueryArgs = "(bytes)";
+    /// @dev ABI argument encoding for guard action entry points: `(bytes)`.
+    string constant GuardArgs = "(bytes)";
 
     /// @notice Derive the 4-byte ABI selector for a named command.
     /// The selector is `keccak256(name ++ CommandArgs)[0:4]`.
@@ -197,5 +228,13 @@ library Selectors {
     /// @return 4-byte selector.
     function query(string memory name) internal pure returns (bytes4) {
         return bytes4(keccak256(bytes.concat(bytes(name), bytes(QueryArgs))));
+    }
+
+    /// @notice Derive the 4-byte ABI selector for a named guard action.
+    /// The selector is `keccak256(name ++ GuardArgs)[0:4]`.
+    /// @param name Guard action function name (without arguments).
+    /// @return 4-byte selector.
+    function guard(string memory name) internal pure returns (bytes4) {
+        return bytes4(keccak256(bytes.concat(bytes(name), bytes(GuardArgs))));
     }
 }

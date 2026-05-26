@@ -26,7 +26,7 @@ abstract contract Unauthorize is CommandBase, AdminEvent {
 
         while (request.i < request.bound) {
             uint node = request.unpackNode();
-            unauthorize(node);
+            setNode(node, false);
         }
 
         request.close();

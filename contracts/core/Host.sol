@@ -3,7 +3,9 @@ pragma solidity ^0.8.33;
 
 import {AccessControl} from "./Access.sol";
 import {Authorize} from "../commands/admin/Authorize.sol";
+import {Guard} from "../commands/admin/Guard.sol";
 import {Unauthorize} from "../commands/admin/Unauthorize.sol";
+import {Unguard} from "../commands/admin/Unguard.sol";
 import {ExecutePayable} from "../commands/admin/Execute.sol";
 import {IntroductionEvent} from "../events/Introduction.sol";
 import {Ids} from "../utils/Ids.sol";
@@ -24,7 +26,7 @@ interface IHostIntroduction {
 /// Inherits admin command support (authorize, unauthorize, executePayable) and
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is Authorize, Unauthorize, ExecutePayable, IntroductionEvent, IHostIntroduction {
+abstract contract Host is Authorize, Unauthorize, Guard, Unguard, ExecutePayable, IntroductionEvent, IHostIntroduction {
     /// @param cmdr Commander address; passed to `AccessControl`.
     ///        If `cmdr` is a deployed contract, the host calls `introduce`
     ///        on it during construction.
