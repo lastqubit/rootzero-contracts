@@ -37,10 +37,12 @@ library Layout {
 
     /// @dev Admin account — chain-local, backed by an EVM address.
     uint8 constant Admin = 0x01;
+    /// @dev Guardian account — chain-local, backed by an EVM address.
+    uint8 constant Guardian = 0x02;
     /// @dev User account — chain-agnostic, backed by an EVM address.
-    uint8 constant User = 0x02;
+    uint8 constant User = 0x03;
     /// @dev Keccak account — opaque 28-byte keccak commitment.
-    uint8 constant Keccak = 0x03;
+    uint8 constant Keccak = 0x04;
 
     // -------------------------------------------------------------------------
     // Node subtype tags (uint8, fourth byte of the ID type field)
@@ -54,6 +56,8 @@ library Layout {
     uint8 constant Peer = 0x03;
     /// @dev Node is a query contract.
     uint8 constant Query = 0x04;
+    /// @dev Node is a guardian-only direct action.
+    uint8 constant Guard = 0x05;
 
     // -------------------------------------------------------------------------
     // Asset subtype tags (uint8, fourth byte of the ID type field)

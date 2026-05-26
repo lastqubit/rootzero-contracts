@@ -14,7 +14,7 @@ contract TestCompositeHost is Host, Deposit, PeerBalancePull, GetBalances {
         PeerBalancePull()
         GetBalances()
     {
-        if (cmdr != address(0)) authorize(Ids.toHost(cmdr));
+        if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);
     }
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal pure override {

@@ -4,7 +4,6 @@ pragma solidity ^0.8.33;
 // Aggregator: re-exports all event contracts.
 // Import this file to get access to every event emitter in one import.
 
-import { AccessEvent } from "./events/Access.sol";
 import { AdminEvent } from "./events/Admin.sol";
 import { AssetStatusEvent } from "./events/Asset.sol";
 import { BalanceEvent } from "./events/Balance.sol";
@@ -15,7 +14,10 @@ import { DebtEvent } from "./events/Debt.sol";
 import { PositionEvent } from "./events/Position.sol";
 import { ReceivedEvent } from "./events/Received.sol";
 import { EventEmitter } from "./events/Emitter.sol";
+import { GuardEvent } from "./events/Guard.sol";
+import { GuardianEvent } from "./events/Guardian.sol";
 import { IntroductionEvent } from "./events/Introduction.sol";
+import { NodeEvent } from "./events/Node.sol";
 import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
 import { RootedEvent } from "./events/Rooted.sol";

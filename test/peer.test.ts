@@ -127,9 +127,9 @@ describe("Peer Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
-    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
+    it("reverts AccessDenied for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeAmountBlock(asset, meta, 123n)))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor when request is empty", async () => {
@@ -175,9 +175,9 @@ describe("Peer Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
-    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
+    it("reverts AccessDenied for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeBalanceBlock(asset, meta, 123n)))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor when request is empty", async () => {
@@ -218,9 +218,9 @@ describe("Peer Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts UnauthorizedCaller for an untrusted caller", async () => {
+    it("reverts AccessDenied for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeTxBlock(from_, to_, asset, meta, 123n)))
-        .to.be.revertedWithCustomError(host, "UnauthorizedCaller");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts ZeroCursor when request is empty", async () => {

@@ -13,7 +13,7 @@ pragma solidity ^0.8.33;
 //   - returns matching BALANCE blocks as the response
 
 import { Host } from "../contracts/Core.sol";
-import { DebitAccount } from "../contracts/Commands.sol";
+import { DebitAccount } from "../contracts/Endpoints.sol";
 import { Assets } from "../contracts/Utils.sol";
 
 contract ExampleHost is Host, DebitAccount {

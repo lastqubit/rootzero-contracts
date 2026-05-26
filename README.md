@@ -9,8 +9,7 @@ It contains the reusable contracts, utilities, cursor parsers, and encoding help
 Most consumers should start from the package root entry points:
 
 - `@rootzero/contracts/Core.sol` — host, access control, balances, and validator building blocks
-- `@rootzero/contracts/Commands.sol` — command and peer base contracts plus all standard command mixins
-- `@rootzero/contracts/Queries.sol` — query base contracts plus standard query mixins
+- `@rootzero/contracts/Endpoints.sol` — command, peer, guard, and query base contracts plus standard endpoint mixins
 - `@rootzero/contracts/Cursors.sol` — cursor reader (`Cur`), block schemas, key constants, typed block helpers, and writers
 - `@rootzero/contracts/Utils.sol` — IDs, assets, accounts, layout, and value helpers
 - `@rootzero/contracts/Events.sol` — reusable event emitters and event contracts
@@ -66,7 +65,7 @@ Extend `CommandBase` to define a command mixin that runs inside the protocol's t
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "@rootzero/contracts/Commands.sol";
+import { CommandBase, CommandContext, Keys } from "@rootzero/contracts/Endpoints.sol";
 import { Cursors, Cur, Schemas, Writer, Writers } from "@rootzero/contracts/Cursors.sol";
 
 using Cursors for Cur;

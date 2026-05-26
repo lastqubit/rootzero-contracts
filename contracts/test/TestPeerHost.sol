@@ -45,7 +45,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
     function getPeerBalancePullId() external view returns (uint) { return peerBalancePullId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
     function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
-    function getAdminAccount() external view returns (bytes32) { return adminAccount; }
+    function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 
 

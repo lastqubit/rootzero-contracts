@@ -47,7 +47,7 @@ export function pad32(value: bigint | string): string {
   return ethers.zeroPadValue(value, 32);
 }
 
-const USER_PREFIX = 0x20010102n;
+const USER_PREFIX = 0x20010103n;
 
 export function encodeUserAccount(addr: string): string {
   const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
@@ -180,6 +180,7 @@ export function concat(...parts: string[]): string {
 // Command args suffix appended when computing command selectors
 const COMMAND_ARGS = "((bytes32,bytes,bytes))";
 const PEER_ARGS = "(bytes)";
+const GUARD_ARGS = "(bytes)";
 
 export function commandSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + COMMAND_ARGS), 0, 4);
@@ -187,5 +188,9 @@ export function commandSelector(name: string): string {
 
 export function peerSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + PEER_ARGS), 0, 4);
+}
+
+export function guardSelector(name: string): string {
+  return ethers.dataSlice(ethers.id(name + GUARD_ARGS), 0, 4);
 }
 

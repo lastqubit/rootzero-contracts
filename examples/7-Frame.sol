@@ -19,7 +19,7 @@ pragma solidity ^0.8.33;
 // uses the same `Keys.Data` runtime key.
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, CommandContext, Keys} from "../contracts/Commands.sol";
+import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
 import {Cursors, Cur, Keys, Schemas} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -44,7 +44,7 @@ abstract contract MyCommand is CommandBase {
         emit Command(host, myCommandId, NAME, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
     }
 
-    function myCommand(CommandContext calldata c) external onlyTrusted returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         (Cur memory request, ) = cursor(c.request, 1);
 
         // The request can batch multiple DATA blocks. Each one is decoded
