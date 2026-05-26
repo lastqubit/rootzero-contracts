@@ -20,7 +20,6 @@ import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
 import { RootedEvent } from "./events/Rooted.sol";
 import { SpentEvent } from "./events/Spent.sol";
-import { SwapEvent } from "./events/Swap.sol";
 
 
 

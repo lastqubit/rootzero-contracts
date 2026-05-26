@@ -3,10 +3,10 @@ pragma solidity ^0.8.33;
 
 /// @notice Standard context codes for generic asset activity events.
 library Contexts {
-    uint constant Swap = 1;
-    uint constant Deposit = 2;
-    uint constant Withdraw = 3;
-    uint constant Fee = 4;
-    uint constant Mint = 5;
-    uint constant Burn = 6;
+    uint constant Deposit = 1;
+    uint constant Withdraw = 2;
+    uint constant Fee = 3;
+    uint constant Mint = 4;
+    uint constant Burn = 5;
+    uint constant Swap = 6;
 }
