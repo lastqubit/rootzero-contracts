@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids, Selectors } from "../utils/Ids.sol";
+import { encodeGuardCall } from "../guards/Base.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, isLocalChain, isLocalFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { Budget, Values } from "../utils/Value.sol";
 import { Payable } from "../core/Payable.sol";
@@ -207,6 +208,10 @@ contract TestUtils is Payable {
 
     function testEnsureGuard(uint id) external pure returns (uint) {
         return Ids.guard(id);
+    }
+
+    function testEncodeGuardCall(uint target, bytes calldata request) external pure returns (bytes memory) {
+        return encodeGuardCall(target, request);
     }
 
     function testApplyBps(uint amount, uint16 bps) external pure returns (uint) {
