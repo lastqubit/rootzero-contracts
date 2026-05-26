@@ -43,8 +43,8 @@ library Keys {
     bytes4 constant Call = bytes4(keccak256("#call"));
     /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
     bytes4 constant Context = bytes4(keccak256("#context"));
-    /// @dev Pipeline relay - (uint target, uint value, #context)
-    bytes4 constant Relay = bytes4(keccak256("#relay"));
+    /// @dev Pipeline invocation - (uint value, #context)
+    bytes4 constant Pipe = bytes4(keccak256("#pipe"));
     /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256("#auth"));
     /// @dev Asset descriptor without amount - (bytes32 asset, bytes32 meta)
@@ -54,7 +54,7 @@ library Keys {
     /// @dev Relayer bounty - (uint amount, bytes32 relayer)
     bytes4 constant Bounty = bytes4(keccak256("#bounty"));
 
-    /// @dev Structural status form - (bool ok)
+    /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));
     /// @dev Structural asset amount form - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant AssetAmount = bytes4(keccak256("#assetAmount"));

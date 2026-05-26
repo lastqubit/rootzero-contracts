@@ -3,11 +3,11 @@ pragma solidity ^0.8.33;
 
 import { EventEmitter } from "./Emitter.sol";
 
-string constant ABI =
-    "event Command(uint indexed host, uint id, string name, bytes32 shape, string request, bytes4 state, bytes4 output, bool acceptsValue)";
-
 /// @notice Emitted once per command during host deployment to publish its request schema and state keys.
 abstract contract CommandEvent is EventEmitter {
+    string private constant ABI =
+        "event Command(uint indexed host, uint id, string name, bytes32 shape, string request, bytes4 state, bytes4 output, bool acceptsValue)";
+
     /// @param host Host node ID that owns this command.
     /// @param id Command node ID.
     /// @param name Human-readable command name.

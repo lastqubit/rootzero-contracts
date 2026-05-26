@@ -8,38 +8,38 @@ import {QueryBase} from "./Base.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-abstract contract IsAllowedAssetHook {
-    /// @notice Resolve whether one asset tuple is allowed.
-    /// Concrete implementations define the allowlist policy.
+abstract contract AssetStatusHook {
+    /// @notice Resolve support status for one asset tuple.
+    /// Concrete implementations define the support policy and optional context codes.
     /// @param asset Requested asset identifier.
     /// @param meta Requested asset metadata slot.
-    /// @return allowed Whether the asset tuple is allowed.
-    function isAllowedAsset(bytes32 asset, bytes32 meta) internal view virtual returns (bool allowed);
+    /// @return status Asset support status. Zero means unsupported; nonzero means supported.
+    function assetStatus(bytes32 asset, bytes32 meta) internal view virtual returns (uint status);
 }
 
-/// @title IsAllowedAsset
-/// @notice Rootzero query that checks whether one or more `(asset, meta)` tuples are allowed.
+/// @title AssetStatus
+/// @notice Rootzero query that checks support status for one or more `(asset, meta)` tuples.
 /// The request is a run of `ASSET` blocks.
 /// The response returns one `STATUS` form block per query entry, preserving request order.
-abstract contract IsAllowedAsset is QueryBase, IsAllowedAssetHook {
-    string private constant NAME = "isAllowedAsset";
-    uint public immutable isAllowedAssetId = queryId(NAME);
+abstract contract AssetStatus is QueryBase, AssetStatusHook {
+    string private constant NAME = "assetStatus";
+    uint public immutable assetStatusId = queryId(NAME);
 
     constructor() {
-        emit Query(host, isAllowedAssetId, NAME, "1:1", Schemas.Asset, Forms.Status);
+        emit Query(host, assetStatusId, NAME, "1:1", Schemas.Asset, Forms.Status);
     }
 
-    /// @notice Resolve allowlist status for a run of requested `(asset, meta)` tuples.
+    /// @notice Resolve asset support status for a run of requested `(asset, meta)` tuples.
     /// @param request Block-stream request consisting of `#asset { bytes32 asset, bytes32 meta }` blocks.
-    /// @return Block-stream response containing one `#status { bool ok }` per asset block.
-    function isAllowedAsset(bytes calldata request) external view returns (bytes memory) {
+    /// @return Block-stream response containing one `#status { uint code }` per asset block.
+    function assetStatus(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups) = cursor(request, 1);
         Writer memory response = Writers.allocStatuses(groups);
 
         while (query.i < query.bound) {
             (bytes32 asset, bytes32 meta) = query.unpackAsset();
-            bool allowed = isAllowedAsset(asset, meta);
-            response.appendStatus(allowed);
+            uint status = assetStatus(asset, meta);
+            response.appendStatus(status);
         }
 
         query.close();

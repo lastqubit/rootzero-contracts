@@ -7,21 +7,21 @@ import {
   pad32,
 } from "./helpers/blocks.js";
 
-describe("IsAllowedAsset", () => {
+describe("AssetStatus", () => {
   it("returns one status block for one asset query", async () => {
-    const query = await deploy("TestAllowedAssetQuery");
+    const query = await deploy("TestAssetStatusQuery");
     const asset = await query.allowedAssetId();
     const meta = await query.allowedMeta();
 
-    const result: string = await query["isAllowedAsset(bytes)"].staticCall(
+    const result: string = await query["assetStatus(bytes)"].staticCall(
       encodeAssetBlock(asset, meta),
     );
 
-    expect(result).to.equal(encodeStatusBlock(true));
+    expect(result).to.equal(encodeStatusBlock(1n));
   });
 
-  it("maps multiple asset blocks into matching allowed flags in order", async () => {
-    const query = await deploy("TestAllowedAssetQuery");
+  it("maps multiple asset blocks into matching status codes in order", async () => {
+    const query = await deploy("TestAssetStatusQuery");
     const asset = await query.allowedAssetId();
     const meta = await query.allowedMeta();
     const otherAsset = pad32(0xDEADn);
@@ -32,11 +32,11 @@ describe("IsAllowedAsset", () => {
       encodeAssetBlock(otherAsset, otherMeta),
     );
 
-    const result: string = await query["isAllowedAsset(bytes)"].staticCall(request);
+    const result: string = await query["assetStatus(bytes)"].staticCall(request);
 
     expect(result).to.equal(concat(
-      encodeStatusBlock(true),
-      encodeStatusBlock(false),
+      encodeStatusBlock(1n),
+      encodeStatusBlock(0n),
     ));
   });
 });

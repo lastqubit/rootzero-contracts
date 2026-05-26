@@ -6,6 +6,7 @@ import {Authorize} from "../commands/admin/Authorize.sol";
 import {Unauthorize} from "../commands/admin/Unauthorize.sol";
 import {ExecutePayable} from "../commands/admin/Execute.sol";
 import {IntroductionEvent} from "../events/Introduction.sol";
+import {Ids} from "../utils/Ids.sol";
 
 /// @title IHostIntroduction
 /// @notice Interface implemented by hosts that accept introductions from other hosts.
@@ -35,13 +36,13 @@ abstract contract Host is Authorize, Unauthorize, ExecutePayable, IntroductionEv
     }
 
     /// @notice Record a host introduction claim.
-    /// @dev This event is informational only; it does not authorize or trust the introduced host.
+    /// @dev Validates that `peer` matches `msg.sender`; it does not authorize or trust the introduced host.
     /// @param peer Host node ID being introduced.
     /// @param blocknum Block number at which the host was deployed.
     /// @param version Protocol version the host implements.
     /// @param namespace Human-readable namespace string for the host.
     function introduce(uint peer, uint blocknum, uint16 version, string calldata namespace) external {
-        emit Introduction(peer, blocknum, version, namespace);
+        emit Introduction(Ids.matchHost(peer, msg.sender), blocknum, version, namespace);
     }
 
     /// @notice Accept native ETH transfers (e.g. from command value flows).

@@ -3,10 +3,10 @@ pragma solidity ^0.8.33;
 
 import {EventEmitter} from "./Emitter.sol";
 
-string constant ABI = "event Query(uint indexed host, uint id, string name, bytes32 shape, string request, string response)";
-
 /// @notice Emitted once per query during host deployment to publish its request and response schemas.
 abstract contract QueryEvent is EventEmitter {
+    string private constant ABI = "event Query(uint indexed host, uint id, string name, bytes32 shape, string request, string response)";
+
     /// @param host Host node ID that owns this query.
     /// @param id Query node ID.
     /// @param name Human-readable query name.

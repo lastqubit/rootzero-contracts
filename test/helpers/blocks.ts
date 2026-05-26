@@ -20,7 +20,7 @@ export const Keys = {
   Step: blockKey("#step"),
   Call: blockKey("#call"),
   Context: blockKey("#context"),
-  Relay: blockKey("#relay"),
+  Pipe: blockKey("#pipe"),
   Transaction: blockKey("#transaction"),
   Minimum: blockKey("#minimum"),
   Maximum: blockKey("#maximum"),
@@ -133,8 +133,8 @@ export function encodeContextBlock(account: string, state: string, request: stri
   return block(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
 }
 
-export function encodeRelayBlock(target: bigint, value: bigint, account: string, state: string, request: string): string {
-  return block(Keys.Relay, ethers.concat([pad32(target), pad32(value), encodeContextBlock(account, state, request)]));
+export function encodePipeBlock(value: bigint, account: string, state: string, request: string): string {
+  return block(Keys.Pipe, ethers.concat([pad32(value), encodeContextBlock(account, state, request)]));
 }
 
 export function encodeBytesBlock(data: string): string {
@@ -149,8 +149,8 @@ export function encodeEvmBlock(data: string): string {
   return block(Keys.Evm, data);
 }
 
-export function encodeStatusBlock(ok: boolean): string {
-  return block(Keys.Status, ok ? "0x01" : "0x00");
+export function encodeStatusBlock(code: bigint): string {
+  return block(Keys.Status, pad32(code));
 }
 
 export function encodeListBlock(...members: string[]): string {

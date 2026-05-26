@@ -27,7 +27,7 @@ library Hints {
     uint constant Step = 256;
     uint constant Call = 256;
     uint constant Context = 512;
-    uint constant Relay = 640;
+    uint constant Pipe = 608;
 }
 
 /// @title Writers
@@ -224,12 +224,12 @@ library Writers {
         return allocFromHint(count, Hints.Context);
     }
 
-    /// @notice Allocate a writer for `count` RELAY blocks using a per-block capacity hint.
-    /// @dev The backing buffer expands automatically if encoded relays exceed the initial hint.
-    /// @param count Number of relay blocks to allocate space for.
+    /// @notice Allocate a writer for `count` PIPE blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded pipes exceed the initial hint.
+    /// @param count Number of pipe blocks to allocate space for.
     /// @return writer Allocated growable writer.
-    function allocRelays(uint count) internal pure returns (Writer memory writer) {
-        return allocFromHint(count, Hints.Relay);
+    function allocPipes(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.Pipe);
     }
 
     // -------------------------------------------------------------------------
@@ -889,40 +889,37 @@ library Writers {
         appendBlock32BytesBytes(writer, Keys.Context, account, state, request);
     }
 
-    /// @notice Append a RELAY block with a nested CONTEXT block.
-    /// @param writer Destination writer; `i` is advanced by the encoded RELAY block length.
-    /// @param target Command target identifier.
-    /// @param value Native value assigned to the relay.
+    /// @notice Append a PIPE block with a nested CONTEXT block.
+    /// @param writer Destination writer; `i` is advanced by the encoded PIPE block length.
+    /// @param value Native value assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Raw nested state payload.
     /// @param request Raw nested request payload.
-    function appendRelay(
+    function appendPipe(
         Writer memory writer,
-        uint target,
         uint value,
         bytes32 account,
         bytes memory state,
         bytes memory request
     ) internal pure {
         uint i = writer.i;
-        uint len = 96 + 3 * Sizes.Header + state.length + request.length;
+        uint len = 64 + 3 * Sizes.Header + state.length + request.length;
         uint next = i + Sizes.Header + len;
         i = reserve(writer, next, next);
 
-        uint p = writeHeader(writer.dst, i, Keys.Relay, uint32(max32(len)));
+        uint p = writeHeader(writer.dst, i, Keys.Pipe, uint32(max32(len)));
         assembly ("memory-safe") {
-            mstore(add(p, 0x08), target)
-            mstore(add(p, 0x28), value)
+            mstore(add(p, 0x08), value)
         }
 
-        writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 64, Keys.Context, account, state, request);
+        writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 32, Keys.Context, account, state, request);
     }
 
     /// @notice Append a STATUS form block.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Status`.
-    /// @param ok Status value to encode.
-    function appendStatus(Writer memory writer, bool ok) internal pure {
-        appendBlock32(writer, Keys.Status, ok ? bytes32(uint(1) << 248) : bytes32(0), 1);
+    /// @param code Status code to encode.
+    function appendStatus(Writer memory writer, uint code) internal pure {
+        appendBlock32(writer, Keys.Status, bytes32(code), 32);
     }
 
     /// @notice Append a BALANCE block using separate field values.

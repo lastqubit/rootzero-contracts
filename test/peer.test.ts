@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
-  encodeRelayBlock,
+  encodePipeBlock,
   encodeAmountBlock,
   encodeBalanceBlock,
   encodeNodeBlock,
@@ -60,7 +60,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerPipePayableId(),
         "peerPipePayable",
         ethers.encodeBytes32String("1:0"),
-        "#relay { uint target, uint value, #context { bytes32 account, #bytes as state, #bytes as request } }",
+        "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }",
         "",
         true,
       );
@@ -233,9 +233,9 @@ describe("Peer Entrypoints", () => {
     const method = "peerPipePayable(bytes)";
     const account = encodeUserAccount("0x44");
 
-    it("unpacks RELAY blocks and dispatches nested context request as pipe steps", async () => {
+    it("unpacks PIPE blocks and dispatches nested context request as pipe steps", async () => {
       const step = encodeStepBlock(123n, 0n, "0xabcd");
-      const request = encodeRelayBlock(999n, 0n, account, "0x", step);
+      const request = encodePipeBlock(0n, account, "0x", step);
       const startCount = await host.stepCount();
 
       const tx = await callAs(1, method, request);
@@ -243,9 +243,9 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 0n);
     });
 
-    it("allocates independent value sub-budgets across multiple relays", async () => {
-      const first = encodeRelayBlock(999n, 2n, account, "0x", encodeStepBlock(111n, 2n, "0x"));
-      const second = encodeRelayBlock(888n, 3n, account, "0x", encodeStepBlock(222n, 3n, "0x"));
+    it("allocates independent value sub-budgets across multiple pipes", async () => {
+      const first = encodePipeBlock(2n, account, "0x", encodeStepBlock(111n, 2n, "0x"));
+      const second = encodePipeBlock(3n, account, "0x", encodeStepBlock(222n, 3n, "0x"));
       const startCount = await host.stepCount();
 
       const tx = await callAs(1, method, concat(first, second), { value: 5n });
@@ -254,31 +254,31 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(222n, startCount + 1n, 3n);
     });
 
-    it("reverts UnexpectedState when a relay context leaves final state", async () => {
+    it("reverts UnexpectedState when a pipe context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), ethers.ZeroHash, 77n);
-      const request = encodeRelayBlock(0n, 0n, account, state, encodeStepBlock(0n, 0n, "0x"));
+      const request = encodePipeBlock(0n, account, state, encodeStepBlock(0n, 0n, "0x"));
       const signer = await getSigner(1);
 
       await expect((host.connect(signer) as any)[method].staticCall(request))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
-    it("reverts InsufficientValue when a relay step requests more than its value", async () => {
-      const request = encodeRelayBlock(0n, 0n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("reverts InsufficientValue when a pipe step requests more than its value", async () => {
+      const request = encodePipeBlock(0n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
 
       await expect(callAs(1, method, request, { value: 2n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("reverts UnusedValue when a relay sub-budget is not fully spent", async () => {
-      const request = encodeRelayBlock(0n, 2n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("reverts UnusedValue when a pipe sub-budget is not fully spent", async () => {
+      const request = encodePipeBlock(2n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
 
       await expect(callAs(1, method, request, { value: 2n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
     });
 
-    it("keeps top-level value that is not allocated to relays", async () => {
-      const request = encodeRelayBlock(0n, 1n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("keeps top-level value that is not allocated to pipes", async () => {
+      const request = encodePipeBlock(1n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
       const provider = await getProvider();
       const hostAddress = await host.getAddress();
 
