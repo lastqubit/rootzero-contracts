@@ -149,8 +149,8 @@ export function encodeEvmBlock(data: string): string {
   return block(Keys.Evm, data);
 }
 
-export function encodeStatusBlock(ok: boolean): string {
-  return block(Keys.Status, ok ? "0x01" : "0x00");
+export function encodeStatusBlock(code: bigint): string {
+  return block(Keys.Status, pad32(code));
 }
 
 export function encodeListBlock(...members: string[]): string {

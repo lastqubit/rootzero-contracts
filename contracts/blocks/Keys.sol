@@ -54,7 +54,7 @@ library Keys {
     /// @dev Relayer bounty - (uint amount, bytes32 relayer)
     bytes4 constant Bounty = bytes4(keccak256("#bounty"));
 
-    /// @dev Structural status form - (bool ok)
+    /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));
     /// @dev Structural asset amount form - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant AssetAmount = bytes4(keccak256("#assetAmount"));

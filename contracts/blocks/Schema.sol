@@ -76,7 +76,7 @@ library Schemas {
 /// @notice Reusable structural block schemas for core tuple shapes.
 /// These describe payload form without assigning command or query semantics.
 library Forms {
-    string constant Status = "#status { bool ok }";
+    string constant Status = "#status { uint code }";
     string constant AssetAmount = "#assetAmount { bytes32 asset, bytes32 meta, uint amount }";
     string constant AccountAsset = "#accountAsset { bytes32 account, bytes32 asset, bytes32 meta }";
     string constant AccountAmount = "#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
@@ -107,8 +107,8 @@ library Sizes {
     uint constant Proof = 85;
     /// @dev AUTH block: 8 header + 32 cid + 32 deadline + nested BYTES block with 85-byte proof = 165 bytes
     uint constant Auth = B64 + Header + Proof;
-    /// @dev STATUS block: 8 header + 1 bool byte = 9 bytes
-    uint constant Status = Header + 1;
+    /// @dev STATUS block: 8 header + 32 status code = 40 bytes
+    uint constant Status = B32;
     /// @dev AMOUNT block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Amount = B96;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes

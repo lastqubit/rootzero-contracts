@@ -920,9 +920,9 @@ library Writers {
 
     /// @notice Append a STATUS form block.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Status`.
-    /// @param ok Status value to encode.
-    function appendStatus(Writer memory writer, bool ok) internal pure {
-        appendBlock32(writer, Keys.Status, ok ? bytes32(uint(1) << 248) : bytes32(0), 1);
+    /// @param code Status code to encode.
+    function appendStatus(Writer memory writer, uint code) internal pure {
+        appendBlock32(writer, Keys.Status, bytes32(code), 32);
     }
 
     /// @notice Append a BALANCE block using separate field values.
