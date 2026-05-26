@@ -40,15 +40,14 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testWriteRelayBlock(
-        uint target,
+    function testWritePipeBlock(
         uint value,
         bytes32 account,
         bytes memory state,
         bytes memory request
     ) external pure returns (bytes memory) {
-        Writer memory w = Writers.allocRelays(1);
-        w.appendRelay(target, value, account, state, request);
+        Writer memory w = Writers.allocPipes(1);
+        w.appendPipe(value, account, state, request);
         return w.finish();
     }
 
@@ -304,14 +303,14 @@ contract TestCursorHelper {
         return (account, state, request, cur.i);
     }
 
-    function testUnpackRelay(bytes calldata source)
+    function testUnpackPipe(bytes calldata source)
         external
         pure
-        returns (uint target, uint value, bytes32 account, bytes calldata state, bytes calldata request, uint i)
+        returns (uint value, bytes32 account, bytes calldata state, bytes calldata request, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (target, value, account, state, request) = cur.unpackRelay();
-        return (target, value, account, state, request, cur.i);
+        (value, account, state, request) = cur.unpackPipe();
+        return (value, account, state, request, cur.i);
     }
 
     function testRequireAmount(

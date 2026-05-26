@@ -9,7 +9,7 @@ import {
   encodeAssetBlock,
   encodeBalanceBlock,
   encodeBountyBlock,
-  encodeRelayBlock,
+  encodePipeBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeFeeBlock,
@@ -87,12 +87,12 @@ describe("Cursors", () => {
       expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, meta, amount]);
     });
 
-    it("writeRelayBlock matches the canonical relay encoding", async () => {
+    it("writePipeBlock matches the canonical pipe encoding", async () => {
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, meta, amount);
       const request = encodeAmountBlock(asset, meta, 7n);
-      const data: string = await helper.testWriteRelayBlock(123n, 55n, account, state, request);
-      expect(data).to.equal(encodeRelayBlock(123n, 55n, account, state, request));
+      const data: string = await helper.testWritePipeBlock(55n, account, state, request);
+      expect(data).to.equal(encodePipeBlock(55n, account, state, request));
     });
 
     it("toBalanceBlock returns a valid encoded BALANCE block", async () => {
@@ -401,18 +401,17 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
-    it("unpackRelay consumes target, value, and nested context bytes", async () => {
+    it("unpackPipe consumes value and nested context bytes", async () => {
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, meta, amount);
       const request = encodeAmountBlock(asset, meta, 7n);
-      const relay = encodeRelayBlock(123n, 55n, account, state, request);
-      const [target, value, outAccount, outState, outRequest, i] = await helper.testUnpackRelay(relay);
-      expect(target).to.equal(123n);
+      const pipe = encodePipeBlock(55n, account, state, request);
+      const [value, outAccount, outState, outRequest, i] = await helper.testUnpackPipe(pipe);
       expect(value).to.equal(55n);
       expect(outAccount).to.equal(account);
       expect(outState).to.equal(state);
       expect(outRequest).to.equal(request);
-      expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
+      expect(i).to.equal(BigInt(ethers.getBytes(pipe).length));
     });
 
     it("unpackFee returns the fee amount", async () => {

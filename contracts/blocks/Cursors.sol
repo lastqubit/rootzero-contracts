@@ -531,21 +531,19 @@ library Cursors {
         return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
     }
 
-    /// @notice Encode a RELAY block.
-    /// @param target Command target identifier.
-    /// @param value Native value assigned to the relay.
+    /// @notice Encode a PIPE block.
+    /// @param value Native value assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Embedded state block stream.
     /// @param request Embedded request block stream.
-    /// @return Encoded RELAY block bytes.
-    function toRelayBlock(
-        uint target,
+    /// @return Encoded PIPE block bytes.
+    function toPipeBlock(
         uint value,
         bytes32 account,
         bytes memory state,
         bytes memory request
     ) internal pure returns (bytes memory) {
-        return createBlock(Keys.Relay, bytes.concat(bytes32(target), bytes32(value), toContextBlock(account, state, request)));
+        return createBlock(Keys.Pipe, bytes.concat(bytes32(value), toContextBlock(account, state, request)));
     }
 
     // -------------------------------------------------------------------------
@@ -1112,18 +1110,16 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a RELAY block and return its target, value, and context fields.
+    /// @notice Consume a PIPE block and return its value and context fields.
     /// @param cur Cursor; advanced past the block.
-    /// @return target Destination command/node ID.
-    /// @return value Native value assigned to the relay.
+    /// @return value Native value assigned to the pipe.
     /// @return account Command account identifier.
     /// @return state Embedded state block stream.
     /// @return request Embedded request block stream.
-    function unpackRelay(
+    function unpackPipe(
         Cur memory cur
-    ) internal pure returns (uint target, uint value, bytes32 account, bytes calldata state, bytes calldata request) {
-        uint end = cur.enter(Keys.Relay, 64 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
-        target = uint(cur.read32());
+    ) internal pure returns (uint value, bytes32 account, bytes calldata state, bytes calldata request) {
+        uint end = cur.enter(Keys.Pipe, 32 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
         value = uint(cur.read32());
         (account, state, request) = cur.unpackContext();
         cur.exit(end);

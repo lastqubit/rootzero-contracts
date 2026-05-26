@@ -37,14 +37,13 @@ describe("Host Introduction", () => {
     expect(await host.getAddress()).to.not.equal(ethers.ZeroAddress);
   });
 
-  it("introduce accepts informational claims without validating caller identity", async () => {
+  it("introduce rejects claims that do not match the caller address", async () => {
     const signer = await getSigner(0);
     const claimedHostId = 12345n;
 
     await expect(
       rootzero.connect(signer).introduce(claimedHostId, 0n, 1n, "test")
-    ).to.emit(rootzero, "Introduction")
-      .withArgs(claimedHostId, 0n, 1n, "test");
+    ).to.be.revertedWithCustomError(rootzero, "InvalidId");
   });
 
   it("introduce succeeds when id matches caller address", async () => {

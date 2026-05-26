@@ -17,6 +17,8 @@ import {matchesBase, toLocalBase} from "./Utils.sol";
 library Assets {
     /// @dev Thrown when an asset ID does not match the expected type or chain.
     error InvalidAsset();
+    /// @dev Thrown when an asset is not authorized for the requested operation.
+    error UnauthorizedAsset();
 
     /// @dev Full 4-byte type prefix for the native value asset.
     uint32 constant Value = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Value);

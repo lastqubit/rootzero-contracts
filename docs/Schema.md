@@ -58,7 +58,7 @@ Once a child block appears, no more fixed fields may follow.
 ```txt
 #call { uint target, uint value, #bytes as payload }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#relay { uint target, uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
+#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
 ```
 
 The tail is embedded directly as child block bytes. There is no wrapper around a
@@ -189,7 +189,7 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #call { uint target, uint value, #bytes as payload }
 #step { uint target, uint value, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#relay { uint target, uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
+#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
 #auth { uint cid, uint deadline, #bytes as proof }
 ```
 

@@ -60,7 +60,7 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant Relay = "#relay { uint target, uint value, #context { bytes32 account, #bytes as state, #bytes as request } }";
+    string constant Pipe = "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }";
     string constant Call = "#call { uint target, uint value, #bytes as payload }";
     string constant Step = "#step { uint target, uint value, #bytes as request }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
