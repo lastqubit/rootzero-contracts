@@ -12,6 +12,7 @@ abstract contract ReceivedEvent is EventEmitter {
     /// @param meta Asset metadata slot.
     /// @param amount Amount received.
     /// @param context Operation context identifier associated with this receipt.
+    /// The low 32 bits are the primary `Actions` hint; higher bits are reserved.
     event Received(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint context);
 
     constructor() {

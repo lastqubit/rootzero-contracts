@@ -7,6 +7,7 @@ import {Authorize} from "../commands/admin/Authorize.sol";
 import {Dismiss} from "../commands/admin/Dismiss.sol";
 import {Unauthorize} from "../commands/admin/Unauthorize.sol";
 import {ExecutePayable} from "../commands/admin/Execute.sol";
+import {Revoke} from "../guards/Revoke.sol";
 import {IntroductionEvent} from "../events/Introduction.sol";
 import {Ids} from "../utils/Ids.sol";
 
@@ -23,10 +24,11 @@ interface IHostIntroduction {
 
 /// @title Host
 /// @notice Abstract base contract for rootzero host implementations.
-/// Inherits admin command support (authorize, unauthorize, executePayable) and
+/// Inherits admin command support (authorize, unauthorize, executePayable),
+/// guardian management, the default guardian revoke action, and
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is Authorize, Unauthorize, Appoint, Dismiss, ExecutePayable, IntroductionEvent, IHostIntroduction {
+abstract contract Host is Authorize, Unauthorize, Revoke, Appoint, Dismiss, ExecutePayable, IntroductionEvent, IHostIntroduction {
     /// @param cmdr Commander address; passed to `AccessControl`.
     ///        If `cmdr` is a deployed contract, the host calls `introduce`
     ///        on it during construction.

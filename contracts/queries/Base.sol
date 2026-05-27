@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { RootZeroContext } from "../core/Context.sol";
+import { Runtime } from "../core/Runtime.sol";
 import { QueryEvent } from "../events/Query.sol";
 import { Ids, Selectors } from "../utils/Ids.sol";
 
@@ -20,7 +20,7 @@ function encodeQueryCall(uint target, bytes calldata request) pure returns (byte
 /// @notice Abstract base for rootzero query contracts.
 /// Queries are view-only entry points that consume a block-stream request and
 /// return a block-stream response.
-abstract contract QueryBase is RootZeroContext, QueryEvent {
+abstract contract QueryBase is Runtime, QueryEvent {
 
     /// @notice Derive the deterministic node ID for a named query on this contract.
     /// The ID encodes the ABI selector of `name(bytes)` and `address(this)`,
