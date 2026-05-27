@@ -193,12 +193,13 @@ describe("Peer Entrypoints", () => {
     const asset = ethers.zeroPadValue("0xaa", 32);
     const meta = ethers.zeroPadValue("0xbb", 32);
 
-    it("emits PeerSettleCalled for a single TX block", async () => {
+    it("emits settle events for both sides of a single TX block", async () => {
       const tx = await callAs(1, method, encodeTxBlock(from_, to_, asset, meta, 123n));
-      await expect(tx).to.emit(host, "PeerSettleCalled").withArgs(from_, to_, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerSettleFromCalled").withArgs(from_, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerSettleToCalled").withArgs(to_, asset, meta, 123n);
     });
 
-    it("emits PeerSettleCalled for each TX block when multiple are present", async () => {
+    it("emits settle events for each TX block when multiple are present", async () => {
       const from2 = encodeUserAccount("0x33");
       const tx = await callAs(
         1,
@@ -208,8 +209,40 @@ describe("Peer Entrypoints", () => {
           encodeTxBlock(from2, to_, asset, meta, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PeerSettleCalled").withArgs(from_, to_, asset, meta, 123n);
-      await expect(tx).to.emit(host, "PeerSettleCalled").withArgs(from2, to_, asset, meta, 456n);
+      await expect(tx).to.emit(host, "PeerSettleFromCalled").withArgs(from_, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerSettleToCalled").withArgs(to_, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerSettleFromCalled").withArgs(from2, asset, meta, 456n);
+      await expect(tx).to.emit(host, "PeerSettleToCalled").withArgs(to_, asset, meta, 456n);
+    });
+
+    it("skips the source hook when TX from is zero", async () => {
+      const tx = await callAs(1, method, encodeTxBlock(ethers.ZeroHash, to_, asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerSettleToCalled").withArgs(to_, asset, meta, 123n);
+
+      const receipt = await tx.wait();
+      const names = receipt?.logs.map((log) => {
+        try {
+          return host.interface.parseLog({ topics: log.topics as string[], data: log.data })?.name;
+        } catch {
+          return null;
+        }
+      });
+      expect(names).to.not.include("PeerSettleFromCalled");
+    });
+
+    it("skips the destination hook when TX to is zero", async () => {
+      const tx = await callAs(1, method, encodeTxBlock(from_, ethers.ZeroHash, asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerSettleFromCalled").withArgs(from_, asset, meta, 123n);
+
+      const receipt = await tx.wait();
+      const names = receipt?.logs.map((log) => {
+        try {
+          return host.interface.parseLog({ topics: log.topics as string[], data: log.data })?.name;
+        } catch {
+          return null;
+        }
+      });
+      expect(names).to.not.include("PeerSettleToCalled");
     });
 
     it("returns empty bytes after processing tx blocks", async () => {

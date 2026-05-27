@@ -4,9 +4,9 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
-import { Transfer } from "../commands/Transfer.sol";
 import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
+import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
@@ -14,7 +14,7 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
-import { HostAmount, Tx } from "../core/Types.sol";
+import { HostAmount } from "../core/Types.sol";
 import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
@@ -25,9 +25,9 @@ contract TestHost is
     Deposit,
     DepositPayable,
     Withdraw,
-    Transfer,
     CreditAccount,
     DebitAccount,
+    Payout,
     Provision,
     ProvisionPayable,
     Pipeline,
@@ -40,9 +40,9 @@ contract TestHost is
     event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
     event WithdrawCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event TransferCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
     event CreditToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
     event DebitFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
+    event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
     event InitCalled(bytes inputData);
@@ -74,16 +74,16 @@ contract TestHost is
         emit WithdrawCalled(account, asset, meta, amount);
     }
 
-    function transfer(Tx memory value) internal override {
-        emit TransferCalled(value.from, value.to, value.asset, value.meta, value.amount);
-    }
-
     function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit CreditToCalled(account, asset, meta, amount, amount);
     }
 
     function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DebitFromCalled(account, asset, meta, amount, amount);
+    }
+
+    function payout(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PayoutCalled(account, to, asset, meta, amount);
     }
 
     function provision(bytes32 account, HostAmount memory custody) internal override {
@@ -166,16 +166,16 @@ contract TestHost is
         return withdrawId;
     }
 
-    function getTransferId() external view returns (uint) {
-        return transferId;
-    }
-
     function getCreditAccountId() external view returns (uint) {
         return creditAccountId;
     }
 
     function getDebitAccountId() external view returns (uint) {
         return debitAccountId;
+    }
+
+    function getPayoutId() external view returns (uint) {
+        return payoutId;
     }
 
     function getProvisionId() external view returns (uint) {

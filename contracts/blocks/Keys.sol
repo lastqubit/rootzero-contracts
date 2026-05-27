@@ -33,8 +33,6 @@ library Keys {
     bytes4 constant Bytes = bytes4(keccak256("#bytes"));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("#account"));
-    /// @dev Transfer payout request - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Payout = bytes4(keccak256("#payout"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)

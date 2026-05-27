@@ -30,7 +30,7 @@ pragma solidity ^0.8.33;
 // - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
 // - commands must preserve, transform, settle, or intentionally consume pipeline state
-// - request blocks such as `amount(...)`, `allocation(...)`, `allowance(...)`, `payout(...)`,
+// - request blocks such as `amount(...)`, `allocation(...)`, `allowance(...)`,
 //   `minimum(...)`, and `maximum(...)` express intent, constraints, or references
 // - request and value/response blocks are not live state
 //
@@ -55,7 +55,6 @@ library Schemas {
     string constant Minimum = "#minimum { bytes32 asset, bytes32 meta, uint amount }";
     string constant Maximum = "#maximum { bytes32 asset, bytes32 meta, uint amount }";
     string constant Custody = "#custody { uint host, bytes32 asset, bytes32 meta, uint amount }";
-    string constant Payout = "#payout { bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
     string constant Allocation = "#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";

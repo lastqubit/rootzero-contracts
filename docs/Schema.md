@@ -185,7 +185,6 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #amount { bytes32 asset, bytes32 meta, uint amount }
 #balance { bytes32 asset, bytes32 meta, uint amount }
 #custody { uint host, bytes32 asset, bytes32 meta, uint amount }
-#payout { bytes32 account, bytes32 asset, bytes32 meta, uint amount }
 #call { uint target, uint value, #bytes as payload }
 #step { uint target, uint value, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }

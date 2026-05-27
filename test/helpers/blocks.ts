@@ -14,7 +14,6 @@ export const Keys = {
   Custody: blockKey("#custody"),
   Fee: blockKey("#fee"),
   Account: blockKey("#account"),
-  Payout: blockKey("#payout"),
   Node: blockKey("#node"),
   Asset: blockKey("#asset"),
   Step: blockKey("#step"),
@@ -79,10 +78,6 @@ export function encodeHostAccountAssetBlock(host: bigint, account: string, asset
 
 export function encodeAccountAssetBlock(account: string, asset: string, meta: string): string {
   return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
-}
-
-export function encodePayoutBlock(account: string, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Payout, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
 }
 
 export function encodeAccountAmountBlock(account: string, asset: string, meta: string, amount: bigint): string {

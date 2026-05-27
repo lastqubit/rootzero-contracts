@@ -953,25 +953,6 @@ library Cursors {
         (value.host, value.account, value.asset, value.meta) = unpackHostAccountAsset(cur, Keys.HostAccountAsset);
     }
 
-    /// @notice Consume a PAYOUT block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return account Account identifier.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Token amount.
-    function unpackPayout(
-        Cur memory cur
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAccountAmount(cur, Keys.Payout);
-    }
-
-    /// @notice Consume a PAYOUT block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded account, asset, meta, and amount.
-    function unpackPayoutValue(Cur memory cur) internal pure returns (AccountAmount memory value) {
-        (value.account, value.asset, value.meta, value.amount) = unpackAccountAmount(cur, Keys.Payout);
-    }
-
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return account Account identifier.

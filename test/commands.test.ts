@@ -5,7 +5,7 @@ import "./helpers/matchers.js";
 import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
-  encodeAccountBlock, encodePayoutBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
+  encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
   concat
 } from "./helpers/blocks.js";
 
@@ -150,15 +150,6 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, meta, 100n);
     });
 
-    it("uses ACCOUNT from request when present", async () => {
-      const recipient = encodeUserAccount("0xbabe");
-      const state = encodeBalanceBlock(asset, meta, 50n);
-      const request = encodeAccountBlock(recipient);
-      const tx = await callAs(0, "withdraw", ctx({ state, request }));
-      await expect(tx).to.emit(host, "WithdrawCalled")
-        .withArgs(recipient, asset, meta, 50n);
-    });
-
     it("reverts ZeroCursor for empty state", async () => {
       await expect(callAs(0, "withdraw", ctx()))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
@@ -188,49 +179,57 @@ describe("Commands", () => {
     });
   });
 
-  // ── Transfer ──────────────────────────────────────────────────────────────
+  describe("payout", () => {
+    const asset = ethers.zeroPadValue("0x28", 32);
+    const meta = ethers.ZeroHash;
 
-  describe("transfer", () => {
-    const asset = ethers.zeroPadValue("0x20", 32);
-    const meta  = ethers.ZeroHash;
+    it("emits PayoutCalled for paired BALANCE state and ACCOUNT request blocks", async () => {
+      const to = encodeUserAccount("0xd00d");
+      const state = encodeBalanceBlock(asset, meta, 250n);
+      const request = encodeAccountBlock(to);
+      const tx = await callAs(0, "payout", ctx({ state, request }));
 
-    it("emits TransferCalled for PAYOUT blocks", async () => {
-      const to = encodeUserAccount("0xbeef");
-      const request = encodePayoutBlock(to, asset, meta, 200n);
-      const tx = await callAs(0, "transfer", ctx({ request }));
-      await expect(tx).to.emit(host, "TransferCalled")
-        .withArgs(userAccount, to, asset, meta, 200n);
+      await expect(tx).to.emit(host, "PayoutCalled")
+        .withArgs(userAccount, to, asset, meta, 250n);
     });
 
-    it("reverts InvalidBlock when no PAYOUT blocks", async () => {
-      const to = encodeUserAccount("0xbeef");
-      const request = encodeAccountBlock(to);
-      await expect(callAs(0, "transfer", ctx({ request })))
+    it("pairs each BALANCE block with the matching ACCOUNT block", async () => {
+      const asset1 = ethers.zeroPadValue("0x29", 32);
+      const asset2 = ethers.zeroPadValue("0x2a", 32);
+      const to1 = encodeUserAccount("0xd001");
+      const to2 = encodeUserAccount("0xd002");
+      const state = concat(
+        encodeBalanceBlock(asset1, meta, 10n),
+        encodeBalanceBlock(asset2, meta, 20n),
+      );
+      const request = concat(
+        encodeAccountBlock(to1),
+        encodeAccountBlock(to2),
+      );
+      const tx = await callAs(0, "payout", ctx({ state, request }));
+
+      await expect(tx).to.emit(host, "PayoutCalled").withArgs(userAccount, to1, asset1, meta, 10n);
+      await expect(tx).to.emit(host, "PayoutCalled").withArgs(userAccount, to2, asset2, meta, 20n);
+    });
+
+    it("reverts BadRatio when request accounts do not match state balances", async () => {
+      const state = concat(
+        encodeBalanceBlock(asset, meta, 1n),
+        encodeBalanceBlock(asset, meta, 2n),
+      );
+      const request = encodeAccountBlock(encodeUserAccount("0xd003"));
+
+      await expect(callAs(0, "payout", ctx({ state, request })))
+        .to.be.revertedWithCustomError(host, "BadRatio");
+    });
+
+    it("reverts InvalidBlock when the paired request block is not an ACCOUNT", async () => {
+      const state = encodeBalanceBlock(asset, meta, 1n);
+      const request = encodeBalanceBlock(asset, meta, 1n);
+
+      await expect(callAs(0, "payout", ctx({ state, request })))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
-
-    it("reverts MalformedBlocks when a PAYOUT block is truncated", async () => {
-      const full = encodePayoutBlock(encodeUserAccount("0xbeef"), asset, meta, 1n);
-      const request = ethers.hexlify(ethers.getBytes(full).slice(0, -1));
-      await expect(callAs(0, "transfer", ctx({ request })))
-        .to.be.revertedWithCustomError(host, "MalformedBlocks");
-    });
-
-    it("emits TransferCalled for each PAYOUT block in a batch", async () => {
-      const asset1 = ethers.zeroPadValue("0x21", 32);
-      const asset2 = ethers.zeroPadValue("0x22", 32);
-      const meta   = ethers.ZeroHash;
-      const to1    = encodeUserAccount("0xbeef");
-      const to2    = encodeUserAccount("0xcafe");
-      const request = concat(
-        encodePayoutBlock(to1, asset1, meta, 100n),
-        encodePayoutBlock(to2, asset2, meta, 200n),
-      );
-      const tx = await callAs(0, "transfer", ctx({ request }));
-      await expect(tx).to.emit(host, "TransferCalled").withArgs(userAccount, to1, asset1, meta, 100n);
-      await expect(tx).to.emit(host, "TransferCalled").withArgs(userAccount, to2, asset2, meta, 200n);
-    });
-
   });
 
   // ── CreditTo ──────────────────────────────────────────────────────────────
@@ -242,16 +241,8 @@ describe("Commands", () => {
     it("emits CreditToCalled for BALANCE blocks in state", async () => {
       const state = encodeBalanceBlock(asset, meta, 300n);
       const tx = await callAs(0, "creditAccount", ctx({ state }));
-      await expect(tx).to.emit(host, "CreditToCalled");
-    });
-
-    it("uses ACCOUNT from request when present", async () => {
-      const recipient = encodeUserAccount("0xcafe");
-      const state = encodeBalanceBlock(asset, meta, 100n);
-      const request = encodeAccountBlock(recipient);
-      const tx = await callAs(0, "creditAccount", ctx({ state, request }));
       await expect(tx).to.emit(host, "CreditToCalled")
-        .withArgs(recipient, asset, meta, 100n, 100n);
+        .withArgs(userAccount, asset, meta, 300n, 300n);
     });
 
     it("reverts ZeroCursor for empty state", async () => {

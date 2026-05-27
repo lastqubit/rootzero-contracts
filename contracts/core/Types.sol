@@ -21,7 +21,7 @@ struct AccountAsset {
     bytes32 meta;
 }
 
-/// @notice Account-scoped amount shape used by payout blocks and query responses.
+/// @notice Account-scoped amount shape for requests, responses, and reporting.
 struct AccountAmount {
     /// @dev Account identifier.
     bytes32 account;

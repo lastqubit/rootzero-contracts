@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur, Schemas } from "../Cursors.sol";
+import { Cursors, Cur } from "../Cursors.sol";
 
 using Cursors for Cur;
 
@@ -19,26 +19,23 @@ abstract contract CreditAccountHook {
 /// @title CreditAccount
 /// @notice Command that delivers BALANCE state blocks to an account via a virtual hook.
 /// Use for internally recording credits that have already been settled externally.
-/// An optional ACCOUNT block in the request overrides the default `c.account` destination.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     string private constant NAME = "creditAccount";
-    string private constant REQUEST = string.concat(Schemas.Unit, ", maybe ", Schemas.Account);
 
     uint internal immutable creditAccountId = commandId(NAME);
 
     constructor() {
-        emit Command(host, creditAccountId, NAME, "0:1:0", REQUEST, Keys.Balance, Keys.Empty, false);
+        emit Command(host, creditAccountId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false);
     }
 
     function creditAccount(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
         (Cur memory state, ) = cursor(c.state, 1);
-        bytes32 to = Cursors.resolveAccount(c.request, c.account);
 
         while (state.i < state.bound) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            creditAccount(to, asset, meta, amount);
+            creditAccount(c.account, asset, meta, amount);
         }
 
         state.close();
