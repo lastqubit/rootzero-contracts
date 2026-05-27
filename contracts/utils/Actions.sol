@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 library Actions {
+    uint32 constant None = 0;
     uint32 constant Transfer = 1;
     uint32 constant Deposit = 2;
     uint32 constant Withdraw = 3;
