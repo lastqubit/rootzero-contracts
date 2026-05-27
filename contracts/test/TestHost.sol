@@ -14,7 +14,6 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
 import { Init } from "../commands/admin/Init.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
-import { Revoke } from "../guards/Revoke.sol";
 import { HostAmount, Tx } from "../core/Types.sol";
 import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
@@ -36,8 +35,7 @@ contract TestHost is
     Destroy,
     AllowAssets,
     DenyAssets,
-    Allowance,
-    Revoke
+    Allowance
 {
     event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);

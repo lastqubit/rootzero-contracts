@@ -12,6 +12,7 @@ abstract contract SpentEvent is EventEmitter {
     /// @param meta Asset metadata slot.
     /// @param amount Amount spent.
     /// @param context Operation context identifier associated with this spend.
+    /// The low 32 bits are the primary `Actions` hint; higher bits are reserved.
     event Spent(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint context);
 
     constructor() {

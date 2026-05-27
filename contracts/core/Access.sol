@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {NodeEvent} from "../events/Node.sol";
 import {GuardianEvent} from "../events/Guardian.sol";
-import {RootZeroContext} from "./Context.sol";
+import {Runtime} from "./Runtime.sol";
 import {Accounts} from "../utils/Accounts.sol";
 import {Ids} from "../utils/Ids.sol";
 import {addrOr} from "../utils/Utils.sol";
@@ -14,7 +14,7 @@ import {addrOr} from "../utils/Utils.sol";
 /// mapping of externally trusted node IDs. Inbound trust is host-based:
 /// trusted hosts, the commander, and this contract itself may interact
 /// with the host through the guarded command and peer entrypoints.
-abstract contract AccessControl is RootZeroContext, NodeEvent, GuardianEvent {
+abstract contract AccessControl is Runtime, NodeEvent, GuardianEvent {
     /// @dev Trusted commander address. All calls from this address are implicitly trusted.
     /// Defaults to `address(this)` when no external commander is provided.
     address internal immutable commander;
