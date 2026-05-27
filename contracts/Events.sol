@@ -6,6 +6,7 @@ pragma solidity ^0.8.33;
 
 import { AdminEvent } from "./events/Admin.sol";
 import { AssetStatusEvent } from "./events/Asset.sol";
+import { Actions } from "./utils/Actions.sol";
 import { BalanceEvent } from "./events/Balance.sol";
 import { CommandEvent } from "./events/Command.sol";
 import { PositionEvent } from "./events/Position.sol";
