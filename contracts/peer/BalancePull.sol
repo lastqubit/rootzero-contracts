@@ -29,7 +29,7 @@ abstract contract PeerBalancePull is PeerBase, BalancePullHook {
 
     /// @notice Execute the balance-pull peer call.
     function peerBalancePull(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(request, 0, 1);
+        (Cur memory input, ) = Cursors.first(request, 1);
         uint peer = caller();
 
         while (input.i < input.len) {

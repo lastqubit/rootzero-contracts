@@ -30,7 +30,7 @@ abstract contract MyCommand is CommandBase {
     ) external onlyCommand returns (bytes memory) {
         // Create the request cursor from CommandContext.request, then size
         // the writer from the group count returned by the cursor helper.
-        (Cur memory inputs, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory inputs, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         // Walk every AMOUNT block in the current request run.

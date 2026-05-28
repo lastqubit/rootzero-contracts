@@ -42,7 +42,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     }
 
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
 
         while (request.i < request.len) {
@@ -72,7 +72,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
         Budget memory budget = valueBudget();
 

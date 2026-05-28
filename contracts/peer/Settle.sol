@@ -21,7 +21,7 @@ abstract contract PeerSettle is PeerBase, DebitAccountHook, CreditAccountHook {
 
     /// @notice Execute the peer-settle call.
     function peerSettle(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory state, , ) = Cursors.init(request, 0, 1);
+        (Cur memory state, ) = Cursors.first(request, 1);
 
         while (state.i < state.len) {
             (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) = state.unpackTransaction();

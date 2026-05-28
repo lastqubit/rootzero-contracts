@@ -78,7 +78,11 @@ library Cursors {
     /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
     /// @return groups Number of block groups in the run (`block count / group`).
     /// @return next Byte offset immediately after the run, relative to `source`.
-    function init(bytes calldata source, uint i, uint group) internal pure returns (Cur memory cur, uint groups, uint next) {
+    function init(
+        bytes calldata source,
+        uint i,
+        uint group
+    ) internal pure returns (Cur memory cur, uint groups, uint next) {
         cur = open(source, i);
         if (cur.i == cur.len) revert ZeroCursor();
         (bytes4 key, ) = cur.peek(cur.i);
@@ -93,10 +97,35 @@ library Cursors {
     /// @param expectedGroups Required number of groups in the run.
     /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
     /// @return next Byte offset immediately after the run, relative to `source`.
-    function init(bytes calldata source, uint i, uint group, uint expectedGroups) internal pure returns (Cur memory cur, uint next) {
+    function init(
+        bytes calldata source,
+        uint i,
+        uint group,
+        uint expectedGroups
+    ) internal pure returns (Cur memory cur, uint next) {
         uint groups;
         (cur, groups, next) = init(source, i, group);
         if (groups != expectedGroups) revert BadRatio();
+    }
+
+    /// @notice Create a cursor over the first grouped run in `source`.
+    /// Equivalent to `init(source, 0, group)` without returning the next offset.
+    /// @param source Calldata slice that forms the block stream.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @return cur Cursor with `len` truncated to the end of the first run.
+    /// @return groups Number of block groups in the run (`block count / group`).
+    function first(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
+        (cur, groups, ) = init(source, 0, group);
+    }
+
+    /// @notice Create a cursor over the first grouped run in `source` and require an exact group count.
+    /// Equivalent to `init(source, 0, group, expectedGroups)` without returning the next offset.
+    /// @param source Calldata slice that forms the block stream.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @param expectedGroups Required number of groups in the run.
+    /// @return cur Cursor with `len` truncated to the end of the first run.
+    function first(bytes calldata source, uint group, uint expectedGroups) internal pure returns (Cur memory cur) {
+        (cur, ) = init(source, 0, group, expectedGroups);
     }
 
     /// @notice Move the cursor to an absolute position within the source region.
@@ -530,7 +559,11 @@ library Cursors {
     /// @param state Embedded state block stream.
     /// @param request Embedded request block stream.
     /// @return Encoded CONTEXT block bytes.
-    function toContextBlock(bytes32 account, bytes memory state, bytes memory request) internal pure returns (bytes memory) {
+    function toContextBlock(
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) internal pure returns (bytes memory) {
         return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
     }
 
@@ -1086,7 +1119,9 @@ library Cursors {
     /// @return account Command account identifier.
     /// @return state Embedded state block stream.
     /// @return request Embedded request block stream.
-    function unpackContext(Cur memory cur) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
+    function unpackContext(
+        Cur memory cur
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
         uint end = cur.enter(Keys.Context, 32 + 2 * Sizes.Header, 0);
         account = cur.read32();
         state = cur.unpackBytes();
@@ -1348,5 +1383,4 @@ library Cursors {
         (uint abs, ) = expect(cur, i, 0, Keys.Account, 32, 32);
         return bytes32(msg.data[abs:abs + 32]);
     }
-
 }

@@ -24,7 +24,7 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
     /// @dev Each pipe receives its own explicit value sub-budget. Any top-level
     ///      `msg.value` not assigned to a pipe remains on this host.
     function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(request, 0, 1);
+        (Cur memory input, ) = Cursors.first(request, 1);
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {

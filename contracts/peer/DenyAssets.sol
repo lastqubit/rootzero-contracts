@@ -20,7 +20,7 @@ abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook {
 
     /// @notice Execute the deny-assets peer call.
     function peerDenyAssets(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory assets, , ) = Cursors.init(request, 0, 1);
+        (Cur memory assets, ) = Cursors.first(request, 1);
 
         while (assets.i < assets.len) {
             (bytes32 asset, bytes32 meta) = assets.unpackAsset();
