@@ -37,7 +37,7 @@ import { PeerAllowance } from "./peer/Allowance.sol";
 import { PeerBalancePull, BalancePullHook } from "./peer/BalancePull.sol";
 import { PeerDenyAssets } from "./peer/DenyAssets.sol";
 import { PeerPipePayable } from "./peer/Pipe.sol";
-import { PeerSettle, PeerSettleHook } from "./peer/Settle.sol";
+import { PeerSettle } from "./peer/Settle.sol";
 
 // Guard endpoints
 import { GuardBase, encodeGuardCall } from "./guards/Base.sol";

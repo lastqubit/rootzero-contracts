@@ -74,6 +74,10 @@ contract TestUtils is Payable {
         return Accounts.isAccount(account);
     }
 
+    function testAny(bytes32 account) external pure returns (bytes32) {
+        return Accounts.any(account);
+    }
+
     function testToValueAsset() external view returns (bytes32) {
         return Assets.toValue();
     }

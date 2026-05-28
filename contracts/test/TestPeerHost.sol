@@ -10,8 +10,8 @@ import { PeerSettle } from "../peer/Settle.sol";
 contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
-    event PeerSettleFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event PeerSettleToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event PeerCreditAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
@@ -26,12 +26,12 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerBalancePullCalled(peer, asset, meta, amount);
     }
 
-    function settleFrom(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit PeerSettleFromCalled(account, asset, meta, amount);
+    function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PeerDebitAccountCalled(account, asset, meta, amount);
     }
 
-    function settleTo(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit PeerSettleToCalled(account, asset, meta, amount);
+    function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PeerCreditAccountCalled(account, asset, meta, amount);
     }
 
     function dispatch(

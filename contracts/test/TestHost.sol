@@ -9,6 +9,7 @@ import { DebitAccount } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { Pipeline } from "../core/Pipeline.sol";
+import { PeerSettle } from "../peer/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
@@ -31,6 +32,7 @@ contract TestHost is
     Provision,
     ProvisionPayable,
     Pipeline,
+    PeerSettle,
     Init,
     Destroy,
     AllowAssets,
@@ -176,6 +178,10 @@ contract TestHost is
 
     function getPayoutId() external view returns (uint) {
         return payoutId;
+    }
+
+    function getPeerSettleId() external view returns (uint) {
+        return peerSettleId;
     }
 
     function getProvisionId() external view returns (uint) {
