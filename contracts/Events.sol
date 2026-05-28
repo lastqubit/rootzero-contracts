@@ -21,6 +21,7 @@ import { PeerEvent } from "./events/Peer.sol";
 import { QueryEvent } from "./events/Query.sol";
 import { RootedEvent } from "./events/Rooted.sol";
 import { SpentEvent } from "./events/Spent.sol";
+import { TransferEvent } from "./events/Transfer.sol";
 import { UnlockedEvent } from "./events/Unlocked.sol";
 
 
