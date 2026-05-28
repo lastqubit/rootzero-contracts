@@ -26,20 +26,20 @@ abstract contract Payout is CommandBase, PayoutHook {
     uint internal immutable payoutId = commandId(NAME);
 
     constructor() {
-        emit Command(host, payoutId, NAME, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false);
+        emit Command(host, payoutId, NAME, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false, false);
     }
 
     function payout(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory state, uint groups) = cursor(c.state, 1);
-        Cur memory request = cursor(c.request, 1, groups);
+        (Cur memory state, uint groups, ) = Cursors.init(c.state, 0, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 0, 1, groups);
 
-        while (state.i < state.bound) {
+        while (state.i < state.len) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
             bytes32 to = request.unpackAccount();
             payout(c.account, to, asset, meta, amount);
         }
 
-        state.close();
+        state.complete();
         return "";
     }
 }

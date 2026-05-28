@@ -20,14 +20,14 @@ abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook {
 
     /// @notice Execute the allow-assets peer call.
     function peerAllowAssets(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory assets, ) = cursor(request, 1);
+        (Cur memory assets, , ) = Cursors.init(request, 0, 1);
 
-        while (assets.i < assets.bound) {
+        while (assets.i < assets.len) {
             (bytes32 asset, bytes32 meta) = assets.unpackAsset();
             allowAsset(asset, meta);
         }
 
-        assets.close();
+        assets.complete();
         return "";
     }
 }

@@ -29,7 +29,7 @@ abstract contract MyCommand is CommandBase {
         // Announce this command to the rootzero protocol.
         // Args: host id, command name, request schema, command id, input channel, output channel.
         // SETUP = no structured input channel; BALANCES = this command returns BALANCE blocks.
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
     }
 
     function myCommand(
@@ -42,7 +42,7 @@ abstract contract MyCommand is CommandBase {
         // CommandContext now carries just account, state, and request.
         // Create a request cursor using the shared command helper and decode
         // the first AMOUNT block from the request stream.
-        Cur memory input = cursor(c.request);
+        Cur memory input = Cursors.open(c.request);
         (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.

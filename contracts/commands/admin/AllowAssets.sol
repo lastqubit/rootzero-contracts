@@ -21,20 +21,20 @@ abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
     uint internal immutable allowAssetsId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, allowAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, allowAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
     }
 
     function allowAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             (bytes32 asset, bytes32 meta) = request.unpackAsset();
             allowAsset(asset, meta);
         }
 
-        request.close();
+        request.complete();
         return "";
     }
 }

@@ -132,18 +132,70 @@ contract TestCursorHelper {
         return (value.from, value.to, value.asset, value.meta, value.amount);
     }
 
-    function testPrimeRun(bytes calldata source, uint group)
+    function testRun(bytes calldata source, uint group)
         external
         pure
-        returns (bytes4 key, uint groups, uint offset, uint i, uint len, uint bound)
+        returns (bytes4 key, uint groups, uint offset, uint i, uint len)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur = Cursors.open(source);
-        (key, groups) = cur.primeRun(group);
-        return (key, groups, cur.offset - sourceOffset, cur.i, cur.len, cur.bound);
+        key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
+        groups = cur.run(key, group);
+        return (key, groups, cur.offset - sourceOffset, cur.i, cur.len);
+    }
+
+    function testOpenAt(bytes calldata source, uint i)
+        external
+        pure
+        returns (uint offset, uint cursorI, uint len)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur = Cursors.open(source, i);
+        return (cur.offset - sourceOffset, cur.i, cur.len);
+    }
+
+    function testInitAt(bytes calldata source, uint i, uint group)
+        external
+        pure
+        returns (uint offset, uint cursorI, uint len, uint groups, uint next)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur;
+        (cur, groups, next) = Cursors.init(source, i, group);
+        return (cur.offset - sourceOffset, cur.i, cur.len, groups, next);
+    }
+
+    function testInitExpected(bytes calldata source, uint group, uint expectedGroups)
+        external
+        pure
+        returns (uint i, uint len, uint next)
+    {
+        Cur memory cur;
+        (cur, next) = Cursors.init(source, 0, group, expectedGroups);
+        return (cur.i, cur.len, next);
+    }
+
+    function testInitAtExpected(bytes calldata source, uint offset, uint group, uint expectedGroups)
+        external
+        pure
+        returns (uint cursorOffset, uint i, uint len, uint next)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur;
+        (cur, next) = Cursors.init(source, offset, group, expectedGroups);
+        return (cur.offset - sourceOffset, cur.i, cur.len, next);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {
@@ -174,7 +226,7 @@ contract TestCursorHelper {
     function testSlice(bytes calldata source, uint from, uint to)
         external
         pure
-        returns (uint offset, uint i, uint len, uint bound)
+        returns (uint offset, uint i, uint len)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
@@ -182,7 +234,7 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.slice(from, to);
-        return (out.offset - sourceOffset, out.i, out.len, out.bound);
+        return (out.offset - sourceOffset, out.i, out.len);
     }
 
     function testRaw(bytes calldata source) external pure returns (bytes calldata data) {
@@ -238,7 +290,7 @@ contract TestCursorHelper {
     function testTake(bytes calldata source, bytes4 key)
         external
         pure
-        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
+        returns (uint outOffset, uint outI, uint outLen, uint inputI)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
@@ -246,13 +298,13 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.take(key);
-        return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
+        return (out.offset - sourceOffset, out.i, out.len, cur.i);
     }
 
     function testMaybeTake(bytes calldata source, bytes4 key)
         external
         pure
-        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
+        returns (uint outOffset, uint outI, uint outLen, uint inputI)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
@@ -260,13 +312,13 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.maybeTake(key);
-        return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
+        return (out.offset - sourceOffset, out.i, out.len, cur.i);
     }
 
     function testMaybeData(bytes calldata source)
         external
         pure
-        returns (uint outOffset, uint outI, uint outLen, uint outBound, uint inputI)
+        returns (uint outOffset, uint outI, uint outLen, uint inputI)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
@@ -274,17 +326,7 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.maybeData();
-        return (out.offset - sourceOffset, out.i, out.len, out.bound, cur.i);
-    }
-
-    function testListPrime(bytes calldata source, uint group)
-        external
-        pure
-        returns (uint inputI, uint bound, uint count, uint next)
-    {
-        Cur memory cur = Cursors.open(source);
-        (count, next) = cur.list(group);
-        return (cur.i, cur.bound, count, next);
+        return (out.offset - sourceOffset, out.i, out.len, cur.i);
     }
 
     function testUnpackStep(bytes calldata source) external pure returns (uint target, uint value, bytes calldata req, uint i) {
@@ -329,54 +371,35 @@ contract TestCursorHelper {
         return (deadline, proof, cur.i);
     }
 
-    function testNodeAfter(bytes calldata source, uint group, uint backup) external pure returns (uint) {
+    function testCursorCompleteRunEmpty(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        return cur.nodeAfter(backup);
-    }
-
-    function testAccountAfter(bytes calldata source, uint group, bytes32 backup) external pure returns (bytes32 account) {
-        Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        return cur.accountAfter(backup);
-    }
-
-    function testAuthLast(
-        bytes calldata source,
-        uint group,
-        uint cid
-    ) external pure returns (bytes32 hash, uint deadline, bytes calldata proof) {
-        Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        return cur.authLast(cid);
-    }
-
-    function testCursorCloseEmpty(bytes calldata source, uint group) external pure returns (bool) {
-        Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        cur.close();
+        bytes4 key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
+        cur.run(key, group);
+        cur.complete();
         return true;
     }
 
-    function testCursorClosePartial(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCompleteRunPartial(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        if (cur.bound > 0) {
+        bytes4 key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
+        cur.run(key, group);
+        if (cur.len > 0) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.close();
+        cur.complete();
         return true;
     }
 
-    function testCursorCloseConsumed(bytes calldata source, uint group) external pure returns (bool) {
+    function testCursorCompleteRunConsumed(bytes calldata source, uint group) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
-        cur.primeRun(group);
-        while (cur.i < cur.bound) {
+        bytes4 key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
+        cur.run(key, group);
+        while (cur.i < cur.len) {
             (, uint len) = cur.peek(cur.i);
             cur.i += 8 + len;
         }
-        cur.close();
+        cur.complete();
         return true;
     }
 

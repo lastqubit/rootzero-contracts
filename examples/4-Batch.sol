@@ -22,7 +22,7 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
     }
 
     function myCommand(
@@ -30,11 +30,11 @@ abstract contract MyCommand is CommandBase {
     ) external onlyCommand returns (bytes memory) {
         // Create the request cursor from CommandContext.request, then size
         // the writer from the group count returned by the cursor helper.
-        (Cur memory inputs, uint groups) = cursor(c.request, 1);
+        (Cur memory inputs, uint groups, ) = Cursors.init(c.request, 0, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
-        // Walk every AMOUNT block in the prime run of the request.
-        while (inputs.i < inputs.bound) {
+        // Walk every AMOUNT block in the current request run.
+        while (inputs.i < inputs.len) {
             // Unpack asset, meta, and amount from the next AMOUNT block.
             (bytes32 asset, bytes32 meta, uint amount) = inputs.unpackAmount();
 
@@ -42,9 +42,9 @@ abstract contract MyCommand is CommandBase {
             writer.appendBalance(asset, meta, amount);
         }
 
-        // Finalize by checking the cursor completed its prime run, then
+        // Finalize by checking the cursor completed its run, then
         // return the encoded BALANCE blocks.
-        inputs.close();
+        inputs.complete();
         return writer.finish();
     }
 }

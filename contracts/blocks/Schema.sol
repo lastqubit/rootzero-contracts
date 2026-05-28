@@ -11,8 +11,11 @@ pragma solidity ^0.8.33;
 // - a block without braces has no payload, e.g. `#unit`
 // - commas separate siblings at every level
 // - braces define parent-child boundaries
-// - top-level item 0 is the prime item; later top-level items are globals
-// - prime items may repeat at top level for batching
+// - command requests start with the input run when the request schema is non-empty
+// - checked command requests include a constraint run after the input run; if the
+//   request schema is empty, the constraint run starts the request
+// - command state starts with the active state run; trailing state globals may follow
+// - run items may repeat at top level for batching
 // - `maybe #x { ... }` marks an optional block item
 // - `many #x { ... }` emits one generic list block containing repeated `#x` items
 // - fixed fields are packed in declaration order

@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
     event AssetSeen(uint indexed listIndex, bytes32 asset, bytes32 meta);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
+        emit Command(host, myCommandId, NAME, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false, false);
     }
 
     // consumeAssetList parses one top-level LIST block in place.
@@ -63,7 +63,7 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        Cur memory request = cursor(c.request);
+        Cur memory request = Cursors.open(c.request);
         uint listIndex;
 
         // INPUT publishes one list item shape, but the request is still a
