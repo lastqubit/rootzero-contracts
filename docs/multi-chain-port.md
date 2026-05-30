@@ -2,7 +2,7 @@
 
 ## Context
 
-Rush Protocol is currently an EVM Solidity library. The goal of the port is to keep the same protocol ideas - hosts, access control, commands, peers, pipelines, balances, and block streams - while letting each supported chain implement those ideas with its own native primitives.
+Rootzero is currently an EVM Solidity protocol/library. The goal of the port is to keep the same protocol ideas - hosts, access control, commands, peers, pipelines, balances, and block streams - while letting each supported chain implement those ideas with its own native primitives.
 
 The shared interface is the block wire format:
 
@@ -17,16 +17,16 @@ The important design constraint is that a chain runtime should not need to know 
 The cross-chain shape is:
 
 1. A bridge or messaging layer moves raw bytes to another chain.
-2. Those bytes are Rush PIPE blocks.
+2. Those bytes are Rootzero PIPE blocks.
 3. The destination chain has a local host exposing a peer pipe entrypoint.
 4. That host unpacks the PIPE blocks and runs the normal local `pipe()` loop.
 
-The bridge knows how to deliver bytes to the destination chain, but Rush core does not need to know how the bridge routes them. Once bytes arrive at a destination host, the host interprets them as local Rush protocol data.
+The bridge knows how to deliver bytes to the destination chain, but Rootzero core does not need to know how the bridge routes them. Once bytes arrive at a destination host, the host interprets them as local Rootzero protocol data.
 
 ## Design Principles
 
 1. **Stay protocol-native by default.**
-   Rush IDs, block streams, balances, command contexts, and transaction records should stay in Rush protocol form for as long as possible. Chain-native addresses, accounts, token handles, and call formats should appear only at adapter boundaries where the local runtime actually requires them.
+   Rootzero IDs, block streams, balances, command contexts, and transaction records should stay in Rootzero protocol form for as long as possible. Chain-native addresses, accounts, token handles, and call formats should appear only at adapter boundaries where the local runtime actually requires them.
 
 2. **The block stream is portable; execution is local.**
    A pipeline delivered to Solana runs as a Solana-local pipeline. A pipeline delivered to EVM runs as an EVM-local pipeline. The common block stream lets bridges and tooling move the same payload shape between hosts, but a destination host dispatches only local steps.
@@ -35,9 +35,9 @@ The bridge knows how to deliver bytes to the destination chain, but Rush core do
    Existing EVM IDs include `block.chainid` for EVM-local safety. Non-EVM ports should not introduce a `ChainIds.sol`-style registry or a cross-chain numeric namespace. Each chain library only needs its own local ID constructors and validators.
 
 4. **Share protocol prefixes, localize payloads.**
-   The top type prefix should keep the same Rush taxonomy on every chain: chain-appropriate width/representation bits, `Layout.Account` / `Layout.Node` / `Layout.Asset`, and the account/node/asset subtype. `Layout.Evm32` and `Layout.Evm64` are for EVM-shaped payloads; other chains should define their own representation tags. The bits after that prefix are where a port adapts to its local address size, dispatch model, or lookup strategy.
+   The top type prefix should keep the same Rootzero taxonomy on every chain: chain-appropriate width/representation bits, `Layout.Account` / `Layout.Node` / `Layout.Asset`, and the account/node/asset subtype. `Layout.Evm32` and `Layout.Evm64` are for EVM-shaped payloads; other chains should define their own representation tags. The bits after that prefix are where a port adapts to its local address size, dispatch model, or lookup strategy.
 
-5. **Routing metadata lives outside Rush core.**
+5. **Routing metadata lives outside Rootzero core.**
    A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the PIPE payload. When the destination host receives the request, each STEP target is already a local node ID for that host's runtime.
 
 6. **Each chain owns its native identity model.**
@@ -47,7 +47,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rush core do
    If a bridge needs to prove source chain, source sender, nonce, or delivery path, that belongs to the bridge adapter or application-level record. Core host dispatch and access control should authorize the local bridge/peer caller and local trusted nodes only.
 
 8. **Every port must choose an identity strategy.**
-   EVM can fit node and account addresses directly inside Rush IDs. Some chains cannot. If a native address fits, the port can decode it directly from the ID. If it does not fit, the ID is a compact handle. The host should still use that ID as the protocol key, and only resolve it at the edge where a native address is actually required.
+   EVM can fit node and account addresses directly inside Rootzero IDs. Some chains cannot. If a native address fits, the port can decode it directly from the ID. If it does not fit, the ID is a compact handle. The host should still use that ID as the protocol key, and only resolve it at the edge where a native address is actually required.
 
 ---
 
@@ -98,7 +98,7 @@ The current Solidity layout is:
 
 That layout is appropriate for EVM because `block.chainid`, ABI selectors, and 20-byte addresses are native EVM concepts. It should remain the EVM implementation detail.
 
-For portable ports, the ID model should keep the Rush prefix taxonomy and make the payload local-first:
+For portable ports, the ID model should keep the Rootzero prefix taxonomy and make the payload local-first:
 
 ```text
 [255:224] uint32 shared type prefix = [width/representation:16][category:8][subtype:8]
@@ -258,7 +258,7 @@ type RouteRef = {
 };
 ```
 
-`chain` and `host` are transport concerns. The submitted Rush payload is still just PIPE blocks. Inside those PIPE blocks, STEP targets are local node IDs for the destination host.
+`chain` and `host` are transport concerns. The submitted Rootzero payload is still just PIPE blocks. Inside those PIPE blocks, STEP targets are local node IDs for the destination host.
 
 This keeps the core libraries simple: Solana code does not parse EVM chain IDs, and EVM contracts do not need a registry of Solana network constants.
 
@@ -266,7 +266,7 @@ This keeps the core libraries simple: Solana code does not parse EVM chain IDs, 
 
 ## Bridge Delivery Model
 
-The bridge is a byte transport. It does not need to understand Rush internals beyond "deliver this payload to that host/entrypoint".
+The bridge is a byte transport. It does not need to understand Rootzero internals beyond "deliver this payload to that host/entrypoint".
 
 On the source side:
 
@@ -326,6 +326,12 @@ Use the Solidity implementation as the canonical blueprint:
 https://github.com/lastqubit/rootzero-contracts
 ```
 
+For a blank-project CosmWasm port guide, see:
+
+```text
+docs/cosmwasm-port-blueprint.md
+```
+
 Ports should copy the behavior, wire formats, ID taxonomy, command semantics, and failure cases from this repository rather than inventing parallel rules.
 
 Ports should also mirror the EVM protocol structure as closely as the target runtime reasonably allows. The Solidity contracts are the blueprint for module boundaries and responsibilities: access control stays access control, pipeline execution stays pipeline execution, peer pipe stays peer pipe, and asset hooks stay adapter hooks.
@@ -367,10 +373,12 @@ These layers are an implementation strategy, not a redesign of the protocol. Kee
 A language-native implementation of `Cursors.sol` and `Writers.sol`. This is the most important deliverable because it makes every chain speak the same byte protocol.
 
 ```text
-sdk/rust/: cursor.rs, writer.rs, keys.rs
+rootzero-protocol/ or sdk/rust/: cursor.rs, writer.rs, keys.rs
 sdk/go/:   cursor.go, writer.go, keys.go
 sdk/ts/:   cursor.ts, writer.ts, keys.ts
 ```
+
+For Rust-based chains, this should start as a standalone `rootzero-protocol` library crate. CosmWasm, Solana, and NEAR adapters can all depend on it instead of each port reimplementing cursor/writer/key/schema/ID logic.
 
 Each implementation exposes:
 
@@ -431,9 +439,9 @@ Each command has:
 - a deterministic local ID
 - an announcement/registration record using the same logical event shape where the chain supports events
 - input: `CommandContext { account, state, request }`
-- output: `bytes` containing the next Rush block stream state
+- output: `bytes` containing the next Rootzero block stream state
 
-The `request` and `state` fields are always Rush block streams.
+The `request` and `state` fields are always Rootzero block streams.
 
 Chain-specific dispatch:
 
@@ -478,7 +486,7 @@ The settlement logic is portable because `from`, `to`, and `asset` are protocol 
 
 Chain adapters implement the hooks that touch native assets and native call surfaces.
 
-Everything above this layer should remain protocol-native. Adapters are where Rush protocol IDs become native pubkeys, account strings, contract addresses, denoms, token accounts, call messages, or attached-value operations.
+Everything above this layer should remain protocol-native. Adapters are where Rootzero protocol IDs become native pubkeys, account strings, contract addresses, denoms, token accounts, call messages, or attached-value operations.
 
 ```rust
 trait AssetHooks {
@@ -524,18 +532,23 @@ Those would push foreign-chain knowledge into the EVM library.
 ### Rust SDK
 
 ```text
-sdk/rust/
+rootzero-protocol/
   Cargo.toml
   src/
-    cursor.rs
-    writer.rs
-    keys.rs
-    schema.rs
-    types.rs
-    ids.rs              - local ID traits and shared bit helpers, no chain registry
-    access.rs
-    pipeline.rs
-    bridge.rs          - optional helper for bridge adapters that call peer_pipe
+    lib.rs
+    blocks/
+      cursor.rs
+      writer.rs
+      keys.rs
+      schema.rs
+    protocol/
+      layout.rs
+      ids.rs            - shared category/subtype helpers and ID traits, no chain registry
+      accounts.rs
+      assets.rs
+      types.rs
+      balances.rs       - BalanceStore trait
+      pipeline.rs       - protocol-native pipeline traits/helpers where chain-neutral
     commands/
       base.rs
       debit.rs
@@ -545,6 +558,9 @@ sdk/rust/
       payout.rs
     peer/
       settle.rs
+
+sdk/rust/
+  Cargo.toml            - optional workspace/package wrapper around rootzero-protocol
 
 sdk/rust/solana-host/
   src/
@@ -569,6 +585,7 @@ sdk/rust/near-host/
 
 ```text
 sdk/cosmwasm/
+  Cargo.toml            - depends on rootzero-protocol
   src/
     contract.rs
     state.rs
@@ -694,14 +711,15 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 ## Implementation Sequence
 
 1. **Rust wire format library**: port `Cursors.sol`, `Writers.sol`, and `Keys.sol`; validate with Solidity/TypeScript round trips.
-2. **Identity strategy**: decide which node, account, and asset identities fit inline and which require local lookup.
-3. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
-4. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer settlement.
-5. **Peer pipe port**: implement the local peer pipe entrypoint that consumes PIPE blocks and calls `pipe()`.
-6. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
-7. **Solana host template**: wire the abstractions to Solana account state, instruction dispatch, SPL/native assets, pubkey resolution, and a bridge adapter that calls peer pipe.
-8. **TypeScript orchestrator SDK**: compose PIPE payloads for bridge delivery and keep route metadata outside the submitted bytes.
-9. **CosmWasm and NEAR templates**: repeat the same local-only pattern with their native identity and asset hooks.
+2. **Shared Rust protocol crate**: package cursor, writer, keys, schema, shared ID taxonomy, protocol types, and storage/dispatch traits as `rootzero-protocol`.
+3. **Identity strategy**: decide which node, account, and asset identities fit inline and which require local lookup.
+4. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
+5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer settlement.
+6. **Peer pipe port**: implement the local peer pipe entrypoint that consumes PIPE blocks and calls `pipe()`.
+7. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
+8. **CosmWasm host template**: wire `rootzero-protocol` to CosmWasm storage, `Addr` resolution, native denom/CW20/IBC assets, and bridge adapter entrypoints.
+9. **Solana and NEAR templates**: repeat the same pattern with their native identity and asset hooks.
+10. **TypeScript orchestrator SDK**: compose PIPE payloads for bridge delivery and keep route metadata outside the submitted bytes.
 
 ---
 
