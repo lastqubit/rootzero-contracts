@@ -6,12 +6,12 @@ import { PeerAllowance } from "../peer/Allowance.sol";
 import { PeerBalancePull } from "../peer/BalancePull.sol";
 import { PeerPipePayable } from "../peer/Pipe.sol";
 import { PeerSettle } from "../peer/Settle.sol";
-import { Tx } from "../Cursors.sol";
 
 contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
-    event PeerSettleCalled(bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount);
+    event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event PeerCreditAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
@@ -26,8 +26,12 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerBalancePullCalled(peer, asset, meta, amount);
     }
 
-    function transfer(Tx memory value) internal override {
-        emit PeerSettleCalled(value.from, value.to, value.asset, value.meta, value.amount);
+    function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PeerDebitAccountCalled(account, asset, meta, amount);
+    }
+
+    function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        emit PeerCreditAccountCalled(account, asset, meta, amount);
     }
 
     function dispatch(

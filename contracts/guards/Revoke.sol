@@ -19,13 +19,13 @@ abstract contract Revoke is GuardBase {
     }
 
     function revoke(bytes calldata request) external onlyGuardian {
-        (Cur memory input, ) = cursor(request, 1);
+        (Cur memory input, ) = Cursors.first(request, 1);
 
-        while (input.i < input.bound) {
+        while (input.i < input.len) {
             uint node = input.unpackNode();
             setNode(node, false);
         }
 
-        input.close();
+        input.complete();
     }
 }

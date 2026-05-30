@@ -6,18 +6,20 @@ import { EventEmitter } from "./Emitter.sol";
 /// @notice Emitted once per admin command during host deployment to publish its request schema and state keys.
 abstract contract AdminEvent is EventEmitter {
     string private constant ABI =
-        "event Admin(uint indexed host, uint id, string name, bytes32 shape, string request, bytes4 state, bytes4 output, bool acceptsValue)";
+        "event Admin(uint indexed host, uint id, string name, bytes32 shape, string request, bytes4 state, bytes4 output, bool checked, bool funded)";
 
     /// @param host Host node ID that owns this admin command.
     /// @param id Command node ID.
     /// @param name Human-readable command name.
-    /// @param shape Per-operation prime block counts encoded as `request:state:output`.
-    /// Blocks outside the prime runs are global batch blocks and are excluded
-    /// from the counts.
-    /// @param request Schema DSL string describing the request shape.
+    /// @param shape Per-operation block counts encoded as `request:state:output`.
+    /// The request count covers only the input request run. If `checked` is true,
+    /// a constraint run follows the input run, or starts the request when `request`
+    /// is empty. State globals may follow the state run and are excluded.
+    /// @param request Schema DSL string describing the input request run, or empty if none.
     /// @param state Block key expected for input state, or `Keys.Empty`.
     /// @param output Block key produced for output state, or `Keys.Empty`.
-    /// @param acceptsValue Whether the command entrypoint accepts nonzero `msg.value`.
+    /// @param checked Whether a constraint block run is expected to exist in the request.
+    /// @param funded Whether the command entrypoint accepts nonzero `msg.value`.
     event Admin(
         uint indexed host,
         uint id,
@@ -26,7 +28,8 @@ abstract contract AdminEvent is EventEmitter {
         string request,
         bytes4 state,
         bytes4 output,
-        bool acceptsValue
+        bool checked,
+        bool funded
     );
 
     constructor() {

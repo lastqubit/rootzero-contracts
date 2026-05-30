@@ -16,20 +16,20 @@ abstract contract Authorize is CommandBase, AdminEvent {
     uint internal immutable authorizeId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, authorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, authorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false, false);
     }
 
     function authorize(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, ) = Cursors.first(c.request, 1);
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             uint node = request.unpackNode();
             setNode(node, true);
         }
 
-        request.close();
+        request.complete();
         return "";
     }
 }

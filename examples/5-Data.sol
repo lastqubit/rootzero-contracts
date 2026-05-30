@@ -36,14 +36,14 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         // CUSTODIES = this command returns CUSTODY blocks.
-        emit Command(host, myCommandId, NAME, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false, false);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, bytes32 meta, uint amount) internal virtual;
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        Cur memory input = cursor(c.request);
+        Cur memory input = Cursors.open(c.request);
 
         (uint targetHost, bytes32 asset, bytes32 meta, uint amount) = unpackInput(input);
 

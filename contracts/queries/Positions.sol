@@ -42,15 +42,15 @@ abstract contract GetPosition is QueryBase, GetPositionHook {
     /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
     /// @return Block-stream response containing one output-schema block per position block.
     function getPosition(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint groups) = cursor(request, 1);
+        (Cur memory query, uint groups) = Cursors.first(request, 1);
         Writer memory response = Writers.allocAny(groups);
 
-        while (query.i < query.bound) {
+        while (query.i < query.len) {
             (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackAccountAsset();
             appendPosition(account, asset, meta, response);
         }
 
-        query.close();
+        query.complete();
         return response.finish();
     }
 }

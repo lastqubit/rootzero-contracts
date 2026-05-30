@@ -57,6 +57,14 @@ library Accounts {
         return prefix(account) == Keccak;
     }
 
+    /// @notice Assert that `input` is an account and return it unchanged.
+    /// @param input Account identifier to validate.
+    /// @return account The same `input` if it is an account.
+    function any(bytes32 input) internal pure returns (bytes32 account) {
+        if (!isAccount(input)) revert InvalidAccount();
+        return input;
+    }
+
     /// @notice Assert that `input` is an admin account and return it unchanged.
     /// @param input Account identifier to validate.
     /// @return account The same `input` if it is an admin account.

@@ -6,7 +6,7 @@ import {Sizes} from "./Schema.sol";
 import {Keys} from "./Keys.sol";
 
 /// @notice Zero-copy view into a calldata block stream.
-/// All positions (`i`, `bound`) are byte offsets relative to the start of the source region.
+/// All positions (`i`) are byte offsets relative to the start of the source region.
 /// The absolute calldata location of byte `i` is `offset + i`.
 struct Cur {
     /// @dev Absolute calldata byte offset of the source region start.
@@ -15,9 +15,6 @@ struct Cur {
     uint i;
     /// @dev Total byte length of the source region.
     uint len;
-    /// @dev Exclusive upper bound for the current iteration group, set by `primeRun`.
-    /// Zero until `primeRun` is called.
-    uint bound;
 }
 
 using Cursors for Cur;
@@ -32,11 +29,11 @@ library Cursors {
     error MalformedBlocks();
     /// @dev Current block key does not match the expected key, or payload size is out of range.
     error InvalidBlock();
-    /// @dev `complete` called but the cursor has not consumed exactly up to `bound`.
+    /// @dev `complete` called but the cursor has not consumed exactly to `len`.
     error IncompleteCursor();
-    /// @dev `primeRun` found zero blocks of the expected key; the cursor region is empty.
+    /// @dev `run` found zero blocks of the expected key; the cursor region is empty.
     error ZeroCursor();
-    /// @dev `primeRun` was called with a zero group size.
+    /// @dev `run` was called with a zero group size.
     error ZeroGroup();
     /// @dev An account field was required but the block or fallback was zero.
     error ZeroAccount();
@@ -65,15 +62,70 @@ library Cursors {
         cur.len = source.length;
     }
 
-    /// @notice Create a cursor and prime it for a grouped iteration pass.
-    /// Equivalent to `open(source)` followed by `primeRun(group)`.
+    /// @notice Create a cursor backed by `source[i:]`.
+    /// @param source Calldata slice that forms the parent block stream.
+    /// @param i Start byte offset within `source`.
+    /// @return cur Cursor positioned at the beginning of `source[i:]`.
+    function open(bytes calldata source, uint i) internal pure returns (Cur memory cur) {
+        return open(source[i:]);
+    }
+
+    /// @notice Create a cursor over `source[i:]` and restrict it to its first grouped run.
+    /// Equivalent to `open(source, i)`, reading the current key, then `run(key, group)`.
+    /// @param source Calldata slice that forms the parent block stream.
+    /// @param i Start byte offset within `source`.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
+    /// @return groups Number of block groups in the run (`block count / group`).
+    /// @return next Byte offset immediately after the run, relative to `source`.
+    function init(
+        bytes calldata source,
+        uint i,
+        uint group
+    ) internal pure returns (Cur memory cur, uint groups, uint next) {
+        cur = open(source, i);
+        if (cur.i == cur.len) revert ZeroCursor();
+        (bytes4 key, ) = cur.peek(cur.i);
+        groups = cur.run(key, group);
+        next = i + cur.len;
+    }
+
+    /// @notice Create a cursor over `source[i:]`, restrict it to its first grouped run, and require an exact group count.
+    /// @param source Calldata slice that forms the parent block stream.
+    /// @param i Start byte offset within `source`.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @param expectedGroups Required number of groups in the run.
+    /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
+    /// @return next Byte offset immediately after the run, relative to `source`.
+    function init(
+        bytes calldata source,
+        uint i,
+        uint group,
+        uint expectedGroups
+    ) internal pure returns (Cur memory cur, uint next) {
+        uint groups;
+        (cur, groups, next) = init(source, i, group);
+        if (groups != expectedGroups) revert BadRatio();
+    }
+
+    /// @notice Create a cursor over the first grouped run in `source`.
+    /// Equivalent to `init(source, 0, group)` without returning the next offset.
     /// @param source Calldata slice that forms the block stream.
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @return cur Cursor with `bound` set to the end of the first run.
-    /// @return groups Number of block groups in the run (`prime block count / group`).
-    function init(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
-        cur = open(source);
-        (, groups) = cur.primeRun(group);
+    /// @return cur Cursor with `len` truncated to the end of the first run.
+    /// @return groups Number of block groups in the run (`block count / group`).
+    function first(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
+        (cur, groups, ) = init(source, 0, group);
+    }
+
+    /// @notice Create a cursor over the first grouped run in `source` and require an exact group count.
+    /// Equivalent to `init(source, 0, group, expectedGroups)` without returning the next offset.
+    /// @param source Calldata slice that forms the block stream.
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @param expectedGroups Required number of groups in the run.
+    /// @return cur Cursor with `len` truncated to the end of the first run.
+    function first(bytes calldata source, uint group, uint expectedGroups) internal pure returns (Cur memory cur) {
+        (cur, ) = init(source, 0, group, expectedGroups);
     }
 
     /// @notice Move the cursor to an absolute position within the source region.
@@ -119,7 +171,7 @@ library Cursors {
     }
 
     /// @notice Return the full cursor region as a calldata slice.
-    /// Does not advance the cursor; `cur.i` and `cur.bound` are ignored.
+    /// Does not advance the cursor; `cur.i` is ignored.
     /// @param cur Cursor whose backing region should be returned.
     /// @return data Calldata view over `[cur.offset, cur.offset + cur.len)`.
     function raw(Cur memory cur) internal pure returns (bytes calldata data) {
@@ -128,7 +180,7 @@ library Cursors {
     }
 
     /// @notice Return a sub-range of the cursor region as a calldata slice.
-    /// Does not advance the cursor; `cur.i` and `cur.bound` are ignored.
+    /// Does not advance the cursor; `cur.i` is ignored.
     /// @param cur Source cursor.
     /// @param from Start byte offset within the source region (inclusive).
     /// @param to End byte offset within the source region (exclusive).
@@ -267,21 +319,19 @@ library Cursors {
         }
     }
 
-    /// @notice Initialise the cursor for a grouped iteration pass.
-    /// Reads the key of the first block, counts the consecutive run of that key,
-    /// stores the run end in `cur.bound`, validates that the count is a
-    /// multiple of `group`, and returns the run key and normalized group count.
-    /// @param cur Cursor to prime; `cur.bound` is updated in place.
+    /// @notice Restrict the cursor to the consecutive run of `key` at its current position.
+    /// Counts the run, truncates `cur.len` to the run end, and validates that the
+    /// count is a multiple of `group`.
+    /// @param cur Cursor to restrict; `cur.len` is updated in place.
+    /// @param key Expected block type identifier of the run.
     /// @param group Expected group size (e.g. 1 for single-asset, 2 for paired input/output).
-    /// @return key Block type identifier of the run.
     /// @return groups Number of groups represented by the run (`block count / group`).
-    function primeRun(Cur memory cur, uint group) internal pure returns (bytes4 key, uint groups) {
+    function run(Cur memory cur, bytes4 key, uint group) internal pure returns (uint groups) {
         if (group == 0) revert ZeroGroup();
-        key = cur.i + 4 > cur.len ? bytes4(0) : bytes4(msg.data[cur.offset + cur.i:cur.offset + cur.i + 4]);
-        uint count;
-        (count, cur.bound) = countRun(cur, cur.i, key);
+        (uint count, uint next) = countRun(cur, cur.i, key);
         if (count == 0) revert ZeroCursor();
         if (count % group != 0) revert BadRatio();
+        cur.len = next;
         groups = count / group;
     }
 
@@ -361,17 +411,6 @@ library Cursors {
         return maybeTake(cur, Keys.Data);
     }
 
-    /// @notice Enter a List block, prime its member run, and return the group count.
-    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
-    /// @param group Expected block group size for the list item stream.
-    /// @return groups Number of block groups in the list payload.
-    /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur, uint group) internal pure returns (uint groups, uint next) {
-        next = list(cur);
-        (, groups) = cur.primeRun(group);
-        if (cur.bound != next) revert IncompleteCursor();
-    }
-
     /// @notice Exit a nested region at an exact boundary.
     /// Reverts with `IncompleteCursor` if `end` exceeds the cursor region length
     /// or `cur.i != end`.
@@ -379,13 +418,6 @@ library Cursors {
     /// @param end Relative end offset of the nested region.
     function exit(Cur memory cur, uint end) internal pure {
         if (end > cur.len || cur.i != end) revert IncompleteCursor();
-    }
-
-    /// @notice Assert that the cursor has consumed exactly up to `bound`.
-    /// Reverts with `IncompleteCursor` if `bound` is zero or `cur.i != cur.bound`.
-    /// @param cur Cursor to check.
-    function close(Cur memory cur) internal pure {
-        if (cur.bound == 0 || cur.i != cur.bound) revert IncompleteCursor();
     }
 
     /// @notice Assert that the cursor has consumed its entire source region.
@@ -527,7 +559,11 @@ library Cursors {
     /// @param state Embedded state block stream.
     /// @param request Embedded request block stream.
     /// @return Encoded CONTEXT block bytes.
-    function toContextBlock(bytes32 account, bytes memory state, bytes memory request) internal pure returns (bytes memory) {
+    function toContextBlock(
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) internal pure returns (bytes memory) {
         return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
     }
 
@@ -902,38 +938,6 @@ library Cursors {
         (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Balance);
     }
 
-    /// @notice Consume a MINIMUM block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Minimum acceptable amount.
-    function unpackMinimum(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAssetAmount(cur, Keys.Minimum);
-    }
-
-    /// @notice Consume a MINIMUM block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and minimum amount.
-    function unpackMinimumValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Minimum);
-    }
-
-    /// @notice Consume a MAXIMUM block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Maximum allowable spend.
-    function unpackMaximum(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAssetAmount(cur, Keys.Maximum);
-    }
-
-    /// @notice Consume a MAXIMUM block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and maximum amount.
-    function unpackMaximumValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Maximum);
-    }
-
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
@@ -951,25 +955,6 @@ library Cursors {
     /// @return value Decoded host, account, asset, and meta.
     function unpackHostAccountAssetValue(Cur memory cur) internal pure returns (HostAccountAsset memory value) {
         (value.host, value.account, value.asset, value.meta) = unpackHostAccountAsset(cur, Keys.HostAccountAsset);
-    }
-
-    /// @notice Consume a PAYOUT block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return account Account identifier.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Token amount.
-    function unpackPayout(
-        Cur memory cur
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAccountAmount(cur, Keys.Payout);
-    }
-
-    /// @notice Consume a PAYOUT block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded account, asset, meta, and amount.
-    function unpackPayoutValue(Cur memory cur) internal pure returns (AccountAmount memory value) {
-        (value.account, value.asset, value.meta, value.amount) = unpackAccountAmount(cur, Keys.Payout);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as separate values.
@@ -1102,7 +1087,9 @@ library Cursors {
     /// @return account Command account identifier.
     /// @return state Embedded state block stream.
     /// @return request Embedded request block stream.
-    function unpackContext(Cur memory cur) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
+    function unpackContext(
+        Cur memory cur
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
         uint end = cur.enter(Keys.Context, 32 + 2 * Sizes.Header, 0);
         account = cur.read32();
         state = cur.unpackBytes();
@@ -1192,15 +1179,6 @@ library Cursors {
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
         meta = bytes32(msg.data[abs + 32:abs + 64]);
         if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
-    }
-
-    /// @notice Consume a MINIMUM block and assert it matches the expected asset and meta.
-    /// @param cur Cursor; advanced past the block.
-    /// @param asset Expected asset identifier.
-    /// @param meta Expected metadata slot.
-    /// @return amount Minimum amount from the block.
-    function requireMinimum(Cur memory cur, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        return requireAssetAmount(cur, Keys.Minimum, asset, meta);
     }
 
     /// @notice Consume a host amount block and assert it matches the expected host.
@@ -1324,7 +1302,39 @@ library Cursors {
     }
 
     // -------------------------------------------------------------------------
-    // Trailing-block helpers (search after bound)
+    // ensure* - validate constraint blocks against provided values
+    // -------------------------------------------------------------------------
+
+    /// @notice Consume a BALANCE_LIMIT block and assert all constraint fields match the provided balance.
+    /// @param cur Cursor; advanced past the block.
+    /// @param asset Expected asset identifier.
+    /// @param meta Expected metadata slot.
+    /// @param amount Amount that must fall within the encoded min/max range.
+    function ensureBalanceLimit(Cur memory cur, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.BalanceLimit, 128, 128);
+        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 32:abs + 64]) != meta) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 96:abs + 128])) < amount) revert UnexpectedValue();
+    }
+
+    /// @notice Consume a CUSTODY_LIMIT block and assert all constraint fields match the provided custody.
+    /// @param cur Cursor; advanced past the block.
+    /// @param host Expected host node ID.
+    /// @param asset Expected asset identifier.
+    /// @param meta Expected metadata slot.
+    /// @param amount Amount that must fall within the encoded min/max range.
+    function ensureCustodyLimit(Cur memory cur, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.CustodyLimit, 160, 160);
+        if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 64:abs + 96]) != meta) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 96:abs + 128])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 128:abs + 160])) < amount) revert UnexpectedValue();
+    }
+
+    // -------------------------------------------------------------------------
+    // Search helpers
     // -------------------------------------------------------------------------
 
     /// @notice Look for a NODE block anywhere in a calldata source and return its value.
@@ -1363,53 +1373,5 @@ library Cursors {
 
         (uint abs, ) = expect(cur, i, 0, Keys.Account, 32, 32);
         return bytes32(msg.data[abs:abs + 32]);
-    }
-
-    /// @notice Look for a NODE block after the current run boundary and return its value.
-    /// Searches from `cur.bound` to the end of the source region.
-    /// @param cur Source cursor; `bound` marks the end of the primary run.
-    /// @param backup Value to return if no NODE block is found.
-    /// @return node Node ID from the NODE block, or `backup` if absent.
-    function nodeAfter(Cur memory cur, uint backup) internal pure returns (uint node) {
-        uint i = find(cur, cur.bound, Keys.Node);
-        if (i == cur.len) return backup;
-
-        (uint abs, ) = expect(cur, i, 0, Keys.Node, 32, 32);
-        return uint(bytes32(msg.data[abs:abs + 32]));
-    }
-
-    /// @notice Look for an ACCOUNT block after the current run boundary and return its value.
-    /// Searches from `cur.bound` to the end of the source region.
-    /// @param cur Source cursor; `bound` marks the end of the primary run.
-    /// @param backup Account to return if no ACCOUNT block is found.
-    /// @return account Account from the ACCOUNT block, or `backup` if absent.
-    function accountAfter(Cur memory cur, bytes32 backup) internal pure returns (bytes32 account) {
-        uint i = find(cur, cur.bound, Keys.Account);
-        if (i == cur.len) return backup;
-
-        (uint abs, ) = expect(cur, i, 0, Keys.Account, 32, 32);
-        return bytes32(msg.data[abs:abs + 32]);
-    }
-
-    /// @notice Parse the trailing AUTH block and compute the signed message hash.
-    /// The AUTH block must occupy the final `Sizes.Auth` bytes of the source region
-    /// and must begin after `cur.bound`.
-    /// The signed slice covers from `cur.i` up to (but not including) the AUTH proof bytes.
-    /// @param cur Source cursor; `bound` marks the end of the primary data region.
-    /// @param cid Command ID that the signature must be bound to.
-    /// @return digest keccak256 of the signed message slice.
-    /// @return deadline Expiry timestamp from the AUTH block.
-    /// @return proof Raw proof bytes (layout: `[bytes20 signer][bytes65 sig]`).
-    function authLast(
-        Cur memory cur,
-        uint cid
-    ) internal pure returns (bytes32 digest, uint deadline, bytes calldata proof) {
-        if (cur.len - cur.i < Sizes.Auth) revert MalformedBlocks();
-
-        uint i = cur.len - Sizes.Auth;
-        if (i < cur.bound) revert MalformedBlocks();
-
-        (deadline, proof) = expectAuth(cur, i, cid);
-        digest = cur.hash(cur.i, cur.len - Sizes.Proof);
     }
 }

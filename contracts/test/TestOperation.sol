@@ -14,8 +14,8 @@ contract TestOperation is NodeCalls {
         bytes calldata request,
         uint requestGroup
     ) external pure returns (bool) {
-        (, uint stateGroups) = cursor(state, stateGroup);
-        (, uint requestGroups) = cursor(request, requestGroup);
+        (, uint stateGroups) = Cursors.first(state, stateGroup);
+        (, uint requestGroups) = Cursors.first(request, requestGroup);
         if (stateGroups != requestGroups) revert Cursors.BadRatio();
         return true;
     }

@@ -5,7 +5,7 @@ pragma solidity ^0.8.33;
 // Import this file to bring the full rootzero host base layer into scope.
 
 import { AccessControl } from "./core/Access.sol";
-import { Balances } from "./core/Balances.sol";
+import { Balances, InsufficientFunds } from "./core/Balances.sol";
 import { Runtime } from "./core/Runtime.sol";
 import { Host, IHostIntroduction } from "./core/Host.sol";
 import { FailedCall, NodeCalls } from "./core/Calls.sol";

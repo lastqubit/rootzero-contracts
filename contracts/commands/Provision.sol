@@ -38,20 +38,20 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false);
+        emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, false);
     }
 
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = cursor(c.request, 1);
+        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             HostAmount memory allocation = request.unpackAllocationValue();
             provision(c.account, allocation);
             writer.appendCustody(allocation);
         }
 
-        request.close();
+        request.complete();
         return writer.finish();
     }
 }
@@ -66,24 +66,24 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     uint internal immutable provisionPayableId = commandId(NAME);
 
     constructor() {
-        emit Command(host, provisionPayableId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, true);
+        emit Command(host, provisionPayableId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, true);
     }
 
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = cursor(c.request, 1);
+        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
         Budget memory budget = valueBudget();
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             HostAmount memory allocation = request.unpackAllocationValue();
             provision(c.account, allocation, budget);
             writer.appendCustody(allocation);
         }
 
         settleValue(c.account, budget);
-        request.close();
+        request.complete();
         return writer.finish();
     }
 }

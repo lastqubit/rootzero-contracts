@@ -21,20 +21,20 @@ abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
     uint internal immutable denyAssetsId = commandId(NAME);
 
     constructor() {
-        emit Admin(host, denyAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false);
+        emit Admin(host, denyAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
     }
 
     function denyAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = cursor(c.request, 1);
+        (Cur memory request, ) = Cursors.first(c.request, 1);
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             (bytes32 asset, bytes32 meta) = request.unpackAsset();
             denyAsset(asset, meta);
         }
 
-        request.close();
+        request.complete();
         return "";
     }
 }

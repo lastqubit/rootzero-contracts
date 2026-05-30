@@ -55,52 +55,6 @@ contract TestErc1155CursorHelper {
         return (meta, amount, cur.i);
     }
 
-    function testExpectErc1155Minimum(
-        bytes calldata source,
-        uint i,
-        bytes32 asset
-    ) external view returns (bytes32 meta, uint amount) {
-        Cur memory cur = Cursors.open(source);
-        bytes32 foundAsset;
-        bytes32 rawAmount;
-        cur = cur.seek(i);
-        (foundAsset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Minimum);
-        amount = uint(rawAmount);
-        if (foundAsset != asset.erc1155()) revert Cursors.UnexpectedValue();
-    }
-
-    function testRequireErc1155Minimum(
-        bytes calldata source,
-        bytes32 asset
-    ) external view returns (bytes32 meta, uint amount, uint i) {
-        Cur memory cur = Cursors.open(source);
-        (meta, amount) = Cursors.requireAssetAmount(cur, Keys.Minimum, asset.erc1155());
-        return (meta, amount, cur.i);
-    }
-
-    function testExpectErc1155Maximum(
-        bytes calldata source,
-        uint i,
-        bytes32 asset
-    ) external view returns (bytes32 meta, uint amount) {
-        Cur memory cur = Cursors.open(source);
-        bytes32 foundAsset;
-        bytes32 rawAmount;
-        cur = cur.seek(i);
-        (foundAsset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Maximum);
-        amount = uint(rawAmount);
-        if (foundAsset != asset.erc1155()) revert Cursors.UnexpectedValue();
-    }
-
-    function testRequireErc1155Maximum(
-        bytes calldata source,
-        bytes32 asset
-    ) external view returns (bytes32 meta, uint amount, uint i) {
-        Cur memory cur = Cursors.open(source);
-        (meta, amount) = Cursors.requireAssetAmount(cur, Keys.Maximum, asset.erc1155());
-        return (meta, amount, cur.i);
-    }
-
     function testExpectErc1155Custody(
         bytes calldata source,
         uint i,

@@ -125,6 +125,10 @@ describe("Utils", () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
       const keccakAccount = await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32));
 
+      expect(await utils.testAny(adminAccount)).to.equal(adminAccount);
+      expect(await utils.testAny(guardianAccount)).to.equal(guardianAccount);
+      expect(await utils.testAny(userAccount)).to.equal(userAccount);
+      expect(await utils.testAny(keccakAccount)).to.equal(keccakAccount);
       expect(await utils.testAdminAccount(adminAccount)).to.equal(adminAccount);
       expect(await utils.testGuardianAccount(guardianAccount)).to.equal(guardianAccount);
       expect(await utils.testUserAccount(userAccount)).to.equal(userAccount);
@@ -142,6 +146,7 @@ describe("Utils", () => {
       await expectCustomError(utils.testUserAccount(guardianAccount), "InvalidAccount");
       await expectCustomError(utils.testKeccakAccount(userAccount), "InvalidAccount");
       await expectCustomError(utils.testGuardianAccount(keccakAccount), "InvalidAccount");
+      await expectCustomError(utils.testAny(await utils.testToValueAsset()), "InvalidAccount");
     });
 
     it("toKeccakAccount uses the keccak account prefix and truncated witness hash", async () => {

@@ -6,15 +6,15 @@ import {EventEmitter} from "./Emitter.sol";
 /// @notice Emitted once per peer during host deployment to publish its request and response schemas.
 abstract contract PeerEvent is EventEmitter {
     string private constant ABI =
-        "event Peer(uint indexed host, uint id, string name, bytes32 shape, string request, string response, bool acceptsValue)";
+        "event Peer(uint indexed host, uint id, string name, bytes32 shape, string request, string response, bool funded)";
 
     /// @param host Host node ID that owns this peer.
     /// @param id Peer node ID.
     /// @param name Human-readable peer name.
-    /// @param shape Prime block counts as `request:response`; global blocks are excluded.
-    /// @param request Schema DSL string describing the peer request shape.
+    /// @param shape Per-operation block counts encoded as `request:response`.
+    /// @param request Schema DSL string describing the input request run, or empty if none.
     /// @param response Schema DSL string describing the peer response shape.
-    /// @param acceptsValue Whether the peer entrypoint accepts nonzero `msg.value`.
+    /// @param funded Whether the peer entrypoint accepts nonzero `msg.value`.
     event Peer(
         uint indexed host,
         uint id,
@@ -22,7 +22,7 @@ abstract contract PeerEvent is EventEmitter {
         bytes32 shape,
         string request,
         string response,
-        bool acceptsValue
+        bool funded
     );
 
     constructor() {

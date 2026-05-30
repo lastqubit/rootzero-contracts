@@ -41,15 +41,15 @@ abstract contract Pipeline is Payable {
         bytes calldata steps,
         Budget memory budget
     ) internal {
-        (Cur memory input, ) = Cursors.init(steps, 1);
+        (Cur memory input, ) = Cursors.first(steps, 1);
 
-        while (input.i < input.bound) {
+        while (input.i < input.len) {
             (uint target, uint value, bytes calldata request) = input.unpackStep();
             state = dispatch(target, account, state, request, useValue(budget, value));
         }
 
         if (state.length != 0) revert UnexpectedState();
         settleValue(account, budget);
-        input.close();
+        input.complete();
     }
 }

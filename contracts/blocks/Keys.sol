@@ -11,16 +11,16 @@ library Keys {
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Balance = bytes4(keccak256("#balance"));
+    /// @dev Balance constraint - (bytes32 asset, bytes32 meta, uint min, uint max)
+    bytes4 constant BalanceLimit = bytes4(keccak256("#balanceLimit"));
     /// @dev Host-scoped request amount - (uint host, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Allocation = bytes4(keccak256("#allocation"));
     /// @dev Host-scoped allowance cap - (uint host, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Allowance = bytes4(keccak256("#allowance"));
     /// @dev Cross-host custody state - (uint host, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Custody = bytes4(keccak256("#custody"));
-    /// @dev Minimum acceptable output - (bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Minimum = bytes4(keccak256("#minimum"));
-    /// @dev Maximum allowable spend - (bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Maximum = bytes4(keccak256("#maximum"));
+    /// @dev Cross-host custody constraint - (uint host, bytes32 asset, bytes32 meta, uint min, uint max)
+    bytes4 constant CustodyLimit = bytes4(keccak256("#custodyLimit"));
     /// @dev Fee amount - (uint amount)
     bytes4 constant Fee = bytes4(keccak256("#fee"));
     /// @dev List wrapper; payload is an embedded repeated block stream
@@ -33,8 +33,6 @@ library Keys {
     bytes4 constant Bytes = bytes4(keccak256("#bytes"));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("#account"));
-    /// @dev Transfer payout request - (bytes32 account, bytes32 asset, bytes32 meta, uint amount)
-    bytes4 constant Payout = bytes4(keccak256("#payout"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)
