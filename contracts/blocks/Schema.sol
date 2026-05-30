@@ -33,8 +33,8 @@ pragma solidity ^0.8.33;
 // - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
 // - commands must preserve, transform, settle, or intentionally consume pipeline state
-// - request blocks such as `amount(...)`, `allocation(...)`, `allowance(...)`,
-//   `minimum(...)`, and `maximum(...)` express intent, constraints, or references
+// - request blocks such as `amount(...)`, `allocation(...)`, and `allowance(...)`
+//   express intent, constraints, or references
 // - request and value/response blocks are not live state
 //
 // Signed blocks:
@@ -53,11 +53,11 @@ library Schemas {
     string constant Node = "#node { uint id }";
     string constant Account = "#account { bytes32 account }";
     string constant Asset = "#asset { bytes32 asset, bytes32 meta }";
-    string constant Balance = "#balance { bytes32 asset, bytes32 meta, uint amount }";
     string constant Amount = "#amount { bytes32 asset, bytes32 meta, uint amount }";
-    string constant Minimum = "#minimum { bytes32 asset, bytes32 meta, uint amount }";
-    string constant Maximum = "#maximum { bytes32 asset, bytes32 meta, uint amount }";
+    string constant Balance = "#balance { bytes32 asset, bytes32 meta, uint amount }";
+    string constant BalanceLimit = "#balanceLimit { bytes32 asset, bytes32 meta, uint min, uint max }";
     string constant Custody = "#custody { uint host, bytes32 asset, bytes32 meta, uint amount }";
+    string constant CustodyLimit = "#custodyLimit { uint host, bytes32 asset, bytes32 meta, uint min, uint max }";
     string constant Allocation = "#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
@@ -115,12 +115,16 @@ library Sizes {
     uint constant Amount = B96;
     /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
     uint constant Balance = B96;
+    /// @dev BALANCE_LIMIT block: 8 header + 32 asset + 32 meta + 32 min + 32 max = 136 bytes
+    uint constant BalanceLimit = B128;
     /// @dev FEE block: 8 header + 32 amount = 40 bytes
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
     /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
     uint constant HostAmount = B128;
+    /// @dev CUSTODY_LIMIT block: 8 header + 32 host + 32 asset + 32 meta + 32 min + 32 max = 168 bytes
+    uint constant CustodyLimit = B160;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
     uint constant Transaction = B160;
 }

@@ -9,9 +9,11 @@ export function blockKey(name: string): string {
 export const Keys = {
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
+  BalanceLimit: blockKey("#balanceLimit"),
   Allocation: blockKey("#allocation"),
   Allowance: blockKey("#allowance"),
   Custody: blockKey("#custody"),
+  CustodyLimit: blockKey("#custodyLimit"),
   Fee: blockKey("#fee"),
   Account: blockKey("#account"),
   Node: blockKey("#node"),
@@ -21,8 +23,6 @@ export const Keys = {
   Context: blockKey("#context"),
   Pipe: blockKey("#pipe"),
   Transaction: blockKey("#transaction"),
-  Minimum: blockKey("#minimum"),
-  Maximum: blockKey("#maximum"),
   Auth: blockKey("#auth"),
   Bounty: blockKey("#bounty"),
   Bytes: blockKey("#bytes"),
@@ -72,6 +72,10 @@ export function encodeBalanceBlock(asset: string, meta: string, amount: bigint):
   return block(Keys.Balance, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
 }
 
+export function encodeBalanceLimitBlock(asset: string, meta: string, min: bigint, max: bigint): string {
+  return block(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(meta), pad32(min), pad32(max)]));
+}
+
 export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string, meta: string): string {
   return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset), pad32(meta)]));
 }
@@ -94,6 +98,10 @@ export function encodeAllowanceBlock(host: bigint, asset: string, meta: string, 
 
 export function encodeCustodyBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
   return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+}
+
+export function encodeCustodyLimitBlock(host: bigint, asset: string, meta: string, min: bigint, max: bigint): string {
+  return block(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(min), pad32(max)]));
 }
 
 export function encodeAccountBlock(account: string): string {
@@ -154,14 +162,6 @@ export function encodeListBlock(...members: string[]): string {
 
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
   return block(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), encodeBytesBlock(proof)]));
-}
-
-export function encodeMinimumBlock(asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Minimum, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
-}
-
-export function encodeMaximumBlock(asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Maximum, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
 }
 
 export function encodeBountyBlock(amount: bigint, relayer: string): string {

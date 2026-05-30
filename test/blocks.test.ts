@@ -8,13 +8,13 @@ import {
   encodeAuthBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
+  encodeBalanceLimitBlock,
   encodeBountyBlock,
   encodePipeBlock,
   encodeListBlock,
   encodeCustodyBlock,
+  encodeCustodyLimitBlock,
   encodeFeeBlock,
-  encodeMaximumBlock,
-  encodeMinimumBlock,
   encodeAccountBlock,
   encodeAccountAssetBlock,
   encodeContextBlock,
@@ -468,6 +468,40 @@ describe("Cursors", () => {
       expect(i).to.equal(104n);
     });
 
+    it("ensureBalanceLimit validates all fields and advances by one limit block", async () => {
+      const source = encodeBalanceLimitBlock(asset, meta, 10n, amount);
+      expect(await helper.testEnsureBalanceLimit(source, asset, meta, amount)).to.equal(136n);
+    });
+
+    it("ensureBalanceLimit reverts UnexpectedValue when the balance is outside the range", async () => {
+      const source = encodeBalanceLimitBlock(asset, meta, 10n, 20n);
+      await expect(helper.testEnsureBalanceLimit(source, asset, meta, 21n))
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
+    });
+
+    it("ensureBalanceLimit reverts UnexpectedValue when asset fields differ", async () => {
+      const source = encodeBalanceLimitBlock(asset, meta, 10n, 20n);
+      await expect(helper.testEnsureBalanceLimit(source, ethers.zeroPadValue("0xcc", 32), meta, 15n))
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
+    });
+
+    it("ensureCustodyLimit validates all fields and advances by one limit block", async () => {
+      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, amount);
+      expect(await helper.testEnsureCustodyLimit(source, 123n, asset, meta, amount)).to.equal(168n);
+    });
+
+    it("ensureCustodyLimit reverts UnexpectedValue when the custody is outside the range", async () => {
+      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, 20n);
+      await expect(helper.testEnsureCustodyLimit(source, 123n, asset, meta, 21n))
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
+    });
+
+    it("ensureCustodyLimit reverts UnexpectedValue when host differs", async () => {
+      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, 20n);
+      await expect(helper.testEnsureCustodyLimit(source, 321n, asset, meta, 15n))
+        .to.be.revertedWithCustomError(helper, "UnexpectedValue");
+    });
+
     it("requireAuth validates and advances by the auth block size", async () => {
       const proof = ethers.concat(["0x" + "11".repeat(20), "0x" + "22".repeat(65)]);
       const source = encodeAuthBlock(77n, 123456n, proof);
@@ -561,54 +595,6 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(erc20Helper, "UnexpectedValue");
     });
 
-    it("expectErc20Minimum returns the token and amount from a local ERC20 minimum block", async () => {
-      const token = "0x00000000000000000000000000000000000000a0";
-      const assetId = await utils.testToErc20Asset(token);
-      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 88n);
-
-      expect(await erc20Helper.testExpectErc20Minimum(source, 0n)).to.deep.equal([token, 88n]);
-    });
-
-    it("requireErc20Minimum returns the token and amount and advances by one minimum block", async () => {
-      const token = "0x00000000000000000000000000000000000000a0";
-      const assetId = await utils.testToErc20Asset(token);
-      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 88n);
-
-      expect(await erc20Helper.testRequireErc20Minimum(source)).to.deep.equal([token, 88n, 104n]);
-    });
-
-    it("expectErc20Maximum returns the token and amount from a local ERC20 maximum block", async () => {
-      const token = "0x00000000000000000000000000000000000000a0";
-      const assetId = await utils.testToErc20Asset(token);
-      const source = encodeMaximumBlock(assetId, ethers.ZeroHash, 89n);
-
-      expect(await erc20Helper.testExpectErc20Maximum(source, 0n)).to.deep.equal([token, 89n]);
-    });
-
-    it("requireErc20Maximum returns the token and amount and advances by one maximum block", async () => {
-      const token = "0x00000000000000000000000000000000000000a0";
-      const assetId = await utils.testToErc20Asset(token);
-      const source = encodeMaximumBlock(assetId, ethers.ZeroHash, 89n);
-
-      expect(await erc20Helper.testRequireErc20Maximum(source)).to.deep.equal([token, 89n, 104n]);
-    });
-
-    it("expectErc20Minimum ignores metadata", async () => {
-      const token = "0x00000000000000000000000000000000000000a0";
-      const assetId = await utils.testToErc20Asset(token);
-      const source = encodeMinimumBlock(assetId, ethers.zeroPadValue("0x01", 32), 77n);
-
-      expect(await erc20Helper.testExpectErc20Minimum(source, 0n)).to.deep.equal([token, 77n]);
-    });
-
-    it("expectErc20Minimum reverts InvalidAsset when the asset is not a local ERC20", async () => {
-      const assetId = await utils.testToValueAsset();
-      const source = encodeMinimumBlock(assetId, ethers.ZeroHash, 77n);
-
-      await expect(erc20Helper.testExpectErc20Minimum(source, 0n))
-        .to.be.revertedWithCustomError(erc20Helper, "InvalidAsset");
-    });
-
     it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
       const assetId = await utils.testToValueAsset();
       const source = encodeAmountBlock(assetId, ethers.ZeroHash, 77n);
@@ -651,42 +637,6 @@ describe("Cursors", () => {
       const source = encodeBalanceBlock(assetId, meta, 67n);
 
       expect(await erc1155Helper.testRequireErc1155Balance(source, assetId)).to.deep.equal([meta, 67n, 104n]);
-    });
-
-    it("expectErc1155Minimum returns meta and amount from a matching local ERC1155 minimum block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x13", 32);
-      const source = encodeMinimumBlock(assetId, meta, 88n);
-
-      expect(await erc1155Helper.testExpectErc1155Minimum(source, 0n, assetId)).to.deep.equal([meta, 88n]);
-    });
-
-    it("requireErc1155Minimum returns meta, amount, and advances by one minimum block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x13", 32);
-      const source = encodeMinimumBlock(assetId, meta, 88n);
-
-      expect(await erc1155Helper.testRequireErc1155Minimum(source, assetId)).to.deep.equal([meta, 88n, 104n]);
-    });
-
-    it("expectErc1155Maximum returns meta and amount from a matching local ERC1155 maximum block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x14", 32);
-      const source = encodeMaximumBlock(assetId, meta, 89n);
-
-      expect(await erc1155Helper.testExpectErc1155Maximum(source, 0n, assetId)).to.deep.equal([meta, 89n]);
-    });
-
-    it("requireErc1155Maximum returns meta, amount, and advances by one maximum block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x14", 32);
-      const source = encodeMaximumBlock(assetId, meta, 89n);
-
-      expect(await erc1155Helper.testRequireErc1155Maximum(source, assetId)).to.deep.equal([meta, 89n, 104n]);
     });
 
     it("expectErc1155Custody returns meta and amount from a matching local ERC1155 custody block", async () => {

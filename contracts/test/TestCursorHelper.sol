@@ -365,6 +365,29 @@ contract TestCursorHelper {
         i = cur.i;
     }
 
+    function testEnsureBalanceLimit(
+        bytes calldata source,
+        bytes32 asset,
+        bytes32 meta,
+        uint amount
+    ) external pure returns (uint i) {
+        Cur memory cur = Cursors.open(source);
+        cur.ensureBalanceLimit(asset, meta, amount);
+        i = cur.i;
+    }
+
+    function testEnsureCustodyLimit(
+        bytes calldata source,
+        uint host_,
+        bytes32 asset,
+        bytes32 meta,
+        uint amount
+    ) external pure returns (uint i) {
+        Cur memory cur = Cursors.open(source);
+        cur.ensureCustodyLimit(host_, asset, meta, amount);
+        i = cur.i;
+    }
+
     function testRequireAuth(bytes calldata source, uint cid) external pure returns (uint deadline, bytes calldata proof, uint i) {
         Cur memory cur = Cursors.open(source);
         (deadline, proof) = cur.requireAuth(cid);

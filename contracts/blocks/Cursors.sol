@@ -938,38 +938,6 @@ library Cursors {
         (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Balance);
     }
 
-    /// @notice Consume a MINIMUM block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Minimum acceptable amount.
-    function unpackMinimum(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAssetAmount(cur, Keys.Minimum);
-    }
-
-    /// @notice Consume a MINIMUM block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and minimum amount.
-    function unpackMinimumValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Minimum);
-    }
-
-    /// @notice Consume a MAXIMUM block and return its fields as separate values.
-    /// @param cur Cursor; advanced past the block.
-    /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    /// @return amount Maximum allowable spend.
-    function unpackMaximum(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        return unpackAssetAmount(cur, Keys.Maximum);
-    }
-
-    /// @notice Consume a MAXIMUM block and return its fields as a struct.
-    /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and maximum amount.
-    function unpackMaximumValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Maximum);
-    }
-
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
@@ -1213,15 +1181,6 @@ library Cursors {
         if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
     }
 
-    /// @notice Consume a MINIMUM block and assert it matches the expected asset and meta.
-    /// @param cur Cursor; advanced past the block.
-    /// @param asset Expected asset identifier.
-    /// @param meta Expected metadata slot.
-    /// @return amount Minimum amount from the block.
-    function requireMinimum(Cur memory cur, bytes32 asset, bytes32 meta) internal pure returns (uint amount) {
-        return requireAssetAmount(cur, Keys.Minimum, asset, meta);
-    }
-
     /// @notice Consume a host amount block and assert it matches the expected host.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block type key.
@@ -1340,6 +1299,38 @@ library Cursors {
     function requireAuth(Cur memory cur, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
         (deadline, proof) = expectAuth(cur, cur.i, cid);
         cur.i += Sizes.Auth;
+    }
+
+    // -------------------------------------------------------------------------
+    // ensure* - validate constraint blocks against provided values
+    // -------------------------------------------------------------------------
+
+    /// @notice Consume a BALANCE_LIMIT block and assert all constraint fields match the provided balance.
+    /// @param cur Cursor; advanced past the block.
+    /// @param asset Expected asset identifier.
+    /// @param meta Expected metadata slot.
+    /// @param amount Amount that must fall within the encoded min/max range.
+    function ensureBalanceLimit(Cur memory cur, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.BalanceLimit, 128, 128);
+        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 32:abs + 64]) != meta) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 96:abs + 128])) < amount) revert UnexpectedValue();
+    }
+
+    /// @notice Consume a CUSTODY_LIMIT block and assert all constraint fields match the provided custody.
+    /// @param cur Cursor; advanced past the block.
+    /// @param host Expected host node ID.
+    /// @param asset Expected asset identifier.
+    /// @param meta Expected metadata slot.
+    /// @param amount Amount that must fall within the encoded min/max range.
+    function ensureCustodyLimit(Cur memory cur, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.CustodyLimit, 160, 160);
+        if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
+        if (bytes32(msg.data[abs + 64:abs + 96]) != meta) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 96:abs + 128])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 128:abs + 160])) < amount) revert UnexpectedValue();
     }
 
     // -------------------------------------------------------------------------
