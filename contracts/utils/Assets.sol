@@ -34,14 +34,14 @@ library Assets {
         return uint8(uint(asset) >> 232) == Layout.Asset;
     }
 
-    /// @notice Return true if `asset` uses the 32-byte asset layout with no metadata identity (top byte is `0x20`).
+    /// @notice Return true if `asset` uses a 32-byte asset layout with no metadata identity.
     function is32(bytes32 asset) internal pure returns (bool) {
-        return isAsset(asset) && bytes1(asset) == 0x20;
+        return isAsset(asset) && uint8(uint(asset) >> 240) == Layout.Width32;
     }
 
-    /// @notice Return true if `asset` uses the 64-byte asset layout with metadata-backed identity (top byte is `0x40`).
+    /// @notice Return true if `asset` uses a 64-byte asset layout with metadata-backed identity.
     function is64(bytes32 asset) internal pure returns (bool) {
-        return isAsset(asset) && bytes1(asset) == 0x40;
+        return isAsset(asset) && uint8(uint(asset) >> 240) == Layout.Width64;
     }
 
     /// @notice Return true if `asset` is the local native value asset.
@@ -178,7 +178,7 @@ library Assets {
     }
 
     /// @notice Derive a storage slot for an (asset, meta) pair.
-    /// For 32-byte EVM assets (no meta), the slot is the asset ID itself.
+    /// For 32-byte assets (no meta), the slot is the asset ID itself.
     /// For assets with metadata (e.g. ERC-721 or ERC-1155 token IDs), the slot is
     /// `keccak256(asset ++ meta)`.
     /// Reverts only if `asset` is zero.
