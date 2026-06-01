@@ -36,7 +36,7 @@ describe("Admin Commands", () => {
   async function hostIdFor(addr: string) {
     const provider = await getProvider();
     const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x20010201n;
+    const HOST_PREFIX = 0x01200202n;
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
 
@@ -349,6 +349,29 @@ describe("Admin Commands", () => {
       await expect(callAs(0, "executePayable", adminCtx(request), { value: amount }))
         .to.emit(target, "Ping")
         .withArgs(await host.getAddress(), amount, 1n, "0xab");
+    });
+
+    it("keeps unspent admin value on the host", async () => {
+      const target = await deploy("TestExecuteTarget");
+      const amount = 5n;
+      const surplus = 7n;
+      const targetId = await hostIdFor(await target.getAddress());
+      const calldata = target.interface.encodeFunctionData("ping", [2n, "0xcd"]);
+      const request = encodeCallBlock(targetId, amount, calldata);
+
+      const provider = await getProvider();
+      const hostAddr = await host.getAddress();
+      const targetAddr = await target.getAddress();
+      const tx = await callAs(0, "executePayable", adminCtx(request), { value: amount + surplus });
+      const receipt = await tx.wait();
+      if (!receipt || receipt.status === 0) throw new Error("executePayable tx reverted");
+      const hostBefore = await provider.getBalance(hostAddr, receipt.blockNumber - 1);
+      const hostAfter = await provider.getBalance(hostAddr, receipt.blockNumber);
+      const targetBefore = await provider.getBalance(targetAddr, receipt.blockNumber - 1);
+      const targetAfter = await provider.getBalance(targetAddr, receipt.blockNumber);
+
+      expect(hostAfter - hostBefore).to.equal(surplus);
+      expect(targetAfter - targetBefore).to.equal(amount);
     });
 
     it("can replace relocate by sending native value with empty calldata to a host", async () => {

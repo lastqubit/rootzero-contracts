@@ -28,8 +28,7 @@ abstract contract Destroy is CommandBase, AdminEvent, DestroyHook {
     function destroy(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        Cur memory input = Cursors.open(c.request);
-        destroy(input);
+        destroy(Cursors.open(c.request));
         return "";
     }
 }

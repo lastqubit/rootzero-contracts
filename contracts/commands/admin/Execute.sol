@@ -34,7 +34,6 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
         }
 
         request.complete();
-        settleValue(c.account, budget);
         return "";
     }
 }
