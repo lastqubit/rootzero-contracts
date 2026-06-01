@@ -8,6 +8,7 @@ import {
   encodeNodeBlock,
   encodeStepBlock,
   encodeTxBlock,
+  encodeDispatchBlock,
   encodeUserAccount,
 } from "./helpers/blocks.js";
 import { ethers } from "ethers";
@@ -60,7 +61,19 @@ describe("Peer Entrypoints", () => {
         await host.getPeerPipePayableId(),
         "peerPipePayable",
         ethers.encodeBytes32String("1:0"),
-        "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }",
+        "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as steps } }",
+        "",
+        true,
+      );
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
+        await host.getPeerDispatchPayableId(),
+        "peerDispatchPayable",
+        ethers.encodeBytes32String("1:0"),
+        "#dispatch { uint chain, uint endowment, #bytes as payload }",
         "",
         true,
       );
@@ -73,7 +86,8 @@ describe("Peer Entrypoints", () => {
       | "peerAllowance(bytes)"
       | "peerBalancePull(bytes)"
       | "peerSettle(bytes)"
-      | "peerPipePayable(bytes)",
+      | "peerPipePayable(bytes)"
+      | "peerDispatchPayable(bytes)",
     request = "0x",
     overrides: Record<string, bigint> = {}
   ) {
@@ -86,8 +100,15 @@ describe("Peer Entrypoints", () => {
     const addr = await signer.getAddress();
     const provider = await getProvider();
     const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x20010201n;
+    const HOST_PREFIX = 0x01200202n;
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
+  }
+
+  async function localChain() {
+    const provider = await getProvider();
+    const network = await provider.getNetwork();
+    const CHAIN_PREFIX = 0x01200201n;
+    return (CHAIN_PREFIX << 224n) | network.chainId;
   }
 
   describe("peerAllowance", () => {
@@ -322,6 +343,72 @@ describe("Peer Entrypoints", () => {
       const before = await provider.getBalance(hostAddress, receipt.blockNumber - 1);
       const after = await provider.getBalance(hostAddress, receipt.blockNumber);
       expect(after - before).to.equal(2n);
+    });
+  });
+
+  describe("peerDispatchPayable", () => {
+    const method = "peerDispatchPayable(bytes)";
+
+    it("dispatches a single DISPATCH block and exposes the remaining value budget", async () => {
+      const chain = await localChain();
+      const payload = ethers.hexlify(ethers.toUtf8Bytes("encoded-payload"));
+      const request = encodeDispatchBlock(chain, 5n, payload);
+
+      const tx = await callAs(1, method, request, { value: 8n });
+
+      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, payload, 5n, 8n);
+    });
+
+    it("returns empty bytes after dispatching a payload", async () => {
+      const signer = await getSigner(1);
+      const request = encodeDispatchBlock(await localChain(), 0n, "0x1234");
+      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
+      expect(result).to.equal("0x");
+    });
+
+    it("reverts CommanderNotAllowed for the commander", async () => {
+      const request = encodeDispatchBlock(await localChain(), 0n, "0x");
+      await expect(callAs(0, method, request))
+        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+    });
+
+    it("reverts AccessDenied for an untrusted caller", async () => {
+      const request = encodeDispatchBlock(await localChain(), 0n, "0x");
+      await expect(callAs(2, method, request))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor when request is empty", async () => {
+      await expect(callAs(1, method))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+
+    it("reverts InvalidBlock when request is not a DISPATCH block", async () => {
+      const request = encodePipeBlock(0n, encodeUserAccount("0x55"), "0x", "0x");
+      await expect(callAs(1, method, request))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("dispatches multiple DISPATCH blocks in one request", async () => {
+      const chain = await localChain();
+      const first = "0x01";
+      const second = "0x02";
+      const request = concat(
+        encodeDispatchBlock(chain, 2n, first),
+        encodeDispatchBlock(chain, 3n, second),
+      );
+
+      const tx = await callAs(1, method, request, { value: 5n });
+
+      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, first, 2n, 5n);
+      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, second, 3n, 5n);
+    });
+
+    it("passes dispatch endowment through even when it exceeds msg.value", async () => {
+      const request = encodeDispatchBlock(await localChain(), 2n, "0x");
+
+      const tx = await callAs(1, method, request, { value: 1n });
+      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(await localChain(), "0x", 2n, 1n);
     });
   });
 });

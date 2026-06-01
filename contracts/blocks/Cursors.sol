@@ -582,6 +582,24 @@ library Cursors {
         return createBlock(Keys.Pipe, bytes.concat(bytes32(value), toContextBlock(account, state, request)));
     }
 
+    /// @notice Encode a RELAY block.
+    /// @param chain Destination chain node ID.
+    /// @param endowment Native value requested for the destination pipe.
+    /// @param steps Nested step block stream.
+    /// @return Encoded RELAY block bytes.
+    function toRelayBlock(uint chain, uint endowment, bytes memory steps) internal pure returns (bytes memory) {
+        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(endowment), toBytesBlock(steps)));
+    }
+
+    /// @notice Encode a DISPATCH block.
+    /// @param chain Destination chain node ID.
+    /// @param endowment Native value requested for the destination send.
+    /// @param payload Encoded cross-chain payload.
+    /// @return Encoded DISPATCH block bytes.
+    function toDispatchBlock(uint chain, uint endowment, bytes memory payload) internal pure returns (bytes memory) {
+        return createBlock(Keys.Dispatch, bytes.concat(bytes32(chain), bytes32(endowment), toBytesBlock(payload)));
+    }
+
     // -------------------------------------------------------------------------
     // Raw calldata loaders
     // -------------------------------------------------------------------------
@@ -1109,6 +1127,36 @@ library Cursors {
         uint end = cur.enter(Keys.Pipe, 32 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
         value = uint(cur.read32());
         (account, state, request) = cur.unpackContext();
+        cur.exit(end);
+    }
+
+    /// @notice Consume a RELAY block and return its destination chain, endowment, and step stream.
+    /// @param cur Cursor; advanced past the block.
+    /// @return chain Destination chain node ID.
+    /// @return endowment Native value requested for the destination pipe.
+    /// @return steps Embedded step block stream.
+    function unpackRelay(
+        Cur memory cur
+    ) internal pure returns (uint chain, uint endowment, bytes calldata steps) {
+        uint end = cur.enter(Keys.Relay, 64 + Sizes.Header, 0);
+        chain = uint(cur.read32());
+        endowment = uint(cur.read32());
+        steps = cur.unpackBytes();
+        cur.exit(end);
+    }
+
+    /// @notice Consume a DISPATCH block and return its destination chain, endowment, and payload.
+    /// @param cur Cursor; advanced past the block.
+    /// @return chain Destination chain node ID.
+    /// @return endowment Native value requested for the destination send.
+    /// @return payload Encoded cross-chain payload.
+    function unpackDispatch(
+        Cur memory cur
+    ) internal pure returns (uint chain, uint endowment, bytes calldata payload) {
+        uint end = cur.enter(Keys.Dispatch, 64 + Sizes.Header, 0);
+        chain = uint(cur.read32());
+        endowment = uint(cur.read32());
+        payload = cur.unpackBytes();
         cur.exit(end);
     }
 

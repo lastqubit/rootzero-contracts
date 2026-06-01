@@ -16,7 +16,7 @@ abstract contract CommandEvent is EventEmitter {
     /// a constraint run follows the input run, or starts the request when `request`
     /// is empty. State globals may follow the state run and are excluded.
     /// @param request Schema string describing the input request run, or empty if none.
-    /// @param state Block key expected for input state, or `Keys.Empty`.
+    /// @param state Block key expected for input state, `Keys.Empty`, or `Keys.Any`.
     /// @param output Block key produced for output state, or `Keys.Empty`.
     /// @param checked Whether a constraint block run is expected to exist in the request.
     /// @param funded Whether the command entrypoint accepts nonzero `msg.value`.

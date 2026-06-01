@@ -8,6 +8,7 @@ import { CreditAccount } from "../commands/Credit.sol";
 import { DebitAccount } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
+import { RelayPayable } from "../commands/Relay.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
@@ -31,6 +32,7 @@ contract TestHost is
     Payout,
     Provision,
     ProvisionPayable,
+    RelayPayable,
     Pipeline,
     PeerSettle,
     Init,
@@ -47,6 +49,7 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
+    event RelayCalled(uint chain, bytes32 account, bytes state, bytes steps, uint endowment);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset, bytes32 meta);
@@ -100,6 +103,18 @@ contract TestHost is
         emit ProvisionPayableCalled(
             custody.host, account, custody.asset, custody.meta, Values.use(budget, custody.amount), budget.remaining
         );
+    }
+
+    function relay(
+        uint chain,
+        uint endowment,
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata steps,
+        Budget memory budget
+    ) internal override {
+        budget;
+        emit RelayCalled(chain, account, state, steps, endowment);
     }
 
     function init(Cur memory input) internal override {
@@ -190,6 +205,10 @@ contract TestHost is
 
     function getProvisionPayableId() external view returns (uint) {
         return provisionPayableId;
+    }
+
+    function getRelayPayableId() external view returns (uint) {
+        return relayPayableId;
     }
 
     function getInitId() external view returns (uint) {
