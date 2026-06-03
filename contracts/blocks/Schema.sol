@@ -12,7 +12,7 @@ pragma solidity ^0.8.33;
 // - commas separate siblings at every level
 // - braces define parent-child boundaries
 // - command requests start with the input run when the request schema is non-empty
-// - checked command requests include a constraint run after the input run; if the
+// - postcheck command requests include a constraint run after the input run; if the
 //   request schema is empty, the constraint run starts the request
 // - command state starts with the active state run; trailing state globals may follow
 // - run items may repeat at top level for batching
