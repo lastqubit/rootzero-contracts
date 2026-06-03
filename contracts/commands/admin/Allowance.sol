@@ -29,6 +29,9 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
         emit Admin(host, allowanceId, NAME, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Apply each ALLOWANCE block in the admin request.
+    /// @param c Admin command context; `c.request` must contain ALLOWANCE blocks.
+    /// @return Empty output state.
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, ) = Cursors.first(c.request, 1);
 

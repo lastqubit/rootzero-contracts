@@ -20,6 +20,8 @@ abstract contract PeerSettle is PeerBase, DebitAccountHook, CreditAccountHook {
     }
 
     /// @notice Execute the peer-settle call.
+    /// @param request TRANSACTION block stream supplied by the trusted peer.
+    /// @return Empty response bytes.
     function peerSettle(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory state, ) = Cursors.first(request, 1);
 

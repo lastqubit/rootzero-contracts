@@ -11,9 +11,12 @@ using Cursors for Cur;
 abstract contract PeerDispatchPayableHook {
     /// @notice Override to dispatch an already encoded payload to `chain`.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination dispatch.
+    /// @param endowment Native value requested for the destination dispatch. The
+    /// hook decides how much source-chain budget must be spent to fund this
+    /// value on the destination chain.
     /// @param payload Encoded payload ready for the transport layer.
-    /// @param budget Remaining native-value budget available for dispatch fees.
+    /// @param budget Source-chain native-value budget available for transport
+    /// fees and destination endowment funding.
     function dispatch(uint chain, uint endowment, bytes calldata payload, Budget memory budget) internal virtual;
 }
 
@@ -28,8 +31,10 @@ abstract contract PeerDispatchPayable is PeerBase, Payable, PeerDispatchPayableH
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.
-    /// @dev Dispatch hooks receive the shared top-level value budget. Any
-    ///      `msg.value` not spent by the hook remains on this host.
+    /// @dev Dispatch hooks receive the shared top-level source-chain value
+    ///      budget. Any `msg.value` not spent by the hook remains on this host.
+    /// @param request DISPATCH block stream supplied by the trusted peer.
+    /// @return output Empty response bytes.
     function peerDispatchPayable(bytes calldata request) external payable onlyPeer returns (bytes memory output) {
         (Cur memory input, ) = Cursors.first(request, 1);
         Budget memory budget = valueBudget();

@@ -894,16 +894,16 @@ library Writers {
     /// @param value Native value assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Raw nested state payload.
-    /// @param request Raw nested request payload.
+    /// @param steps Raw nested step payload.
     function appendPipe(
         Writer memory writer,
         uint value,
         bytes32 account,
         bytes memory state,
-        bytes memory request
+        bytes memory steps
     ) internal pure {
         uint i = writer.i;
-        uint len = 64 + 3 * Sizes.Header + state.length + request.length;
+        uint len = 64 + 3 * Sizes.Header + state.length + steps.length;
         uint next = i + Sizes.Header + len;
         i = reserve(writer, next, next);
 
@@ -912,7 +912,7 @@ library Writers {
             mstore(add(p, 0x08), value)
         }
 
-        writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 32, Keys.Context, account, state, request);
+        writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 32, Keys.Context, account, state, steps);
     }
 
     /// @notice Append a STATUS form block.

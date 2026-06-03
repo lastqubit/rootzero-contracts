@@ -19,6 +19,9 @@ abstract contract Unauthorize is CommandBase, AdminEvent {
         emit Admin(host, unauthorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Unauthorize each NODE block in the admin request.
+    /// @param c Admin command context; `c.request` must contain NODE blocks.
+    /// @return Empty output state.
     function unauthorize(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {

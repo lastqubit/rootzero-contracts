@@ -41,6 +41,9 @@ abstract contract Provision is CommandBase, ProvisionHook {
         emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, false);
     }
 
+    /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
+    /// @param c Command context; `c.request` must contain ALLOCATION blocks.
+    /// @return CUSTODY block stream matching the provisioned allocations.
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups) = Cursors.first(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
@@ -69,6 +72,9 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
         emit Command(host, provisionPayableId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, true);
     }
 
+    /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.
+    /// @param c Command context; `c.request` must contain ALLOCATION blocks.
+    /// @return CUSTODY block stream matching the provisioned allocations.
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {

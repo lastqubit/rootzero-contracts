@@ -28,6 +28,8 @@ abstract contract PeerBalancePull is PeerBase, BalancePullHook {
     }
 
     /// @notice Execute the balance-pull peer call.
+    /// @param request BALANCE block stream requested by the trusted peer.
+    /// @return Empty response bytes.
     function peerBalancePull(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory input, ) = Cursors.first(request, 1);
         uint peer = caller();

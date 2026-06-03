@@ -28,6 +28,9 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
         emit Command(host, withdrawId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
     }
 
+    /// @notice Withdraw each BALANCE block from the command state to the command account.
+    /// @param c Command context; `c.state` must contain BALANCE blocks.
+    /// @return Empty output state.
     function withdraw(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {

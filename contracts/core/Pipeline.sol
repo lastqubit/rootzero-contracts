@@ -10,6 +10,7 @@ using Cursors for Cur;
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
 abstract contract Pipeline is Payable {
+    /// @dev Thrown when the pipeline finishes with non-empty threaded state.
     error UnexpectedState();
 
     /// @notice Override to dispatch one piped step.

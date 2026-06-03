@@ -20,6 +20,8 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook {
     }
 
     /// @notice Execute the allowance peer call.
+    /// @param request AMOUNT block stream requested by the trusted peer.
+    /// @return Empty response bytes.
     function peerAllowance(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory amounts, ) = Cursors.first(request, 1);
         uint peer = caller();

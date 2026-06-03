@@ -9,6 +9,8 @@ using Cursors for Cur;
 abstract contract AllowAssetsHook {
     /// @dev Override to allow a single asset/meta pair.
     /// Called once per ASSET block in the request.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
     function allowAsset(bytes32 asset, bytes32 meta) internal virtual;
 }
 
@@ -24,6 +26,9 @@ abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
         emit Admin(host, allowAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Allow each ASSET block in the admin request.
+    /// @param c Admin command context; `c.request` must contain ASSET blocks.
+    /// @return Empty output state.
     function allowAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {

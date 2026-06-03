@@ -14,6 +14,7 @@ using Cursors for Cur;
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
 /// Each CALL block specifies a target node ID, native value, and raw calldata payload.
 /// Only callable by the admin account.
+/// Unspent top-level `msg.value` remains on this host.
 abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
     string private constant NAME = "executePayable";
 
@@ -23,6 +24,9 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
         emit Admin(host, executePayableId, NAME, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, false, true);
     }
 
+    /// @notice Execute each CALL block in the admin request.
+    /// @param c Admin command context; `c.request` must contain CALL blocks.
+    /// @return Empty output state.
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, ) = Cursors.first(c.request, 1);
         Budget memory budget = valueBudget();

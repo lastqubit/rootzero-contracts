@@ -45,6 +45,9 @@ abstract contract Deposit is CommandBase, DepositHook {
         emit Command(host, depositId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
     }
 
+    /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
+    /// @param c Command context; `c.request` must contain AMOUNT blocks.
+    /// @return BALANCE block stream matching the deposited amounts.
     function deposit(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
@@ -74,6 +77,9 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
         emit Command(host, depositPayableId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, true);
     }
 
+    /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
+    /// @param c Command context; `c.request` must contain AMOUNT blocks.
+    /// @return BALANCE block stream matching the deposited amounts.
     function depositPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {

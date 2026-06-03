@@ -9,6 +9,8 @@ using Cursors for Cur;
 abstract contract DenyAssetsHook {
     /// @dev Override to deny a single asset/meta pair.
     /// Called once per ASSET block in the request.
+    /// @param asset Asset identifier.
+    /// @param meta Asset metadata slot.
     function denyAsset(bytes32 asset, bytes32 meta) internal virtual;
 }
 
@@ -24,6 +26,9 @@ abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
         emit Admin(host, denyAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Deny each ASSET block in the admin request.
+    /// @param c Admin command context; `c.request` must contain ASSET blocks.
+    /// @return Empty output state.
     function denyAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {

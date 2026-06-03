@@ -29,6 +29,9 @@ abstract contract Payout is CommandBase, PayoutHook {
         emit Command(host, payoutId, NAME, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false, false);
     }
 
+    /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
+    /// @param c Command context; `c.state` must contain BALANCE blocks and `c.request` matching ACCOUNT blocks.
+    /// @return Empty output state.
     function payout(CommandContext calldata c) external onlyCommand returns (bytes memory) {
         (Cur memory state, uint groups) = Cursors.first(c.state, 1);
         Cur memory request = Cursors.first(c.request, 1, groups);

@@ -571,15 +571,15 @@ library Cursors {
     /// @param value Native value assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Embedded state block stream.
-    /// @param request Embedded request block stream.
+    /// @param steps Embedded step block stream.
     /// @return Encoded PIPE block bytes.
     function toPipeBlock(
         uint value,
         bytes32 account,
         bytes memory state,
-        bytes memory request
+        bytes memory steps
     ) internal pure returns (bytes memory) {
-        return createBlock(Keys.Pipe, bytes.concat(bytes32(value), toContextBlock(account, state, request)));
+        return createBlock(Keys.Pipe, bytes.concat(bytes32(value), toContextBlock(account, state, steps)));
     }
 
     /// @notice Encode a RELAY block.
@@ -593,7 +593,7 @@ library Cursors {
 
     /// @notice Encode a DISPATCH block.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination send.
+    /// @param endowment Native value requested for the destination dispatch.
     /// @param payload Encoded cross-chain payload.
     /// @return Encoded DISPATCH block bytes.
     function toDispatchBlock(uint chain, uint endowment, bytes memory payload) internal pure returns (bytes memory) {
@@ -1120,13 +1120,13 @@ library Cursors {
     /// @return value Native value assigned to the pipe.
     /// @return account Command account identifier.
     /// @return state Embedded state block stream.
-    /// @return request Embedded request block stream.
+    /// @return steps Embedded step block stream.
     function unpackPipe(
         Cur memory cur
-    ) internal pure returns (uint value, bytes32 account, bytes calldata state, bytes calldata request) {
+    ) internal pure returns (uint value, bytes32 account, bytes calldata state, bytes calldata steps) {
         uint end = cur.enter(Keys.Pipe, 32 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
         value = uint(cur.read32());
-        (account, state, request) = cur.unpackContext();
+        (account, state, steps) = cur.unpackContext();
         cur.exit(end);
     }
 
@@ -1148,7 +1148,7 @@ library Cursors {
     /// @notice Consume a DISPATCH block and return its destination chain, endowment, and payload.
     /// @param cur Cursor; advanced past the block.
     /// @return chain Destination chain node ID.
-    /// @return endowment Native value requested for the destination send.
+    /// @return endowment Native value requested for the destination dispatch.
     /// @return payload Encoded cross-chain payload.
     function unpackDispatch(
         Cur memory cur

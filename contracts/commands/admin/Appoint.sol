@@ -19,6 +19,9 @@ abstract contract Appoint is CommandBase, AdminEvent {
         emit Admin(host, appointId, NAME, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Appoint each ACCOUNT block in the admin request as a guardian.
+    /// @param c Admin command context; `c.request` must contain ACCOUNT blocks.
+    /// @return Empty output state.
     function appoint(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {

@@ -11,11 +11,14 @@ using Cursors for Cur;
 abstract contract RelayPayableHook {
     /// @notice Override to relay `steps` to `chain` with the current account and state.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination pipe.
+    /// @param endowment Native value requested for the destination pipe. The hook
+    /// decides how much source-chain budget must be spent to fund this value on
+    /// the destination chain.
     /// @param account Command account identifier.
     /// @param state Current command state block stream.
     /// @param steps Embedded destination step block stream.
-    /// @param budget Remaining native-value budget available for relay fees.
+    /// @param budget Source-chain native-value budget available for transport
+    /// fees and destination endowment funding.
     function relay(
         uint chain,
         uint endowment,
@@ -40,6 +43,9 @@ abstract contract RelayPayable is CommandBase, Payable, RelayPayableHook {
         emit Command(host, relayPayableId, NAME, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, false, true);
     }
 
+    /// @notice Relay one RELAY request block with the command account and current state.
+    /// @param c Command context; `c.request` must contain exactly one RELAY block.
+    /// @return output Empty output state.
     function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory output) {
         Cur memory request = Cursors.first(c.request, 1, 1);
         Budget memory budget = valueBudget();
