@@ -239,7 +239,7 @@ Examples:
 
 | Chain | Helper examples |
 |-------|-----------------|
-| EVM | `toValue()`, `toErc20(address)`, `toErc721(address)`, `toErc1155(address)` |
+| EVM | `toNative()`, `toErc20(address)`, `toErc721(address)`, `toErc1155(address)` |
 | Solana | `to_native_sol()`, `to_spl_mint(pubkey)`, `to_token_account(pubkey)` if token accounts are represented separately |
 | CosmWasm | `to_native_denom(denom)`, `to_cw20(contract_addr)`, `to_ibc_denom(denom)` |
 | NEAR | `to_native_near()`, `to_nep141(account_id)` |

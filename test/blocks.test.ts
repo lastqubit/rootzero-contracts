@@ -620,7 +620,7 @@ describe("Cursors", () => {
     });
 
     it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeAmountBlock(assetId, ethers.ZeroHash, 77n);
 
       await expect(erc20Helper.testExpectErc20Amount(source, 0n))
@@ -692,7 +692,7 @@ describe("Cursors", () => {
     });
 
     it("expectErc1155Amount reverts UnexpectedValue when the source asset does not match the expected ERC1155 asset", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeAmountBlock(assetId, ethers.zeroPadValue("0x11", 32), 77n);
 
       const expectedAsset = await utils.testToErc1155Asset("0x00000000000000000000000000000000000000d0");
@@ -747,7 +747,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
     });
     it("expectErc721Balance reverts InvalidAsset when the asset is not a local ERC721", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x01", 32), 1n);
 
       await expect(erc721Helper.testExpectErc721Balance(source, 0n, "0x00000000000000000000000000000000000000c0"))

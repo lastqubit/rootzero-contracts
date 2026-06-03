@@ -62,8 +62,8 @@ contract TestUtils is Payable {
         return Accounts.ensure(account);
     }
 
-    function testToValueAsset() external view returns (bytes32) {
-        return Assets.toValue();
+    function testToNativeAsset() external view returns (bytes32) {
+        return Assets.toNative();
     }
 
     function testToErc20Asset(address addr) external view returns (bytes32) {

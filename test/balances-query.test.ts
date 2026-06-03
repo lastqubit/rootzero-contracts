@@ -31,7 +31,7 @@ describe("BalancesQuery", () => {
     const accountAddr = await account.getAddress();
     const accountId = encodeUserAccount(accountAddr);
     const tokenAsset = await query.tokenAsset();
-    const valueAsset = await query.valueAssetId();
+    const nativeAsset = await query.nativeAssetId();
     const meta = ethers.ZeroHash;
 
     await query.mint(accountAddr, 456n);
@@ -39,14 +39,14 @@ describe("BalancesQuery", () => {
 
     const request = concat(
       encodeAccountAssetBlock(accountId, tokenAsset, meta),
-      encodeAccountAssetBlock(accountId, valueAsset, meta),
+      encodeAccountAssetBlock(accountId, nativeAsset, meta),
     );
 
     const result: string = await query.getBalances.staticCall(request);
 
     expect(result).to.equal(concat(
       encodeAccountAmountBlock(accountId, tokenAsset, meta, 456n),
-      encodeAccountAmountBlock(accountId, valueAsset, meta, nativeBalance),
+      encodeAccountAmountBlock(accountId, nativeAsset, meta, nativeBalance),
     ));
   });
 });

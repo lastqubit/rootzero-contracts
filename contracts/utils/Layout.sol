@@ -67,8 +67,8 @@ library Layout {
     // Asset subtype tags (uint8, fourth byte of the ID type field)
     // -------------------------------------------------------------------------
 
-    /// @dev Native chain value asset (ETH / native token).
-    uint8 constant Value = 0x01;
+    /// @dev Native chain coin/token asset.
+    uint8 constant Native = 0x01;
     /// @dev ERC-20 fungible token; lower 20 bytes of the ID hold the contract address.
     uint8 constant Erc20 = 0x02;
     /// @dev ERC-721 non-fungible token; lower 20 bytes of the ID hold the collection address.

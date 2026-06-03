@@ -8,10 +8,10 @@ import {matchesBase, toLocalBase} from "./Utils.sol";
 /// @notice Encoding and decoding helpers for 256-bit asset identifiers.
 ///
 /// Asset IDs embed a 4-byte type tag in bits [255:224]:
-///   - `Value`  — native chain value (ETH); no address payload
-///   - `Erc20`  — ERC-20 token; contract address in bits [191:32]
-///   - `Erc721` — ERC-721 collection; collection address in bits [191:32]
-///   - `Erc1155` — ERC-1155 collection; collection address in bits [191:32]
+///   - `Native` - native chain coin/token; no address payload
+///   - `Erc20` - ERC-20 token; contract address in bits [191:32]
+///   - `Erc721` - ERC-721 collection; collection address in bits [191:32]
+///   - `Erc1155` - ERC-1155 collection; collection address in bits [191:32]
 ///
 /// All asset IDs are chain-local (include `block.chainid` in bits [223:192]).
 library Assets {
@@ -20,8 +20,8 @@ library Assets {
     /// @dev Thrown when an asset is not authorized for the requested operation.
     error UnauthorizedAsset();
 
-    /// @dev Full 4-byte type prefix for the native value asset.
-    uint32 constant Value = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Value);
+    /// @dev Full 4-byte type prefix for the native chain coin/token asset.
+    uint32 constant Native = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Native);
     /// @dev Full 4-byte type prefix for ERC-20 assets.
     uint32 constant Erc20 = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc20);
     /// @dev Full 4-byte type prefix for ERC-721 assets.
@@ -44,9 +44,9 @@ library Assets {
         return isAsset(asset) && uint8(uint(asset) >> 240) == Layout.Width64;
     }
 
-    /// @notice Return true if `asset` is the local native value asset.
-    function isValue(bytes32 asset) internal view returns (bool) {
-        return asset == toValue();
+    /// @notice Return true if `asset` is the local native chain coin/token asset.
+    function isNative(bytes32 asset) internal view returns (bool) {
+        return asset == toNative();
     }
 
     /// @notice Return true if `asset` is a local ERC-20 asset.
@@ -64,11 +64,11 @@ library Assets {
         return matchesBase(asset, toLocalBase(Erc1155));
     }
 
-    /// @notice Assert that `input` is the local native value asset and return it unchanged.
+    /// @notice Assert that `input` is the local native chain coin/token asset and return it unchanged.
     /// @param input Asset identifier to validate.
-    /// @return asset The same `input` if it is the local native value asset.
-    function value(bytes32 input) internal view returns (bytes32 asset) {
-        if (!isValue(input)) revert InvalidAsset();
+    /// @return asset The same `input` if it is the local native asset.
+    function native(bytes32 input) internal view returns (bytes32 asset) {
+        if (!isNative(input)) revert InvalidAsset();
         return input;
     }
 
@@ -96,10 +96,10 @@ library Assets {
         return input;
     }
 
-    /// @notice Create a chain-local native value asset ID.
+    /// @notice Create a chain-local native coin/token asset ID.
     /// @return Asset ID for the native token on the current chain.
-    function toValue() internal view returns (bytes32) {
-        return bytes32(toLocalBase(Value));
+    function toNative() internal view returns (bytes32) {
+        return bytes32(toLocalBase(Native));
     }
 
     /// @notice Create a chain-local ERC-20 asset ID for `addr`.
