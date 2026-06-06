@@ -5,13 +5,16 @@ import { Host } from "../core/Host.sol";
 import { PeerAllowance } from "../peer/Allowance.sol";
 import { PeerBalancePull } from "../peer/BalancePull.sol";
 import { PeerPipePayable } from "../peer/Pipe.sol";
+import { PeerDispatchPayable } from "../peer/Dispatch.sol";
 import { PeerSettle } from "../peer/Settle.sol";
+import { Budget } from "../utils/Value.sol";
 
-contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable {
+contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable, PeerDispatchPayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event PeerCreditAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event PeerDispatchCalled(uint chain, bytes payload, uint endowment, uint remaining);
     event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
@@ -34,6 +37,10 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerCreditAccountCalled(account, asset, meta, amount);
     }
 
+    function dispatch(uint chain, uint endowment, bytes calldata payload, Budget memory budget) internal override {
+        emit PeerDispatchCalled(chain, payload, endowment, budget.remaining);
+    }
+
     function dispatch(
         uint cid,
         bytes32,
@@ -49,6 +56,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
     function getPeerBalancePullId() external view returns (uint) { return peerBalancePullId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
     function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
+    function getPeerDispatchPayableId() external view returns (uint) { return peerDispatchPayableId; }
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 

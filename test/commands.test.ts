@@ -3,9 +3,11 @@ import { ethers } from "ethers";
 import { deploy, getSigner } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
+  Keys,
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
+  encodeRelayBlock,
   concat
 } from "./helpers/blocks.js";
 
@@ -23,8 +25,8 @@ describe("Commands", () => {
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
-    // USER_PREFIX = (0x2001 << 16) | (0x01 << 8) | 0x03 = 0x20010103
-    const USER_PREFIX = 0x20010103n;
+    // USER_PREFIX = (0x0120 << 16) | (0x01 << 8) | 0x03 = 0x01200103
+    const USER_PREFIX = 0x01200103n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (addrBig << 32n)), 32
     );
@@ -402,6 +404,90 @@ describe("Commands", () => {
 
 
   // ── Pipe ──────────────────────────────────────────────────────────────────
+
+  describe("relayPayable", () => {
+    const CHAIN_PREFIX = 0x01200201n;
+
+    function chainNode(id: bigint) {
+      return (CHAIN_PREFIX << 224n) | id;
+    }
+
+    it("discovers relayPayable as accepting any state", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Command")
+        .withArgs(
+          await host.host(),
+          await host.getRelayPayableId(),
+          "relayPayable",
+          ethers.encodeBytes32String("1:0:0"),
+          "#relay { uint chain, uint endowment, #bytes as steps }",
+          Keys.Any,
+          Keys.Empty,
+          false,
+          true,
+        );
+    });
+
+    it("passes the RELAY block plus account and state to the hook", async () => {
+      const asset = ethers.zeroPadValue("0x80", 32);
+      const state = encodeBalanceBlock(asset, ethers.ZeroHash, 12n);
+      const chain = chainNode(31337n);
+      const endowment = 9n;
+      const steps = encodeStepBlock(0n, 0n, "0x1234");
+      const request = encodeRelayBlock(chain, endowment, steps);
+
+      const result: string = await host.relayPayable.staticCall(ctx({ state, request }), { value: endowment });
+      expect(result).to.equal("0x");
+
+      const tx = await callAs(0, "relayPayable", ctx({ state, request }), { value: endowment });
+      await expect(tx).to.emit(host, "RelayCalled")
+        .withArgs(chain, userAccount, state, steps, endowment);
+    });
+
+    it("reverts ZeroCursor when request has no RELAY block", async () => {
+      await expect(callAs(0, "relayPayable", ctx()))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+
+    it("reverts AccessDenied for untrusted caller", async () => {
+      const chain = chainNode(31337n);
+      const request = encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"));
+
+      await expect(callAs(1, "relayPayable", ctx({ request })))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts InvalidBlock when request is not a RELAY block", async () => {
+      const asset = ethers.zeroPadValue("0x81", 32);
+      const request = encodeAmountBlock(asset, ethers.ZeroHash, 1n);
+
+      await expect(callAs(0, "relayPayable", ctx({ request })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("reverts BadRatio when request has more than one RELAY block", async () => {
+      const chain = chainNode(31337n);
+      const request = concat(
+        encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x")),
+        encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"))
+      );
+
+      await expect(callAs(0, "relayPayable", ctx({ request })))
+        .to.be.revertedWithCustomError(host, "BadRatio");
+    });
+
+    it("passes relay endowment through even when it exceeds msg.value", async () => {
+      const chain = chainNode(31337n);
+      const steps = encodeStepBlock(0n, 0n, "0x");
+      const request = encodeRelayBlock(chain, 2n, steps);
+
+      const tx = await callAs(0, "relayPayable", ctx({ request }), { value: 1n });
+      await expect(tx).to.emit(host, "RelayCalled")
+        .withArgs(chain, userAccount, "0x", steps, 2n);
+    });
+  });
 
   describe("pipeline", () => {
     it("executes STEP blocks and emits StepDispatched", async () => {

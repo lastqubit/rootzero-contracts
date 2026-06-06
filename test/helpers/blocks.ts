@@ -7,6 +7,8 @@ export function blockKey(name: string): string {
 
 // Known block keys
 export const Keys = {
+  Empty: "0x00000000",
+  Any: "0xffffffff",
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
   BalanceLimit: blockKey("#balanceLimit"),
@@ -22,6 +24,8 @@ export const Keys = {
   Call: blockKey("#call"),
   Context: blockKey("#context"),
   Pipe: blockKey("#pipe"),
+  Relay: blockKey("#relay"),
+  Dispatch: blockKey("#dispatch"),
   Transaction: blockKey("#transaction"),
   Auth: blockKey("#auth"),
   Bounty: blockKey("#bounty"),
@@ -46,7 +50,7 @@ export function pad32(value: bigint | string): string {
   return ethers.zeroPadValue(value, 32);
 }
 
-const USER_PREFIX = 0x20010103n;
+const USER_PREFIX = 0x01200103n;
 
 export function encodeUserAccount(addr: string): string {
   const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
@@ -138,6 +142,14 @@ export function encodeContextBlock(account: string, state: string, request: stri
 
 export function encodePipeBlock(value: bigint, account: string, state: string, request: string): string {
   return block(Keys.Pipe, ethers.concat([pad32(value), encodeContextBlock(account, state, request)]));
+}
+
+export function encodeRelayBlock(chain: bigint, endowment: bigint, steps: string): string {
+  return block(Keys.Relay, ethers.concat([pad32(chain), pad32(endowment), encodeBytesBlock(steps)]));
+}
+
+export function encodeDispatchBlock(chain: bigint, endowment: bigint, payload: string): string {
+  return block(Keys.Dispatch, ethers.concat([pad32(chain), pad32(endowment), encodeBytesBlock(payload)]));
 }
 
 export function encodeBytesBlock(data: string): string {

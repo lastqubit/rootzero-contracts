@@ -23,8 +23,6 @@ library Accounts {
     uint32 constant Guardian = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Guardian);
     /// @dev Full 4-byte type prefix for user accounts (chain-agnostic EVM address).
     uint32 constant User = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.User);
-    /// @dev Full 4-byte type prefix for keccak accounts (opaque 28-byte hash).
-    uint32 constant Keccak = (uint32(Layout.Opaque32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Keccak);
 
     /// @notice Extract the 4-byte type prefix from an account ID.
     /// @param account Account identifier.
@@ -53,14 +51,10 @@ library Accounts {
         return prefix(account) == User;
     }
 
-    function isKeccak(bytes32 account) internal pure returns (bool) {
-        return prefix(account) == Keccak;
-    }
-
     /// @notice Assert that `input` is an account and return it unchanged.
     /// @param input Account identifier to validate.
     /// @return account The same `input` if it is an account.
-    function any(bytes32 input) internal pure returns (bytes32 account) {
+    function ensure(bytes32 input) internal pure returns (bytes32 account) {
         if (!isAccount(input)) revert InvalidAccount();
         return input;
     }
@@ -89,14 +83,6 @@ library Accounts {
         return input;
     }
 
-    /// @notice Assert that `input` is a keccak account and return it unchanged.
-    /// @param input Account identifier to validate.
-    /// @return account The same `input` if it is a keccak account.
-    function keccak(bytes32 input) internal pure returns (bytes32 account) {
-        if (!isKeccak(input)) revert InvalidAccount();
-        return input;
-    }
-
     /// @notice Encode an EVM address as a chain-local admin account ID.
     /// @param addr EVM address to embed.
     /// @return Admin account ID bound to the current chain.
@@ -116,25 +102,6 @@ library Accounts {
     /// @return User account ID without a chain binding.
     function toUser(address addr) internal pure returns (bytes32) {
         return bytes32(toUnspecifiedBase(User) | (uint(uint160(addr)) << 32));
-    }
-
-    function toKeccak(bytes32 head, bytes32 meta) internal pure returns (bytes32) {
-        return bytes32(toUnspecifiedBase(Keccak) | uint224(uint256(keccak256(bytes.concat(head, meta)))));
-    }
-
-    function matchesKeccak(bytes32 account, bytes32 head, bytes32 meta) internal pure returns (bool) {
-        return account == toKeccak(head, meta);
-    }
-
-    /// @notice Assert that `account` uses the Account layout tag and return it unchanged.
-    /// Ignores width, chain binding, and subtype details.
-    /// @param account Account ID to validate.
-    /// @return The same `account` value if valid.
-    function ensure(bytes32 account) internal pure returns (bytes32) {
-        if (uint8(uint(account) >> 232) != Layout.Account) {
-            revert InvalidAccount();
-        }
-        return account;
     }
 
     /// @notice Assert that `account` belongs to the EVM account family and return it unchanged.

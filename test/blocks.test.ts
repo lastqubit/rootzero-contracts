@@ -11,6 +11,8 @@ import {
   encodeBalanceLimitBlock,
   encodeBountyBlock,
   encodePipeBlock,
+  encodeRelayBlock,
+  encodeDispatchBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeCustodyLimitBlock,
@@ -450,6 +452,28 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(pipe).length));
     });
 
+    it("unpackRelay consumes chain, endowment, and step bytes", async () => {
+      const chain: bigint = await utils.testLocalChainId();
+      const steps = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, meta, 7n));
+      const relay = encodeRelayBlock(chain, 55n, steps);
+      const [outChain, endowment, outSteps, i] = await helper.testUnpackRelay(relay);
+      expect(outChain).to.equal(chain);
+      expect(endowment).to.equal(55n);
+      expect(outSteps).to.equal(steps);
+      expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
+    });
+
+    it("unpackDispatch consumes chain, endowment, and payload bytes", async () => {
+      const chain: bigint = await utils.testLocalChainId();
+      const payload = ethers.hexlify(ethers.toUtf8Bytes("ready-to-send"));
+      const dispatch = encodeDispatchBlock(chain, 89n, payload);
+      const [outChain, endowment, outPayload, i] = await helper.testUnpackDispatch(dispatch);
+      expect(outChain).to.equal(chain);
+      expect(endowment).to.equal(89n);
+      expect(outPayload).to.equal(payload);
+      expect(i).to.equal(BigInt(ethers.getBytes(dispatch).length));
+    });
+
     it("unpackFee returns the fee amount", async () => {
       const source = encodeFeeBlock(77n);
       expect(await helper.testUnpackFee(source)).to.equal(77n);
@@ -596,7 +620,7 @@ describe("Cursors", () => {
     });
 
     it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeAmountBlock(assetId, ethers.ZeroHash, 77n);
 
       await expect(erc20Helper.testExpectErc20Amount(source, 0n))
@@ -668,7 +692,7 @@ describe("Cursors", () => {
     });
 
     it("expectErc1155Amount reverts UnexpectedValue when the source asset does not match the expected ERC1155 asset", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeAmountBlock(assetId, ethers.zeroPadValue("0x11", 32), 77n);
 
       const expectedAsset = await utils.testToErc1155Asset("0x00000000000000000000000000000000000000d0");
@@ -723,7 +747,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
     });
     it("expectErc721Balance reverts InvalidAsset when the asset is not a local ERC721", async () => {
-      const assetId = await utils.testToValueAsset();
+      const assetId = await utils.testToNativeAsset();
       const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x01", 32), 1n);
 
       await expect(erc721Helper.testExpectErc721Balance(source, 0n, "0x00000000000000000000000000000000000000c0"))

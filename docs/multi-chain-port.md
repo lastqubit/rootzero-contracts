@@ -35,7 +35,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
    Existing EVM IDs include `block.chainid` for EVM-local safety. Non-EVM ports should not introduce a `ChainIds.sol`-style registry or a cross-chain numeric namespace. Each chain library only needs its own local ID constructors and validators.
 
 4. **Share protocol prefixes, localize payloads.**
-   The top type prefix should keep the same Rootzero taxonomy on every chain: chain-appropriate width/representation bits, `Layout.Account` / `Layout.Node` / `Layout.Asset`, and the account/node/asset subtype. `Layout.Evm32` and `Layout.Evm64` are for EVM-shaped payloads; other chains should define their own representation tags. The bits after that prefix are where a port adapts to its local address size, dispatch model, or lookup strategy.
+   The top type prefix should keep the same Rootzero taxonomy on every chain: chain/runtime byte, width byte, `Layout.Account` / `Layout.Node` / `Layout.Asset`, and the account/node/asset subtype. `Layout.Evm32` and `Layout.Evm64` are for EVM-shaped payloads; other chains should define their own runtime and width tags. The bits after that prefix are where a port adapts to its local address size, dispatch model, or lookup strategy.
 
 5. **Routing metadata lives outside Rootzero core.**
    A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the PIPE payload. When the destination host receives the request, each STEP target is already a local node ID for that host's runtime.
@@ -101,7 +101,7 @@ That layout is appropriate for EVM because `block.chainid`, ABI selectors, and 2
 For portable ports, the ID model should keep the Rootzero prefix taxonomy and make the payload local-first:
 
 ```text
-[255:224] uint32 shared type prefix = [width/representation:16][category:8][subtype:8]
+[255:224] uint32 shared type prefix = [runtime:8][width:8][category:8][subtype:8]
 [223:192] uint32 local domain / reserved field
 [191:160] uint32 dispatch tag
 [159:0]   uint160 local identity fingerprint
@@ -119,7 +119,7 @@ function isAccount(bytes32 account) internal pure returns (bool) {
 
 Because `isAccount` checks only the shared category byte, it can recognize accounts from every chain as long as those accounts use the shared Account category. Chain-specific representation tags should not break category-level helpers like `isAccount`, `isAsset`, or node-family checks.
 
-The width/representation bits describe how the payload should be interpreted. EVM uses EVM-oriented tags such as `Layout.Evm32` and `Layout.Evm64` because its payloads are built around 20-byte addresses. Non-EVM ports should not reuse those EVM tags for non-EVM identities. They should define chain-appropriate representation tags, such as `Solana32`, `CosmWasm`, or `Near`, while still keeping the same `Account`, `Node`, `Asset`, `Admin`, `Guardian`, `User`, `Host`, `Command`, `Peer`, `Query`, `Guard`, and asset subtype taxonomy where it applies.
+The runtime and width bytes describe how the payload should be interpreted. EVM uses EVM-oriented tags such as `Layout.Evm32` and `Layout.Evm64` because its payloads are built around 20-byte addresses. Non-EVM ports should not reuse those EVM tags for non-EVM identities. They should define chain-appropriate runtime and width tags, such as `Solana32`, `CosmWasm`, or `Near`, while still keeping the same `Account`, `Node`, `Asset`, `Admin`, `Guardian`, `User`, `Host`, `Command`, `Peer`, `Query`, `Guard`, and asset subtype taxonomy where it applies.
 
 The bits after the shared prefix are chain-specific. The `local domain / reserved field` is not a global chain ID. A chain can set it to zero, a host-local namespace, a deployment generation, or another local-only value if useful. No library should maintain constants like `SOLANA_MAINNET`, `COSMOS_HUB`, or `NEAR_MAINNET`.
 
@@ -239,7 +239,7 @@ Examples:
 
 | Chain | Helper examples |
 |-------|-----------------|
-| EVM | `toValue()`, `toErc20(address)`, `toErc721(address)`, `toErc1155(address)` |
+| EVM | `toNative()`, `toErc20(address)`, `toErc721(address)`, `toErc1155(address)` |
 | Solana | `to_native_sol()`, `to_spl_mint(pubkey)`, `to_token_account(pubkey)` if token accounts are represented separately |
 | CosmWasm | `to_native_denom(denom)`, `to_cw20(contract_addr)`, `to_ibc_denom(denom)` |
 | NEAR | `to_native_near()`, `to_nep141(account_id)` |
@@ -337,6 +337,35 @@ Ports should copy the behavior, wire formats, ID taxonomy, command semantics, an
 Ports should also mirror the EVM protocol structure as closely as the target runtime reasonably allows. The Solidity contracts are the blueprint for module boundaries and responsibilities: access control stays access control, pipeline execution stays pipeline execution, peer pipe stays peer pipe, and asset hooks stay adapter hooks.
 
 This is not a requirement to copy inefficient EVM mechanics. If mirroring the Solidity shape would cause a large performance, storage, compute, or fee penalty on the destination chain, prefer the native-efficient implementation. Preserve the externally visible protocol behavior, wire format, ID taxonomy, authorization rules, and test outcomes; optimize the internal structure where the chain requires it.
+
+### Strict Protocol Parity Rule
+
+The Rootzero block wire format is chain agnostic. For every protocol surface copied from the original EVM library, a port must parse the same block input bytes and produce the same block output bytes wherever the EVM library defines wire input or output.
+
+This applies to all:
+
+- commands
+- peer operations
+- admin operations
+- guards
+- queries
+
+Chain-specific behavior may differ only at adapter boundaries, such as:
+
+- native token transfer mechanics
+- account/address resolution
+- CosmWasm messages vs EVM calls
+- storage backend details
+- signature verification APIs
+
+These differences must not change protocol block semantics. A port can translate native execution details, but it must not translate Rootzero blocks into a different protocol shape.
+
+Implementation guidance:
+
+- Wire handlers through a shared host/registry dispatch path, not only through chain-specific execute/query entrypoints.
+- Tests must assert byte-level parity for command/query outputs and exact accepted block input schemas for peers, admins, and guards.
+- Discovery metadata must match the actual executable protocol surface.
+- Do not use commands like `deposit` as chain-specific funding shortcuts if the original protocol semantics define them as block transformations.
 
 When a target chain cannot express the Solidity structure directly, adapt the implementation shape but keep the protocol shape. For example, Solidity uses inheritance to compose contracts:
 
@@ -738,6 +767,16 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 | Pipeline execution | Run a two-step local pipeline, such as deposit then withdraw, and verify final state is empty. |
 | Access control | Unauthorized local caller fails; trusted local node succeeds. |
 | Bridge routing | TypeScript route table sends PIPE bytes to the intended host while keeping route metadata out of the submitted block bytes. |
+
+Parity checklist:
+
+1. Same block key derivation as original.
+2. Same block payload layout and ordering.
+3. Same command input/output block behavior.
+4. Same peer/admin/guard accepted block schemas.
+5. Same query response block bytes for equivalent state.
+6. Chain-specific adapters are isolated from protocol wire logic.
+7. Generic host registry dispatch works for all advertised commands, peers, queries, and guards.
 
 ---
 

@@ -7,6 +7,8 @@ pragma solidity ^0.8.33;
 library Keys {
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
+    /// @dev Wildcard key used in discovery when any block stream is accepted.
+    bytes4 constant Any = 0xffffffff;
     /// @dev Input amount - (bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, bytes32 meta, uint amount)
@@ -37,6 +39,10 @@ library Keys {
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)
     bytes4 constant Step = bytes4(keccak256("#step"));
+    /// @dev Cross-chain pipe relay - (uint chain, uint endowment, #bytes as steps)
+    bytes4 constant Relay = bytes4(keccak256("#relay"));
+    /// @dev Cross-chain encoded payload dispatch - (uint chain, uint endowment, #bytes as payload)
+    bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
     /// @dev Raw external call - (uint target, uint value, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));
     /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)

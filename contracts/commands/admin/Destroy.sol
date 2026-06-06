@@ -25,11 +25,13 @@ abstract contract Destroy is CommandBase, AdminEvent, DestroyHook {
         emit Admin(host, destroyId, NAME, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Run host teardown logic over the full admin request.
+    /// @param c Admin command context; `c.request` is passed through as a cursor.
+    /// @return Empty output state.
     function destroy(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        Cur memory input = Cursors.open(c.request);
-        destroy(input);
+        destroy(Cursors.open(c.request));
         return "";
     }
 }

@@ -55,6 +55,10 @@ contract TestCursorHelper {
         return Cursors.toBountyBlock(amount, relayer);
     }
 
+    function testToDispatchBlock(uint chain, uint endowment, bytes memory payload) external pure returns (bytes memory) {
+        return Cursors.toDispatchBlock(chain, endowment, payload);
+    }
+
     function testToBalanceBlock(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
         return Cursors.toBalanceBlock(asset, meta, amount);
     }
@@ -353,6 +357,26 @@ contract TestCursorHelper {
         Cur memory cur = Cursors.open(source);
         (value, account, state, request) = cur.unpackPipe();
         return (value, account, state, request, cur.i);
+    }
+
+    function testUnpackRelay(bytes calldata source)
+        external
+        pure
+        returns (uint chain, uint endowment, bytes calldata steps, uint i)
+    {
+        Cur memory cur = Cursors.open(source);
+        (chain, endowment, steps) = cur.unpackRelay();
+        return (chain, endowment, steps, cur.i);
+    }
+
+    function testUnpackDispatch(bytes calldata source)
+        external
+        pure
+        returns (uint chain, uint endowment, bytes calldata payload, uint i)
+    {
+        Cur memory cur = Cursors.open(source);
+        (chain, endowment, payload) = cur.unpackDispatch();
+        return (chain, endowment, payload, cur.i);
     }
 
     function testRequireAmount(

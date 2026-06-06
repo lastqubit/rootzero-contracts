@@ -19,10 +19,13 @@ abstract contract Dismiss is CommandBase, AdminEvent {
         emit Admin(host, dismissId, NAME, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Dismiss each ACCOUNT block in the admin request from guardian status.
+    /// @param c Admin command context; `c.request` must contain ACCOUNT blocks.
+    /// @return Empty output state.
     function dismiss(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.first(c.request, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
 
         while (request.i < request.len) {
             bytes32 account = request.unpackAccount();

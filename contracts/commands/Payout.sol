@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Accounts} from "../utils/Accounts.sol";
 
 using Cursors for Cur;
 
@@ -29,13 +30,16 @@ abstract contract Payout is CommandBase, PayoutHook {
         emit Command(host, payoutId, NAME, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false, false);
     }
 
+    /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
+    /// @param c Command context; `c.state` must contain BALANCE blocks and `c.request` matching ACCOUNT blocks.
+    /// @return Empty output state.
     function payout(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory state, uint groups) = Cursors.first(c.state, 1);
-        Cur memory request = Cursors.first(c.request, 1, groups);
+        (Cur memory state, uint groups, ) = Cursors.init(c.state, 0, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 0, 1, groups);
 
         while (state.i < state.len) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            bytes32 to = request.unpackAccount();
+            bytes32 to = Accounts.ensure(request.unpackAccount());
             payout(c.account, to, asset, meta, amount);
         }
 

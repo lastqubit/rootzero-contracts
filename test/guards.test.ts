@@ -33,7 +33,7 @@ describe("Guard Actions", () => {
   async function hostIdFor(addr: string) {
     const provider = await getProvider();
     const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x20010201n;
+    const HOST_PREFIX = 0x01200202n;
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
 

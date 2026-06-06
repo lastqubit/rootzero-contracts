@@ -46,8 +46,8 @@ describe("Utils", () => {
     it("toAdminAccount encodes admin prefix, chainId and address", async () => {
       const result: string = await utils.testToAdminAccount(signerAddress);
       const val = BigInt(result);
-      // First byte is 0x20 (EVM32 prefix high byte)
-      expect((val >> 248n) & 0xffn).to.equal(0x20n);
+      // First two bytes are EVM + 32-byte width.
+      expect((val >> 240n) & 0xffffn).to.equal(0x0120n);
       // Address is in bits 32..191
       const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
@@ -57,7 +57,7 @@ describe("Utils", () => {
       const result: string = await utils.testToGuardianAccount(signerAddress);
       const val = BigInt(result);
       const prefix = (val >> 224n) & 0xffffffffn;
-      expect(prefix).to.equal(0x20010102n);
+      expect(prefix).to.equal(0x01200102n);
 
       const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
@@ -96,77 +96,44 @@ describe("Utils", () => {
       expect(await utils.testIsUserAccount(userAccount)).to.be.true;
     });
 
-    it("isUserAccount returns false for admin and keccak accounts", async () => {
+    it("isUserAccount returns false for admin and guardian accounts", async () => {
       expect(await utils.testIsUserAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
       expect(await utils.testIsUserAccount(await utils.testToGuardianAccount(signerAddress))).to.be.false;
-      expect(await utils.testIsUserAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.false;
     });
 
     it("isAccount returns true for supported account IDs", async () => {
       expect(await utils.testIsAccount(await utils.testToAdminAccount(signerAddress))).to.be.true;
       expect(await utils.testIsAccount(await utils.testToGuardianAccount(signerAddress))).to.be.true;
       expect(await utils.testIsAccount(await utils.testToUserAccount(signerAddress))).to.be.true;
-      expect(await utils.testIsAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.true;
     });
 
     it("isAccount returns false for non-account category values", async () => {
-      expect(await utils.testIsAccount(await utils.testToValueAsset())).to.be.false;
+      expect(await utils.testIsAccount(await utils.testToNativeAsset())).to.be.false;
       expect(await utils.testIsAccount(ethers.ZeroHash)).to.be.false;
-    });
-
-    it("isKeccakAccount returns true only for keccak accounts", async () => {
-      expect(await utils.testIsKeccakAccount(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32)))).to.be.true;
-      expect(await utils.testIsKeccakAccount(await utils.testToUserAccount(signerAddress))).to.be.false;
     });
 
     it("typed account helpers return matching accounts", async () => {
       const adminAccount = await utils.testToAdminAccount(signerAddress);
       const guardianAccount = await utils.testToGuardianAccount(signerAddress);
       const userAccount = await utils.testToUserAccount(signerAddress);
-      const keccakAccount = await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32));
 
-      expect(await utils.testAny(adminAccount)).to.equal(adminAccount);
-      expect(await utils.testAny(guardianAccount)).to.equal(guardianAccount);
-      expect(await utils.testAny(userAccount)).to.equal(userAccount);
-      expect(await utils.testAny(keccakAccount)).to.equal(keccakAccount);
+      expect(await utils.testEnsureAccount(adminAccount)).to.equal(adminAccount);
+      expect(await utils.testEnsureAccount(guardianAccount)).to.equal(guardianAccount);
+      expect(await utils.testEnsureAccount(userAccount)).to.equal(userAccount);
       expect(await utils.testAdminAccount(adminAccount)).to.equal(adminAccount);
       expect(await utils.testGuardianAccount(guardianAccount)).to.equal(guardianAccount);
       expect(await utils.testUserAccount(userAccount)).to.equal(userAccount);
-      expect(await utils.testKeccakAccount(keccakAccount)).to.equal(keccakAccount);
     });
 
     it("typed account helpers reject mismatched accounts", async () => {
       const adminAccount = await utils.testToAdminAccount(signerAddress);
       const guardianAccount = await utils.testToGuardianAccount(signerAddress);
       const userAccount = await utils.testToUserAccount(signerAddress);
-      const keccakAccount = await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32));
 
       await expectCustomError(utils.testAdminAccount(userAccount), "InvalidAccount");
       await expectCustomError(utils.testGuardianAccount(adminAccount), "InvalidAccount");
       await expectCustomError(utils.testUserAccount(guardianAccount), "InvalidAccount");
-      await expectCustomError(utils.testKeccakAccount(userAccount), "InvalidAccount");
-      await expectCustomError(utils.testGuardianAccount(keccakAccount), "InvalidAccount");
-      await expectCustomError(utils.testAny(await utils.testToValueAsset()), "InvalidAccount");
-    });
-
-    it("toKeccakAccount uses the keccak account prefix and truncated witness hash", async () => {
-      const head = ethers.zeroPadValue("0x12", 32);
-      const meta = ethers.zeroPadValue("0x34", 32);
-      const account = await utils.testToKeccakAccount(head, meta);
-      const prefix = (BigInt(account) >> 224n) & 0xffffffffn;
-      expect(prefix).to.equal(0x20000104n);
-
-      const digest = BigInt(ethers.keccak256(ethers.concat([head, meta])));
-      const payload = BigInt(account) & ((1n << 224n) - 1n);
-      expect(payload).to.equal(digest & ((1n << 224n) - 1n));
-    });
-
-    it("matchesKeccakAccount validates witnesses against the account id", async () => {
-      const head = ethers.zeroPadValue("0x12", 32);
-      const meta = ethers.zeroPadValue("0x34", 32);
-      const account = await utils.testToKeccakAccount(head, meta);
-      expect(await utils.testMatchesKeccakAccount(account, head, meta)).to.be.true;
-      expect(await utils.testMatchesKeccakAccount(account, head, ethers.zeroPadValue("0x35", 32))).to.be.false;
+      await expectCustomError(utils.testEnsureAccount(await utils.testToNativeAsset()), "InvalidAccount");
     });
 
     it("accountEvmAddr extracts embedded address", async () => {
@@ -176,19 +143,16 @@ describe("Utils", () => {
     });
 
     it("accountEvmAddr reverts for non-EVM account", async () => {
-      await expectCustomError(
-        utils.testAccountEvmAddr(await utils.testToKeccakAccount(ethers.zeroPadValue("0x12", 32), ethers.zeroPadValue("0x34", 32))),
-        "InvalidAccount"
-      );
+      await expectCustomError(utils.testAccountEvmAddr(await utils.testToNativeAsset()), "InvalidAccount");
     });
   });
 
   // ── Assets ────────────────────────────────────────────────────────────────
 
   describe("Assets", () => {
-    it("toValueAsset returns asset starting with 0x20", async () => {
-      const asset: string = await utils.testToValueAsset();
-      expect(asset.slice(0, 4)).to.equal("0x20");
+    it("toNativeAsset returns an EVM32 asset", async () => {
+      const asset: string = await utils.testToNativeAsset();
+      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0120n);
     });
 
     it("toErc20Asset embeds token address", async () => {
@@ -205,7 +169,7 @@ describe("Utils", () => {
       const val = BigInt(asset);
       const embedded = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
-      expect(asset.slice(0, 4)).to.equal("0x40");
+      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0140n);
     });
 
     it("toErc1155Asset embeds collection address", async () => {
@@ -214,16 +178,16 @@ describe("Utils", () => {
       const val = BigInt(asset);
       const embedded = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
-      expect(asset.slice(0, 4)).to.equal("0x40");
+      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0140n);
     });
 
-    it("isAsset32 returns true when first byte is 0x20", async () => {
-      const asset = await utils.testToValueAsset();
+    it("isAsset32 returns true when the width byte is 0x20", async () => {
+      const asset = await utils.testToNativeAsset();
       expect(await utils.testIsAsset32(asset)).to.be.true;
     });
 
     it("isAsset returns true for supported asset IDs", async () => {
-      expect(await utils.testIsAsset(await utils.testToValueAsset())).to.be.true;
+      expect(await utils.testIsAsset(await utils.testToNativeAsset())).to.be.true;
       expect(await utils.testIsAsset(await utils.testToErc20Asset(signerAddress))).to.be.true;
       expect(await utils.testIsAsset(await utils.testToErc721Asset(signerAddress))).to.be.true;
       expect(await utils.testIsAsset(await utils.testToErc1155Asset(signerAddress))).to.be.true;
@@ -234,7 +198,7 @@ describe("Utils", () => {
       expect(await utils.testIsAsset(ethers.ZeroHash)).to.be.false;
     });
 
-    it("isAsset32 returns false for non-0x20 asset", async () => {
+    it("isAsset32 returns false for non-asset values", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       expect(await utils.testIsAsset32(asset)).to.be.false;
     });
@@ -251,8 +215,8 @@ describe("Utils", () => {
       expect(await utils.testIsAsset64(await utils.testToErc1155Asset(collection))).to.be.true;
     });
 
-    it("isAsset64 returns false for value and ERC20 assets", async () => {
-      expect(await utils.testIsAsset64(await utils.testToValueAsset())).to.be.false;
+    it("isAsset64 returns false for native and ERC20 assets", async () => {
+      expect(await utils.testIsAsset64(await utils.testToNativeAsset())).to.be.false;
       expect(await utils.testIsAsset64(await utils.testToErc20Asset(signerAddress))).to.be.false;
     });
 
@@ -282,13 +246,13 @@ describe("Utils", () => {
     });
 
     it("assetSlot returns asset for 32-byte asset with zero meta", async () => {
-      const asset = await utils.testToValueAsset();
+      const asset = await utils.testToNativeAsset();
       const result = await utils.testAssetSlot(asset, ethers.ZeroHash);
       expect(result).to.equal(asset);
     });
 
     it("assetSlot ignores non-zero meta for 32-byte assets", async () => {
-      const asset = await utils.testToValueAsset();
+      const asset = await utils.testToNativeAsset();
       const meta = ethers.hexlify(ethers.randomBytes(32));
       const result = await utils.testAssetSlot(asset, meta);
       expect(result).to.equal(asset);
@@ -345,8 +309,8 @@ describe("Utils", () => {
       expect(await utils.testMatchErc1155(asset, collection)).to.equal(asset);
     });
 
-    it("localErc20Addr reverts InvalidAsset for value asset", async () => {
-      const asset = await utils.testToValueAsset();
+    it("localErc20Addr reverts InvalidAsset for native asset", async () => {
+      const asset = await utils.testToNativeAsset();
       await expectCustomError(utils.testLocalErc20Addr(asset), "InvalidAsset");
     });
 
@@ -371,13 +335,13 @@ describe("Utils", () => {
       await expectCustomError(utils.testMatchErc1155(asset, other), "InvalidAsset");
     });
 
-    it("localErc721Collection reverts InvalidAsset for value asset", async () => {
-      const asset = await utils.testToValueAsset();
+    it("localErc721Collection reverts InvalidAsset for native asset", async () => {
+      const asset = await utils.testToNativeAsset();
       await expectCustomError(utils.testLocalErc721Collection(asset), "InvalidAsset");
     });
 
-    it("localErc1155Collection reverts InvalidAsset for value asset", async () => {
-      const asset = await utils.testToValueAsset();
+    it("localErc1155Collection reverts InvalidAsset for native asset", async () => {
+      const asset = await utils.testToNativeAsset();
       await expectCustomError(utils.testLocalErc1155Collection(asset), "InvalidAsset");
     });
   });
@@ -385,6 +349,20 @@ describe("Utils", () => {
   // ── Ids ───────────────────────────────────────────────────────────────────
 
   describe("Ids", () => {
+    it("localChainId creates a chain node ID with the local chain id payload", async () => {
+      const id: bigint = await utils.testLocalChainId();
+      const prefix = (id >> 224n) & 0xffffffffn;
+      const payload = id & ((1n << 224n) - 1n);
+
+      expect(prefix).to.equal(0x01200201n);
+      expect(payload).to.equal(chainId);
+    });
+
+    it("localNodeAddr rejects chain node IDs", async () => {
+      const chainNode: bigint = await utils.testLocalChainId();
+      await expectCustomError(utils.testLocalNodeAddr(chainNode), "InvalidId");
+    });
+
     it("toHostId creates host ID from address", async () => {
       const id: bigint = await utils.testToHostId(signerAddress);
       expect(id).to.be.gt(0n);
@@ -490,7 +468,7 @@ describe("Utils", () => {
     });
 
     it("localHostAddr reverts for a foreign-chain host id", async () => {
-      const foreignHostId = (0x20010201n << 224n) | (999n << 192n) | BigInt(signerAddress);
+      const foreignHostId = (0x01200202n << 224n) | (999n << 192n) | BigInt(signerAddress);
       await expectCustomError(utils.testLocalHostAddr(foreignHostId), "InvalidId");
     });
   });
@@ -537,10 +515,10 @@ describe("Utils", () => {
 
     it("isFamily matches family prefix", async () => {
       // Build a value with a known family prefix
-      // EVM32 = 0x2001, ACCOUNT = 0x01 -> family = (0x2001 << 8) | 0x01 = 0x200101
-      const family = 0x200101n;
+      // EVM32 = 0x0120, ACCOUNT = 0x01 -> family = (0x0120 << 8) | 0x01 = 0x012001
+      const family = 0x012001n;
       const value = (family << 232n) | (1n << 191n); // some filler
-      expect(await utils.testIsFamily(value, 0x200101)).to.be.true;
+      expect(await utils.testIsFamily(value, 0x012001)).to.be.true;
     });
 
     it("isLocalChain returns true for current chainId", async () => {

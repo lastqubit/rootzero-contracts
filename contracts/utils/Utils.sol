@@ -4,9 +4,9 @@ pragma solidity ^0.8.33;
 // Basis-points denominator: 10_000 BPS == 100.00%.
 uint16 constant MAX_BPS = 10_000;
 
-// Thrown by max* helpers when a value exceeds the target integer width.
+/// @dev Thrown by max* helpers when a value exceeds the target integer width.
 error ValueOverflow();
-// Thrown by `divisible` when `n` is not evenly divisible by `divisor`.
+/// @dev Thrown by `divisible` when `n` is not evenly divisible by `divisor`.
 error NotDivisible();
 
 /// @notice Assert that `value` fits in uint8 and return it unchanged.

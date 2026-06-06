@@ -12,7 +12,7 @@ pragma solidity ^0.8.33;
 // - commas separate siblings at every level
 // - braces define parent-child boundaries
 // - command requests start with the input run when the request schema is non-empty
-// - checked command requests include a constraint run after the input run; if the
+// - postcheck command requests include a constraint run after the input run; if the
 //   request schema is empty, the constraint run starts the request
 // - command state starts with the active state run; trailing state globals may follow
 // - run items may repeat at top level for batching
@@ -62,9 +62,11 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant Pipe = "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }";
+    string constant Pipe = "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as steps } }";
     string constant Call = "#call { uint target, uint value, #bytes as payload }";
     string constant Step = "#step { uint target, uint value, #bytes as request }";
+    string constant Relay = "#relay { uint chain, uint endowment, #bytes as steps }";
+    string constant Dispatch = "#dispatch { uint chain, uint endowment, #bytes as payload }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
     string constant Fee = "#fee { uint amount }";
     string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";

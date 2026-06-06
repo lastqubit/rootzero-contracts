@@ -19,10 +19,13 @@ abstract contract Authorize is CommandBase, AdminEvent {
         emit Admin(host, authorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false, false);
     }
 
+    /// @notice Authorize each NODE block in the admin request.
+    /// @param c Admin command context; `c.request` must contain NODE blocks.
+    /// @return Empty output state.
     function authorize(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.first(c.request, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
 
         while (request.i < request.len) {
             uint node = request.unpackNode();

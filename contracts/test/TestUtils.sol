@@ -42,10 +42,6 @@ contract TestUtils is Payable {
         return Accounts.isUser(account);
     }
 
-    function testIsKeccakAccount(bytes32 account) external pure returns (bool) {
-        return Accounts.isKeccak(account);
-    }
-
     function testAdminAccount(bytes32 account) external pure returns (bytes32) {
         return Accounts.admin(account);
     }
@@ -58,28 +54,16 @@ contract TestUtils is Payable {
         return Accounts.user(account);
     }
 
-    function testKeccakAccount(bytes32 account) external pure returns (bytes32) {
-        return Accounts.keccak(account);
-    }
-
-    function testToKeccakAccount(bytes32 head, bytes32 meta) external pure returns (bytes32) {
-        return Accounts.toKeccak(head, meta);
-    }
-
-    function testMatchesKeccakAccount(bytes32 account, bytes32 head, bytes32 meta) external pure returns (bool) {
-        return Accounts.matchesKeccak(account, head, meta);
-    }
-
     function testIsAccount(bytes32 account) external pure returns (bool) {
         return Accounts.isAccount(account);
     }
 
-    function testAny(bytes32 account) external pure returns (bytes32) {
-        return Accounts.any(account);
+    function testEnsureAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.ensure(account);
     }
 
-    function testToValueAsset() external view returns (bytes32) {
-        return Assets.toValue();
+    function testToNativeAsset() external view returns (bytes32) {
+        return Assets.toNative();
     }
 
     function testToErc20Asset(address addr) external view returns (bytes32) {
@@ -148,6 +132,10 @@ contract TestUtils is Payable {
 
     function testToHostId(address addr) external view returns (uint) {
         return Ids.toHost(addr);
+    }
+
+    function testLocalChainId() external view returns (uint) {
+        return Ids.localChain();
     }
 
     function testToCommandId(bytes32 name, address addr) external view returns (uint) {

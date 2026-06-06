@@ -9,9 +9,9 @@ import {Budget} from "../utils/Value.sol";
 using Cursors for Cur;
 
 /// @title PeerPipePayable
-/// @notice Peer that consumes PIPE blocks and executes each context request as a STEP stream.
+/// @notice Peer that consumes PIPE blocks and executes each context step stream.
 /// Each PIPE block carries a value budget plus a CONTEXT block; the nested
-/// context request is passed to the shared pipeline as the step stream.
+/// context steps are passed to the shared pipeline as the step stream.
 abstract contract PeerPipePayable is PeerBase, Pipeline {
     string private constant NAME = "peerPipePayable";
     uint internal immutable peerPipePayableId = peerId(NAME);
@@ -23,8 +23,10 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
     /// @notice Execute peer-supplied pipes through the shared payable pipe.
     /// @dev Each pipe receives its own explicit value sub-budget. Any top-level
     ///      `msg.value` not assigned to a pipe remains on this host.
+    /// @param request PIPE block stream supplied by the trusted peer.
+    /// @return Empty response bytes.
     function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        (Cur memory input, ) = Cursors.first(request, 1);
+        (Cur memory input, , ) = Cursors.init(request, 0, 1);
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {

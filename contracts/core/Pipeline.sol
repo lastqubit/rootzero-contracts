@@ -10,6 +10,7 @@ using Cursors for Cur;
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
 abstract contract Pipeline is Payable {
+    /// @dev Thrown when the pipeline finishes with non-empty threaded state.
     error UnexpectedState();
 
     /// @notice Override to dispatch one piped step.
@@ -41,7 +42,7 @@ abstract contract Pipeline is Payable {
         bytes calldata steps,
         Budget memory budget
     ) internal {
-        (Cur memory input, ) = Cursors.first(steps, 1);
+        (Cur memory input, , ) = Cursors.init(steps, 0, 1);
 
         while (input.i < input.len) {
             (uint target, uint value, bytes calldata request) = input.unpackStep();

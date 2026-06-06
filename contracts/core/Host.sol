@@ -28,7 +28,16 @@ interface IHostIntroduction {
 /// guardian management, the default guardian revoke action, and
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is Authorize, Unauthorize, Revoke, Appoint, Dismiss, ExecutePayable, IntroductionEvent, IHostIntroduction {
+abstract contract Host is
+    Authorize,
+    Unauthorize,
+    Revoke,
+    Appoint,
+    Dismiss,
+    ExecutePayable,
+    IntroductionEvent,
+    IHostIntroduction
+{
     /// @param cmdr Commander address; passed to `AccessControl`.
     ///        If `cmdr` is a deployed contract, the host calls `introduce`
     ///        on it during construction.
