@@ -108,26 +108,6 @@ library Cursors {
         if (groups != expectedGroups) revert BadRatio();
     }
 
-    /// @notice Create a cursor over the first grouped run in `source`.
-    /// Equivalent to `init(source, 0, group)` without returning the next offset.
-    /// @param source Calldata slice that forms the block stream.
-    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @return cur Cursor with `len` truncated to the end of the first run.
-    /// @return groups Number of block groups in the run (`block count / group`).
-    function first(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
-        (cur, groups, ) = init(source, 0, group);
-    }
-
-    /// @notice Create a cursor over the first grouped run in `source` and require an exact group count.
-    /// Equivalent to `init(source, 0, group, expectedGroups)` without returning the next offset.
-    /// @param source Calldata slice that forms the block stream.
-    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @param expectedGroups Required number of groups in the run.
-    /// @return cur Cursor with `len` truncated to the end of the first run.
-    function first(bytes calldata source, uint group, uint expectedGroups) internal pure returns (Cur memory cur) {
-        (cur, ) = init(source, 0, group, expectedGroups);
-    }
-
     /// @notice Move the cursor to an absolute position within the source region.
     /// @param cur Cursor to update.
     /// @param i New read position (byte offset relative to source start).

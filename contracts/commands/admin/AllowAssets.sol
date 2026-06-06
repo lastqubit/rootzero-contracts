@@ -32,7 +32,7 @@ abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
     function allowAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.first(c.request, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
 
         while (request.i < request.len) {
             (bytes32 asset, bytes32 meta) = request.unpackAsset();

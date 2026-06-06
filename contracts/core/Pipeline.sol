@@ -42,7 +42,7 @@ abstract contract Pipeline is Payable {
         bytes calldata steps,
         Budget memory budget
     ) internal {
-        (Cur memory input, ) = Cursors.first(steps, 1);
+        (Cur memory input, , ) = Cursors.init(steps, 0, 1);
 
         while (input.i < input.len) {
             (uint target, uint value, bytes calldata request) = input.unpackStep();

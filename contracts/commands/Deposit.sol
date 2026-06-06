@@ -51,7 +51,7 @@ abstract contract Deposit is CommandBase, DepositHook {
     function deposit(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         while (request.i < request.len) {
@@ -83,7 +83,7 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
     function depositPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.first(c.request, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
         Writer memory writer = Writers.allocBalances(groups);
         Budget memory budget = valueBudget();
 

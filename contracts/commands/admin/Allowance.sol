@@ -33,7 +33,7 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
     /// @param c Admin command context; `c.request` must contain ALLOWANCE blocks.
     /// @return Empty output state.
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.first(c.request, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
 
         while (request.i < request.len) {
             (uint peer, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllowance();

@@ -36,7 +36,7 @@ abstract contract PeerDispatchPayable is PeerBase, Payable, PeerDispatchPayableH
     /// @param request DISPATCH block stream supplied by the trusted peer.
     /// @return output Empty response bytes.
     function peerDispatchPayable(bytes calldata request) external payable onlyPeer returns (bytes memory output) {
-        (Cur memory input, ) = Cursors.first(request, 1);
+        (Cur memory input, , ) = Cursors.init(request, 0, 1);
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {

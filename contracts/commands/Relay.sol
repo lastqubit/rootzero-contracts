@@ -47,7 +47,7 @@ abstract contract RelayPayable is CommandBase, Payable, RelayPayableHook {
     /// @param c Command context; `c.request` must contain exactly one RELAY block.
     /// @return output Empty output state.
     function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory output) {
-        Cur memory request = Cursors.first(c.request, 1, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 0, 1, 1);
         Budget memory budget = valueBudget();
 
         (uint chain, uint endowment, bytes calldata steps) = request.unpackRelay();
