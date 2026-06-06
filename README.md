@@ -8,11 +8,11 @@ It contains the reusable contracts, utilities, cursor parsers, and encoding help
 
 Most consumers should start from the package root entry points:
 
-- `@rootzero/contracts/Core.sol` — host, access control, balances, and validator building blocks
-- `@rootzero/contracts/Endpoints.sol` — command, peer, guard, and query base contracts plus standard endpoint mixins
-- `@rootzero/contracts/Cursors.sol` — cursor reader (`Cur`), block schemas, key constants, typed block helpers, and writers
-- `@rootzero/contracts/Utils.sol` — IDs, assets, accounts, layout, and value helpers
-- `@rootzero/contracts/Events.sol` — reusable event emitters and event contracts
+- `@rootzero/contracts/Core.sol` - host, access control, balances, and validator building blocks
+- `@rootzero/contracts/Endpoints.sol` - command, peer, guard, and query base contracts plus standard endpoint mixins
+- `@rootzero/contracts/Cursors.sol` - cursor reader (`Cur`), block schemas, key constants, typed block helpers, and writers
+- `@rootzero/contracts/Utils.sol` - IDs, assets, accounts, layout, and value helpers
+- `@rootzero/contracts/Events.sol` - reusable event emitters and event contracts
 
 ## Block Wire Format
 
@@ -28,7 +28,7 @@ All request and response data is encoded as a binary block stream. Each block is
 
 Protocol blocks use schema strings and four-byte keys:
 
-- `Schemas` describes semantic protocol blocks such as `#amount`, `#balance`, `#custody`, and `#payout`.
+- `Schemas` describes semantic protocol blocks such as `#amount`, `#balance`, `#custody`, and `#relay`.
 - `Forms` describes reusable structural blocks such as `#accountAsset` and `#accountAmount`, mostly used by queries.
 - `Keys` contains the runtime `bytes4` keys derived from block names.
 
@@ -77,21 +77,21 @@ abstract contract ExampleCommand is CommandBase {
     uint internal immutable myCommandId = commandId(NAME);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = cursor(c.request, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
-        while (request.i < request.bound) {
+        while (request.i < request.len) {
             (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
             writer.appendBalance(asset, meta, amount);
         }
 
-        request.close();
+        request.complete();
         return writer.finish();
     }
 }
@@ -99,14 +99,15 @@ abstract contract ExampleCommand is CommandBase {
 
 ## Repo Layout
 
-- `contracts/core` — host, access control, balances, operation base, and signature validation
-- `contracts/commands` — standard command building blocks and admin commands
-- `contracts/peer` — peer protocol surfaces for inter-host asset flows and asset allow/deny
-- `contracts/blocks` — block stream schema (`Schema`), cursor parsing (`Cursors`), and writers (`Writers`)
-- `contracts/utils` — shared encoding helpers: IDs, assets, accounts, layout, ECDSA
-- `contracts/events` — protocol event contracts and emitters
-- `contracts/interfaces` — discovery interfaces and shared external protocol surfaces
-- `docs` — introductory documentation
+- `contracts/core` - host, access control, balances, operation base, and signature validation
+- `contracts/commands` - standard command building blocks and admin commands
+- `contracts/peer` - peer protocol surfaces for inter-host asset flows and asset allow/deny
+- `contracts/guards` - guard action surfaces for delegated protection flows
+- `contracts/queries` - read-only query endpoints for protocol state
+- `contracts/blocks` - block stream schema (`Schema`), cursor parsing (`Cursors`), and writers (`Writers`)
+- `contracts/utils` - shared encoding helpers: IDs, assets, accounts, layout, ECDSA
+- `contracts/events` - protocol event contracts and emitters
+- `docs` - introductory documentation
 
 ## Install and Compile
 
