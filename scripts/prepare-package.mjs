@@ -25,6 +25,7 @@ await cp(contractsDir, outDir, {
   }
 });
 await cp(path.join(root, "README.md"), path.join(outDir, "README.md"));
+await cp(path.join(root, "CHANGELOG.md"), path.join(outDir, "CHANGELOG.md"));
 await cp(path.join(root, "LICENSE"), path.join(outDir, "LICENSE"));
 await cp(docsDir, path.join(outDir, "docs"), { recursive: true });
 
@@ -35,7 +36,7 @@ const outPkg = {
   private: false,
   license: pkg.license,
   type: pkg.type,
-  files: ["**/*.sol", "README.md", "LICENSE", "docs/Schema.md"],
+  files: ["**/*.sol", "README.md", "CHANGELOG.md", "LICENSE", "docs/Schema.md"],
   publishConfig: pkg.publishConfig
 };
 
