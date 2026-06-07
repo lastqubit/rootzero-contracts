@@ -15,7 +15,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
     event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event PeerCreditAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event PeerDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
-    event StepDispatched(uint cid, uint stepIndex, uint value);
+    event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
 
@@ -37,7 +37,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerCreditAccountCalled(account, asset, meta, amount);
     }
 
-    function dispatch(uint chain, uint resources, bytes calldata payload, Budget memory budget) internal override {
+    function dispatch(uint chain, uint resources, bytes memory payload, Budget memory budget) internal override {
         emit PeerDispatchCalled(chain, payload, resources, budget.remaining);
     }
 
@@ -46,7 +46,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         bytes32,
         bytes memory state,
         bytes calldata,
-        uint value
+        uint128 value
     ) internal override returns (bytes memory) {
         emit StepDispatched(cid, stepCount++, value);
         return state;

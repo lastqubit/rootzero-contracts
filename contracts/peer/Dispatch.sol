@@ -4,24 +4,14 @@ pragma solidity ^0.8.33;
 import { PeerBase } from "./Base.sol";
 import { Payable } from "../core/Payable.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
+import { DispatchPayableHook } from "../commands/Relay.sol";
 import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-abstract contract PeerDispatchPayableHook {
-    /// @notice Override to dispatch an already encoded payload to `chain`.
-    /// @param chain Destination chain node ID.
-    /// @param resources Chain-adapter-specific destination resources. EVM adapters
-    /// may interpret this as packed execution gas and destination value.
-    /// @param payload Encoded payload ready for the transport layer.
-    /// @param budget Source-chain native-value budget available for transport
-    /// fees and destination resource funding.
-    function dispatch(uint chain, uint resources, bytes calldata payload, Budget memory budget) internal virtual;
-}
-
 /// @title PeerDispatchPayable
 /// @notice Peer endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
-abstract contract PeerDispatchPayable is PeerBase, Payable, PeerDispatchPayableHook {
+abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook {
     string private constant NAME = "peerDispatchPayable";
     uint internal immutable peerDispatchPayableId = peerId(NAME);
 
@@ -40,7 +30,7 @@ abstract contract PeerDispatchPayable is PeerBase, Payable, PeerDispatchPayableH
 
         while (input.i < input.len) {
             (uint chain, uint resources, bytes calldata payload) = input.unpackDispatch();
-            dispatch(chain, resources, payload, budget);
+            dispatch(chain, resources, bytes(payload), budget);
         }
 
         input.complete();

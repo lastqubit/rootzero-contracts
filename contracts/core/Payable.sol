@@ -18,20 +18,22 @@ abstract contract Payable {
         return Budget({remaining: msg.value});
     }
 
-    /// @notice Deduct `amount` from the budget and return it.
+    /// @notice Deduct the EVM value lane from a packed resource word and return it.
+    /// @dev EVM resources use the low 128 bits as native value/endowment.
     /// @param budget Mutable budget to deduct from.
-    /// @param amount Native value to spend.
-    /// @return The same `amount`, ready to forward to a callee.
-    function useValue(Budget memory budget, uint amount) internal pure returns (uint) {
-        return Values.use(budget, amount);
+    /// @param resources Packed chain resources.
+    /// @return value Native value to forward in wei.
+    function useValue(Budget memory budget, uint resources) internal pure returns (uint128 value) {
+        return Values.use(budget, uint128(resources));
     }
 
-    /// @notice Deduct `amount` from the budget and return it as a new sub-budget.
+    /// @notice Deduct the EVM value lane from a packed resource word as a new sub-budget.
+    /// @dev EVM resources use the low 128 bits as native value/endowment.
     /// @param budget Mutable parent budget to deduct from.
-    /// @param amount Native value to assign to the sub-budget.
-    /// @return A new budget with `amount` remaining.
-    function allocateValue(Budget memory budget, uint amount) internal pure returns (Budget memory) {
-        return Values.allocate(budget, amount);
+    /// @param resources Packed chain resources.
+    /// @return A new budget with the EVM value lane remaining.
+    function allocateValue(Budget memory budget, uint resources) internal pure returns (Budget memory) {
+        return Values.allocate(budget, uint128(resources));
     }
 
     /// @notice Drains the budget and settles any remaining native value.

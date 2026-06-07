@@ -20,14 +20,14 @@ abstract contract Pipeline is Payable {
     /// @param account Account identifier for the piped context.
     /// @param state Current threaded state block stream.
     /// @param request Step request block stream.
-    /// @param value Native value assigned to this step.
+    /// @param value Native EVM value assigned to this step.
     /// @return Updated state block stream for the next step.
     function dispatch(
         uint target,
         bytes32 account,
         bytes memory state,
         bytes calldata request,
-        uint value
+        uint128 value
     ) internal virtual returns (bytes memory);
 
     /// @notice Execute a STEP block stream through the pipeline.
@@ -45,8 +45,8 @@ abstract contract Pipeline is Payable {
         (Cur memory input, , ) = Cursors.init(steps, 0, 1);
 
         while (input.i < input.len) {
-            (uint target, uint value, bytes calldata request) = input.unpackStep();
-            state = dispatch(target, account, state, request, useValue(budget, value));
+            (uint target, uint resources, bytes calldata request) = input.unpackStep();
+            state = dispatch(target, account, state, request, useValue(budget, resources));
         }
 
         if (state.length != 0) revert UnexpectedState();

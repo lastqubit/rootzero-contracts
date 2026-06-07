@@ -41,13 +41,13 @@ contract TestCursorHelper {
     }
 
     function testWritePipeBlock(
-        uint value,
+        uint resources,
         bytes32 account,
         bytes memory state,
         bytes memory request
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.allocPipes(1);
-        w.appendPipe(value, account, state, request);
+        w.appendPipe(resources, account, state, request);
         return w.finish();
     }
 
@@ -333,10 +333,12 @@ contract TestCursorHelper {
         return (out.offset - sourceOffset, out.i, out.len, cur.i);
     }
 
-    function testUnpackStep(bytes calldata source) external pure returns (uint target, uint value, bytes calldata req, uint i) {
+    function testUnpackStep(
+        bytes calldata source
+    ) external pure returns (uint target, uint resources, bytes calldata req, uint i) {
         Cur memory cur = Cursors.open(source);
-        (target, value, req) = cur.unpackStep();
-        return (target, value, req, cur.i);
+        (target, resources, req) = cur.unpackStep();
+        return (target, resources, req, cur.i);
     }
 
     function testUnpackContext(bytes calldata source)
@@ -352,11 +354,11 @@ contract TestCursorHelper {
     function testUnpackPipe(bytes calldata source)
         external
         pure
-        returns (uint value, bytes32 account, bytes calldata state, bytes calldata request, uint i)
+        returns (uint resources, bytes32 account, bytes calldata state, bytes calldata request, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (value, account, state, request) = cur.unpackPipe();
-        return (value, account, state, request, cur.i);
+        (resources, account, state, request) = cur.unpackPipe();
+        return (resources, account, state, request, cur.i);
     }
 
     function testUnpackRelay(bytes calldata source)

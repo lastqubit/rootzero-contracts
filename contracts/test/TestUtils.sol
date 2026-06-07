@@ -235,14 +235,14 @@ contract TestUtils is Payable {
         return budget.remaining;
     }
 
-    function testUseValue(uint amount, uint remaining) external pure returns (uint spent, uint remainingAfter) {
+    function testUseValue(uint128 amount, uint remaining) external pure returns (uint spent, uint remainingAfter) {
         Budget memory budget = Budget({remaining: remaining});
         spent = Values.use(budget, amount);
         remainingAfter = budget.remaining;
     }
 
     function testAllocate(
-        uint amount,
+        uint128 amount,
         uint remaining
     ) external pure returns (uint subRemaining, uint parentRemainingAfter) {
         Budget memory budget = Budget({remaining: remaining});

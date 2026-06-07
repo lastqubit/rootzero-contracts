@@ -18,6 +18,9 @@ pragma solidity ^0.8.33;
 // - run items may repeat at top level for batching
 // - `maybe #x { ... }` marks an optional block item
 // - `many #x { ... }` emits one generic list block containing repeated `#x` items
+// - `resources` fields are chain-specific resource words; one chain type may
+//   pack them differently from another, but a given chain type must use one
+//   stable format everywhere. EVM resources use the low 128 bits as native value.
 // - fixed fields are packed in declaration order
 // - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
@@ -62,9 +65,9 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant Pipe = "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as steps } }";
-    string constant Call = "#call { uint target, uint value, #bytes as payload }";
-    string constant Step = "#step { uint target, uint value, #bytes as request }";
+    string constant Pipe = "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }";
+    string constant Call = "#call { uint target, uint resources, #bytes as payload }";
+    string constant Step = "#step { uint target, uint resources, #bytes as request }";
     string constant Relay = "#relay { uint chain, uint resources, #bytes as steps }";
     string constant Dispatch = "#dispatch { uint chain, uint resources, #bytes as payload }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";

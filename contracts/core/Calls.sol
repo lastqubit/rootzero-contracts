@@ -28,7 +28,7 @@ abstract contract NodeCalls is AccessControl {
     /// @param value Native value to forward in wei.
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful call.
-    function callAddr(address addr, uint value, bytes memory data) internal returns (bytes memory out) {
+    function callAddr(address addr, uint128 value, bytes memory data) internal returns (bytes memory out) {
         bool success;
         (success, out) = payable(addr).call{value: value}(data);
         if (!success) revert FailedCall(addr, bytes4(data), out);
@@ -53,7 +53,7 @@ abstract contract NodeCalls is AccessControl {
     /// @param value Native value to forward in wei.
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful call.
-    function callTo(uint node, uint value, bytes memory data) internal returns (bytes memory out) {
+    function callTo(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
         ensureTrusted(node);
         address addr = Ids.nodeAddr(node);
         return callAddr(addr, value, data);
@@ -76,7 +76,7 @@ abstract contract NodeCalls is AccessControl {
     /// @param value Native value to forward in wei.
     /// @param ctx Command execution context.
     /// @return Decoded command output block stream.
-    function callCommand(uint id, uint value, CommandContext memory ctx) internal returns (bytes memory) {
+    function callCommand(uint id, uint128 value, CommandContext memory ctx) internal returns (bytes memory) {
         bytes4 selector = Ids.commandSelector(id);
         bytes memory data = abi.encodeWithSelector(selector, ctx);
         return abi.decode(callTo(id, value, data), (bytes));

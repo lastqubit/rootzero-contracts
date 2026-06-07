@@ -56,9 +56,9 @@ A block payload has fixed fields first, followed by an optional child-block tail
 Once a child block appears, no more fixed fields may follow.
 
 ```txt
-#call { uint target, uint value, #bytes as payload }
+#call { uint target, uint resources, #bytes as payload }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
+#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }
 ```
 
 The tail is embedded directly as child block bytes. There is no wrapper around a
@@ -108,7 +108,7 @@ or runtime keys.
 
 ```txt
 maybe #account { bytes32 account } as recipient
-#call { uint target, uint value, #bytes as payload }
+#call { uint target, uint resources, #bytes as payload }
 ```
 
 Aliases may be used on any block item, including child blocks and prime items.
@@ -130,6 +130,13 @@ bytes1 through bytes32
 Integers are encoded big-endian. Signed integers use two's-complement encoding
 for their declared width. `bool` is one byte: `0x00` for false and `0x01` for
 true. `bytesN` values are encoded as exactly `N` bytes with no padding.
+
+## Chain Resources
+
+Fields named `resources` are chain-specific resource words. Different chain
+types may pack these words differently, but a given chain type must use one
+stable format everywhere. For EVM chains, the low 128 bits are native value /
+endowment in wei; higher bits are reserved for execution resources such as gas.
 
 ## Identifiers
 
@@ -185,10 +192,10 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #amount { bytes32 asset, bytes32 meta, uint amount }
 #balance { bytes32 asset, bytes32 meta, uint amount }
 #custody { uint host, bytes32 asset, bytes32 meta, uint amount }
-#call { uint target, uint value, #bytes as payload }
-#step { uint target, uint value, #bytes as request }
+#call { uint target, uint resources, #bytes as payload }
+#step { uint target, uint resources, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as request } }
+#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }
 #auth { uint cid, uint deadline, #bytes as proof }
 ```
 

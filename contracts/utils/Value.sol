@@ -18,9 +18,10 @@ library Values {
     /// @param budget Mutable budget to deduct from.
     /// @param amount Native value to spend in wei.
     /// @return The same `amount`, ready to forward to a callee.
-    function use(Budget memory budget, uint amount) internal pure returns (uint) {
-        if (amount > budget.remaining) revert InsufficientValue();
-        budget.remaining -= amount;
+    function use(Budget memory budget, uint128 amount) internal pure returns (uint128) {
+        uint value = uint(amount);
+        if (value > budget.remaining) revert InsufficientValue();
+        budget.remaining -= value;
         return amount;
     }
 
@@ -29,7 +30,7 @@ library Values {
     /// @param budget Mutable parent budget to deduct from.
     /// @param amount Native value to assign to the sub-budget, in wei.
     /// @return A new budget with `amount` remaining.
-    function allocate(Budget memory budget, uint amount) internal pure returns (Budget memory) {
+    function allocate(Budget memory budget, uint128 amount) internal pure returns (Budget memory) {
         return Budget({remaining: use(budget, amount)});
     }
 }

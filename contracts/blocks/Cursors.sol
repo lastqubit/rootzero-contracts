@@ -518,20 +518,20 @@ library Cursors {
 
     /// @notice Encode a STEP block.
     /// @param target Command target identifier.
-    /// @param value Native value forwarded with the step.
+    /// @param resources Chain resources assigned to the step.
     /// @param request Raw nested request payload.
     /// @return Encoded STEP block bytes.
-    function toStepBlock(uint target, uint value, bytes memory request) internal pure returns (bytes memory) {
-        return createBlock(Keys.Step, bytes.concat(bytes32(target), bytes32(value), toBytesBlock(request)));
+    function toStepBlock(uint target, uint resources, bytes memory request) internal pure returns (bytes memory) {
+        return createBlock(Keys.Step, bytes.concat(bytes32(target), bytes32(resources), toBytesBlock(request)));
     }
 
     /// @notice Encode a CALL block.
     /// @param target Target node identifier.
-    /// @param value Native value forwarded with the call.
+    /// @param resources Chain resources assigned to the call.
     /// @param data Raw calldata payload for the target.
     /// @return Encoded CALL block bytes.
-    function toCallBlock(uint target, uint value, bytes memory data) internal pure returns (bytes memory) {
-        return createBlock(Keys.Call, bytes.concat(bytes32(target), bytes32(value), toBytesBlock(data)));
+    function toCallBlock(uint target, uint resources, bytes memory data) internal pure returns (bytes memory) {
+        return createBlock(Keys.Call, bytes.concat(bytes32(target), bytes32(resources), toBytesBlock(data)));
     }
 
     /// @notice Encode a CONTEXT block.
@@ -548,18 +548,18 @@ library Cursors {
     }
 
     /// @notice Encode a PIPE block.
-    /// @param value Native value assigned to the pipe.
+    /// @param resources Chain resources assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Embedded state block stream.
     /// @param steps Embedded step block stream.
     /// @return Encoded PIPE block bytes.
     function toPipeBlock(
-        uint value,
+        uint resources,
         bytes32 account,
         bytes memory state,
         bytes memory steps
     ) internal pure returns (bytes memory) {
-        return createBlock(Keys.Pipe, bytes.concat(bytes32(value), toContextBlock(account, state, steps)));
+        return createBlock(Keys.Pipe, bytes.concat(bytes32(resources), toContextBlock(account, state, steps)));
     }
 
     /// @notice Encode a RELAY block.
@@ -1079,12 +1079,12 @@ library Cursors {
     /// The `req` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Destination node ID for the sub-command.
-    /// @return value Native value to forward with the call.
+    /// @return resources Chain resources assigned to the step.
     /// @return req Embedded request bytes for the sub-command.
-    function unpackStep(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata req) {
+    function unpackStep(Cur memory cur) internal pure returns (uint target, uint resources, bytes calldata req) {
         uint end = cur.enter(Keys.Step, 64 + Sizes.Header, 0);
         target = uint(cur.read32());
-        value = uint(cur.read32());
+        resources = uint(cur.read32());
         req = cur.unpackBytes();
         cur.exit(end);
     }
@@ -1093,12 +1093,12 @@ library Cursors {
     /// The `data` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Target node ID to call.
-    /// @return value Native value to forward with the call.
+    /// @return resources Chain resources assigned to the call.
     /// @return data Raw calldata payload for the target.
-    function unpackCall(Cur memory cur) internal pure returns (uint target, uint value, bytes calldata data) {
+    function unpackCall(Cur memory cur) internal pure returns (uint target, uint resources, bytes calldata data) {
         uint end = cur.enter(Keys.Call, 64 + Sizes.Header, 0);
         target = uint(cur.read32());
-        value = uint(cur.read32());
+        resources = uint(cur.read32());
         data = cur.unpackBytes();
         cur.exit(end);
     }
@@ -1119,17 +1119,17 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a PIPE block and return its value and context fields.
+    /// @notice Consume a PIPE block and return its resources and context fields.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Native value assigned to the pipe.
+    /// @return resources Chain resources assigned to the pipe.
     /// @return account Command account identifier.
     /// @return state Embedded state block stream.
     /// @return steps Embedded step block stream.
     function unpackPipe(
         Cur memory cur
-    ) internal pure returns (uint value, bytes32 account, bytes calldata state, bytes calldata steps) {
+    ) internal pure returns (uint resources, bytes32 account, bytes calldata state, bytes calldata steps) {
         uint end = cur.enter(Keys.Pipe, 32 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
-        value = uint(cur.read32());
+        resources = uint(cur.read32());
         (account, state, steps) = cur.unpackContext();
         cur.exit(end);
     }
@@ -1383,6 +1383,27 @@ library Cursors {
         if (bytes32(msg.data[abs + 64:abs + 96]) != meta) revert UnexpectedValue();
         if (uint(bytes32(msg.data[abs + 96:abs + 128])) > amount) revert UnexpectedValue();
         if (uint(bytes32(msg.data[abs + 128:abs + 160])) < amount) revert UnexpectedValue();
+    }
+
+    // -------------------------------------------------------------------------
+    // Transform helpers
+    // -------------------------------------------------------------------------
+
+    /// @notice Consume a RELAY block and encode its destination pipe payload.
+    /// @param cur Cursor; advanced past the RELAY block.
+    /// @param account Account identifier to embed in the destination pipe context.
+    /// @param state State block stream to embed in the destination pipe context.
+    /// @return chain Destination chain node ID.
+    /// @return resources Chain resources assigned to the destination pipe.
+    /// @return pipe Encoded PIPE block containing `account`, `state`, and relay steps.
+    function relayToPipe(
+        Cur memory cur,
+        bytes32 account,
+        bytes calldata state
+    ) internal pure returns (uint chain, uint resources, bytes memory pipe) {
+        bytes calldata steps;
+        (chain, resources, steps) = cur.unpackRelay();
+        pipe = toPipeBlock(resources, account, bytes(state), bytes(steps));
     }
 
     // -------------------------------------------------------------------------

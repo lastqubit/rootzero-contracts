@@ -303,11 +303,11 @@ The destination payload is:
 
 ```text
 #pipe {
-  uint value,
+  uint resources,
   #context {
     bytes32 account,
     #bytes state,
-    #bytes request   // STEP block stream
+    #bytes steps     // STEP block stream
   }
 }
 ```

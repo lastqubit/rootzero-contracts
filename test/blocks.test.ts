@@ -439,7 +439,7 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
-    it("unpackPipe consumes value and nested context bytes", async () => {
+    it("unpackPipe consumes resources and nested context bytes", async () => {
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, meta, amount);
       const request = encodeAmountBlock(asset, meta, 7n);

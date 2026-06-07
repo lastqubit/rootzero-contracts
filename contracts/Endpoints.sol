@@ -16,7 +16,7 @@ import { DebitAccount, DebitAccountHook } from "./commands/Debit.sol";
 import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./commands/Deposit.sol";
 import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
-import { RelayPayable, RelayPayableHook } from "./commands/Relay.sol";
+import { RelayPayable, DispatchPayableHook } from "./commands/Relay.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
 // Admin commands

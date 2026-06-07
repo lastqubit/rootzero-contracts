@@ -10,7 +10,7 @@ using Cursors for Cur;
 
 /// @title PeerPipePayable
 /// @notice Peer that consumes PIPE blocks and executes each context step stream.
-/// Each PIPE block carries a value budget plus a CONTEXT block; the nested
+/// Each PIPE block carries chain resources plus a CONTEXT block; the nested
 /// context steps are passed to the shared pipeline as the step stream.
 abstract contract PeerPipePayable is PeerBase, Pipeline {
     string private constant NAME = "peerPipePayable";
@@ -21,7 +21,7 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
     }
 
     /// @notice Execute peer-supplied pipes through the shared payable pipe.
-    /// @dev Each pipe receives its own explicit value sub-budget. Any top-level
+    /// @dev Each pipe receives its own explicit EVM value sub-budget. Any top-level
     ///      `msg.value` not assigned to a pipe remains on this host.
     /// @param request PIPE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
@@ -30,8 +30,8 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {
-            (uint value, bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackPipe();
-            pipe(account, state, steps, allocateValue(budget, value));
+            (uint resources, bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackPipe();
+            pipe(account, state, steps, allocateValue(budget, resources));
         }
 
         input.complete();

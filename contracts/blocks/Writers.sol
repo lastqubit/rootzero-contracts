@@ -865,19 +865,19 @@ library Writers {
     /// @notice Append a STEP block with a nested request BYTES payload.
     /// @param writer Destination writer; `i` is advanced by the encoded STEP block length.
     /// @param target Command target identifier.
-    /// @param value Native value forwarded with the step.
+    /// @param resources Chain resources assigned to the step.
     /// @param request Raw nested request payload.
-    function appendStep(Writer memory writer, uint target, uint value, bytes memory request) internal pure {
-        appendBlock64Bytes(writer, Keys.Step, bytes32(target), bytes32(value), request);
+    function appendStep(Writer memory writer, uint target, uint resources, bytes memory request) internal pure {
+        appendBlock64Bytes(writer, Keys.Step, bytes32(target), bytes32(resources), request);
     }
 
     /// @notice Append a CALL block with a nested payload BYTES block.
     /// @param writer Destination writer; `i` is advanced by the encoded CALL block length.
     /// @param target Call target identifier.
-    /// @param value Native value forwarded with the call.
+    /// @param resources Chain resources assigned to the call.
     /// @param data Raw nested call payload.
-    function appendCall(Writer memory writer, uint target, uint value, bytes memory data) internal pure {
-        appendBlock64Bytes(writer, Keys.Call, bytes32(target), bytes32(value), data);
+    function appendCall(Writer memory writer, uint target, uint resources, bytes memory data) internal pure {
+        appendBlock64Bytes(writer, Keys.Call, bytes32(target), bytes32(resources), data);
     }
 
     /// @notice Append a CONTEXT block with nested state/request BYTES payloads.
@@ -891,13 +891,13 @@ library Writers {
 
     /// @notice Append a PIPE block with a nested CONTEXT block.
     /// @param writer Destination writer; `i` is advanced by the encoded PIPE block length.
-    /// @param value Native value assigned to the pipe.
+    /// @param resources Chain resources assigned to the pipe.
     /// @param account Command account identifier.
     /// @param state Raw nested state payload.
     /// @param steps Raw nested step payload.
     function appendPipe(
         Writer memory writer,
-        uint value,
+        uint resources,
         bytes32 account,
         bytes memory state,
         bytes memory steps
@@ -909,7 +909,7 @@ library Writers {
 
         uint p = writeHeader(writer.dst, i, Keys.Pipe, uint32(max32(len)));
         assembly ("memory-safe") {
-            mstore(add(p, 0x08), value)
+            mstore(add(p, 0x08), resources)
         }
 
         writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 32, Keys.Context, account, state, steps);

@@ -7,7 +7,7 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeRelayBlock,
+  encodePipeBlock, encodeRelayBlock,
   concat
 } from "./helpers/blocks.js";
 
@@ -430,20 +430,21 @@ describe("Commands", () => {
         );
     });
 
-    it("passes the RELAY block plus account and state to the hook", async () => {
+    it("passes the RELAY block as an encoded destination pipe to the hook", async () => {
       const asset = ethers.zeroPadValue("0x80", 32);
       const state = encodeBalanceBlock(asset, ethers.ZeroHash, 12n);
       const chain = chainNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
       const request = encodeRelayBlock(chain, resources, steps);
+      const pipe = encodePipeBlock(resources, userAccount, state, steps);
 
-      const result: string = await host.relayPayable.staticCall(ctx({ state, request }), { value: resources });
+      const result: string = await host.relayPayable.staticCall(ctx({ state, request }));
       expect(result).to.equal("0x");
 
-      const tx = await callAs(0, "relayPayable", ctx({ state, request }), { value: resources });
+      const tx = await callAs(0, "relayPayable", ctx({ state, request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, userAccount, state, steps, resources);
+        .withArgs(chain, resources, pipe);
     });
 
     it("reverts ZeroCursor when request has no RELAY block", async () => {
@@ -482,10 +483,19 @@ describe("Commands", () => {
       const chain = chainNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
       const request = encodeRelayBlock(chain, 2n, steps);
+      const pipe = encodePipeBlock(2n, userAccount, "0x", steps);
 
-      const tx = await callAs(0, "relayPayable", ctx({ request }), { value: 1n });
+      const tx = await callAs(0, "relayPayable", ctx({ request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, userAccount, "0x", steps, 2n);
+        .withArgs(chain, 2n, pipe);
+    });
+
+    it("settles unspent command value after relay dispatch", async () => {
+      const chain = chainNode(31337n);
+      const request = encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"));
+
+      await expect(callAs(0, "relayPayable", ctx({ request }), { value: 1n }))
+        .to.be.revertedWithCustomError(host, "UnusedValue");
     });
   });
 
@@ -506,7 +516,7 @@ describe("Commands", () => {
       expect(count).to.be.gte(2n);
     });
 
-    it("passes each step target and value through to the dispatcher", async () => {
+    it("passes each step target and EVM value through to the dispatcher", async () => {
       const request = concat(
         encodeStepBlock(11n, 7n, "0x1234"),
         encodeStepBlock(22n, 9n, "0xabcd")
@@ -515,6 +525,16 @@ describe("Commands", () => {
       const tx = await callAs(0, "testPipe", userAccount, "0x", request, { value: 16n });
       await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
       await expect(tx).to.emit(host, "StepDispatched").withArgs(22n, startCount + 1n, 9n);
+    });
+
+    it("uses only the low 128 resource bits as EVM step value", async () => {
+      const resources = (123n << 128n) | 7n;
+      const request = encodeStepBlock(11n, resources, "0x1234");
+      const startCount = await host.stepCount();
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request, { value: 7n });
+
+      await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
     });
 
     it("reverts UnexpectedState when final threaded state is non-empty", async () => {

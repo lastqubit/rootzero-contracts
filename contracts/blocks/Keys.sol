@@ -37,17 +37,17 @@ library Keys {
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
-    /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)
+    /// @dev Sub-command invocation - (uint target, uint resources, #bytes as request)
     bytes4 constant Step = bytes4(keccak256("#step"));
     /// @dev Cross-chain pipe relay - (uint chain, uint resources, #bytes as steps)
     bytes4 constant Relay = bytes4(keccak256("#relay"));
     /// @dev Cross-chain encoded payload dispatch - (uint chain, uint resources, #bytes as payload)
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
-    /// @dev Raw external call - (uint target, uint value, #bytes as payload)
+    /// @dev Raw external call - (uint target, uint resources, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));
     /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
     bytes4 constant Context = bytes4(keccak256("#context"));
-    /// @dev Pipeline invocation - (uint value, #context)
+    /// @dev Pipeline invocation - (uint resources, #context)
     bytes4 constant Pipe = bytes4(keccak256("#pipe"));
     /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256("#auth"));

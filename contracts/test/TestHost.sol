@@ -49,13 +49,13 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
-    event RelayCalled(uint chain, bytes32 account, bytes state, bytes steps, uint resources);
+    event RelayCalled(uint chain, uint resources, bytes pipe);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset, bytes32 meta);
     event DenyAssetCalled(bytes32 asset, bytes32 meta);
     event AllowanceCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
-    event StepDispatched(uint cid, uint stepIndex, uint value);
+    event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
 
@@ -72,7 +72,7 @@ contract TestHost is
         uint amount,
         Budget memory budget
     ) internal override {
-        emit DepositPayableCalled(account, asset, meta, Values.use(budget, amount), budget.remaining);
+        emit DepositPayableCalled(account, asset, meta, Values.use(budget, uint128(amount)), budget.remaining);
     }
 
     function withdraw(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
@@ -101,20 +101,13 @@ contract TestHost is
         Budget memory budget
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, custody.meta, Values.use(budget, custody.amount), budget.remaining
+            custody.host, account, custody.asset, custody.meta, Values.use(budget, uint128(custody.amount)), budget.remaining
         );
     }
 
-    function relay(
-        uint chain,
-        uint resources,
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata steps,
-        Budget memory budget
-    ) internal override {
+    function dispatch(uint chain, uint resources, bytes memory pipe, Budget memory budget) internal override {
         budget;
-        emit RelayCalled(chain, account, state, steps, resources);
+        emit RelayCalled(chain, resources, pipe);
     }
 
     function init(Cur memory input) internal override {
@@ -160,7 +153,7 @@ contract TestHost is
         bytes32,
         bytes memory state,
         bytes calldata,
-        uint value
+        uint128 value
     ) internal override returns (bytes memory) {
         emit StepDispatched(cid, stepCount++, value);
         return state;

@@ -61,7 +61,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerPipePayableId(),
         "peerPipePayable",
         ethers.encodeBytes32String("1:0"),
-        "#pipe { uint value, #context { bytes32 account, #bytes as state, #bytes as steps } }",
+        "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }",
         "",
         true,
       );

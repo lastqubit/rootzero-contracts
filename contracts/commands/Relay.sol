@@ -8,24 +8,15 @@ import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-abstract contract RelayPayableHook {
-    /// @notice Override to relay `steps` to `chain` with the current account and state.
+abstract contract DispatchPayableHook {
+    /// @notice Override to dispatch an encoded payload to `chain`.
     /// @param chain Destination chain node ID.
     /// @param resources Chain-adapter-specific destination resources. EVM adapters
     /// may interpret this as packed execution gas and destination value.
-    /// @param account Command account identifier.
-    /// @param state Current command state block stream.
-    /// @param steps Embedded destination step block stream.
+    /// @param payload Encoded payload ready for the transport layer.
     /// @param budget Source-chain native-value budget available for transport
     /// fees and destination resource funding.
-    function relay(
-        uint chain,
-        uint resources,
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata steps,
-        Budget memory budget
-    ) internal virtual;
+    function dispatch(uint chain, uint resources, bytes memory payload, Budget memory budget) internal virtual;
 }
 
 /// @title RelayPayable
@@ -33,7 +24,7 @@ abstract contract RelayPayableHook {
 /// Reverts unless the request contains exactly one RELAY block, preventing
 /// the same state from being duplicated across multiple relays.
 /// Produces no output state.
-abstract contract RelayPayable is CommandBase, Payable, RelayPayableHook {
+abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
     string private constant NAME = "relayPayable";
 
     uint internal immutable relayPayableId = commandId(NAME);
@@ -49,8 +40,10 @@ abstract contract RelayPayable is CommandBase, Payable, RelayPayableHook {
         (Cur memory request, ) = Cursors.init(c.request, 0, 1, 1);
         Budget memory budget = valueBudget();
 
-        (uint chain, uint resources, bytes calldata steps) = request.unpackRelay();
-        relay(chain, resources, c.account, c.state, steps, budget);
+        (uint chain, uint resources, bytes memory pipe) = request.relayToPipe(c.account, c.state);
+        dispatch(chain, resources, pipe, budget);
+        
+        settleValue(c.account, budget);
         request.complete();
         return "";
     }

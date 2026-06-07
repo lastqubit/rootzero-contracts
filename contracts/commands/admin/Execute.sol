@@ -12,7 +12,7 @@ using Cursors for Cur;
 
 /// @title ExecutePayable
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
-/// Each CALL block specifies a target node ID, native value, and raw calldata payload.
+/// Each CALL block specifies a target node ID, chain resources, and raw calldata payload.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` remains on this host.
 abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
@@ -32,9 +32,9 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
         Budget memory budget = valueBudget();
 
         while (request.i < request.len) {
-            (uint target, uint value, bytes calldata data) = request.unpackCall();
+            (uint target, uint resources, bytes calldata data) = request.unpackCall();
             address addr = Ids.nodeAddr(target);
-            callAddr(addr, useValue(budget, value), data);
+            callAddr(addr, useValue(budget, resources), data);
         }
 
         request.complete();
