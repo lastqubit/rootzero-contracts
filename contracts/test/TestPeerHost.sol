@@ -14,7 +14,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event PeerCreditAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event PeerDispatchCalled(uint chain, bytes payload, uint endowment, uint remaining);
+    event PeerDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
     event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
@@ -37,8 +37,8 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
         emit PeerCreditAccountCalled(account, asset, meta, amount);
     }
 
-    function dispatch(uint chain, uint endowment, bytes calldata payload, Budget memory budget) internal override {
-        emit PeerDispatchCalled(chain, payload, endowment, budget.remaining);
+    function dispatch(uint chain, uint resources, bytes calldata payload, Budget memory budget) internal override {
+        emit PeerDispatchCalled(chain, payload, resources, budget.remaining);
     }
 
     function dispatch(

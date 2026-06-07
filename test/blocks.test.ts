@@ -452,24 +452,24 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(pipe).length));
     });
 
-    it("unpackRelay consumes chain, endowment, and step bytes", async () => {
+    it("unpackRelay consumes chain, resources, and step bytes", async () => {
       const chain: bigint = await utils.testLocalChainId();
       const steps = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, meta, 7n));
       const relay = encodeRelayBlock(chain, 55n, steps);
-      const [outChain, endowment, outSteps, i] = await helper.testUnpackRelay(relay);
+      const [outChain, resources, outSteps, i] = await helper.testUnpackRelay(relay);
       expect(outChain).to.equal(chain);
-      expect(endowment).to.equal(55n);
+      expect(resources).to.equal(55n);
       expect(outSteps).to.equal(steps);
       expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
     });
 
-    it("unpackDispatch consumes chain, endowment, and payload bytes", async () => {
+    it("unpackDispatch consumes chain, resources, and payload bytes", async () => {
       const chain: bigint = await utils.testLocalChainId();
       const payload = ethers.hexlify(ethers.toUtf8Bytes("ready-to-send"));
       const dispatch = encodeDispatchBlock(chain, 89n, payload);
-      const [outChain, endowment, outPayload, i] = await helper.testUnpackDispatch(dispatch);
+      const [outChain, resources, outPayload, i] = await helper.testUnpackDispatch(dispatch);
       expect(outChain).to.equal(chain);
-      expect(endowment).to.equal(89n);
+      expect(resources).to.equal(89n);
       expect(outPayload).to.equal(payload);
       expect(i).to.equal(BigInt(ethers.getBytes(dispatch).length));
     });

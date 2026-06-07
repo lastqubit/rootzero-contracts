@@ -11,17 +11,16 @@ using Cursors for Cur;
 abstract contract RelayPayableHook {
     /// @notice Override to relay `steps` to `chain` with the current account and state.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination pipe. The hook
-    /// decides how much source-chain budget must be spent to fund this value on
-    /// the destination chain.
+    /// @param resources Chain-adapter-specific destination resources. EVM adapters
+    /// may interpret this as packed execution gas and destination value.
     /// @param account Command account identifier.
     /// @param state Current command state block stream.
     /// @param steps Embedded destination step block stream.
     /// @param budget Source-chain native-value budget available for transport
-    /// fees and destination endowment funding.
+    /// fees and destination resource funding.
     function relay(
         uint chain,
-        uint endowment,
+        uint resources,
         bytes32 account,
         bytes calldata state,
         bytes calldata steps,
@@ -50,8 +49,8 @@ abstract contract RelayPayable is CommandBase, Payable, RelayPayableHook {
         (Cur memory request, ) = Cursors.init(c.request, 0, 1, 1);
         Budget memory budget = valueBudget();
 
-        (uint chain, uint endowment, bytes calldata steps) = request.unpackRelay();
-        relay(chain, endowment, c.account, c.state, steps, budget);
+        (uint chain, uint resources, bytes calldata steps) = request.unpackRelay();
+        relay(chain, resources, c.account, c.state, steps, budget);
         request.complete();
         return "";
     }

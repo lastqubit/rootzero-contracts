@@ -144,12 +144,12 @@ export function encodePipeBlock(value: bigint, account: string, state: string, r
   return block(Keys.Pipe, ethers.concat([pad32(value), encodeContextBlock(account, state, request)]));
 }
 
-export function encodeRelayBlock(chain: bigint, endowment: bigint, steps: string): string {
-  return block(Keys.Relay, ethers.concat([pad32(chain), pad32(endowment), encodeBytesBlock(steps)]));
+export function encodeRelayBlock(chain: bigint, resources: bigint, steps: string): string {
+  return block(Keys.Relay, ethers.concat([pad32(chain), pad32(resources), encodeBytesBlock(steps)]));
 }
 
-export function encodeDispatchBlock(chain: bigint, endowment: bigint, payload: string): string {
-  return block(Keys.Dispatch, ethers.concat([pad32(chain), pad32(endowment), encodeBytesBlock(payload)]));
+export function encodeDispatchBlock(chain: bigint, resources: bigint, payload: string): string {
+  return block(Keys.Dispatch, ethers.concat([pad32(chain), pad32(resources), encodeBytesBlock(payload)]));
 }
 
 export function encodeBytesBlock(data: string): string {

@@ -422,7 +422,7 @@ describe("Commands", () => {
           await host.getRelayPayableId(),
           "relayPayable",
           ethers.encodeBytes32String("1:0:0"),
-          "#relay { uint chain, uint endowment, #bytes as steps }",
+          "#relay { uint chain, uint resources, #bytes as steps }",
           Keys.Any,
           Keys.Empty,
           false,
@@ -434,16 +434,16 @@ describe("Commands", () => {
       const asset = ethers.zeroPadValue("0x80", 32);
       const state = encodeBalanceBlock(asset, ethers.ZeroHash, 12n);
       const chain = chainNode(31337n);
-      const endowment = 9n;
+      const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
-      const request = encodeRelayBlock(chain, endowment, steps);
+      const request = encodeRelayBlock(chain, resources, steps);
 
-      const result: string = await host.relayPayable.staticCall(ctx({ state, request }), { value: endowment });
+      const result: string = await host.relayPayable.staticCall(ctx({ state, request }), { value: resources });
       expect(result).to.equal("0x");
 
-      const tx = await callAs(0, "relayPayable", ctx({ state, request }), { value: endowment });
+      const tx = await callAs(0, "relayPayable", ctx({ state, request }), { value: resources });
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, userAccount, state, steps, endowment);
+        .withArgs(chain, userAccount, state, steps, resources);
     });
 
     it("reverts ZeroCursor when request has no RELAY block", async () => {
@@ -478,7 +478,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "BadRatio");
     });
 
-    it("passes relay endowment through even when it exceeds msg.value", async () => {
+    it("passes relay resources through even when it exceeds msg.value", async () => {
       const chain = chainNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
       const request = encodeRelayBlock(chain, 2n, steps);

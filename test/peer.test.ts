@@ -73,7 +73,7 @@ describe("Peer Entrypoints", () => {
         await host.getPeerDispatchPayableId(),
         "peerDispatchPayable",
         ethers.encodeBytes32String("1:0"),
-        "#dispatch { uint chain, uint endowment, #bytes as payload }",
+        "#dispatch { uint chain, uint resources, #bytes as payload }",
         "",
         true,
       );
@@ -404,7 +404,7 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, second, 3n, 5n);
     });
 
-    it("passes dispatch endowment through even when it exceeds msg.value", async () => {
+    it("passes dispatch resources through even when it exceeds msg.value", async () => {
       const request = encodeDispatchBlock(await localChain(), 2n, "0x");
 
       const tx = await callAs(1, method, request, { value: 1n });

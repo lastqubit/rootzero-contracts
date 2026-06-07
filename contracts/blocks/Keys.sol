@@ -39,9 +39,9 @@ library Keys {
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint value, #bytes as request)
     bytes4 constant Step = bytes4(keccak256("#step"));
-    /// @dev Cross-chain pipe relay - (uint chain, uint endowment, #bytes as steps)
+    /// @dev Cross-chain pipe relay - (uint chain, uint resources, #bytes as steps)
     bytes4 constant Relay = bytes4(keccak256("#relay"));
-    /// @dev Cross-chain encoded payload dispatch - (uint chain, uint endowment, #bytes as payload)
+    /// @dev Cross-chain encoded payload dispatch - (uint chain, uint resources, #bytes as payload)
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
     /// @dev Raw external call - (uint target, uint value, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));

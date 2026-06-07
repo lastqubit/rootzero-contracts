@@ -564,20 +564,20 @@ library Cursors {
 
     /// @notice Encode a RELAY block.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination pipe.
+    /// @param resources Chain-adapter-specific resources for the destination pipe.
     /// @param steps Nested step block stream.
     /// @return Encoded RELAY block bytes.
-    function toRelayBlock(uint chain, uint endowment, bytes memory steps) internal pure returns (bytes memory) {
-        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(endowment), toBytesBlock(steps)));
+    function toRelayBlock(uint chain, uint resources, bytes memory steps) internal pure returns (bytes memory) {
+        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(steps)));
     }
 
     /// @notice Encode a DISPATCH block.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination dispatch.
+    /// @param resources Chain-adapter-specific resources for the destination dispatch.
     /// @param payload Encoded cross-chain payload.
     /// @return Encoded DISPATCH block bytes.
-    function toDispatchBlock(uint chain, uint endowment, bytes memory payload) internal pure returns (bytes memory) {
-        return createBlock(Keys.Dispatch, bytes.concat(bytes32(chain), bytes32(endowment), toBytesBlock(payload)));
+    function toDispatchBlock(uint chain, uint resources, bytes memory payload) internal pure returns (bytes memory) {
+        return createBlock(Keys.Dispatch, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(payload)));
     }
 
     // -------------------------------------------------------------------------
@@ -598,6 +598,18 @@ library Cursors {
         cur.i += n;
     }
 
+    /// @notice Read the next 4 bytes from the cursor and advance by 4 bytes.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 4 bytes.
+    /// @return value Loaded bytes4 value.
+    function read4(Cur memory cur) internal pure returns (bytes4 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 4;
+    }
+
     /// @notice Read the next 16 bytes from the cursor and advance by 16 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 16 bytes.
@@ -615,6 +627,18 @@ library Cursors {
     /// @param cur Cursor whose current position is advanced by 32 bytes.
     /// @return value Loaded word.
     function read32(Cur memory cur) internal pure returns (bytes32 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 32;
+    }
+
+    /// @notice Read the next uint from the cursor and advance by one word.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 32 bytes.
+    /// @return value Loaded uint value.
+    function readUint(Cur memory cur) internal pure returns (uint value) {
         uint abs = cur.offset + cur.i;
         assembly ("memory-safe") {
             value := calldataload(abs)
@@ -1110,32 +1134,32 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a RELAY block and return its destination chain, endowment, and step stream.
+    /// @notice Consume a RELAY block and return its destination chain, resources, and step stream.
     /// @param cur Cursor; advanced past the block.
     /// @return chain Destination chain node ID.
-    /// @return endowment Native value requested for the destination pipe.
+    /// @return resources Chain-adapter-specific resources for the destination pipe.
     /// @return steps Embedded step block stream.
     function unpackRelay(
         Cur memory cur
-    ) internal pure returns (uint chain, uint endowment, bytes calldata steps) {
+    ) internal pure returns (uint chain, uint resources, bytes calldata steps) {
         uint end = cur.enter(Keys.Relay, 64 + Sizes.Header, 0);
-        chain = uint(cur.read32());
-        endowment = uint(cur.read32());
+        chain = cur.readUint();
+        resources = cur.readUint();
         steps = cur.unpackBytes();
         cur.exit(end);
     }
 
-    /// @notice Consume a DISPATCH block and return its destination chain, endowment, and payload.
+    /// @notice Consume a DISPATCH block and return its destination chain, resources, and payload.
     /// @param cur Cursor; advanced past the block.
     /// @return chain Destination chain node ID.
-    /// @return endowment Native value requested for the destination dispatch.
+    /// @return resources Chain-adapter-specific resources for the destination dispatch.
     /// @return payload Encoded cross-chain payload.
     function unpackDispatch(
         Cur memory cur
-    ) internal pure returns (uint chain, uint endowment, bytes calldata payload) {
+    ) internal pure returns (uint chain, uint resources, bytes calldata payload) {
         uint end = cur.enter(Keys.Dispatch, 64 + Sizes.Header, 0);
-        chain = uint(cur.read32());
-        endowment = uint(cur.read32());
+        chain = cur.readUint();
+        resources = cur.readUint();
         payload = cur.unpackBytes();
         cur.exit(end);
     }

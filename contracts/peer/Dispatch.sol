@@ -11,13 +11,12 @@ using Cursors for Cur;
 abstract contract PeerDispatchPayableHook {
     /// @notice Override to dispatch an already encoded payload to `chain`.
     /// @param chain Destination chain node ID.
-    /// @param endowment Native value requested for the destination dispatch. The
-    /// hook decides how much source-chain budget must be spent to fund this
-    /// value on the destination chain.
+    /// @param resources Chain-adapter-specific destination resources. EVM adapters
+    /// may interpret this as packed execution gas and destination value.
     /// @param payload Encoded payload ready for the transport layer.
     /// @param budget Source-chain native-value budget available for transport
-    /// fees and destination endowment funding.
-    function dispatch(uint chain, uint endowment, bytes calldata payload, Budget memory budget) internal virtual;
+    /// fees and destination resource funding.
+    function dispatch(uint chain, uint resources, bytes calldata payload, Budget memory budget) internal virtual;
 }
 
 /// @title PeerDispatchPayable
@@ -40,8 +39,8 @@ abstract contract PeerDispatchPayable is PeerBase, Payable, PeerDispatchPayableH
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {
-            (uint chain, uint endowment, bytes calldata payload) = input.unpackDispatch();
-            dispatch(chain, endowment, payload, budget);
+            (uint chain, uint resources, bytes calldata payload) = input.unpackDispatch();
+            dispatch(chain, resources, payload, budget);
         }
 
         input.complete();

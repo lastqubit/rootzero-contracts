@@ -49,7 +49,7 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
-    event RelayCalled(uint chain, bytes32 account, bytes state, bytes steps, uint endowment);
+    event RelayCalled(uint chain, bytes32 account, bytes state, bytes steps, uint resources);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset, bytes32 meta);
@@ -107,14 +107,14 @@ contract TestHost is
 
     function relay(
         uint chain,
-        uint endowment,
+        uint resources,
         bytes32 account,
         bytes calldata state,
         bytes calldata steps,
         Budget memory budget
     ) internal override {
         budget;
-        emit RelayCalled(chain, account, state, steps, endowment);
+        emit RelayCalled(chain, account, state, steps, resources);
     }
 
     function init(Cur memory input) internal override {
