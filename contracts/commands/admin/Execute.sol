@@ -16,12 +16,11 @@ using Cursors for Cur;
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` remains on this host.
 abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
-    string private constant NAME = "executePayable";
-
-    uint internal immutable executePayableId = commandId(NAME);
+    uint internal immutable executePayableId = commandId(this.executePayable.selector);
 
     constructor() {
-        emit Admin(host, executePayableId, NAME, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, false, true);
+        emit Admin(host, executePayableId, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, false, true);
+        emit Labeled(executePayableId, bytes32(0), "executePayable");
     }
 
     /// @notice Execute each CALL block in the admin request.

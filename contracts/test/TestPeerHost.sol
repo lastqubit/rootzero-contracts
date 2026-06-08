@@ -19,7 +19,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
 
     uint public stepCount;
 
-    constructor(address cmdr) Host(cmdr, 1, "test") {}
+    constructor(address cmdr) Host(cmdr) {}
 
     function allowance(uint peer, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit PeerAllowanceCalled(peer, asset, meta, amount);

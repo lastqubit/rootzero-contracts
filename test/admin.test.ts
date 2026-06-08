@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
 import {
   encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeDataBlock, encodeCallBlock, concat
+  encodeDataBlock, encodeCallBlock, encodeLabelBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -273,6 +273,54 @@ describe("Admin Commands", () => {
 
     it("reverts ZeroCursor for empty request", async () => {
       await expect(callAs(0, "allowance", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("label", () => {
+    it("discovers label and publishes its default label", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Admin")
+        .withArgs(
+          await host.host(),
+          await host.getLabelId(),
+          ethers.encodeBytes32String("1:0:0"),
+          "#label { uint id, bytes32 namespace, #string as name }",
+          ethers.ZeroHash.slice(0, 10),
+          ethers.ZeroHash.slice(0, 10),
+          false,
+          false,
+        );
+      await expect(deployment!).to.emit(host, "Labeled")
+        .withArgs(await host.getLabelId(), ethers.ZeroHash, "label");
+    });
+
+    it("emits Labeled for each LABEL block", async () => {
+      const namespace = ethers.encodeBytes32String("docs");
+      const request = concat(
+        encodeLabelBlock(await host.getDepositId(), namespace, "deposit v2"),
+        encodeLabelBlock(await host.getRelayPayableId(), ethers.ZeroHash, "relay")
+      );
+
+      const tx = await callAs(0, "label", adminCtx(request));
+      await expect(tx).to.emit(host, "Labeled")
+        .withArgs(await host.getDepositId(), namespace, "deposit v2");
+      await expect(tx).to.emit(host, "Labeled")
+        .withArgs(await host.getRelayPayableId(), ethers.ZeroHash, "relay");
+    });
+
+    it("reverts AccessDenied for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x06", 32);
+      const request = encodeLabelBlock(await host.getDepositId(), ethers.ZeroHash, "deposit");
+
+      await expect(callAs(0, "label", userCtx(fakeAdmin, request)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor for empty request", async () => {
+      await expect(callAs(0, "label", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });

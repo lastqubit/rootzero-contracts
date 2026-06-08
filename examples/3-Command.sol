@@ -16,20 +16,17 @@ import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
-// NAME is the human-readable command name. It is used to derive the command ID
-// and is published in the Command event so off-chain tooling can discover it.
-string constant NAME = "myCommand";
-
 abstract contract MyCommand is CommandBase {
-    // commandId() hashes the name with the contract address to produce a unique ID.
+    // commandId() hashes the selector with the contract address to produce a unique ID.
     // Immutable so it is computed once at deploy time.
-    uint internal immutable myCommandId = commandId(NAME);
+    uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
         // Announce this command to the rootzero protocol.
-        // Args: host id, command name, request schema, command id, input channel, output channel.
+        // Args: host id, command id, request shape, request schema, input channel, output channel.
         // SETUP = no structured input channel; BALANCES = this command returns BALANCE blocks.
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
     function myCommand(

@@ -18,12 +18,11 @@ abstract contract AllowAssetsHook {
 /// @notice Admin command that permits a list of (asset, meta) pairs via a virtual hook.
 /// Each ASSET block in the request calls `allowAsset`. Only callable by the admin account.
 abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
-    string private constant NAME = "allowAssets";
-
-    uint internal immutable allowAssetsId = commandId(NAME);
+    uint internal immutable allowAssetsId = commandId(this.allowAssets.selector);
 
     constructor() {
-        emit Admin(host, allowAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, allowAssetsId, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(allowAssetsId, bytes32(0), "allowAssets");
     }
 
     /// @notice Allow each ASSET block in the admin request.

@@ -20,11 +20,11 @@ abstract contract BalancePullHook {
 /// Each BALANCE block in the request calls `balancePull(peer, asset, meta, amount)`.
 /// Restricted to trusted peers.
 abstract contract PeerBalancePull is PeerBase, BalancePullHook {
-    string private constant NAME = "peerBalancePull";
-    uint internal immutable peerBalancePullId = peerId(NAME);
+    uint internal immutable peerBalancePullId = peerId(this.peerBalancePull.selector);
 
     constructor() {
-        emit Peer(host, peerBalancePullId, NAME, "1:0", Schemas.Balance, "", false);
+        emit Peer(host, peerBalancePullId, "1:0", Schemas.Balance, "", false);
+        emit Labeled(peerBalancePullId, bytes32(0), "peerBalancePull");
     }
 
     /// @notice Execute the balance-pull peer call.

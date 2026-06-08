@@ -35,48 +35,56 @@ describe("Peer Entrypoints", () => {
       .withArgs(
         await host.host(),
         await host.getPeerAllowanceId(),
-        "peerAllowance",
         ethers.encodeBytes32String("1:0"),
         "#amount { bytes32 asset, bytes32 meta, uint amount }",
         "",
         false,
       );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerAllowanceId(), ethers.ZeroHash, "peerAllowance");
 
     await expect(tx!)
       .to.emit(host, "Peer")
       .withArgs(
         await host.host(),
         await host.getPeerBalancePullId(),
-        "peerBalancePull",
         ethers.encodeBytes32String("1:0"),
         "#balance { bytes32 asset, bytes32 meta, uint amount }",
         "",
         false,
       );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerBalancePullId(), ethers.ZeroHash, "peerBalancePull");
 
     await expect(tx!)
       .to.emit(host, "Peer")
       .withArgs(
         await host.host(),
         await host.getPeerPipePayableId(),
-        "peerPipePayable",
         ethers.encodeBytes32String("1:0"),
         "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }",
         "",
         true,
       );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerPipePayableId(), ethers.ZeroHash, "peerPipePayable");
 
     await expect(tx!)
       .to.emit(host, "Peer")
       .withArgs(
         await host.host(),
         await host.getPeerDispatchPayableId(),
-        "peerDispatchPayable",
         ethers.encodeBytes32String("1:0"),
         "#dispatch { uint chain, uint resources, #bytes as payload }",
         "",
         true,
       );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerDispatchPayableId(), ethers.ZeroHash, "peerDispatchPayable");
 
   });
 

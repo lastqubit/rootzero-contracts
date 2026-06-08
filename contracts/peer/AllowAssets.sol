@@ -11,11 +11,11 @@ using Cursors for Cur;
 /// @notice Peer that permits a list of (asset, meta) pairs on behalf of a peer host.
 /// Each ASSET block in the request calls `allowAsset`. Restricted to trusted peers.
 abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook {
-    string private constant NAME = "peerAllowAssets";
-    uint internal immutable peerAllowAssetsId = peerId(NAME);
+    uint internal immutable peerAllowAssetsId = peerId(this.peerAllowAssets.selector);
 
     constructor() {
-        emit Peer(host, peerAllowAssetsId, NAME, "1:0", Schemas.Asset, "", false);
+        emit Peer(host, peerAllowAssetsId, "1:0", Schemas.Asset, "", false);
+        emit Labeled(peerAllowAssetsId, bytes32(0), "peerAllowAssets");
     }
 
     /// @notice Execute the allow-assets peer call.

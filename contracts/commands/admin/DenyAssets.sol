@@ -18,12 +18,11 @@ abstract contract DenyAssetsHook {
 /// @notice Admin command that blocks a list of (asset, meta) pairs via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
 abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
-    string private constant NAME = "denyAssets";
-
-    uint internal immutable denyAssetsId = commandId(NAME);
+    uint internal immutable denyAssetsId = commandId(this.denyAssets.selector);
 
     constructor() {
-        emit Admin(host, denyAssetsId, NAME, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, denyAssetsId, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(denyAssetsId, bytes32(0), "denyAssets");
     }
 
     /// @notice Deny each ASSET block in the admin request.

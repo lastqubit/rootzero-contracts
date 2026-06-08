@@ -22,11 +22,11 @@ abstract contract GetBalancesHook {
 /// The request is a run of `ACCOUNT_ASSET` form blocks.
 /// The response returns one `ACCOUNT_AMOUNT` form block per requested position, preserving request order.
 abstract contract GetBalances is QueryBase, GetBalancesHook {
-    string private constant NAME = "getBalances";
-    uint public immutable getBalancesId = queryId(NAME);
+    uint public immutable getBalancesId = queryId(this.getBalances.selector);
 
     constructor() {
-        emit Query(host, getBalancesId, NAME, "1:1", Forms.AccountAsset, Forms.AccountAmount);
+        emit Query(host, getBalancesId, "1:1", Forms.AccountAsset, Forms.AccountAmount);
+        emit Labeled(getBalancesId, bytes32(0), "getBalances");
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.

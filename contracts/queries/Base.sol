@@ -2,8 +2,9 @@
 pragma solidity ^0.8.33;
 
 import { Runtime } from "../core/Runtime.sol";
+import { LabeledEvent } from "../events/Labeled.sol";
 import { QueryEvent } from "../events/Query.sol";
-import { Ids, Selectors } from "../utils/Ids.sol";
+import { Ids } from "../utils/Ids.sol";
 
 /// @notice ABI-encode a query call from a target query ID and request block stream.
 /// @dev Derives the function selector from `target` via `Ids.querySelector(target)`.
@@ -20,14 +21,14 @@ function encodeQueryCall(uint target, bytes calldata request) pure returns (byte
 /// @notice Abstract base for rootzero query contracts.
 /// Queries are view-only entry points that consume a block-stream request and
 /// return a block-stream response.
-abstract contract QueryBase is Runtime, QueryEvent {
+abstract contract QueryBase is Runtime, QueryEvent, LabeledEvent {
 
-    /// @notice Derive the deterministic node ID for a named query on this contract.
-    /// The ID encodes the ABI selector of `name(bytes)` and `address(this)`,
-    /// making it unique per (function name, contract address) pair.
-    /// @param name Query function name (without argument list).
+    /// @notice Derive the deterministic node ID for a query selector on this contract.
+    /// The ID encodes the ABI selector and `address(this)`, making it unique
+    /// per (function selector, contract address) pair.
+    /// @param selector Query entrypoint selector.
     /// @return Query node ID.
-    function queryId(string memory name) internal view returns (uint) {
-        return Ids.toQuery(Selectors.query(name), address(this));
+    function queryId(bytes4 selector) internal view returns (uint) {
+        return Ids.toQuery(selector, address(this));
     }
 }

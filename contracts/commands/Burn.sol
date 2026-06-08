@@ -20,12 +20,11 @@ abstract contract BurnHook {
 /// @notice Command that irreversibly destroys each BALANCE state block via a virtual hook.
 /// Produces no output state.
 abstract contract Burn is CommandBase, BurnHook {
-    string private constant NAME = "burn";
-
-    uint internal immutable burnId = commandId(NAME);
+    uint internal immutable burnId = commandId(this.burn.selector);
 
     constructor() {
-        emit Command(host, burnId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Command(host, burnId, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Labeled(burnId, bytes32(0), "burn");
     }
 
     /// @notice Burn each BALANCE block from the command state.

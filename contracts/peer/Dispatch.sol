@@ -12,11 +12,11 @@ using Cursors for Cur;
 /// @title PeerDispatchPayable
 /// @notice Peer endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
 abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook {
-    string private constant NAME = "peerDispatchPayable";
-    uint internal immutable peerDispatchPayableId = peerId(NAME);
+    uint internal immutable peerDispatchPayableId = peerId(this.peerDispatchPayable.selector);
 
     constructor() {
-        emit Peer(host, peerDispatchPayableId, NAME, "1:0", Schemas.Dispatch, "", true);
+        emit Peer(host, peerDispatchPayableId, "1:0", Schemas.Dispatch, "", true);
+        emit Labeled(peerDispatchPayableId, bytes32(0), "peerDispatchPayable");
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.

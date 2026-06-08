@@ -11,12 +11,11 @@ using Cursors for Cur;
 /// Each ACCOUNT block in the request is disabled as a guardian on the host.
 /// Only callable by the admin account.
 abstract contract Dismiss is CommandBase, AdminEvent {
-    string private constant NAME = "dismiss";
-
-    uint internal immutable dismissId = commandId(NAME);
+    uint internal immutable dismissId = commandId(this.dismiss.selector);
 
     constructor() {
-        emit Admin(host, dismissId, NAME, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, dismissId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(dismissId, bytes32(0), "dismiss");
     }
 
     /// @notice Dismiss each ACCOUNT block in the admin request from guardian status.

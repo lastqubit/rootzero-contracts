@@ -17,12 +17,11 @@ abstract contract InitHook {
 /// @notice Admin command that runs host initialization logic via a virtual hook.
 /// The full request is passed to `init` as a cursor. Only callable by the admin account.
 abstract contract Init is CommandBase, AdminEvent, InitHook {
-    string private constant NAME = "init";
-
-    uint internal immutable initId = commandId(NAME);
+    uint internal immutable initId = commandId(this.init.selector);
 
     constructor(string memory input) {
-        emit Admin(host, initId, NAME, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, initId, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(initId, bytes32(0), "init");
     }
 
     /// @notice Run host initialization logic over the full admin request.

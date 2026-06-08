@@ -24,6 +24,7 @@ struct Writer {
 library Hints {
     uint constant Any = 128;
     uint constant Bytes = 128;
+    uint constant String = 128;
     uint constant Step = 256;
     uint constant Call = 256;
     uint constant Context = 512;
@@ -114,6 +115,14 @@ library Writers {
     /// @return writer Allocated growable writer.
     function allocBytes(uint count) internal pure returns (Writer memory writer) {
         return allocFromHint(count, Hints.Bytes);
+    }
+
+    /// @notice Allocate a writer for `count` STRING blocks using a per-block capacity hint.
+    /// @dev The backing buffer expands automatically if encoded string blocks exceed the initial hint.
+    /// @param count Number of string blocks to allocate space for.
+    /// @return writer Allocated growable writer.
+    function allocStrings(uint count) internal pure returns (Writer memory writer) {
+        return allocFromHint(count, Hints.String);
     }
 
     /// @notice Allocate a writer sized for exactly `count` 32-byte-payload blocks.
@@ -860,6 +869,13 @@ library Writers {
     /// @param data Raw bytes payload.
     function appendBytes(Writer memory writer, bytes memory data) internal pure {
         appendBlock(writer, Keys.Bytes, data);
+    }
+
+    /// @notice Append a STRING block.
+    /// @param writer Destination writer; `i` is advanced by the encoded STRING block length.
+    /// @param data String payload.
+    function appendString(Writer memory writer, string memory data) internal pure {
+        appendBlock(writer, Keys.String, bytes(data));
     }
 
     /// @notice Append a STEP block with a nested request BYTES payload.

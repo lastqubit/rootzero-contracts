@@ -11,12 +11,11 @@ using Cursors for Cur;
 /// Each ACCOUNT block in the request is enabled as a guardian on the host.
 /// Only callable by the admin account.
 abstract contract Appoint is CommandBase, AdminEvent {
-    string private constant NAME = "appoint";
-
-    uint internal immutable appointId = commandId(NAME);
+    uint internal immutable appointId = commandId(this.appoint.selector);
 
     constructor() {
-        emit Admin(host, appointId, NAME, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, appointId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(appointId, bytes32(0), "appoint");
     }
 
     /// @notice Appoint each ACCOUNT block in the admin request as a guardian.

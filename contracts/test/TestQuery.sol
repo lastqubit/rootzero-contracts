@@ -11,11 +11,11 @@ string constant INPUT = "uint foo";
 string constant OUTPUT = "uint bar";
 
 contract TestQuery is QueryBase {
-    string private constant NAME = "incrementQuery";
-    uint public immutable incrementQueryId = queryId(NAME);
+    uint public immutable incrementQueryId = queryId(this.incrementQuery.selector);
 
     constructor() {
-        emit Query(host, incrementQueryId, NAME, "1:1", INPUT, OUTPUT);
+        emit Query(host, incrementQueryId, "1:1", INPUT, OUTPUT);
+        emit Labeled(incrementQueryId, bytes32(0), "incrementQuery");
     }
 
     function incrementQuery(bytes calldata request) external pure returns (bytes memory out) {

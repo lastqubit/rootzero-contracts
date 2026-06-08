@@ -20,12 +20,11 @@ abstract contract WithdrawHook {
 /// Use `withdraw` for assets being sent outside the protocol (e.g. ERC-20 transfers, ETH sends).
 /// For internal balance credits, use `creditAccount` instead.
 abstract contract Withdraw is CommandBase, WithdrawHook {
-    string private constant NAME = "withdraw";
-
-    uint internal immutable withdrawId = commandId(NAME);
+    uint internal immutable withdrawId = commandId(this.withdraw.selector);
 
     constructor() {
-        emit Command(host, withdrawId, NAME, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Command(host, withdrawId, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Labeled(withdrawId, bytes32(0), "withdraw");
     }
 
     /// @notice Withdraw each BALANCE block from the command state to the command account.

@@ -11,12 +11,11 @@ using Cursors for Cur;
 /// Each NODE block in the request is authorized on the host.
 /// Only callable by the admin account.
 abstract contract Authorize is CommandBase, AdminEvent {
-    string private constant NAME = "authorize";
-
-    uint internal immutable authorizeId = commandId(NAME);
+    uint internal immutable authorizeId = commandId(this.authorize.selector);
 
     constructor() {
-        emit Admin(host, authorizeId, NAME, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, authorizeId, "1:0:0", Schemas.Node, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(authorizeId, bytes32(0), "authorize");
     }
 
     /// @notice Authorize each NODE block in the admin request.

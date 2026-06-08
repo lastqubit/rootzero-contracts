@@ -12,11 +12,11 @@ using Cursors for Cur;
 /// @notice Peer that consumes peer-supplied TRANSACTION blocks through debit and credit hooks.
 /// Each TRANSACTION block calls `debitAccount` for `from` and `creditAccount` for `to`.
 abstract contract PeerSettle is PeerBase, DebitAccountHook, CreditAccountHook {
-    string private constant NAME = "peerSettle";
-    uint internal immutable peerSettleId = peerId(NAME);
+    uint internal immutable peerSettleId = peerId(this.peerSettle.selector);
 
     constructor() {
-        emit Peer(host, peerSettleId, NAME, "1:0", Schemas.Transaction, "", false);
+        emit Peer(host, peerSettleId, "1:0", Schemas.Transaction, "", false);
+        emit Labeled(peerSettleId, bytes32(0), "peerSettle");
     }
 
     /// @notice Execute the peer-settle call.

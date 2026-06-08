@@ -37,12 +37,11 @@ abstract contract DepositPayableHook {
 /// Use `deposit` for assets arriving from outside the protocol (e.g. ERC-20 transfers, ETH).
 /// For internal balance deductions, use `debitAccount` instead.
 abstract contract Deposit is CommandBase, DepositHook {
-    string private constant NAME = "deposit";
-
-    uint internal immutable depositId = commandId(NAME);
+    uint internal immutable depositId = commandId(this.deposit.selector);
 
     constructor() {
-        emit Command(host, depositId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, depositId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Labeled(depositId, bytes32(0), "deposit");
     }
 
     /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
@@ -69,12 +68,11 @@ abstract contract Deposit is CommandBase, DepositHook {
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
 abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
-    string private constant NAME = "depositPayable";
-
-    uint internal immutable depositPayableId = commandId(NAME);
+    uint internal immutable depositPayableId = commandId(this.depositPayable.selector);
 
     constructor() {
-        emit Command(host, depositPayableId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, true);
+        emit Command(host, depositPayableId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, true);
+        emit Labeled(depositPayableId, bytes32(0), "depositPayable");
     }
 
     /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.

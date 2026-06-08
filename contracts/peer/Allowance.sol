@@ -12,11 +12,11 @@ using Cursors for Cur;
 /// Each AMOUNT block in the request is scoped to the peer host and passed to the
 /// shared allowance hook as a host-scoped allowance. Restricted to trusted peers.
 abstract contract PeerAllowance is PeerBase, AllowanceHook {
-    string private constant NAME = "peerAllowance";
-    uint internal immutable peerAllowanceId = peerId(NAME);
+    uint internal immutable peerAllowanceId = peerId(this.peerAllowance.selector);
 
     constructor() {
-        emit Peer(host, peerAllowanceId, NAME, "1:0", Schemas.Amount, "", false);
+        emit Peer(host, peerAllowanceId, "1:0", Schemas.Amount, "", false);
+        emit Labeled(peerAllowanceId, bytes32(0), "peerAllowance");
     }
 
     /// @notice Execute the allowance peer call.

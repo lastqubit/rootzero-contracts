@@ -17,12 +17,11 @@ abstract contract DestroyHook {
 /// @notice Admin command that runs host teardown logic via a virtual hook.
 /// The full request is passed to `destroy` as a cursor. Only callable by the admin account.
 abstract contract Destroy is CommandBase, AdminEvent, DestroyHook {
-    string private constant NAME = "destroy";
-
-    uint internal immutable destroyId = commandId(NAME);
+    uint internal immutable destroyId = commandId(this.destroy.selector);
 
     constructor(string memory input) {
-        emit Admin(host, destroyId, NAME, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, destroyId, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(destroyId, bytes32(0), "destroy");
     }
 
     /// @notice Run host teardown logic over the full admin request.

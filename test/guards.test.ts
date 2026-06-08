@@ -48,7 +48,10 @@ describe("Guard Actions", () => {
 
     await expect(deploymentTx)
       .to.emit(deployed, "Guard")
-      .withArgs(await deployed.host(), await deployed.getRevokeId(), "revoke", "#node { uint id }");
+      .withArgs(await deployed.host(), await deployed.getRevokeId(), "#node { uint id }");
+    await expect(deploymentTx)
+      .to.emit(deployed, "Labeled")
+      .withArgs(await deployed.getRevokeId(), ethers.ZeroHash, "revoke");
   });
 
   it("guardian can revoke an authorized node directly", async () => {

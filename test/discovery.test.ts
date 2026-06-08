@@ -28,8 +28,8 @@ describe("Host Introduction", () => {
     });
     expect(hostIntroducedLog).to.not.be.undefined;
     const parsed = rootzeroIface.parseLog(hostIntroducedLog!);
-    expect(parsed!.args.version).to.equal(1n);
-    expect(parsed!.args.namespace).to.equal("test");
+    expect(parsed!.args.host).to.not.equal(0n);
+    expect(parsed!.args.blocknum).to.be.greaterThan(0n);
   });
 
   it("does NOT introduce when the rootzero runtime is address(0)", async () => {
@@ -42,7 +42,7 @@ describe("Host Introduction", () => {
     const claimedHostId = 12345n;
 
     await expect(
-      rootzero.connect(signer).introduce(claimedHostId, 0n, 1n, "test")
+      rootzero.connect(signer).introduce(claimedHostId, 0n)
     ).to.be.revertedWithCustomError(rootzero, "InvalidId");
   });
 
@@ -55,12 +55,12 @@ describe("Host Introduction", () => {
     const correctHostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(callerAddr);
 
     await expect(
-      rootzero.connect(signer).introduce(correctHostId, 1n, 1n, "manual")
+      rootzero.connect(signer).introduce(correctHostId, 1n)
     ).to.emit(rootzero, "Introduction")
-      .withArgs(correctHostId, 1n, 1n, "manual");
+      .withArgs(correctHostId, 1n);
   });
 
-  it("Introduction event contains correct host, blocknum, version, namespace", async () => {
+  it("Introduction event contains correct host and blocknum", async () => {
     const signer = await getSigner(0);
     const callerAddr = await signer.getAddress();
     const CHAIN_ID = 31337n;
@@ -69,9 +69,9 @@ describe("Host Introduction", () => {
 
     const provider = await getProvider();
     const blockNum = await provider.getBlockNumber();
-    const tx = await rootzero.connect(signer).introduce(hostId, BigInt(blockNum), 2n, "v2");
+    const tx = await rootzero.connect(signer).introduce(hostId, BigInt(blockNum));
     await expect(tx)
       .to.emit(rootzero, "Introduction")
-      .withArgs(hostId, BigInt(blockNum), 2n, "v2");
+      .withArgs(hostId, BigInt(blockNum));
   });
 });

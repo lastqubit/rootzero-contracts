@@ -3,8 +3,9 @@ pragma solidity ^0.8.33;
 
 import {NodeCalls} from "../core/Calls.sol";
 import {CommandEvent} from "../events/Command.sol";
+import {LabeledEvent} from "../events/Labeled.sol";
 import {Keys} from "../blocks/Keys.sol";
-import {Ids, Selectors} from "../utils/Ids.sol";
+import {Ids} from "../utils/Ids.sol";
 
 /// @notice Execution context passed to every command invocation.
 struct CommandContext {
@@ -19,8 +20,8 @@ struct CommandContext {
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
 /// Provides access control modifiers, event emission, and the `commandId`
-/// helper used to derive stable identifiers for named commands.
-abstract contract CommandBase is NodeCalls, CommandEvent {
+/// helper used to derive stable identifiers for command selectors.
+abstract contract CommandBase is NodeCalls, CommandEvent, LabeledEvent {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
 
@@ -44,12 +45,12 @@ abstract contract CommandBase is NodeCalls, CommandEvent {
         _;
     }
 
-    /// @notice Derive the deterministic node ID for a named command on this contract.
-    /// The ID encodes the ABI selector of `name((bytes32,bytes,bytes))` and
-    /// `address(this)`, making it unique per (function name, contract address) pair.
-    /// @param name Command function name (without argument list).
+    /// @notice Derive the deterministic node ID for a command selector on this contract.
+    /// The ID encodes the ABI selector and `address(this)`, making it unique
+    /// per (function selector, contract address) pair.
+    /// @param selector Command entrypoint selector.
     /// @return Command node ID.
-    function commandId(string memory name) internal view returns (uint) {
-        return Ids.toCommand(Selectors.command(name), address(this));
+    function commandId(bytes4 selector) internal view returns (uint) {
+        return Ids.toCommand(selector, address(this));
     }
 }

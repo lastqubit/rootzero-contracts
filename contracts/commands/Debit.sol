@@ -22,12 +22,11 @@ abstract contract DebitAccountHook {
 /// Use for internally recording debits. The virtual `debitAccount` hook is called once per
 /// AMOUNT block; the default batch implementation handles the full request loop.
 abstract contract DebitAccount is CommandBase, DebitAccountHook {
-    string private constant NAME = "debitAccount";
-
-    uint internal immutable debitAccountId = commandId(NAME);
+    uint internal immutable debitAccountId = commandId(this.debitAccount.selector);
 
     constructor() {
-        emit Command(host, debitAccountId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, debitAccountId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Labeled(debitAccountId, bytes32(0), "debitAccount");
     }
 
     /// @notice Override to customize request parsing or batching for debits.

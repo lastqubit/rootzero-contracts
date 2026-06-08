@@ -22,6 +22,8 @@ import {
   encodeContextBlock,
   encodeHostAccountAssetBlock,
   encodeDataBlock,
+  encodeLabelBlock,
+  encodeStringBlock,
   encodeStepBlock,
   encodeTxBlock,
   encodeUserAccount,
@@ -30,6 +32,7 @@ import {
 
 describe("Cursors", () => {
   let helper: Awaited<ReturnType<typeof deploy>>;
+  let stringHelper: Awaited<ReturnType<typeof deploy>>;
   let erc20Helper: Awaited<ReturnType<typeof deploy>>;
   let erc1155Helper: Awaited<ReturnType<typeof deploy>>;
   let erc721Helper: Awaited<ReturnType<typeof deploy>>;
@@ -38,6 +41,7 @@ describe("Cursors", () => {
 
   before(async () => {
     helper = await deploy("TestCursorHelper");
+    stringHelper = await deploy("TestStringCursorHelper");
     erc20Helper = await deploy("TestErc20CursorHelper");
     erc1155Helper = await deploy("TestErc1155CursorHelper");
     erc721Helper = await deploy("TestErc721CursorHelper");
@@ -96,6 +100,15 @@ describe("Cursors", () => {
       expect(data).to.equal(encodePipeBlock(55n, account, state, request));
     });
 
+    it("writeStringBlock round-trips UTF-8 payloads", async () => {
+      const label = "credit account";
+      const data: string = await stringHelper.testWriteStringBlock(label);
+      expect(data).to.equal(encodeStringBlock(label));
+      expect(data.slice(0, 10)).to.equal(Keys.String);
+      expect(data.slice(10, 18)).to.equal("0000000e");
+      expect(await stringHelper.testUnpackString(data)).to.deep.equal([label, BigInt(ethers.getBytes(data).length)]);
+    });
+
     it("toBalanceBlock returns a valid encoded BALANCE block", async () => {
       const data: string = await helper.testToBalanceBlock(asset, meta, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
@@ -116,6 +129,13 @@ describe("Cursors", () => {
       expect(bytes.length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.Bounty);
       expect(ethers.hexlify(bytes.slice(4, 8))).to.equal("0x00000040");
+    });
+
+    it("toStringBlock returns a valid encoded STRING block", async () => {
+      const label = "relayPayable";
+      const data: string = await stringHelper.testToStringBlock(label);
+      expect(data).to.equal(encodeStringBlock(label));
+      expect(data.slice(0, 10)).to.equal(Keys.String);
     });
 
     it("finish reverts EmptyRequest when writer is unused", async () => {
@@ -472,6 +492,26 @@ describe("Cursors", () => {
       expect(resources).to.equal(89n);
       expect(outPayload).to.equal(payload);
       expect(i).to.equal(BigInt(ethers.getBytes(dispatch).length));
+    });
+
+    it("unpackString consumes a STRING block and returns the decoded string", async () => {
+      const label = "label schema";
+      const source = encodeStringBlock(label);
+      const [out, i] = await stringHelper.testUnpackString(source);
+      expect(out).to.equal(label);
+      expect(i).to.equal(BigInt(ethers.getBytes(source).length));
+    });
+
+    it("unpackLabel consumes a LABEL block and returns its fields", async () => {
+      const id = 789n;
+      const namespace = ethers.encodeBytes32String("peer");
+      const name = "peerDispatchPayable";
+      const source = encodeLabelBlock(id, namespace, name);
+      const [outId, outNamespace, outName, i] = await stringHelper.testUnpackLabel(source);
+      expect(outId).to.equal(id);
+      expect(outNamespace).to.equal(namespace);
+      expect(outName).to.equal(name);
+      expect(i).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
     it("unpackFee returns the fee amount", async () => {

@@ -9,7 +9,7 @@ import { Ids } from "../utils/Ids.sol";
 
 contract TestCompositeHost is Host, Deposit, PeerBalancePull, GetBalances {
     constructor(address cmdr)
-        Host(address(0), 1, "test")
+        Host(address(0))
         Deposit()
         PeerBalancePull()
         GetBalances()

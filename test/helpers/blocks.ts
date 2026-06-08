@@ -29,7 +29,9 @@ export const Keys = {
   Transaction: blockKey("#transaction"),
   Auth: blockKey("#auth"),
   Bounty: blockKey("#bounty"),
+  Label: blockKey("#label"),
   Bytes: blockKey("#bytes"),
+  String: blockKey("#string"),
   List: blockKey("#list"),
   Data: blockKey("#data"),
   Evm: blockKey("#evm"),
@@ -154,6 +156,14 @@ export function encodeDispatchBlock(chain: bigint, resources: bigint, payload: s
 
 export function encodeBytesBlock(data: string): string {
   return block(Keys.Bytes, data);
+}
+
+export function encodeStringBlock(data: string): string {
+  return block(Keys.String, ethers.hexlify(ethers.toUtf8Bytes(data)));
+}
+
+export function encodeLabelBlock(id: bigint, namespace: string, name: string): string {
+  return block(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
 }
 
 export function encodeDataBlock(data: string): string {

@@ -13,11 +13,11 @@ using Cursors for Cur;
 /// Each PIPE block carries chain resources plus a CONTEXT block; the nested
 /// context steps are passed to the shared pipeline as the step stream.
 abstract contract PeerPipePayable is PeerBase, Pipeline {
-    string private constant NAME = "peerPipePayable";
-    uint internal immutable peerPipePayableId = peerId(NAME);
+    uint internal immutable peerPipePayableId = peerId(this.peerPipePayable.selector);
 
     constructor() {
-        emit Peer(host, peerPipePayableId, NAME, "1:0", Schemas.Pipe, "", true);
+        emit Peer(host, peerPipePayableId, "1:0", Schemas.Pipe, "", true);
+        emit Labeled(peerPipePayableId, bytes32(0), "peerPipePayable");
     }
 
     /// @notice Execute peer-supplied pipes through the shared payable pipe.

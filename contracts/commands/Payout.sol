@@ -22,12 +22,11 @@ abstract contract PayoutHook {
 /// @notice Command that sinks BALANCE state blocks to matching ACCOUNT request blocks.
 /// Each BALANCE block is paired with one ACCOUNT block at the same position.
 abstract contract Payout is CommandBase, PayoutHook {
-    string private constant NAME = "payout";
-
-    uint internal immutable payoutId = commandId(NAME);
+    uint internal immutable payoutId = commandId(this.payout.selector);
 
     constructor() {
-        emit Command(host, payoutId, NAME, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false, false);
+        emit Command(host, payoutId, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false, false);
+        emit Labeled(payoutId, bytes32(0), "payout");
     }
 
     /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.

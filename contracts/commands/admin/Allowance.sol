@@ -22,11 +22,11 @@ abstract contract AllowanceHook {
 /// @notice Admin command that applies cross-host allowance entries via a virtual hook.
 /// Each ALLOWANCE block grants or updates a host-scoped asset cap. Only callable by the admin account.
 abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
-    string private constant NAME = "allowance";
-    uint internal immutable allowanceId = commandId(NAME);
+    uint internal immutable allowanceId = commandId(this.allowance.selector);
 
     constructor() {
-        emit Admin(host, allowanceId, NAME, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, allowanceId, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false, false);
+        emit Labeled(allowanceId, bytes32(0), "allowance");
     }
 
     /// @notice Apply each ALLOWANCE block in the admin request.

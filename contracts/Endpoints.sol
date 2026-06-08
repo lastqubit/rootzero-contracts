@@ -29,6 +29,7 @@ import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
 import { Dismiss } from "./commands/admin/Dismiss.sol";
 import { ExecutePayable } from "./commands/admin/Execute.sol";
 import { Init, InitHook } from "./commands/admin/Init.sol";
+import { Label } from "./commands/admin/Label.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 
 // Peer endpoints

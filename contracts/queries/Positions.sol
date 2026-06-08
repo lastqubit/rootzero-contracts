@@ -29,12 +29,11 @@ abstract contract GetPositionHook {
 /// The request is a run of `ACCOUNT_ASSET` form blocks.
 /// The response returns one output-schema block per position entry, preserving request order.
 abstract contract GetPosition is QueryBase, GetPositionHook {
-    string private constant NAME = "getPosition";
-
-    uint public immutable getPositionId = queryId(NAME);
+    uint public immutable getPositionId = queryId(this.getPosition.selector);
 
     constructor(string memory output) {
-        emit Query(host, getPositionId, NAME, "1:1", Forms.AccountAsset, output);
+        emit Query(host, getPositionId, "1:1", Forms.AccountAsset, output);
+        emit Labeled(getPositionId, bytes32(0), "getPosition");
     }
 
     /// @notice Resolve positions for a run of requested `(account, asset, meta)` tuples.

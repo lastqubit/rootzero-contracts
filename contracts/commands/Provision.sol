@@ -33,12 +33,11 @@ abstract contract ProvisionPayableHook {
 /// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
-    string private constant NAME = "provision";
-
-    uint internal immutable provisionId = commandId(NAME);
+    uint internal immutable provisionId = commandId(this.provision.selector);
 
     constructor() {
-        emit Command(host, provisionId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, false);
+        emit Command(host, provisionId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, false);
+        emit Labeled(provisionId, bytes32(0), "provision");
     }
 
     /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
@@ -64,12 +63,11 @@ abstract contract Provision is CommandBase, ProvisionHook {
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook {
-    string private constant NAME = "provisionPayable";
-
-    uint internal immutable provisionPayableId = commandId(NAME);
+    uint internal immutable provisionPayableId = commandId(this.provisionPayable.selector);
 
     constructor() {
-        emit Command(host, provisionPayableId, NAME, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, true);
+        emit Command(host, provisionPayableId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, true);
+        emit Labeled(provisionPayableId, bytes32(0), "provisionPayable");
     }
 
     /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.

@@ -59,7 +59,7 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address rootzero) Host(rootzero, 1, "test") Deposit() Provision() Init("") Destroy("") {}
+    constructor(address rootzero) Host(rootzero) Deposit() Provision() Init("") Destroy("") {}
 
     function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
         emit DepositCalled(account, asset, meta, amount);
@@ -230,6 +230,10 @@ contract TestHost is
 
     function getExecutePayableId() external view returns (uint) {
         return executePayableId;
+    }
+
+    function getLabelId() external view returns (uint) {
+        return labelId;
     }
 
     function getAllowAssetsId() external view returns (uint) {

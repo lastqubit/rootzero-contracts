@@ -16,13 +16,12 @@ import {Cur, Cursors, Writer, Writers, Schemas} from "../contracts/Cursors.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-string constant NAME = "myCommand";
-
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(NAME);
+    uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
     function myCommand(

@@ -3,7 +3,8 @@ pragma solidity ^0.8.33;
 
 import { NodeCalls } from "../core/Calls.sol";
 import { PeerEvent } from "../events/Peer.sol";
-import { Ids, Selectors } from "../utils/Ids.sol";
+import { LabeledEvent } from "../events/Labeled.sol";
+import { Ids } from "../utils/Ids.sol";
 
 /// @notice ABI-encode a peer call from a target peer ID and request block stream.
 /// @dev Derives the function selector from `target` via `Ids.peerSelector(target)`.
@@ -20,7 +21,7 @@ function encodePeerCall(uint target, bytes calldata request) pure returns (bytes
 /// @notice Abstract base for all rootzero peer contracts.
 /// Peers handle inter-host operations and asset allow/deny management
 /// between cooperating hosts. Access is restricted to trusted callers via `onlyPeer`.
-abstract contract PeerBase is NodeCalls, PeerEvent {
+abstract contract PeerBase is NodeCalls, PeerEvent, LabeledEvent {
     /// @dev Thrown when the commander attempts to call a peer entrypoint directly.
     error CommanderNotAllowed();
 
@@ -31,10 +32,10 @@ abstract contract PeerBase is NodeCalls, PeerEvent {
         _;
     }
 
-    /// @notice Derive the deterministic node ID for a named peer on this contract.
-    /// @param name Peer function name (without argument list).
+    /// @notice Derive the deterministic node ID for a peer selector on this contract.
+    /// @param selector Peer entrypoint selector.
     /// @return Peer node ID.
-    function peerId(string memory name) internal view returns (uint) {
-        return Ids.toPeer(Selectors.peer(name), address(this));
+    function peerId(bytes4 selector) internal view returns (uint) {
+        return Ids.toPeer(selector, address(this));
     }
 }

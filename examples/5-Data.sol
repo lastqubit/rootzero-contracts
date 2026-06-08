@@ -15,8 +15,6 @@ import {Cursors, Cur, Schemas, Keys} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
-string constant NAME = "myCommand";
-
 // INPUT is the full input schema published with the Command event.
 string constant INPUT = string.concat("uint host, ", Schemas.Amount);
 
@@ -32,11 +30,12 @@ function unpackInput(Cur memory input) pure returns (uint targetHost, bytes32 as
 }
 
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(NAME);
+    uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
         // CUSTODIES = this command returns CUSTODY blocks.
-        emit Command(host, myCommandId, NAME, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false, false);
+        emit Command(host, myCommandId, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false, false);
+        emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.

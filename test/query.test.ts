@@ -23,11 +23,13 @@ describe("Queries", () => {
       .withArgs(
         await query.host(),
         await query.incrementQueryId(),
-        "incrementQuery",
         ethers.encodeBytes32String("1:1"),
         "uint foo",
         "uint bar",
       );
+    await expect(tx!)
+      .to.emit(query, "Labeled")
+      .withArgs(await query.incrementQueryId(), ethers.ZeroHash, "incrementQuery");
   });
 
   describe("incrementQuery", () => {

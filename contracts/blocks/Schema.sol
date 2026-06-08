@@ -25,6 +25,7 @@ pragma solidity ^0.8.33;
 // - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
 // - `#bytes` is a reserved child block that stores raw bytes and has no body
+// - `#string` is a reserved child block that stores UTF-8 string bytes and has no body
 // - generic `#data` uses the stable key derived from `#data`
 // - generic lists use the stable key derived from `#list`
 // - keys are derived from block names, e.g. bytes4(keccak256("#amount"))
@@ -73,7 +74,9 @@ library Schemas {
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
     string constant Fee = "#fee { uint amount }";
     string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";
+    string constant Label = "#label { uint id, bytes32 namespace, #string as name }";
     string constant Bytes = "#bytes";
+    string constant String = "#string";
     string constant Data = "#data";
     string constant List = "#list";
     string constant Evm = "#evm";

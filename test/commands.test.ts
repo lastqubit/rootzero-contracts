@@ -420,7 +420,6 @@ describe("Commands", () => {
         .withArgs(
           await host.host(),
           await host.getRelayPayableId(),
-          "relayPayable",
           ethers.encodeBytes32String("1:0:0"),
           "#relay { uint chain, uint resources, #bytes as steps }",
           Keys.Any,
@@ -428,6 +427,8 @@ describe("Commands", () => {
           false,
           true,
         );
+      await expect(deployment!).to.emit(host, "Labeled")
+        .withArgs(await host.getRelayPayableId(), ethers.ZeroHash, "relayPayable");
     });
 
     it("passes the RELAY block as an encoded destination pipe to the hook", async () => {

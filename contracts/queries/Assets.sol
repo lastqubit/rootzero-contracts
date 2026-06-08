@@ -22,11 +22,11 @@ abstract contract AssetStatusHook {
 /// The request is a run of `ASSET` blocks.
 /// The response returns one `STATUS` form block per query entry, preserving request order.
 abstract contract AssetStatus is QueryBase, AssetStatusHook {
-    string private constant NAME = "assetStatus";
-    uint public immutable assetStatusId = queryId(NAME);
+    uint public immutable assetStatusId = queryId(this.assetStatus.selector);
 
     constructor() {
-        emit Query(host, assetStatusId, NAME, "1:1", Schemas.Asset, Forms.Status);
+        emit Query(host, assetStatusId, "1:1", Schemas.Asset, Forms.Status);
+        emit Labeled(assetStatusId, bytes32(0), "assetStatus");
     }
 
     /// @notice Resolve asset support status for a run of requested `(asset, meta)` tuples.

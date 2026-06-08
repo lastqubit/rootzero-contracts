@@ -9,7 +9,7 @@ contract TestBurnHost is Host, Burn {
     event BurnCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
 
     constructor(address cmdr)
-        Host(address(0), 1, "test")
+        Host(address(0))
         Burn()
     {
         if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);

@@ -33,6 +33,8 @@ library Keys {
     bytes4 constant Evm = bytes4(keccak256("#evm"));
     /// @dev Reserved raw bytes child block.
     bytes4 constant Bytes = bytes4(keccak256("#bytes"));
+    /// @dev Reserved UTF-8 string child block.
+    bytes4 constant String = bytes4(keccak256("#string"));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount)
@@ -57,6 +59,8 @@ library Keys {
     bytes4 constant Node = bytes4(keccak256("#node"));
     /// @dev Relayer bounty - (uint amount, bytes32 relayer)
     bytes4 constant Bounty = bytes4(keccak256("#bounty"));
+    /// @dev Mutable node label - (uint id, bytes32 namespace, #string as name)
+    bytes4 constant Label = bytes4(keccak256("#label"));
 
     /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));

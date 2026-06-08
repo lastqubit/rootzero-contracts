@@ -16,6 +16,7 @@ import { EventEmitter } from "./events/Emitter.sol";
 import { GuardEvent } from "./events/Guard.sol";
 import { GuardianEvent } from "./events/Guardian.sol";
 import { IntroductionEvent } from "./events/Introduction.sol";
+import { LabeledEvent } from "./events/Labeled.sol";
 import { LockedEvent } from "./events/Locked.sol";
 import { NodeEvent } from "./events/Node.sol";
 import { PeerEvent } from "./events/Peer.sol";

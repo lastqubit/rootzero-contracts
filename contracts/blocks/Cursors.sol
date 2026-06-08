@@ -489,6 +489,13 @@ library Cursors {
         return createBlock(Keys.Bytes, data);
     }
 
+    /// @notice Encode a STRING block with a UTF-8 payload.
+    /// @param data String payload.
+    /// @return Encoded STRING block bytes.
+    function toStringBlock(string memory data) internal pure returns (bytes memory) {
+        return createBlock(Keys.String, bytes(data));
+    }
+
     /// @notice Encode a BOUNTY block.
     /// @param bounty Relayer reward amount.
     /// @param relayer Relayer account identifier.
@@ -610,6 +617,18 @@ library Cursors {
         cur.i += 4;
     }
 
+    /// @notice Read the next 8 bytes from the cursor and advance by 8 bytes.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 8 bytes.
+    /// @return value Loaded bytes8 value.
+    function read8(Cur memory cur) internal pure returns (bytes8 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 8;
+    }
+
     /// @notice Read the next 16 bytes from the cursor and advance by 16 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 16 bytes.
@@ -706,6 +725,26 @@ library Cursors {
     /// @return data Raw BYTES payload.
     function unpackBytes(Cur memory cur) internal pure returns (bytes calldata data) {
         return unpackRaw(cur, Keys.Bytes);
+    }
+
+    /// @notice Consume a reserved STRING block and return its UTF-8 payload.
+    /// @param cur Cursor; advanced past the STRING block.
+    /// @return data Decoded STRING payload.
+    function unpackString(Cur memory cur) internal pure returns (string memory data) {
+        return string(unpackRaw(cur, Keys.String));
+    }
+
+    /// @notice Consume a LABEL block and return its fields.
+    /// @param cur Cursor; advanced past the LABEL block.
+    /// @return id Node ID being labelled.
+    /// @return namespace Label namespace.
+    /// @return name Label value.
+    function unpackLabel(Cur memory cur) internal pure returns (uint id, bytes32 namespace, string memory name) {
+        uint end = cur.enter(Keys.Label, 64 + Sizes.Header, 0);
+        id = cur.readUint();
+        namespace = cur.read32();
+        name = cur.unpackString();
+        cur.exit(end);
     }
 
     /// @notice Consume a dynamic block with a single bytes32 payload.

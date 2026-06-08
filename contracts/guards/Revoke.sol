@@ -10,12 +10,11 @@ using Cursors for Cur;
 /// Each NODE block in the request is deauthorized on the host.
 /// Only callable by active guardian addresses.
 abstract contract Revoke is GuardBase {
-    string private constant NAME = "revoke";
-
-    uint internal immutable revokeId = guardId(NAME);
+    uint internal immutable revokeId = guardId(this.revoke.selector);
 
     constructor() {
-        emit Guard(host, revokeId, NAME, Schemas.Node);
+        emit Guard(host, revokeId, Schemas.Node);
+        emit Labeled(revokeId, bytes32(0), "revoke");
     }
 
     function revoke(bytes calldata request) external onlyGuardian {

@@ -25,12 +25,11 @@ abstract contract DispatchPayableHook {
 /// the same state from being duplicated across multiple relays.
 /// Produces no output state.
 abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
-    string private constant NAME = "relayPayable";
-
-    uint internal immutable relayPayableId = commandId(NAME);
+    uint internal immutable relayPayableId = commandId(this.relayPayable.selector);
 
     constructor() {
-        emit Command(host, relayPayableId, NAME, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, false, true);
+        emit Command(host, relayPayableId, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, false, true);
+        emit Labeled(relayPayableId, bytes32(0), "relayPayable");
     }
 
     /// @notice Relay one RELAY request block with the command account and current state.
