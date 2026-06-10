@@ -20,7 +20,7 @@ abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
         emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
@@ -29,7 +29,7 @@ abstract contract MyCommand is CommandBase {
     ) external onlyCommand returns (bytes memory) {
         // Create the request cursor from CommandContext.request, then size
         // the writer from the group count returned by the cursor helper.
-        (Cur memory inputs, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory inputs, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         // Walk every AMOUNT block in the current request run.

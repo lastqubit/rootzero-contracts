@@ -424,7 +424,6 @@ describe("Commands", () => {
           "#relay { uint chain, uint resources, #bytes as steps }",
           Keys.Any,
           Keys.Empty,
-          false,
           true,
         );
       await expect(deployment!).to.emit(host, "Labeled")

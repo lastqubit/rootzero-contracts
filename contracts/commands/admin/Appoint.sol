@@ -14,7 +14,7 @@ abstract contract Appoint is CommandBase, AdminEvent {
     uint internal immutable appointId = commandId(this.appoint.selector);
 
     constructor() {
-        emit Admin(host, appointId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, appointId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false);
         emit Labeled(appointId, bytes32(0), "appoint");
     }
 
@@ -24,7 +24,7 @@ abstract contract Appoint is CommandBase, AdminEvent {
     function appoint(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             bytes32 account = request.unpackAccount();

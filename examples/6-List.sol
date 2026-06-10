@@ -38,7 +38,7 @@ abstract contract MyCommand is CommandBase {
     event AssetSeen(uint indexed listIndex, bytes32 asset, bytes32 meta);
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false, false);
+        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
         emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 

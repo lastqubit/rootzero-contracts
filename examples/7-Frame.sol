@@ -39,12 +39,12 @@ abstract contract MyCommand is CommandBase {
     event PaymentSeen(bytes32 asset, bytes32 meta, uint amount, uint fee);
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false, false);
+        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
         emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         // The request can batch multiple DATA blocks. Each one is decoded
         // with the command-local unpack helper above.

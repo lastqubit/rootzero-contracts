@@ -14,7 +14,7 @@ abstract contract Label is CommandBase, AdminEvent {
     uint internal immutable labelId = commandId(this.label.selector);
 
     constructor() {
-        emit Admin(host, labelId, "1:0:0", Schemas.Label, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, labelId, "1:0:0", Schemas.Label, Keys.Empty, Keys.Empty, false);
         emit Labeled(labelId, bytes32(0), "label");
     }
 
@@ -22,7 +22,7 @@ abstract contract Label is CommandBase, AdminEvent {
     /// @param c Admin command context; `c.request` must contain LABEL blocks.
     /// @return Empty output state.
     function label(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             (uint id, bytes32 namespace, string memory name) = request.unpackLabel();

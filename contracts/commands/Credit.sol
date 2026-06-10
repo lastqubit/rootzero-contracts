@@ -23,7 +23,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     uint internal immutable creditAccountId = commandId(this.creditAccount.selector);
 
     constructor() {
-        emit Command(host, creditAccountId, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Command(host, creditAccountId, "0:1:0", "", Keys.Balance, Keys.Empty, false);
         emit Labeled(creditAccountId, bytes32(0), "creditAccount");
     }
 
@@ -33,7 +33,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     function creditAccount(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory state, , ) = Cursors.init(c.state, 0, 1);
+        (Cur memory state, , ) = Cursors.init(c.state, 1);
 
         while (state.i < state.len) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();

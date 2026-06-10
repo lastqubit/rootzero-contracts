@@ -25,7 +25,7 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
     uint internal immutable allowanceId = commandId(this.allowance.selector);
 
     constructor() {
-        emit Admin(host, allowanceId, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, allowanceId, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false);
         emit Labeled(allowanceId, bytes32(0), "allowance");
     }
 
@@ -33,7 +33,7 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
     /// @param c Admin command context; `c.request` must contain ALLOWANCE blocks.
     /// @return Empty output state.
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             (uint peer, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllowance();

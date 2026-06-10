@@ -74,16 +74,17 @@ using Writers for Writer;
 string constant NAME = "myCommand";
 
 abstract contract ExampleCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(NAME);
+    uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
-        emit Command(host, myCommandId, NAME, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
+        emit Labeled(myCommandId, bytes32(0), NAME);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         while (request.i < request.len) {

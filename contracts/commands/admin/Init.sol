@@ -20,7 +20,7 @@ abstract contract Init is CommandBase, AdminEvent, InitHook {
     uint internal immutable initId = commandId(this.init.selector);
 
     constructor(string memory input) {
-        emit Admin(host, initId, "1:0:0", input, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, initId, "1:0:0", input, Keys.Empty, Keys.Empty, false);
         emit Labeled(initId, bytes32(0), "init");
     }
 

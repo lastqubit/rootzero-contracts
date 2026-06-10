@@ -101,6 +101,11 @@ the whole batch and are not counted as per-operation prime blocks.
 The prime item cannot be optional. If a command needs a per-operation marker with
 no payload, use a zero-payload block such as `#unit`.
 
+Command request and state streams currently use a narrower convention than the
+full block grammar: each is a single run of blocks, without additional global
+items. Future protocol surfaces may use the more flexible top-level structure,
+but command discovery metadata should describe only that one-run shape.
+
 ## Aliases
 
 Aliases are presentation metadata for tooling. They do not change payload layout

@@ -28,7 +28,7 @@ abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
     uint internal immutable relayPayableId = commandId(this.relayPayable.selector);
 
     constructor() {
-        emit Command(host, relayPayableId, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, false, true);
+        emit Command(host, relayPayableId, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, true);
         emit Labeled(relayPayableId, bytes32(0), "relayPayable");
     }
 
@@ -36,7 +36,7 @@ abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
     /// @param c Command context; `c.request` must contain exactly one RELAY block.
     /// @return output Empty output state.
     function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory output) {
-        (Cur memory request, ) = Cursors.init(c.request, 0, 1, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 1, 1);
         Budget memory budget = valueBudget();
 
         (uint chain, uint resources, bytes memory pipe) = request.relayToPipe(c.account, c.state);

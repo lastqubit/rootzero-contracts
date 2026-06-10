@@ -14,7 +14,7 @@ abstract contract Dismiss is CommandBase, AdminEvent {
     uint internal immutable dismissId = commandId(this.dismiss.selector);
 
     constructor() {
-        emit Admin(host, dismissId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false, false);
+        emit Admin(host, dismissId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false);
         emit Labeled(dismissId, bytes32(0), "dismiss");
     }
 
@@ -24,7 +24,7 @@ abstract contract Dismiss is CommandBase, AdminEvent {
     function dismiss(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             bytes32 account = request.unpackAccount();

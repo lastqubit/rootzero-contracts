@@ -36,7 +36,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint internal immutable provisionId = commandId(this.provision.selector);
 
     constructor() {
-        emit Command(host, provisionId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, false);
+        emit Command(host, provisionId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false);
         emit Labeled(provisionId, bytes32(0), "provision");
     }
 
@@ -44,7 +44,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     /// @param c Command context; `c.request` must contain ALLOCATION blocks.
     /// @return CUSTODY block stream matching the provisioned allocations.
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
 
         while (request.i < request.len) {
@@ -66,7 +66,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     uint internal immutable provisionPayableId = commandId(this.provisionPayable.selector);
 
     constructor() {
-        emit Command(host, provisionPayableId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false, true);
+        emit Command(host, provisionPayableId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, true);
         emit Labeled(provisionPayableId, bytes32(0), "provisionPayable");
     }
 
@@ -76,7 +76,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
         Budget memory budget = valueBudget();
 

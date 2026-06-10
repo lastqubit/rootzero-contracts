@@ -19,7 +19,7 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
     uint internal immutable executePayableId = commandId(this.executePayable.selector);
 
     constructor() {
-        emit Admin(host, executePayableId, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, false, true);
+        emit Admin(host, executePayableId, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, true);
         emit Labeled(executePayableId, bytes32(0), "executePayable");
     }
 
@@ -27,7 +27,7 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
     /// @param c Admin command context; `c.request` must contain CALL blocks.
     /// @return Empty output state.
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 0, 1);
+        (Cur memory request, , ) = Cursors.init(c.request, 1);
         Budget memory budget = valueBudget();
 
         while (request.i < request.len) {

@@ -25,7 +25,7 @@ abstract contract MyCommand is CommandBase {
         // Announce this command to the rootzero protocol.
         // Args: host id, command id, request shape, request schema, input channel, output channel.
         // SETUP = no structured input channel; BALANCES = this command returns BALANCE blocks.
-        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
         emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 

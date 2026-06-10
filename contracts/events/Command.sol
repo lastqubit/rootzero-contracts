@@ -6,18 +6,15 @@ import {EventEmitter} from "./Emitter.sol";
 /// @notice Emitted once per command during host deployment to publish its request schema and state keys.
 abstract contract CommandEvent is EventEmitter {
     string private constant ABI =
-        "event Command(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool postcheck, bool funded)";
+        "event Command(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool funded)";
 
     /// @param host Host node ID that owns this command.
     /// @param id Command node ID.
     /// @param shape Per-operation block counts encoded as `request:state:output`.
-    /// The request count covers only the input request run. If `postcheck` is true,
-    /// a constraint run follows the input run, or starts the request when `request`
-    /// is empty. State globals may follow the state run and are excluded.
+    /// Request and state are each a single run of blocks under the current command convention.
     /// @param request Schema string describing the input request run, or empty if none.
     /// @param state Block key expected for input state, `Keys.Empty`, or `Keys.Any`.
     /// @param output Block key produced for output state, or `Keys.Empty`.
-    /// @param postcheck Whether command output is validated after execution.
     /// @param funded Whether the command entrypoint accepts nonzero `msg.value`.
     event Command(
         uint indexed host,
@@ -26,7 +23,6 @@ abstract contract CommandEvent is EventEmitter {
         string request,
         bytes4 state,
         bytes4 output,
-        bool postcheck,
         bool funded
     );
 

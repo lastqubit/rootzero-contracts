@@ -199,18 +199,18 @@ describe("Cursors", () => {
       expect(len).to.equal(BigInt(ethers.getBytes(b).length));
     });
 
-    it("init(source, i, group) creates a cursor over the matching tail run", async () => {
+    it("init(source, group) creates a cursor over the matching first run", async () => {
       const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeBalanceBlock(asset, meta, 2n);
+      const b = encodeAmountBlock(asset, meta, 2n);
       const c = encodeBalanceBlock(asset, meta, 3n);
       const source = concat(a, b, c);
-      const i = BigInt(ethers.getBytes(a).length);
-      const [offset, cursorI, len, groups, next] = await helper.testInitAt(source, i, 1n);
-      expect(offset).to.equal(i);
+      const run = concat(a, b);
+      const [offset, cursorI, len, groups, next] = await helper.testInit(source, 1n);
+      expect(offset).to.equal(0n);
       expect(cursorI).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(concat(b, c)).length));
+      expect(len).to.equal(BigInt(ethers.getBytes(run).length));
       expect(groups).to.equal(2n);
-      expect(next).to.equal(BigInt(ethers.getBytes(source).length));
+      expect(next).to.equal(BigInt(ethers.getBytes(run).length));
     });
 
     it("init expected-groups overload returns the matching run cursor", async () => {
@@ -231,19 +231,6 @@ describe("Cursors", () => {
       );
       await expect(helper.testInitExpected(source, 1n, 1n))
         .to.be.revertedWithCustomError(helper, "BadRatio");
-    });
-
-    it("init(source, i, group, expectedGroups) checks the matching tail run", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeBalanceBlock(asset, meta, 2n);
-      const c = encodeBalanceBlock(asset, meta, 3n);
-      const source = concat(a, b, c);
-      const offset = BigInt(ethers.getBytes(a).length);
-      const [cursorOffset, i, len, next] = await helper.testInitAtExpected(source, offset, 1n, 2n);
-      expect(cursorOffset).to.equal(offset);
-      expect(i).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(concat(b, c)).length));
-      expect(next).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
     it("peek returns the next key and payload length", async () => {

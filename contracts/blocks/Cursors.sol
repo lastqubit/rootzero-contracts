@@ -70,41 +70,37 @@ library Cursors {
         return open(source[i:]);
     }
 
-    /// @notice Create a cursor over `source[i:]` and restrict it to its first grouped run.
-    /// Equivalent to `open(source, i)`, reading the current key, then `run(key, group)`.
-    /// @param source Calldata slice that forms the parent block stream.
-    /// @param i Start byte offset within `source`.
+    /// @notice Create a cursor over `source` and restrict it to its first grouped run.
+    /// Equivalent to `open(source)`, reading the current key, then `run(key, group)`.
+    /// @param source Calldata slice that forms the block stream.
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
+    /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
     /// @return groups Number of block groups in the run (`block count / group`).
     /// @return next Byte offset immediately after the run, relative to `source`.
     function init(
         bytes calldata source,
-        uint i,
         uint group
     ) internal pure returns (Cur memory cur, uint groups, uint next) {
-        cur = open(source, i);
+        cur = open(source);
         if (cur.i == cur.len) revert ZeroCursor();
         (bytes4 key, ) = cur.peek(cur.i);
         groups = cur.run(key, group);
-        next = i + cur.len;
+        next = cur.len;
     }
 
-    /// @notice Create a cursor over `source[i:]`, restrict it to its first grouped run, and require an exact group count.
-    /// @param source Calldata slice that forms the parent block stream.
-    /// @param i Start byte offset within `source`.
+    /// @notice Create a cursor over `source`, restrict it to its first grouped run, and require an exact group count.
+    /// @param source Calldata slice that forms the block stream.
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
     /// @param expectedGroups Required number of groups in the run.
-    /// @return cur Cursor with `len` truncated to the end of the first run in `source[i:]`.
+    /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
     /// @return next Byte offset immediately after the run, relative to `source`.
     function init(
         bytes calldata source,
-        uint i,
         uint group,
         uint expectedGroups
     ) internal pure returns (Cur memory cur, uint next) {
         uint groups;
-        (cur, groups, next) = init(source, i, group);
+        (cur, groups, next) = init(source, group);
         if (groups != expectedGroups) revert BadRatio();
     }
 

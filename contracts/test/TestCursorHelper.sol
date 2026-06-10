@@ -164,7 +164,7 @@ contract TestCursorHelper {
         return (cur.offset - sourceOffset, cur.i, cur.len);
     }
 
-    function testInitAt(bytes calldata source, uint i, uint group)
+    function testInit(bytes calldata source, uint group)
         external
         pure
         returns (uint offset, uint cursorI, uint len, uint groups, uint next)
@@ -174,7 +174,7 @@ contract TestCursorHelper {
             sourceOffset := source.offset
         }
         Cur memory cur;
-        (cur, groups, next) = Cursors.init(source, i, group);
+        (cur, groups, next) = Cursors.init(source, group);
         return (cur.offset - sourceOffset, cur.i, cur.len, groups, next);
     }
 
@@ -184,22 +184,8 @@ contract TestCursorHelper {
         returns (uint i, uint len, uint next)
     {
         Cur memory cur;
-        (cur, next) = Cursors.init(source, 0, group, expectedGroups);
+        (cur, next) = Cursors.init(source, group, expectedGroups);
         return (cur.i, cur.len, next);
-    }
-
-    function testInitAtExpected(bytes calldata source, uint offset, uint group, uint expectedGroups)
-        external
-        pure
-        returns (uint cursorOffset, uint i, uint len, uint next)
-    {
-        uint sourceOffset;
-        assembly ("memory-safe") {
-            sourceOffset := source.offset
-        }
-        Cur memory cur;
-        (cur, next) = Cursors.init(source, offset, group, expectedGroups);
-        return (cur.offset - sourceOffset, cur.i, cur.len, next);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {

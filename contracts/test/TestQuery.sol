@@ -19,7 +19,7 @@ contract TestQuery is QueryBase {
     }
 
     function incrementQuery(bytes calldata request) external pure returns (bytes memory out) {
-        (Cur memory input, uint groups, ) = Cursors.init(request, 0, 1);
+        (Cur memory input, uint groups, ) = Cursors.init(request, 1);
         Writer memory writer = Writers.alloc32s(groups);
 
         while (input.i < input.len) {

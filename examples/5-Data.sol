@@ -34,7 +34,7 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         // CUSTODIES = this command returns CUSTODY blocks.
-        emit Command(host, myCommandId, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false, false);
+        emit Command(host, myCommandId, "1:0:1", INPUT, Keys.Empty, Keys.Custody, false);
         emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 

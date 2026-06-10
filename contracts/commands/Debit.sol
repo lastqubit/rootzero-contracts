@@ -25,7 +25,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     uint internal immutable debitAccountId = commandId(this.debitAccount.selector);
 
     constructor() {
-        emit Command(host, debitAccountId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false, false);
+        emit Command(host, debitAccountId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
         emit Labeled(debitAccountId, bytes32(0), "debitAccount");
     }
 
@@ -33,7 +33,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     /// The default implementation iterates AMOUNT blocks, calls
     /// `debitAccount`, and emits matching BALANCE blocks.
     function debitAccount(bytes32 account, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, uint groups, ) = Cursors.init(request, 0, 1);
+        (Cur memory input, uint groups, ) = Cursors.init(request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         while (input.i < input.len) {

@@ -291,7 +291,6 @@ describe("Admin Commands", () => {
           ethers.ZeroHash.slice(0, 10),
           ethers.ZeroHash.slice(0, 10),
           false,
-          false,
         );
       await expect(deployment!).to.emit(host, "Labeled")
         .withArgs(await host.getLabelId(), ethers.ZeroHash, "label");

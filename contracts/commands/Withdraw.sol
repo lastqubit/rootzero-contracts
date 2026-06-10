@@ -23,7 +23,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
     uint internal immutable withdrawId = commandId(this.withdraw.selector);
 
     constructor() {
-        emit Command(host, withdrawId, "0:1:0", "", Keys.Balance, Keys.Empty, false, false);
+        emit Command(host, withdrawId, "0:1:0", "", Keys.Balance, Keys.Empty, false);
         emit Labeled(withdrawId, bytes32(0), "withdraw");
     }
 
@@ -33,7 +33,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
     function withdraw(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory state, , ) = Cursors.init(c.state, 0, 1);
+        (Cur memory state, , ) = Cursors.init(c.state, 1);
 
         while (state.i < state.len) {
             (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();

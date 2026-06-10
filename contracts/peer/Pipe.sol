@@ -26,7 +26,7 @@ abstract contract PeerPipePayable is PeerBase, Pipeline {
     /// @param request PIPE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(request, 0, 1);
+        (Cur memory input, , ) = Cursors.init(request, 1);
         Budget memory budget = valueBudget();
 
         while (input.i < input.len) {

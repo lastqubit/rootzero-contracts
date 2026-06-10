@@ -11,10 +11,8 @@ pragma solidity ^0.8.33;
 // - a block without braces has no payload, e.g. `#unit`
 // - commas separate siblings at every level
 // - braces define parent-child boundaries
-// - command requests start with the input run when the request schema is non-empty
-// - postcheck command requests include a constraint run after the input run; if the
-//   request schema is empty, the constraint run starts the request
-// - command state starts with the active state run; trailing state globals may follow
+// - command requests are a single run when the request schema is non-empty
+// - command state is a single active state run without trailing globals
 // - run items may repeat at top level for batching
 // - `maybe #x { ... }` marks an optional block item
 // - `many #x { ... }` emits one generic list block containing repeated `#x` items
@@ -32,6 +30,9 @@ pragma solidity ^0.8.33;
 // - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
+// - command request and state streams are each a single run of blocks under the
+//   current protocol convention; the block format may support other shapes in
+//   future protocol surfaces
 // - `balance(...)` and `custody(...)` are live, linear state in the active command pipeline
 // - pipeline state belongs to the active account while the pipeline is executing
 // - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
