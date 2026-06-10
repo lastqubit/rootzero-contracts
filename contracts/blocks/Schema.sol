@@ -19,6 +19,8 @@ pragma solidity ^0.8.33;
 // - `resources` fields are chain-specific resource words; one chain type may
 //   pack them differently from another, but a given chain type must use one
 //   stable format everywhere. EVM resources use the low 128 bits as native value.
+// - dotted field names and aliases, e.g. `dst.chain` or `#bytes as dst.payload`,
+//   are offchain projection metadata only and do not change runtime encoding
 // - fixed fields are packed in declaration order
 // - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
