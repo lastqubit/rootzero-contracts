@@ -3,6 +3,19 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.3.0
+
+### Breaking Changes
+
+- Simplified `Cursors.init` to parse a single run from the start of a calldata slice. Callers that previously passed an offset must slice first or use `Cursors.open(source, i)`.
+- Tightened command, query, and peer request parsing around the single-run convention used by current protocol endpoints.
+
+### Added
+
+- Added `peerCreditTo` and `peerDebitFrom` peer endpoints for account-scoped `ACCOUNT_AMOUNT` batches.
+- Added same-file `IPeer*` interfaces for every peer endpoint and exported them from `Endpoints.sol`.
+- Added indexing documentation covering discovery, labels, access state, balance events, and flow-event conventions.
+
 ## 1.2.0
 
 ### Breaking Changes
