@@ -7,11 +7,15 @@ import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
+interface IPeerAllowance {
+    function peerAllowance(bytes calldata request) external returns (bytes memory);
+}
+
 /// @title PeerAllowance
 /// @notice Peer that lets a trusted peer host request or refresh its own allowance.
 /// Each AMOUNT block in the request is scoped to the peer host and passed to the
 /// shared allowance hook as a host-scoped allowance. Restricted to trusted peers.
-abstract contract PeerAllowance is PeerBase, AllowanceHook {
+abstract contract PeerAllowance is PeerBase, AllowanceHook, IPeerAllowance {
     uint internal immutable peerAllowanceId = peerId(this.peerAllowance.selector);
 
     constructor() {

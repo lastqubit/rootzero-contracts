@@ -7,10 +7,14 @@ import { Cursors, Cur, Schemas } from "../Cursors.sol";
 
 using Cursors for Cur;
 
+interface IPeerAllowAssets {
+    function peerAllowAssets(bytes calldata request) external returns (bytes memory);
+}
+
 /// @title PeerAllowAssets
 /// @notice Peer that permits a list of (asset, meta) pairs on behalf of a peer host.
 /// Each ASSET block in the request calls `allowAsset`. Restricted to trusted peers.
-abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook {
+abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook, IPeerAllowAssets {
     uint internal immutable peerAllowAssetsId = peerId(this.peerAllowAssets.selector);
 
     constructor() {

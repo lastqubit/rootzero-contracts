@@ -4,12 +4,14 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { PeerAllowance } from "../peer/Allowance.sol";
 import { PeerBalancePull } from "../peer/BalancePull.sol";
+import { PeerCreditTo } from "../peer/Credit.sol";
+import { PeerDebitFrom } from "../peer/Debit.sol";
 import { PeerPipePayable } from "../peer/Pipe.sol";
 import { PeerDispatchPayable } from "../peer/Dispatch.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { Budget } from "../utils/Value.sol";
 
-contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerPipePayable, PeerDispatchPayable {
+contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerCreditTo, PeerDebitFrom, PeerSettle, PeerPipePayable, PeerDispatchPayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerBalancePullCalled(uint peer, bytes32 asset, bytes32 meta, uint amount);
     event PeerDebitAccountCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
@@ -54,6 +56,8 @@ contract TestPeerHost is Host, PeerAllowance, PeerBalancePull, PeerSettle, PeerP
 
     function getPeerAllowanceId() external view returns (uint) { return peerAllowanceId; }
     function getPeerBalancePullId() external view returns (uint) { return peerBalancePullId; }
+    function getPeerCreditToId() external view returns (uint) { return peerCreditToId; }
+    function getPeerDebitFromId() external view returns (uint) { return peerDebitFromId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
     function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
     function getPeerDispatchPayableId() external view returns (uint) { return peerDispatchPayableId; }

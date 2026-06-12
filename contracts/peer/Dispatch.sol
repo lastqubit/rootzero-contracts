@@ -9,9 +9,13 @@ import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 
+interface IPeerDispatchPayable {
+    function peerDispatchPayable(bytes calldata request) external payable returns (bytes memory);
+}
+
 /// @title PeerDispatchPayable
 /// @notice Peer endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
-abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook {
+abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook, IPeerDispatchPayable {
     uint internal immutable peerDispatchPayableId = peerId(this.peerDispatchPayable.selector);
 
     constructor() {

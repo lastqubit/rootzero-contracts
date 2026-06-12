@@ -4,6 +4,7 @@ import {
   concat,
   encodePipeBlock,
   encodeAmountBlock,
+  encodeAccountAmountBlock,
   encodeBalanceBlock,
   encodeNodeBlock,
   encodeStepBlock,
@@ -62,6 +63,34 @@ describe("Peer Entrypoints", () => {
       .to.emit(host, "Peer")
       .withArgs(
         await host.host(),
+        await host.getPeerCreditToId(),
+        ethers.encodeBytes32String("1:0"),
+        "#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }",
+        "",
+        false,
+      );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerCreditToId(), ethers.ZeroHash, "peerCreditTo");
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
+        await host.getPeerDebitFromId(),
+        ethers.encodeBytes32String("1:0"),
+        "#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }",
+        "",
+        false,
+      );
+    await expect(tx!)
+      .to.emit(host, "Labeled")
+      .withArgs(await host.getPeerDebitFromId(), ethers.ZeroHash, "peerDebitFrom");
+
+    await expect(tx!)
+      .to.emit(host, "Peer")
+      .withArgs(
+        await host.host(),
         await host.getPeerPipePayableId(),
         ethers.encodeBytes32String("1:0"),
         "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }",
@@ -93,6 +122,8 @@ describe("Peer Entrypoints", () => {
     method:
       | "peerAllowance(bytes)"
       | "peerBalancePull(bytes)"
+      | "peerCreditTo(bytes)"
+      | "peerDebitFrom(bytes)"
       | "peerSettle(bytes)"
       | "peerPipePayable(bytes)"
       | "peerDispatchPayable(bytes)",
@@ -212,6 +243,118 @@ describe("Peer Entrypoints", () => {
     it("reverts ZeroCursor when request is empty", async () => {
       await expect(callAs(1, method))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("peerCreditTo", () => {
+    const method = "peerCreditTo(bytes)";
+    const account = encodeUserAccount("0x11");
+    const asset = ethers.zeroPadValue("0xaa", 32);
+    const meta = ethers.zeroPadValue("0xbb", 32);
+
+    it("credits the account from a single ACCOUNT_AMOUNT block", async () => {
+      const tx = await callAs(1, method, encodeAccountAmountBlock(account, asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account, asset, meta, 123n);
+    });
+
+    it("credits each account amount block when multiple are present", async () => {
+      const account2 = encodeUserAccount("0x22");
+      const asset2 = ethers.zeroPadValue("0xcc", 32);
+      const tx = await callAs(
+        1,
+        method,
+        concat(
+          encodeAccountAmountBlock(account, asset, meta, 123n),
+          encodeAccountAmountBlock(account2, asset2, meta, 456n),
+        )
+      );
+
+      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account2, asset2, meta, 456n);
+    });
+
+    it("returns empty bytes after processing account amount blocks", async () => {
+      const signer = await getSigner(1);
+      const result: string = await (host.connect(signer) as any)[method].staticCall(
+        encodeAccountAmountBlock(account, asset, meta, 123n)
+      );
+      expect(result).to.equal("0x");
+    });
+
+    it("reverts CommanderNotAllowed for the commander", async () => {
+      await expect(callAs(0, method, encodeAccountAmountBlock(account, asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+    });
+
+    it("reverts AccessDenied for an untrusted caller", async () => {
+      await expect(callAs(2, method, encodeAccountAmountBlock(account, asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor when request is empty", async () => {
+      await expect(callAs(1, method))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+
+    it("reverts InvalidBlock when request is not an ACCOUNT_AMOUNT block", async () => {
+      await expect(callAs(1, method, encodeBalanceBlock(asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+  });
+
+  describe("peerDebitFrom", () => {
+    const method = "peerDebitFrom(bytes)";
+    const account = encodeUserAccount("0x11");
+    const asset = ethers.zeroPadValue("0xaa", 32);
+    const meta = ethers.zeroPadValue("0xbb", 32);
+
+    it("debits the account from a single ACCOUNT_AMOUNT block", async () => {
+      const tx = await callAs(1, method, encodeAccountAmountBlock(account, asset, meta, 123n));
+      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account, asset, meta, 123n);
+    });
+
+    it("debits each account amount block when multiple are present", async () => {
+      const account2 = encodeUserAccount("0x22");
+      const asset2 = ethers.zeroPadValue("0xcc", 32);
+      const tx = await callAs(
+        1,
+        method,
+        concat(
+          encodeAccountAmountBlock(account, asset, meta, 123n),
+          encodeAccountAmountBlock(account2, asset2, meta, 456n),
+        )
+      );
+
+      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account, asset, meta, 123n);
+      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account2, asset2, meta, 456n);
+    });
+
+    it("returns empty bytes after processing account amount blocks", async () => {
+      const signer = await getSigner(1);
+      const result: string = await (host.connect(signer) as any)[method].staticCall(
+        encodeAccountAmountBlock(account, asset, meta, 123n)
+      );
+      expect(result).to.equal("0x");
+    });
+
+    it("reverts CommanderNotAllowed for the commander", async () => {
+      await expect(callAs(0, method, encodeAccountAmountBlock(account, asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+    });
+
+    it("reverts AccessDenied for an untrusted caller", async () => {
+      await expect(callAs(2, method, encodeAccountAmountBlock(account, asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor when request is empty", async () => {
+      await expect(callAs(1, method))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+
+    it("reverts InvalidBlock when request is not an ACCOUNT_AMOUNT block", async () => {
+      await expect(callAs(1, method, encodeBalanceBlock(asset, meta, 123n)))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 

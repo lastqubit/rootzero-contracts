@@ -6,6 +6,10 @@ import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
+interface IPeerBalancePull {
+    function peerBalancePull(bytes calldata request) external returns (bytes memory);
+}
+
 abstract contract BalancePullHook {
     /// @notice Override to process one incoming balance-based pull request from a peer host.
     /// @param peer Peer host node ID for this request.
@@ -19,7 +23,7 @@ abstract contract BalancePullHook {
 /// @notice Peer that pulls requested balances from a peer host into this one.
 /// Each BALANCE block in the request calls `balancePull(peer, asset, meta, amount)`.
 /// Restricted to trusted peers.
-abstract contract PeerBalancePull is PeerBase, BalancePullHook {
+abstract contract PeerBalancePull is PeerBase, BalancePullHook, IPeerBalancePull {
     uint internal immutable peerBalancePullId = peerId(this.peerBalancePull.selector);
 
     constructor() {

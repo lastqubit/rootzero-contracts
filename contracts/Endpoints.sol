@@ -34,13 +34,15 @@ import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 
 // Peer endpoints
 import { PeerBase, encodePeerCall } from "./peer/Base.sol";
-import { PeerAllowAssets } from "./peer/AllowAssets.sol";
-import { PeerAllowance } from "./peer/Allowance.sol";
-import { PeerBalancePull, BalancePullHook } from "./peer/BalancePull.sol";
-import { PeerDenyAssets } from "./peer/DenyAssets.sol";
-import { PeerPipePayable } from "./peer/Pipe.sol";
-import { PeerDispatchPayable } from "./peer/Dispatch.sol";
-import { PeerSettle } from "./peer/Settle.sol";
+import { PeerAllowAssets, IPeerAllowAssets } from "./peer/AllowAssets.sol";
+import { PeerAllowance, IPeerAllowance } from "./peer/Allowance.sol";
+import { PeerBalancePull, BalancePullHook, IPeerBalancePull } from "./peer/BalancePull.sol";
+import { PeerCreditTo, IPeerCreditTo } from "./peer/Credit.sol";
+import { PeerDebitFrom, IPeerDebitFrom } from "./peer/Debit.sol";
+import { PeerDenyAssets, IPeerDenyAssets } from "./peer/DenyAssets.sol";
+import { PeerPipePayable, IPeerPipePayable } from "./peer/Pipe.sol";
+import { PeerDispatchPayable, IPeerDispatchPayable } from "./peer/Dispatch.sol";
+import { PeerSettle, IPeerSettle } from "./peer/Settle.sol";
 
 // Guard endpoints
 import { GuardBase, encodeGuardCall } from "./guards/Base.sol";

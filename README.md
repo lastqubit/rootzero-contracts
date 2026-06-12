@@ -1,129 +1,349 @@
 # rootzero
 
-`rootzero` is the Solidity library for building hosts and commands for the rootzero protocol.
+rootzero is a protocol for building **hosts**: contracts that expose a uniform
+set of endpoints over accounts and assets — commands that change state,
+queries that read it, and peer links that connect hosts to each other, on the
+same chain or across chains.
 
-It contains the reusable contracts, utilities, cursor parsers, and encoding helpers that rootzero applications compose on top of. If you are building a host, a command contract, or protocol tooling that needs to speak the protocol's ID, asset, account, and block formats, this repo is the shared foundation.
+This repository is `@rootzero/contracts`, the Solidity library for the EVM port
+of the protocol: the base contracts, block codecs, and helpers that rootzero
+applications compose.
 
-## Main Entry Points
+Two decisions shape everything below. First, all data that crosses a host
+boundary is encoded in one binary block format, so a request means the same
+bytes on every chain. Second, every surface operates on *runs* of blocks rather
+than single values, so batching is the default, not a feature added later. This
+guide introduces the protocol bottom-up: blocks, then identities, then hosts
+and the endpoints built on top of them.
 
-Most consumers should start from the package root entry points:
+## Quick Start
 
-- `@rootzero/contracts/Core.sol` - host, access control, balances, and validator building blocks
-- `@rootzero/contracts/Endpoints.sol` - command, peer, guard, and query base contracts plus standard endpoint mixins
-- `@rootzero/contracts/Cursors.sol` - cursor reader (`Cur`), block schemas, key constants, typed block helpers, and writers
-- `@rootzero/contracts/Utils.sol` - IDs, assets, accounts, layout, and value helpers
-- `@rootzero/contracts/Events.sol` - reusable event emitters and event contracts
+Scaffold a ready-to-run Hardhat project, or add the library to an existing
+one:
 
-## Block Wire Format
-
-All request and response data is encoded as a binary block stream. Each block is:
-
+```bash
+npx create-rootzero@latest my-app
+# or
+npm install @rootzero/contracts
 ```
-[bytes4 key][bytes4 payloadLen][payload]
-```
 
-`key` is `bytes4(keccak256("#name"))`; see `Keys` for the full set and [`docs/Schema.md`](docs/Schema.md) for the schema format. `Cursors` parses calldata streams zero-copy via the `Cur` struct; `Writers` builds response streams into pre-allocated memory.
-
-## Schemas, Forms, And State
-
-Protocol blocks use schema strings and four-byte keys:
-
-- `Schemas` describes semantic protocol blocks such as `#amount`, `#balance`, `#custody`, and `#relay`.
-- `Forms` describes reusable structural blocks such as `#accountAsset` and `#accountAmount`, mostly used by queries.
-- `Keys` contains the runtime `bytes4` keys derived from block names.
-
-Every command declares its input and output pipeline state with block keys in the `Command` event. Use `Keys.Empty` when a command expects or returns no state.
-
-The active command pipeline state is intentionally narrow: `BALANCE` and `CUSTODY` blocks are live value owned by the active account while execution is in-flight. `TRANSACTION` remains a block type for settlement messages, but it is not command pipeline state.
-
-## Typical Usage
-
-### Build a Host
-
-Extend `Host` when you want a rootzero host contract with admin command support and optional discovery registration.
+A minimal host composes the base `Host` with the endpoints it needs and
+implements their policy hooks:
 
 ```solidity
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Host } from "@rootzero/contracts/Core.sol";
+import { Host, Balances } from "@rootzero/contracts/Core.sol";
+import { Deposit } from "@rootzero/contracts/Endpoints.sol";
+import { Assets } from "@rootzero/contracts/Utils.sol";
 
-contract ExampleHost is Host {
-    constructor(address rootzero)
-        Host(rootzero, 1, "example")
-    {}
+contract ExampleHost is Host, Balances, Deposit {
+    constructor(address rootzero) Host(rootzero) {}
+
+    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
+        uint balance = creditTo(account, Assets.slot(asset, meta), amount);
+        emit Balance(account, asset, meta, balance, int(amount), depositId);
+    }
 }
 ```
 
-`rootzero` is the trusted runtime address. If it implements `IHostDiscovery`, the host announces itself there during deployment. Use `address(0)` for a self-managed host that does not auto-register.
+Deploy it with your own address as commander and you can call its commands
+directly. A request is a run of binary blocks — here, a single `#amount` block
+asking to deposit an asset (the encoders are a few lines each; see
+[`test/helpers/blocks.ts`](test/helpers/blocks.ts) for reference
+implementations):
 
-### Build a Command
+```ts
+const host = await ethers.deployContract("ExampleHost", [deployer.address]);
 
-Extend `CommandBase` to define a command mixin that runs inside the protocol's trusted call model. Commands are abstract contracts mixed into a host.
+const account = encodeUserAccount(user.address); // receiving account
+const request = encodeAmountBlock(asset, meta, 100n); // what to deposit
+await host.deposit({ account, state: "0x", request }); // emits Balance
+```
+
+The rest of this guide explains the ideas this example leans on — blocks, IDs,
+hosts, commands — and the surfaces built on top of them.
+
+## Blocks
+
+Every request, response, and piece of in-flight state is a stream of typed
+blocks. A block is a four-byte key, a four-byte big-endian length, and a
+payload:
+
+```txt
+[bytes4 key][uint32 payloadLen][payload]
+```
+
+The key is `bytes4(keccak256("#name"))`, and the payload layout is described by
+a schema string. For example, the block that requests a deposit:
+
+```txt
+#amount { bytes32 asset, bytes32 meta, uint amount }
+```
+
+is 104 bytes on the wire: an 8-byte header followed by three big-endian 32-byte
+fields. There is no ABI encoding and no chain-specific type anywhere in the
+format — field types are chain-neutral integers, bytes, and booleans. A deposit
+request built for an EVM host is byte-for-byte the request a CosmWasm or Solana
+port would parse; what differs per chain is how a host *resolves* the
+identifiers inside, never how the bytes are laid out.
+
+Schemas can express more than flat fields: a block may end in nested child
+blocks (`#bytes as payload` names a run of raw dynamic bytes), items can be
+marked `maybe` (optional) or `many` (a list), and aliases and dotted field
+paths give off-chain tooling presentation names without changing a single byte
+on the wire. The full schema language is specified in
+[`docs/Schema.md`](docs/Schema.md). The standard block schemas live in
+`Schemas` and their runtime keys in `Keys` (both via
+`@rootzero/contracts/Cursors.sol`).
+
+## Batches
+
+A request is not a single struct; it is a run of blocks. One `#amount` block
+asks for one deposit, five blocks ask for five, and the code path is identical
+— every endpoint parses with a cursor and loops until the stream is exhausted.
+The first item of a schema (the *prime item*) is the one that may repeat;
+later top-level items, if any, apply to the whole batch.
+
+Off-chain, building a batch is concatenation. Using the reference encoders from
+[`test/helpers/blocks.ts`](test/helpers/blocks.ts):
+
+```ts
+import { concat } from "ethers";
+import { encodeAmountBlock } from "./helpers/blocks";
+
+const request = concat([
+  encodeAmountBlock(usdc, meta, 250_000_000n),
+  encodeAmountBlock(dai, meta, 250n * 10n ** 18n),
+]);
+// deposit(request) returns two #balance blocks, one per #amount
+```
+
+Everything downstream keeps this shape: commands loop over request blocks,
+settlement loops over transactions, pipelines loop over steps. Batching is
+never a special case.
+
+## IDs, Accounts, and Assets
+
+Everything the protocol touches — accounts, assets, chains, hosts, endpoints —
+is identified by a self-describing 256-bit ID:
+
+```txt
+[uint32 type][uint32 chainid][192-bit payload]
+```
+
+where `type` packs `[vm][width][category][subtype]`. Any ID therefore announces
+what it is (an account, an asset, a node) and which chain it lives on, and the
+payload usually embeds the underlying address. User accounts are
+chain-agnostic; admin and guardian accounts are chain-local. Assets cover the
+native coin, ERC-20, ERC-721, and ERC-1155; wide identities carry a second
+`meta` word (an ERC-721 token id, for example). Nodes are hosts, commands,
+peers, queries, and guards.
+
+The `Utils.sol` entry point provides the constructors and inspectors:
 
 ```solidity
-// SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.8.33;
+bytes32 account = Accounts.toUser(msg.sender); // chain-agnostic user account
+bytes32 asset = Assets.toErc20(tokenAddress);  // ERC-20 asset ID
+uint hostId = Ids.toHost(address(this));       // host node ID
+```
 
-import { CommandBase, CommandContext, Keys } from "@rootzero/contracts/Endpoints.sol";
-import { Cursors, Cur, Schemas, Writer, Writers } from "@rootzero/contracts/Cursors.sol";
+## Hosts
 
-using Cursors for Cur;
-using Writers for Writer;
+A host is one contract assembled from mixins. The base `Host` brings access
+control and the admin surface (authorize, unauthorize, appoint, dismiss,
+label, executePayable) plus the guardian `revoke` action; you add the
+endpoints you need and the policy hooks they require. Keeping a ledger is
+optional: the `Balances` mixin provides one, but a host can just as well
+implement commands that hold no persistent state in the host at all —
+forwarding funds elsewhere, or operating only on the state threaded through a
+pipeline.
 
-string constant NAME = "myCommand";
+Trust is explicit and minimal. Each host has an immutable **commander**
+address fixed at construction, from which its **admin account** is derived.
+Other contracts become callers only when their node ID is authorized into the
+host's trusted set, and **guardians** are accounts allowed to take protective
+actions. At deployment, a host introduces itself to its commander, which is how
+host topology becomes discoverable.
 
-abstract contract ExampleCommand is CommandBase {
+The `ExampleHost` in the quick start shows the resulting split, and it runs
+through the whole library: mixins implement the protocol mechanics (parsing,
+batching, discovery events), and small virtual hooks let the host decide
+policy — where funds come from, how the ledger is keyed, what gets emitted.
+
+## Commands
+
+Commands are the write endpoints. Every command receives the same context:
+
+```solidity
+struct CommandContext {
+    bytes32 account; // acting account
+    bytes state;     // block stream produced by the previous command
+    bytes request;   // block stream for this invocation
+}
+```
+
+The request carries instructions; the state carries live value. While a
+sequence of commands executes, `#balance` and `#custody` blocks in the state
+are the funds being moved — produced by one command, consumed by the next.
+
+The standard `Deposit` mixin shows the canonical shape — init a cursor, loop
+the batch, call the hook, write the output run:
+
+```solidity
+function deposit(CommandContext calldata c) external onlyCommand returns (bytes memory) {
+    (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
+    Writer memory writer = Writers.allocBalances(groups);
+
+    while (request.i < request.len) {
+        (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
+        deposit(c.account, asset, meta, amount); // host policy hook
+        writer.appendBalance(asset, meta, amount);
+    }
+
+    request.complete();
+    return writer.finish();
+}
+```
+
+A command announces itself when the host is deployed. Its constructor emits a
+discovery event carrying the request schema, the expected and produced state
+block keys, and a shape string (`"1:0:1"` = one request block per operation, no
+input state, one output block per operation), plus a human-readable label:
+
+```solidity
+abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(this.myCommand.selector);
 
     constructor() {
         emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
-        emit Labeled(myCommandId, bytes32(0), NAME);
+        emit Labeled(myCommandId, bytes32(0), "myCommand");
     }
 
-    function myCommand(
-        CommandContext calldata c
-    ) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocBalances(groups);
-
-        while (request.i < request.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
-            writer.appendBalance(asset, meta, amount);
-        }
-
-        request.complete();
-        return writer.finish();
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
+        // parse c.request, loop, return the output state run
     }
 }
 ```
 
-## Repo Layout
+The standard commands cover the common ledger movements: `deposit` and
+`depositPayable` (external funds in), `withdraw` and `burn` (funds out),
+`debitAccount` and `creditAccount` (internal movements), `payout` (deliver
+state to other accounts), `provision` (allocate custody on another host), and
+`relayPayable` (hand a pipeline to another chain).
 
-- `contracts/core` - host, access control, balances, operation base, and signature validation
-- `contracts/commands` - standard command building blocks and admin commands
-- `contracts/peer` - peer protocol surfaces for inter-host asset flows and asset allow/deny
-- `contracts/guards` - guard action surfaces for delegated protection flows
-- `contracts/queries` - read-only query endpoints for protocol state
-- `contracts/blocks` - block stream schema (`Schema`), cursor parsing (`Cursors`), and writers (`Writers`)
-- `contracts/utils` - shared encoding helpers: IDs, assets, accounts, layout, ECDSA
-- `contracts/events` - protocol event contracts and emitters
-- `docs` - introductory documentation
+## Pipelines
 
-## Install and Compile
+A single command is rarely the whole story. A pipeline is a run of `#step`
+blocks executed in order within one transaction:
 
-```bash
-npm install @rootzero/contracts
-npm run compile
+```txt
+#step { uint target, uint resources, #bytes as request }
 ```
 
-## When To Use This Repo
+Each step names a target command, the resources it may spend, and its request.
+The state threads through: whatever one command returns becomes the input
+state of the next, and the final state must be empty — value cannot be left
+dangling at the end of a pipeline. This is the core of `Pipeline.pipe`:
 
-Use `rootzero` if you want to:
+```solidity
+while (input.i < input.len) {
+    (uint target, uint resources, bytes calldata request) = input.unpackStep();
+    state = dispatch(target, account, state, request, useValue(budget, resources));
+}
+if (state.length != 0) revert UnexpectedState();
+```
 
-- create a new rootzero host
-- implement a new rootzero command
-- reuse the protocol's block format and wire encoding
-- share protocol-level Solidity code across multiple rootzero applications
+A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
+`#amount` request into `#balance` state, and `payout` consumes that state
+toward a recipient. Because a pipeline is just blocks, it is also the unit of
+command batching — and `resources` is a chain-typed word (on EVM, the low 128
+bits are native value in wei, drawn from a shared budget), so the same pipeline
+bytes are meaningful to every port.
 
-If you are looking for a full end-user app or deployment repo, this library is the lower-level protocol package rather than the full product surface.
+## Queries
+
+Queries are the read endpoints: view functions that take a block-stream request
+and return a block-stream response, with the same batch shape as commands. The
+standard `getBalances` query takes a run of positions and answers each one in
+order:
+
+```txt
+request:  #accountAsset { bytes32 account, bytes32 asset, bytes32 meta }
+response: #accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }
+```
+
+Like commands, every query announces its request and response schemas at
+deployment, so tooling knows how to call it without artifacts.
+
+## Peers
+
+Peers are the host-to-host surfaces, callable only by trusted hosts. The two
+central ones are batches all the way down:
+
+- `peerSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
+  bytes32 meta, uint amount }` blocks, debiting `from` and crediting `to` per
+  block — how two hosts record settlement between their ledgers.
+- `peerPipePayable` consumes `#pipe` blocks, each carrying an account, an
+  initial state, and a run of steps — a complete pipeline delivered by another
+  host, executed locally with its own resource budget.
+
+This is also the cross-chain mechanism. `relayPayable` (or `peerDispatchPayable`)
+wraps a pipe and addresses it to a chain; a bridge adapter moves the **raw
+bytes**; the destination host parses them with the same cursor rules and runs
+the same pipeline loop. Nothing in the payload is EVM-specific — step targets
+are destination-local node IDs, and only the adapter boundary (native
+transfers, address resolution, signatures) is chain-specific. The parity rule
+for ports is strict: every chain's implementation must parse the same input
+bytes and produce the same output bytes for every endpoint.
+
+## Guards and Admin
+
+Admin commands use the regular command shape but are gated to the host's admin
+account: trust management (`authorize`, `unauthorize`), guardian management
+(`appoint`, `dismiss`), naming (`label`), asset gating (`allowAssets`,
+`denyAssets`, `allowance`), lifecycle (`init`, `destroy`), and raw calls
+(`executePayable`). Guards go the other way: direct actions guardians can take
+without any command context — the default is `revoke`, which lets a guardian
+drop a trusted node immediately.
+
+## Events and Discovery
+
+Hosts are self-describing. At deployment a host emits the ABI of every event it
+uses (`EventAbi`), a discovery event per endpoint with its full schemas, and
+labels for human-readable names. State changes then follow evented
+conventions: `Balance` for every ledger change and flow events (`Transfer`,
+`Received`, `Spent`) for value movement, each tagged with the endpoint that
+caused it. An indexer can reconstruct the entire repository — endpoints,
+names, access sets, balances — from logs alone, with no artifact files.
+
+## Using the Library
+
+Import from the package entry points rather than deep paths:
+
+- `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
+  `Pipeline`, validator
+- `@rootzero/contracts/Endpoints.sol` — command, admin, peer, guard, and query
+  mixins and their hooks
+- `@rootzero/contracts/Cursors.sol` — `Cur` cursor reader, `Writers`, `Schemas`,
+  `Keys`
+- `@rootzero/contracts/Utils.sol` — `Ids`, `Assets`, `Accounts`, layout and
+  value helpers
+- `@rootzero/contracts/Events.sol` — protocol event contracts
+
+Repo layout:
+
+- `contracts/core` — host, access control, balances, pipeline, validation
+- `contracts/commands` — standard commands and admin commands
+- `contracts/peer` — peer surfaces for inter-host and cross-chain flows
+- `contracts/guards` — guardian direct actions
+- `contracts/queries` — read-only query endpoints
+- `contracts/blocks` — block schema, cursor parsing, writers
+- `contracts/utils` — IDs, assets, accounts, layout, ECDSA
+- `contracts/events` — event contracts and emitters
+- `docs` — [`Schema.md`](docs/Schema.md) (wire format and schema DSL)
+
+Use this library to create a new rootzero host, implement a command, or reuse
+the protocol's block format in tooling. It is the shared protocol foundation,
+not an end-user application.

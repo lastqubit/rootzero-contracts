@@ -7,10 +7,14 @@ import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
+interface IPeerDenyAssets {
+    function peerDenyAssets(bytes calldata request) external returns (bytes memory);
+}
+
 /// @title PeerDenyAssets
 /// @notice Peer that blocks a list of (asset, meta) pairs on behalf of a peer host.
 /// Each ASSET block in the request calls `denyAsset`. Restricted to trusted peers.
-abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook {
+abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook, IPeerDenyAssets {
     uint internal immutable peerDenyAssetsId = peerId(this.peerDenyAssets.selector);
 
     constructor() {

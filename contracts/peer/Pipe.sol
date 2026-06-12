@@ -8,11 +8,15 @@ import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
 
+interface IPeerPipePayable {
+    function peerPipePayable(bytes calldata request) external payable returns (bytes memory);
+}
+
 /// @title PeerPipePayable
 /// @notice Peer that consumes PIPE blocks and executes each context step stream.
 /// Each PIPE block carries chain resources plus a CONTEXT block; the nested
 /// context steps are passed to the shared pipeline as the step stream.
-abstract contract PeerPipePayable is PeerBase, Pipeline {
+abstract contract PeerPipePayable is PeerBase, Pipeline, IPeerPipePayable {
     uint internal immutable peerPipePayableId = peerId(this.peerPipePayable.selector);
 
     constructor() {
