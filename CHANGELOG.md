@@ -3,6 +3,19 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.4.0
+
+### Breaking Changes
+
+- Replaced the `Chain` discovery event with `Commander(uint indexed host, uint chain, bytes32 native, bytes32 admin)`.
+- Removed the `Transfer` flow event; account flows should be represented with `Spent` and `Received`.
+- Renamed the indexed `Labeled` event parameter from `id` to `entity` in the published ABI string.
+
+### Added
+
+- Added `Route(uint indexed host, uint chain, uint context)` for generic cross-chain route discovery.
+- Added `Actions.Refund` for unused payable command value returned through settlement hooks.
+
 ## 1.3.0
 
 ### Breaking Changes
