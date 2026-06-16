@@ -15,4 +15,5 @@ library Actions {
     uint32 constant Borrow = 10;
     uint32 constant Repay = 11;
     uint32 constant Liquidate = 12;
+    uint32 constant Refund = 13;
 }
