@@ -144,18 +144,10 @@ function retryTicket(bytes32 account, bytes calldata state) pure returns (bytes3
 
 /// @notice Build the chain-local base prefix for a 256-bit ID.
 /// Embeds the current `block.chainid` so IDs are not portable across chains.
-/// @param prefix Four-byte type tag (e.g. `Ids.Host`, `Ids.Command`).
+/// @param prefix Four-byte type tag (e.g. `Nodes.Host`, `Nodes.Command`).
 /// @return Base value with the type tag in bits [255:224] and chainid in bits [223:192].
 function toLocalBase(uint32 prefix) view returns (uint) {
     return (uint(prefix) << 224) | (uint(max32(block.chainid)) << 192);
-}
-
-/// @notice Build the chain-local family prefix for a 256-bit ID.
-/// Uses a 24-bit family tag (the top 3 bytes of the type field).
-/// @param family Three-byte family tag.
-/// @return Family prefix with the family in bits [255:232] and chainid in bits [223:192].
-function toLocalFamily(uint24 family) view returns (uint) {
-    return (uint(family) << 232) | (uint(max32(block.chainid)) << 192);
 }
 
 /// @notice Build a chain-unspecified base prefix (no chainid embedded).
@@ -173,21 +165,6 @@ function toUnspecifiedBase(uint32 prefix) pure returns (uint) {
 /// @return True if the top 3 bytes of `value` match `family`.
 function isFamily(uint value, uint24 family) pure returns (bool) {
     return uint24(value >> 232) == family;
-}
-
-/// @notice Check whether `value` was created on the current chain.
-/// @param value ID to test.
-/// @return True if bits [223:192] of `value` equal `block.chainid`.
-function isLocalChain(uint value) view returns (bool) {
-    return uint32(value >> 192) == block.chainid;
-}
-
-/// @notice Check whether `value` belongs to the given family and was created on the current chain.
-/// @param value ID to test.
-/// @param family Expected 24-bit family tag.
-/// @return True if both the family and chainid fields match.
-function isLocalFamily(uint value, uint24 family) view returns (bool) {
-    return isFamily(value, family) && isLocalChain(value);
 }
 
 /// @notice Check whether two IDs share the same 64-bit base (type tag + chainid).

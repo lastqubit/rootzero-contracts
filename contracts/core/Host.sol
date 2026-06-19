@@ -10,7 +10,7 @@ import {ExecutePayable} from "../commands/admin/Execute.sol";
 import {Label} from "../commands/admin/Label.sol";
 import {Revoke} from "../guards/Revoke.sol";
 import {IntroductionEvent} from "../events/Introduction.sol";
-import {Ids} from "../utils/Ids.sol";
+import {Nodes} from "../utils/Nodes.sol";
 
 /// @title IHostIntroduction
 /// @notice Interface implemented by hosts that accept introductions from other hosts.
@@ -51,7 +51,7 @@ abstract contract Host is
     /// @param peer Host node ID being introduced.
     /// @param blocknum Block number at which the host was deployed.
     function introduce(uint peer, uint blocknum) external {
-        emit Introduction(Ids.matchHost(peer, msg.sender), blocknum);
+        emit Introduction(Nodes.matchHost(peer, msg.sender), blocknum);
     }
 
     /// @notice Accept native ETH transfers (e.g. from command value flows).

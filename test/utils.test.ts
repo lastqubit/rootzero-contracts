@@ -101,15 +101,22 @@ describe("Utils", () => {
       expect(await utils.testIsUserAccount(await utils.testToGuardianAccount(signerAddress))).to.be.false;
     });
 
-    it("isAccount returns true for supported account IDs", async () => {
-      expect(await utils.testIsAccount(await utils.testToAdminAccount(signerAddress))).to.be.true;
-      expect(await utils.testIsAccount(await utils.testToGuardianAccount(signerAddress))).to.be.true;
-      expect(await utils.testIsAccount(await utils.testToUserAccount(signerAddress))).to.be.true;
+    it("EVM account helpers accept supported EVM accounts", async () => {
+      const admin = await utils.testToAdminAccount(signerAddress);
+      const guardian = await utils.testToGuardianAccount(signerAddress);
+      const user = await utils.testToUserAccount(signerAddress);
+
+      expect(await utils.testIsEvmAccount(admin)).to.be.true;
+      expect(await utils.testIsEvmAccount(guardian)).to.be.true;
+      expect(await utils.testIsEvmAccount(user)).to.be.true;
+      expect(await utils.testEvmAccount(admin)).to.equal(admin);
+      expect(await utils.testEvmAccount(guardian)).to.equal(guardian);
+      expect(await utils.testEvmAccount(user)).to.equal(user);
     });
 
-    it("isAccount returns false for non-account category values", async () => {
-      expect(await utils.testIsAccount(await utils.testToNativeAsset())).to.be.false;
-      expect(await utils.testIsAccount(ethers.ZeroHash)).to.be.false;
+    it("EVM account helpers reject non-EVM accounts", async () => {
+      await expectCustomError(utils.testEvmAccount(await utils.testToNativeAsset()), "InvalidAccount");
+      expect(await utils.testIsEvmAccount(ethers.ZeroHash)).to.be.false;
     });
 
     it("typed account helpers return matching accounts", async () => {
@@ -117,9 +124,6 @@ describe("Utils", () => {
       const guardianAccount = await utils.testToGuardianAccount(signerAddress);
       const userAccount = await utils.testToUserAccount(signerAddress);
 
-      expect(await utils.testEnsureAccount(adminAccount)).to.equal(adminAccount);
-      expect(await utils.testEnsureAccount(guardianAccount)).to.equal(guardianAccount);
-      expect(await utils.testEnsureAccount(userAccount)).to.equal(userAccount);
       expect(await utils.testAdminAccount(adminAccount)).to.equal(adminAccount);
       expect(await utils.testGuardianAccount(guardianAccount)).to.equal(guardianAccount);
       expect(await utils.testUserAccount(userAccount)).to.equal(userAccount);
@@ -133,7 +137,6 @@ describe("Utils", () => {
       await expectCustomError(utils.testAdminAccount(userAccount), "InvalidAccount");
       await expectCustomError(utils.testGuardianAccount(adminAccount), "InvalidAccount");
       await expectCustomError(utils.testUserAccount(guardianAccount), "InvalidAccount");
-      await expectCustomError(utils.testEnsureAccount(await utils.testToNativeAsset()), "InvalidAccount");
     });
 
     it("accountAddr extracts embedded address", async () => {
@@ -167,14 +170,19 @@ describe("Utils", () => {
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(token.toLowerCase());
     });
 
-    it("isAsset returns true for supported asset IDs", async () => {
-      expect(await utils.testIsAsset(await utils.testToNativeAsset())).to.be.true;
-      expect(await utils.testIsAsset(await utils.testToErc20Asset(signerAddress))).to.be.true;
+    it("EVM asset helpers accept supported EVM assets", async () => {
+      const native = await utils.testToNativeAsset();
+      const erc20 = await utils.testToErc20Asset(signerAddress);
+
+      expect(await utils.testIsEvmAsset(native)).to.be.true;
+      expect(await utils.testIsEvmAsset(erc20)).to.be.true;
+      expect(await utils.testEvmAsset(native)).to.equal(native);
+      expect(await utils.testEvmAsset(erc20)).to.equal(erc20);
     });
 
-    it("isAsset returns false for non-asset category values", async () => {
-      expect(await utils.testIsAsset(await utils.testToUserAccount(signerAddress))).to.be.false;
-      expect(await utils.testIsAsset(ethers.ZeroHash)).to.be.false;
+    it("EVM asset helpers reject non-EVM assets", async () => {
+      await expectCustomError(utils.testEvmAsset(await utils.testToUserAccount(signerAddress)), "InvalidAsset");
+      expect(await utils.testIsEvmAsset(ethers.ZeroHash)).to.be.false;
     });
 
     it("resolveAmount clamps to max", async () => {
@@ -234,9 +242,9 @@ describe("Utils", () => {
 
   });
 
-  // ── Ids ───────────────────────────────────────────────────────────────────
+  // ── Nodes ───────────────────────────────────────────────────────────────────
 
-  describe("Ids", () => {
+  describe("Nodes", () => {
     it("localChainId creates a chain node ID with zero selector and address", async () => {
       const id: bigint = await utils.testLocalChainId();
       const prefix = (id >> 224n) & 0xffffffffn;
@@ -250,9 +258,9 @@ describe("Utils", () => {
       expect(embeddedAddress).to.equal(0n);
     });
 
-    it("localNodeAddr rejects chain node IDs", async () => {
+    it("addr rejects chain node IDs", async () => {
       const chainNode: bigint = await utils.testLocalChainId();
-      await expectCustomError(utils.testLocalNodeAddr(chainNode), "ZeroAddress");
+      await expectCustomError(utils.testAddr(chainNode), "ZeroAddress");
     });
 
     it("toHostId creates host ID from address", async () => {
@@ -261,15 +269,47 @@ describe("Utils", () => {
       expect(await utils.testIsHost(id)).to.be.true;
     });
 
+    it("EVM node helpers accept supported EVM nodes", async () => {
+      const host: bigint = await utils.testToHostId(signerAddress);
+      const command: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+
+      expect(await utils.testIsEvmNode(host)).to.be.true;
+      expect(await utils.testIsEvmNode(command)).to.be.true;
+      expect(await utils.testIsLocalNode(host)).to.be.true;
+      expect(await utils.testIsLocalNode(command)).to.be.true;
+      expect(await utils.testEvmNode(host)).to.equal(host);
+      expect(await utils.testEvmNode(command)).to.equal(command);
+      expect(await utils.testLocalNode(host)).to.equal(host);
+      expect(await utils.testLocalNode(command)).to.equal(command);
+    });
+
+    it("EVM node helpers reject non-EVM nodes", async () => {
+      await expectCustomError(utils.testEvmNode(0n), "InvalidId");
+      await expectCustomError(utils.testLocalNode(0n), "InvalidId");
+      expect(await utils.testIsEvmNode(0n)).to.be.false;
+      expect(await utils.testIsLocalNode(0n)).to.be.false;
+    });
+
+    it("local node helper rejects foreign-chain EVM nodes", async () => {
+      const foreignHostId = (0x01200202n << 224n) | (999n << 192n) | BigInt(signerAddress);
+      expect(await utils.testIsEvmNode(foreignHostId)).to.be.true;
+      expect(await utils.testIsLocalNode(foreignHostId)).to.be.false;
+      await expectCustomError(utils.testLocalNode(foreignHostId), "InvalidId");
+    });
+
     it("isHost returns false for command ID", async () => {
-      const name = ethers.encodeBytes32String("deposit");
-      const cid: bigint = await utils.testToCommandId(name, signerAddress);
+      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
       expect(await utils.testIsHost(cid)).to.be.false;
     });
 
+    it("host succeeds for host ID", async () => {
+      const hid: bigint = await utils.testToHostId(signerAddress);
+      const result: bigint = await utils.testHostNode(hid);
+      expect(result).to.equal(hid);
+    });
+
     it("isCommand returns true for command ID", async () => {
-      const name = ethers.encodeBytes32String("deposit");
-      const cid: bigint = await utils.testToCommandId(name, signerAddress);
+      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
       expect(await utils.testIsCommand(cid)).to.be.true;
     });
 
@@ -279,14 +319,12 @@ describe("Utils", () => {
     });
 
     it("isPeer returns true for peer ID", async () => {
-      const name = ethers.encodeBytes32String("peerAllowance");
-      const pid: bigint = await utils.testToPeerId(name, signerAddress);
+      const pid: bigint = await utils.testToPeerId(peerSelector("peerAllowance"), signerAddress);
       expect(await utils.testIsPeer(pid)).to.be.true;
     });
 
     it("isGuard returns true for guard ID", async () => {
-      const name = ethers.encodeBytes32String("revoke");
-      const gid: bigint = await utils.testToGuardId(name, signerAddress);
+      const gid: bigint = await utils.testToGuardId(guardSelector("revoke"), signerAddress);
       expect(await utils.testIsGuard(gid)).to.be.true;
     });
 
@@ -300,9 +338,9 @@ describe("Utils", () => {
       expect(await utils.testIsGuard(hid)).to.be.false;
     });
 
-    it("localNodeAddr extracts address from host ID", async () => {
+    it("addr extracts address from host ID", async () => {
       const id: bigint = await utils.testToHostId(signerAddress);
-      const addr = await utils.testLocalNodeAddr(id);
+      const addr = await utils.testAddr(id);
       expect(addr.toLowerCase()).to.equal(signerAddress.toLowerCase());
     });
 
@@ -323,45 +361,27 @@ describe("Utils", () => {
       await expectCustomError(utils.testEnsureHost(id, other), "InvalidId");
     });
 
-    it("ensureCommand reverts InvalidId for host ID", async () => {
+    it("command reverts InvalidId for host ID", async () => {
       const hid: bigint = await utils.testToHostId(signerAddress);
-      await expectCustomError(utils.testEnsureCommand(hid), "InvalidId");
+      await expectCustomError(utils.testCommandNode(hid), "InvalidId");
     });
 
-    it("ensureCommand succeeds for command ID", async () => {
-      const name = ethers.encodeBytes32String("deposit");
-      const cid: bigint = await utils.testToCommandId(name, signerAddress);
-      const result: bigint = await utils.testEnsureCommand(cid);
+    it("command succeeds for command ID", async () => {
+      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+      const result: bigint = await utils.testCommandNode(cid);
       expect(result).to.equal(cid);
     });
 
-    it("ensurePeer succeeds for peer ID", async () => {
-      const name = ethers.encodeBytes32String("peerAllowance");
-      const pid: bigint = await utils.testToPeerId(name, signerAddress);
-      const result: bigint = await utils.testEnsurePeer(pid);
+    it("peer succeeds for peer ID", async () => {
+      const pid: bigint = await utils.testToPeerId(peerSelector("peerAllowance"), signerAddress);
+      const result: bigint = await utils.testPeerNode(pid);
       expect(result).to.equal(pid);
     });
 
-    it("ensureGuard succeeds for guard ID", async () => {
-      const name = ethers.encodeBytes32String("revoke");
-      const gid: bigint = await utils.testToGuardId(name, signerAddress);
-      const result: bigint = await utils.testEnsureGuard(gid);
+    it("guard succeeds for guard ID", async () => {
+      const gid: bigint = await utils.testToGuardId(guardSelector("revoke"), signerAddress);
+      const result: bigint = await utils.testGuardNode(gid);
       expect(result).to.equal(gid);
-    });
-
-    it("toCommandSelector matches the TypeScript helper", async () => {
-      const name = ethers.encodeBytes32String("deposit");
-      expect(await utils.testToCommandSelector(name)).to.equal(commandSelector("deposit"));
-    });
-
-    it("toPeerSelector matches the TypeScript helper", async () => {
-      const name = ethers.encodeBytes32String("peerAllowance");
-      expect(await utils.testToPeerSelector(name)).to.equal(peerSelector("peerAllowance"));
-    });
-
-    it("toGuardSelector matches the TypeScript helper", async () => {
-      const name = ethers.encodeBytes32String("revoke");
-      expect(await utils.testToGuardSelector(name)).to.equal(guardSelector("revoke"));
     });
 
     it("localHostAddr reverts for a foreign-chain host id", async () => {
@@ -416,16 +436,6 @@ describe("Utils", () => {
       const family = 0x012001n;
       const value = (family << 232n) | (1n << 191n); // some filler
       expect(await utils.testIsFamily(value, 0x012001)).to.be.true;
-    });
-
-    it("isLocalChain returns true for current chainId", async () => {
-      const base = await utils.testToLocalBase(0x12345678);
-      expect(await utils.testIsLocalChain(base)).to.be.true;
-    });
-
-    it("isLocalChain returns false for a foreign-chain value", async () => {
-      const foreign = (0x12345678n << 224n) | (999n << 192n);
-      expect(await utils.testIsLocalChain(foreign)).to.be.false;
     });
 
     it("max16/max32/max64/max128 accept boundary values", async () => {

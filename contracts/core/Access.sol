@@ -5,7 +5,7 @@ import {NodeEvent} from "../events/Node.sol";
 import {GuardianEvent} from "../events/Guardian.sol";
 import {Runtime} from "./Runtime.sol";
 import {Accounts} from "../utils/Accounts.sol";
-import {Ids} from "../utils/Ids.sol";
+import {Nodes} from "../utils/Nodes.sol";
 import {addrOr} from "../utils/Utils.sol";
 
 /// @title AccessControl
@@ -63,7 +63,7 @@ abstract contract AccessControl is Runtime, NodeEvent, GuardianEvent {
     /// whose host ID has been explicitly authorized.
     /// @param caller Address to check.
     function isTrusted(address caller) internal view returns (bool) {
-        return caller == commander || caller == address(this) || nodes[Ids.toHost(caller)];
+        return caller == commander || caller == address(this) || nodes[Nodes.toHost(caller)];
     }
 
     /// @notice Assert that `node` is in the trusted set and return it.

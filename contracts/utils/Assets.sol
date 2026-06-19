@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
-import {ensureAddr, matchesBase, toLocalBase} from "./Utils.sol";
+import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Assets
 /// @notice Encoding and decoding helpers for 256-bit asset identifiers.
@@ -24,14 +24,16 @@ library Assets {
     /// @dev Thrown when an asset is not authorized for the requested operation.
     error UnauthorizedAsset();
 
+    /// @dev 24-bit family tag shared by all EVM-backed asset types.
+    uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Asset);
     /// @dev Full 4-byte type prefix for the native chain coin/token asset.
     uint32 constant Native = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Native);
     /// @dev Full 4-byte type prefix for ERC-20 assets.
     uint32 constant Erc20 = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc20);
 
-    /// @notice Return true if `asset` uses the Asset category tag in the type field.
-    function isAsset(bytes32 asset) internal pure returns (bool) {
-        return uint8(uint(asset) >> 232) == Layout.Asset;
+    /// @notice Return true if `asset` belongs to the EVM asset family.
+    function isEvm(bytes32 asset) internal pure returns (bool) {
+        return isFamily(uint(asset), Family);
     }
 
     /// @notice Return true if `asset` is the local native chain coin/token asset.
@@ -44,20 +46,28 @@ library Assets {
         return matchesBase(asset, toLocalBase(Erc20));
     }
 
-    /// @notice Assert that `input` is the local native chain coin/token asset and return it unchanged.
-    /// @param input Asset identifier to validate.
-    /// @return asset The same `input` if it is the local native asset.
-    function native(bytes32 input) internal view returns (bytes32 asset) {
-        if (!isNative(input)) revert InvalidAsset();
-        return input;
+    /// @notice Assert that `value` belongs to the EVM asset family and return it unchanged.
+    /// @param value Asset identifier to validate.
+    /// @return asset The same `value` if it is an EVM asset.
+    function evm(bytes32 value) internal pure returns (bytes32 asset) {
+        if (!isEvm(value)) revert InvalidAsset();
+        return value;
     }
 
-    /// @notice Assert that `input` is a local ERC-20 asset and return it unchanged.
-    /// @param input Asset identifier to validate.
-    /// @return asset The same `input` if it is a local ERC-20 asset.
-    function erc20(bytes32 input) internal view returns (bytes32 asset) {
-        if (!isErc20(input)) revert InvalidAsset();
-        return input;
+    /// @notice Assert that `value` is the local native chain coin/token asset and return it unchanged.
+    /// @param value Asset identifier to validate.
+    /// @return asset The same `value` if it is the local native asset.
+    function native(bytes32 value) internal view returns (bytes32 asset) {
+        if (!isNative(value)) revert InvalidAsset();
+        return value;
+    }
+
+    /// @notice Assert that `value` is a local ERC-20 asset and return it unchanged.
+    /// @param value Asset identifier to validate.
+    /// @return asset The same `value` if it is a local ERC-20 asset.
+    function erc20(bytes32 value) internal view returns (bytes32 asset) {
+        if (!isErc20(value)) revert InvalidAsset();
+        return value;
     }
 
     /// @notice Create a chain-local native coin/token asset ID.

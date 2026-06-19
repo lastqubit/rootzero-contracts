@@ -4,16 +4,16 @@ pragma solidity ^0.8.33;
 import { Runtime } from "../core/Runtime.sol";
 import { LabeledEvent } from "../events/Labeled.sol";
 import { QueryEvent } from "../events/Query.sol";
-import { Ids } from "../utils/Ids.sol";
+import { Nodes } from "../utils/Nodes.sol";
 
 /// @notice ABI-encode a query call from a target query ID and request block stream.
-/// @dev Derives the function selector from `target` via `Ids.querySelector(target)`.
+/// @dev Derives the function selector from `target` via `Nodes.querySelector(target)`.
 /// Reverts if `target` is not a valid query ID.
 /// @param target Destination query node ID embedding the target selector.
 /// @param request Input block stream for the query invocation.
 /// @return ABI-encoded calldata for the query entry point.
 function encodeQueryCall(uint target, bytes calldata request) pure returns (bytes memory) {
-    bytes4 selector = Ids.querySelector(target);
+    bytes4 selector = Nodes.querySelector(target);
     return abi.encodeWithSelector(selector, request);
 }
 
@@ -29,6 +29,6 @@ abstract contract QueryBase is Runtime, QueryEvent, LabeledEvent {
     /// @param selector Query entrypoint selector.
     /// @return Query node ID.
     function queryId(bytes4 selector) internal view returns (uint) {
-        return Ids.toQuery(selector, address(this));
+        return Nodes.toQuery(selector, address(this));
     }
 }

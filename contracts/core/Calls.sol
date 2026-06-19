@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {AccessControl} from "./Access.sol";
 import {CommandContext} from "../commands/Base.sol";
-import {Ids} from "../utils/Ids.sol";
+import {Nodes} from "../utils/Nodes.sol";
 
 /// @dev Emitted when a trusted inter-node call fails.
 /// @param addr Contract address that was called.
@@ -18,7 +18,7 @@ abstract contract NodeCalls is AccessControl {
     /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
     /// @return Host node ID for `msg.sender`.
     function caller() internal view returns (uint) {
-        return Ids.toHost(msg.sender);
+        return Nodes.toHost(msg.sender);
     }
 
     /// @notice Make a low-level call to an address.
@@ -47,7 +47,7 @@ abstract contract NodeCalls is AccessControl {
     }
 
     /// @notice Make a trusted call to another node in the network.
-    /// Looks up the node's contract address via `ensureTrusted` + `Ids.nodeAddr`,
+    /// Looks up the node's contract address via `ensureTrusted` + `Nodes.addr`,
     /// then issues a low-level call forwarding `value` ETH and `data`.
     /// @param node Node ID of the callee (must be in the authorized set).
     /// @param value Native value to forward in wei.
@@ -55,19 +55,19 @@ abstract contract NodeCalls is AccessControl {
     /// @return out Return data from the successful call.
     function callTo(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
         ensureTrusted(node);
-        address addr = Ids.nodeAddr(node);
+        address addr = Nodes.addr(node);
         return callAddr(addr, value, data);
     }
 
     /// @notice Make a trusted query to another node in the network.
-    /// Looks up the node's contract address via `ensureTrusted` + `Ids.nodeAddr`,
+    /// Looks up the node's contract address via `ensureTrusted` + `Nodes.addr`,
     /// then issues a low-level `staticcall` with `data`.
     /// @param node Node ID of the callee (must be in the authorized set).
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful query.
     function queryTo(uint node, bytes memory data) internal view returns (bytes memory out) {
         ensureTrusted(node);
-        address addr = Ids.nodeAddr(node);
+        address addr = Nodes.addr(node);
         return queryAddr(addr, data);
     }
 
@@ -77,7 +77,7 @@ abstract contract NodeCalls is AccessControl {
     /// @param ctx Command execution context.
     /// @return Decoded command output block stream.
     function callCommand(uint id, uint128 value, CommandContext memory ctx) internal returns (bytes memory) {
-        bytes4 selector = Ids.commandSelector(id);
+        bytes4 selector = Nodes.commandSelector(id);
         bytes memory data = abi.encodeWithSelector(selector, ctx);
         return abi.decode(callTo(id, value, data), (bytes));
     }

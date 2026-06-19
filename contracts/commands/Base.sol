@@ -5,7 +5,7 @@ import {NodeCalls} from "../core/Calls.sol";
 import {CommandEvent} from "../events/Command.sol";
 import {LabeledEvent} from "../events/Labeled.sol";
 import {Keys} from "../blocks/Keys.sol";
-import {Ids} from "../utils/Ids.sol";
+import {Nodes} from "../utils/Nodes.sol";
 
 /// @notice Execution context passed to every command invocation.
 struct CommandContext {
@@ -51,6 +51,6 @@ abstract contract CommandBase is NodeCalls, CommandEvent, LabeledEvent {
     /// @param selector Command entrypoint selector.
     /// @return Command node ID.
     function commandId(bytes4 selector) internal view returns (uint) {
-        return Ids.toCommand(selector, address(this));
+        return Nodes.toCommand(selector, address(this));
     }
 }

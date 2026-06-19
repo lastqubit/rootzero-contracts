@@ -4,16 +4,16 @@ pragma solidity ^0.8.33;
 import { NodeCalls } from "../core/Calls.sol";
 import { PeerEvent } from "../events/Peer.sol";
 import { LabeledEvent } from "../events/Labeled.sol";
-import { Ids } from "../utils/Ids.sol";
+import { Nodes } from "../utils/Nodes.sol";
 
 /// @notice ABI-encode a peer call from a target peer ID and request block stream.
-/// @dev Derives the function selector from `target` via `Ids.peerSelector(target)`.
+/// @dev Derives the function selector from `target` via `Nodes.peerSelector(target)`.
 /// Reverts if `target` is not a valid peer ID.
 /// @param target Destination peer node ID embedding the target selector.
 /// @param request Input block stream for the peer invocation.
 /// @return ABI-encoded calldata for the peer entry point.
 function encodePeerCall(uint target, bytes calldata request) pure returns (bytes memory) {
-    bytes4 selector = Ids.peerSelector(target);
+    bytes4 selector = Nodes.peerSelector(target);
     return abi.encodeWithSelector(selector, request);
 }
 
@@ -36,6 +36,6 @@ abstract contract PeerBase is NodeCalls, PeerEvent, LabeledEvent {
     /// @param selector Peer entrypoint selector.
     /// @return Peer node ID.
     function peerId(bytes4 selector) internal view returns (uint) {
-        return Ids.toPeer(selector, address(this));
+        return Nodes.toPeer(selector, address(this));
     }
 }

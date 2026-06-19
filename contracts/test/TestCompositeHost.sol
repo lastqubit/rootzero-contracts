@@ -5,7 +5,7 @@ import { Host } from "../core/Host.sol";
 import { Deposit } from "../commands/Deposit.sol";
 import { PeerRedeemBalance } from "../peer/Redeem.sol";
 import { GetBalances } from "../queries/Balances.sol";
-import { Ids } from "../utils/Ids.sol";
+import { Nodes } from "../utils/Nodes.sol";
 
 contract TestCompositeHost is Host, Deposit, PeerRedeemBalance, GetBalances {
     constructor(address cmdr)
@@ -14,7 +14,7 @@ contract TestCompositeHost is Host, Deposit, PeerRedeemBalance, GetBalances {
         PeerRedeemBalance()
         GetBalances()
     {
-        if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);
+        if (cmdr != address(0)) setNode(Nodes.toHost(cmdr), true);
     }
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal pure override {

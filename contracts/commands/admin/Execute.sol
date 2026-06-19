@@ -6,7 +6,7 @@ import {Payable} from "../../core/Payable.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
 import {AdminEvent} from "../../events/Admin.sol";
 import {Budget} from "../../utils/Value.sol";
-import {Ids} from "../../utils/Ids.sol";
+import {Nodes} from "../../utils/Nodes.sol";
 
 using Cursors for Cur;
 
@@ -32,7 +32,7 @@ abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
 
         while (request.i < request.len) {
             (uint target, uint resources, bytes calldata data) = request.unpackCall();
-            address addr = Ids.nodeAddr(target);
+            address addr = Nodes.addr(target);
             callAddr(addr, useValue(budget, resources), data);
         }
 

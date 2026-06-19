@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
-import { Ids, Selectors } from "../utils/Ids.sol";
+import { Nodes } from "../utils/Nodes.sol";
 import { encodeGuardCall } from "../guards/Base.sol";
-import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, isLocalChain, isLocalFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
+import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { Budget, Values } from "../utils/Value.sol";
 import { Payable } from "../core/Payable.sol";
 
@@ -54,12 +54,12 @@ contract TestUtils is Payable {
         return Accounts.user(account);
     }
 
-    function testIsAccount(bytes32 account) external pure returns (bool) {
-        return Accounts.isAccount(account);
+    function testIsEvmAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isEvm(account);
     }
 
-    function testEnsureAccount(bytes32 account) external pure returns (bytes32) {
-        return Accounts.ensure(account);
+    function testEvmAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.evm(account);
     }
 
     function testToNativeAsset() external view returns (bytes32) {
@@ -70,8 +70,12 @@ contract TestUtils is Payable {
         return Assets.toErc20(addr);
     }
 
-    function testIsAsset(bytes32 asset) external pure returns (bool) {
-        return Assets.isAsset(asset);
+    function testIsEvmAsset(bytes32 asset) external pure returns (bool) {
+        return Assets.isEvm(asset);
+    }
+
+    function testEvmAsset(bytes32 asset) external pure returns (bytes32) {
+        return Assets.evm(asset);
     }
 
     function testResolveAmount(uint available, uint min, uint max) external pure returns (uint) {
@@ -95,75 +99,83 @@ contract TestUtils is Payable {
     }
 
     function testToHostId(address addr) external view returns (uint) {
-        return Ids.toHost(addr);
+        return Nodes.toHost(addr);
     }
 
     function testLocalChainId() external view returns (uint) {
-        return Ids.localChain();
+        return Nodes.localChain();
     }
 
-    function testToCommandId(bytes32 name, address addr) external view returns (uint) {
-        return Ids.toCommand(Selectors.command(bytes32ToString(name)), addr);
+    function testToCommandId(bytes4 selector, address addr) external view returns (uint) {
+        return Nodes.toCommand(selector, addr);
     }
 
-    function testToPeerId(bytes32 name, address addr) external view returns (uint) {
-        return Ids.toPeer(Selectors.peer(bytes32ToString(name)), addr);
+    function testToPeerId(bytes4 selector, address addr) external view returns (uint) {
+        return Nodes.toPeer(selector, addr);
     }
 
-    function testToGuardId(bytes32 name, address addr) external view returns (uint) {
-        return Ids.toGuard(Selectors.guard(bytes32ToString(name)), addr);
+    function testToGuardId(bytes4 selector, address addr) external view returns (uint) {
+        return Nodes.toGuard(selector, addr);
     }
 
-    function testToCommandSelector(bytes32 name) external pure returns (bytes4) {
-        return Selectors.command(bytes32ToString(name));
+    function testIsHost(uint node) external pure returns (bool) {
+        return Nodes.isHost(node);
     }
 
-    function testToPeerSelector(bytes32 name) external pure returns (bytes4) {
-        return Selectors.peer(bytes32ToString(name));
+    function testIsCommand(uint node) external pure returns (bool) {
+        return Nodes.isCommand(node);
     }
 
-    function testToGuardSelector(bytes32 name) external pure returns (bytes4) {
-        return Selectors.guard(bytes32ToString(name));
+    function testIsPeer(uint node) external pure returns (bool) {
+        return Nodes.isPeer(node);
     }
 
-    function testIsHost(uint id) external pure returns (bool) {
-        return Ids.isHost(id);
+    function testIsGuard(uint node) external pure returns (bool) {
+        return Nodes.isGuard(node);
     }
 
-    function testIsCommand(uint id) external pure returns (bool) {
-        return Ids.isCommand(id);
+    function testIsEvmNode(uint node) external pure returns (bool) {
+        return Nodes.isEvm(node);
     }
 
-    function testIsPeer(uint id) external pure returns (bool) {
-        return Ids.isPeer(id);
+    function testIsLocalNode(uint node) external view returns (bool) {
+        return Nodes.isLocal(node);
     }
 
-    function testIsGuard(uint id) external pure returns (bool) {
-        return Ids.isGuard(id);
+    function testHostNode(uint value) external pure returns (uint) {
+        return Nodes.host(value);
     }
 
-    function testLocalNodeAddr(uint node) external view returns (address) {
-        return Ids.nodeAddr(node);
+    function testCommandNode(uint value) external pure returns (uint) {
+        return Nodes.command(value);
+    }
+
+    function testPeerNode(uint value) external pure returns (uint) {
+        return Nodes.peer(value);
+    }
+
+    function testGuardNode(uint value) external pure returns (uint) {
+        return Nodes.guard(value);
+    }
+
+    function testEvmNode(uint value) external pure returns (uint) {
+        return Nodes.evm(value);
+    }
+
+    function testLocalNode(uint value) external view returns (uint) {
+        return Nodes.local(value);
+    }
+
+    function testAddr(uint node) external view returns (address) {
+        return Nodes.addr(node);
     }
 
     function testLocalHostAddr(uint host) external view returns (address) {
-        return Ids.hostAddr(host);
+        return Nodes.hostAddr(host);
     }
 
-    function testEnsureHost(uint id, address addr) external view returns (uint) {
-        return Ids.matchHost(id, addr);
-    }
-
-    function testEnsureCommand(uint id) external pure returns (uint) {
-        return Ids.command(id);
-    }
-
-    function testEnsurePeer(uint id) external pure returns (uint) {
-        return Ids.peer(id);
-    }
-
-    function testEnsureGuard(uint id) external pure returns (uint) {
-        return Ids.guard(id);
+    function testEnsureHost(uint value, address target) external view returns (uint) {
+        return Nodes.matchHost(value, target);
     }
 
     function testEncodeGuardCall(uint target, bytes calldata request) external pure returns (bytes memory) {
@@ -180,10 +192,6 @@ contract TestUtils is Payable {
 
     function testIsFamily(uint value, uint24 family) external pure returns (bool) {
         return isFamily(value, family);
-    }
-
-    function testIsLocalChain(uint value) external view returns (bool) {
-        return isLocalChain(value);
     }
 
     function testMatchesBase(bytes32 value, uint base) external pure returns (bool) {

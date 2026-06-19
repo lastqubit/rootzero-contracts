@@ -37,7 +37,7 @@ abstract contract Payout is CommandBase, PayoutHook {
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
-            bytes32 to = Accounts.ensure(request.unpackAccount());
+            bytes32 to = Accounts.evm(request.unpackAccount());
             payout(c.account, to, asset, amount);
         }
 

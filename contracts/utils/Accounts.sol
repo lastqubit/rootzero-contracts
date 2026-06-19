@@ -37,9 +37,9 @@ library Accounts {
         return uint32(uint(account) >> 224);
     }
 
-    /// @notice Return true if `account` uses the Account category tag in the type field.
-    function isAccount(bytes32 account) internal pure returns (bool) {
-        return uint8(uint(account) >> 232) == Layout.Account;
+    /// @notice Return true if `account` belongs to the EVM account family.
+    function isEvm(bytes32 account) internal pure returns (bool) {
+        return isFamily(uint(account), Family);
     }
 
     /// @notice Return true if `account` is an admin account.
@@ -57,36 +57,36 @@ library Accounts {
         return prefix(account) == User;
     }
 
-    /// @notice Assert that `input` is an account and return it unchanged.
-    /// @param input Account identifier to validate.
-    /// @return account The same `input` if it is an account.
-    function ensure(bytes32 input) internal pure returns (bytes32 account) {
-        if (!isAccount(input)) revert InvalidAccount();
-        return input;
+    /// @notice Assert that `value` belongs to the EVM account family and return it unchanged.
+    /// @param value Account identifier to validate.
+    /// @return account The same `value` if it is an EVM account.
+    function evm(bytes32 value) internal pure returns (bytes32 account) {
+        if (!isEvm(value)) revert InvalidAccount();
+        return value;
     }
 
-    /// @notice Assert that `input` is an admin account and return it unchanged.
-    /// @param input Account identifier to validate.
-    /// @return account The same `input` if it is an admin account.
-    function admin(bytes32 input) internal pure returns (bytes32 account) {
-        if (!isAdmin(input)) revert InvalidAccount();
-        return input;
+    /// @notice Assert that `value` is an admin account and return it unchanged.
+    /// @param value Account identifier to validate.
+    /// @return account The same `value` if it is an admin account.
+    function admin(bytes32 value) internal pure returns (bytes32 account) {
+        if (!isAdmin(value)) revert InvalidAccount();
+        return value;
     }
 
-    /// @notice Assert that `input` is a guardian account and return it unchanged.
-    /// @param input Account identifier to validate.
-    /// @return account The same `input` if it is a guardian account.
-    function guardian(bytes32 input) internal pure returns (bytes32 account) {
-        if (!isGuardian(input)) revert InvalidAccount();
-        return input;
+    /// @notice Assert that `value` is a guardian account and return it unchanged.
+    /// @param value Account identifier to validate.
+    /// @return account The same `value` if it is a guardian account.
+    function guardian(bytes32 value) internal pure returns (bytes32 account) {
+        if (!isGuardian(value)) revert InvalidAccount();
+        return value;
     }
 
-    /// @notice Assert that `input` is a user account and return it unchanged.
-    /// @param input Account identifier to validate.
-    /// @return account The same `input` if it is a user account.
-    function user(bytes32 input) internal pure returns (bytes32 account) {
-        if (!isUser(input)) revert InvalidAccount();
-        return input;
+    /// @notice Assert that `value` is a user account and return it unchanged.
+    /// @param value Account identifier to validate.
+    /// @return account The same `value` if it is a user account.
+    function user(bytes32 value) internal pure returns (bytes32 account) {
+        if (!isUser(value)) revert InvalidAccount();
+        return value;
     }
 
     /// @notice Encode an EVM address as a chain-local admin account ID.
@@ -110,29 +110,11 @@ library Accounts {
         return bytes32(toUnspecifiedBase(User) | (uint(uint160(account)) << 32));
     }
 
-    /// @notice Assert that `account` belongs to the EVM account family and return it unchanged.
-    /// @param account Account ID to validate.
-    /// @return The same `account` value if valid.
-    function ensureEvm(bytes32 account) internal pure returns (bytes32) {
-        if (!isFamily(uint(account), Family)) {
-            revert InvalidAccount();
-        }
-        return account;
-    }
-
-    /// @notice Assert that `account` is not an admin account and return it unchanged.
-    /// @param account Account ID to validate.
-    /// @return The same `account` value if valid.
-    function ensureNotAdmin(bytes32 account) internal pure returns (bytes32) {
-        if (isAdmin(account)) revert InvalidAccount();
-        return account;
-    }
-
     /// @notice Extract the address embedded in an EVM-family account ID.
     /// Reverts if `account` is not an EVM-family account.
     /// @param account EVM-family account ID.
     /// @return Embedded address (bits [191:32] of the ID).
     function addr(bytes32 account) internal pure returns (address) {
-        return ensureAddr(address(uint160(uint(ensureEvm(account)) >> 32)));
+        return ensureAddr(address(uint160(uint(evm(account)) >> 32)));
     }
 }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Burn } from "../commands/Burn.sol";
-import { Ids } from "../utils/Ids.sol";
+import { Nodes } from "../utils/Nodes.sol";
 
 contract TestBurnHost is Host, Burn {
     event BurnCalled(bytes32 account, bytes32 asset, uint amount);
@@ -12,7 +12,7 @@ contract TestBurnHost is Host, Burn {
         Host(address(0))
         Burn()
     {
-        if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);
+        if (cmdr != address(0)) setNode(Nodes.toHost(cmdr), true);
     }
 
     function burn(bytes32 account, bytes32 asset, uint amount)

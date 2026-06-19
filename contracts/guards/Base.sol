@@ -4,16 +4,16 @@ pragma solidity ^0.8.33;
 import {AccessControl} from "../core/Access.sol";
 import {GuardEvent} from "../events/Guard.sol";
 import {LabeledEvent} from "../events/Labeled.sol";
-import {Ids} from "../utils/Ids.sol";
+import {Nodes} from "../utils/Nodes.sol";
 
 /// @notice ABI-encode a guard action call from a target guard ID and request block stream.
-/// @dev Derives the function selector from `target` via `Ids.guardSelector(target)`.
+/// @dev Derives the function selector from `target` via `Nodes.guardSelector(target)`.
 /// Reverts if `target` is not a valid guard ID.
 /// @param target Destination guard action node ID embedding the target selector.
 /// @param request Input block stream for the guard invocation.
 /// @return ABI-encoded calldata for the guard action entry point.
 function encodeGuardCall(uint target, bytes calldata request) pure returns (bytes memory) {
-    bytes4 selector = Ids.guardSelector(target);
+    bytes4 selector = Nodes.guardSelector(target);
     return abi.encodeWithSelector(selector, request);
 }
 
@@ -31,6 +31,6 @@ abstract contract GuardBase is AccessControl, GuardEvent, LabeledEvent {
     /// @param selector Guard action entrypoint selector.
     /// @return Guard action node ID.
     function guardId(bytes4 selector) internal view returns (uint) {
-        return Ids.toGuard(selector, address(this));
+        return Nodes.toGuard(selector, address(this));
     }
 }
