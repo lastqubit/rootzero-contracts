@@ -71,12 +71,12 @@ construction. Every node-trust change routes through `setNode` and every
 guardian change through `setGuardian`, so `Node` and `Guardian` are exhaustive:
 replaying them yields the exact current access sets.
 
-All IDs are self-describing 256-bit values
-(`[uint32 type][uint32 chainid][192-bit payload]`, with type =
-`[vm][width][category][subtype]`; see `utils/Layout.sol`). An indexer can
-decode any ID in any event into its chain, category (account, node, asset), and
-subtype (host, command, peer, query, guard; native, ERC-20, ...), and recover
-the underlying EVM address from the payload.
+All account, asset, and node IDs are 32-byte values with one top-byte rule:
+`0x00` means opaque `0x00 || bytes31(hash)`, and nonzero means structured.
+Structured EVM IDs use `[uint32 type][uint32 chainid][192-bit payload]`, with
+type = `[vm][width][category][subtype]`; see `utils/Layout.sol`. Indexers can
+decode structured IDs directly. Opaque IDs need host-specific lookup or witness
+data when the underlying account, asset metadata, or node target is needed.
 
 ### Cold-Start Recipe
 
@@ -101,21 +101,21 @@ The library defines a state-event vocabulary but does not emit it: all asset
 and ledger mutation flows through virtual hooks (`deposit`, `withdraw`, `burn`,
 `creditAccount`, `debitAccount`, `payout`, `provision`, `allowAsset`,
 `denyAsset`, ...), and the hook implementation is the only layer that knows the
-host's ledger policy — in particular the slot binding and the resulting
+host's ledger policy - in particular the asset binding and the resulting
 balance. Emission is therefore a host responsibility, governed by the
 conventions below. The `create-rootzero` template (`rootzero-evm-commander`) is
 the reference implementation of these conventions.
 
 ```txt
 event Chain(uint indexed chain, bytes32 native, uint commander, bytes32 admin)
-event Balance(bytes32 indexed account, bytes32 asset, bytes32 meta, uint balance, int change, uint access)
-event Transfer(bytes32 indexed account, bytes32 to, bytes32 asset, bytes32 meta, uint amount, uint32 action, uint context)
-event Received(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint32 action, uint context)
-event Spent(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint32 action, uint context)
-event Locked(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint32 action, uint context)
-event Unlocked(bytes32 indexed account, bytes32 asset, bytes32 meta, uint amount, uint32 action, uint context)
-event AssetStatus(uint indexed host, bytes32 asset, bytes32 meta, uint status)
-event Position(bytes32 indexed account, bytes32 asset, bytes32 meta, uint value, uint32 action, uint context, uint queryId)
+event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change, uint access)
+event Received(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
+event Spent(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
+event Locked(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
+event Unlocked(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
+event Asset(uint indexed host, bytes32 asset, bytes preimage)
+event AssetStatus(uint indexed host, bytes32 asset, uint status)
+event Position(bytes32 indexed account, bytes32 asset, uint value, uint32 action, uint context, uint queryId)
 event Rooted(bytes32 indexed account, uint deadline, uint value)
 ```
 
@@ -123,7 +123,7 @@ event Rooted(bytes32 indexed account, uint deadline, uint value)
 
 A host that wants to be indexable from logs alone must follow these rules. A
 host that omits them still works on-chain, but its ledger is invisible to
-log-based tooling — there is no fallback channel, because command outputs are
+log-based tooling - there is no fallback channel, because command outputs are
 return data and requests are calldata.
 
 **Announcement.** A root (commander) host emits `Chain` once at construction
@@ -131,13 +131,13 @@ with the local chain ID, native asset, its own host ID, and its admin account,
 and labels itself (e.g. `Labeled(host, "hosts", name)`). This closes the
 cold-start problem: `commander`, `admin`, and `nativeAsset` are constructor
 immutables that appear in no library event on the host itself. Child hosts need
-no announcement — they are discovered through `Introduction` on their
+no announcement - they are discovered through `Introduction` on their
 commander.
 
 **Balances.** Every ledger mutation emits `Balance` with the resulting total,
 the signed change, and `access` set to the node ID of the endpoint that
-performed the change. Hosts using the built-in `Balances` ledger bind slots
-with `Assets.slot(asset, meta)` so query results and events agree.
+performed the change. Hosts using the built-in `Balances` ledger key balances
+directly by `(account, asset)`, so query results and events agree.
 
 **Flows.** Operations that move value emit one flow event per affected amount,
 with the matching `Actions` code:
@@ -149,8 +149,8 @@ with the matching `Actions` code:
 | burn                       | `Spent`    | `Actions.Burn`     |
 | creditAccount              | `Received` | `Actions.Transfer` |
 | debitAccount               | `Spent`    | `Actions.Transfer` |
-| payout                     | `Transfer` | `Actions.Payout`   |
-| peerSettle                 | `Transfer` | `Actions.Settle`   |
+| payout                     | `Spent` / `Received` | `Actions.Payout` |
+| peerSettle                 | `Spent` / `Received` | `Actions.Settle` |
 | settleValue (leftover ETH) | `Received` | `Actions.Settle`   |
 | provision (lock custody)   | `Locked`   | per operation      |
 | custody release            | `Unlocked` | per operation      |
@@ -162,6 +162,11 @@ value and changes a ledger total emits both.
 
 **Asset gating.** Hosts that gate assets emit `AssetStatus` from their
 `allowAsset`/`denyAsset` hooks (zero status means unsupported).
+
+**Opaque assets.** Hosts that create or register opaque asset IDs emit `Asset`
+with the canonical preimage used to resolve the asset. Indexers should treat
+`asset` as the ledger key and can verify host-specific opaque IDs by checking
+`asset == 0x00 || bytes31(hash(preimage))`.
 
 **Invocations.** Top-level pipeline entrypoints emit `Rooted` once per
 invocation with the acting account, deadline, and attached value. Detailed
@@ -180,9 +185,9 @@ None 0, Transfer 1, Payout 2, Settle 3, Deposit 4, Withdraw 5, Fee 6,
 Mint 7, Burn 8, Swap 9, Borrow 10, Repay 11, Liquidate 12
 ```
 
-Joins available to an indexer: `access`/`context` → the endpoint repository
-from discovery; transaction grouping → the `Rooted` invocation and sibling
-events; `(account, asset, meta)` → positions across all state events.
+Joins available to an indexer: `access`/`context` -> the endpoint repository
+from discovery; transaction grouping -> the `Rooted` invocation and sibling
+events; `(account, asset)` -> positions across all state events.
 
 ## Proposed Improvements
 
@@ -196,16 +201,16 @@ Add overloads to `Balances` that combine the mutation with the conforming
 emission:
 
 ```solidity
-function creditTo(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint access)
+function creditTo(bytes32 account, bytes32 asset, uint amount, uint access)
     internal returns (uint balance);
-function debitFrom(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint access)
+function debitFrom(bytes32 account, bytes32 asset, uint amount, uint access)
     internal returns (uint balance);
 ```
 
-Each derives the slot via `Assets.slot(asset, meta)`, applies the raw
-mutation, and emits `Balance(account, asset, meta, balance, ±amount, access)`.
+Each applies the raw mutation keyed by `asset` and emits
+`Balance(account, asset, balance, +/-amount, access)`.
 `Balances` already inherits `BalanceEvent` and the raw functions already return
-the new total, so the change is additive; hosts with custom slot schemes keep
+the new total, so the change is additive; hosts with custom ledger schemes keep
 using the raw overloads and emit on their own.
 
 The motivation is correctness, not convenience: every host currently
@@ -221,12 +226,6 @@ The `context` parameters are currently documented as "reserved for future use"
 and `Balance.access` as "command ID or context identifier", which is too loose
 to index against. Adopt the definition in [Correlation Fields](#correlation-fields)
 as normative and update the event NatSpec accordingly.
-
-One cosmetic inconsistency should be fixed with it: `TransferEvent` publishes
-the ABI string with first parameter `from`, but the Solidity declaration names
-it `account` (`events/Transfer.sol`). Renaming the declaration to `from`
-aligns the two; parameter names do not affect the event topic, so the change
-has no compatibility impact.
 
 ## Considered And Rejected
 

@@ -20,13 +20,18 @@ The goal is not to make CosmWasm look like Solidity. The goal is to preserve Roo
    Port behavior from `https://github.com/lastqubit/rootzero-contracts`, not from memory. When a module is ported, port the matching tests.
 
 3. Keep the shared prefix taxonomy.
-   CosmWasm account IDs, node IDs, and asset IDs should still carry the shared `Account`, `Node`, and `Asset` category bits. Do not use EVM representation tags such as `Evm32` for CosmWasm identities. Define CosmWasm representation tags.
+   CosmWasm account IDs, node IDs, and asset IDs should still carry the shared `Account`, `Node`, and `Asset` category bits. Do not use EVM representation tags such as `Evm` for CosmWasm identities. Define CosmWasm representation tags.
+
+   If an identity does not fit or should stay opaque, encode it as
+   `0x00 || bytes31(hash)`. Resolve the full native identity through local
+   lookup or witness data only at adapter boundaries.
 
 4. No global chain IDs.
    CosmWasm code should not know about EVM chain IDs, Solana IDs, or a global chain registry. Bridge routes are transport metadata outside Rootzero core.
 
 5. Use native CosmWasm asset helpers.
-   Do not port `toErc20`, `erc20`, `erc721`, or `erc1155` literally. Create helpers such as `to_native_denom`, `to_cw20`, and `to_ibc_denom`.
+   Do not port `toErc20` or `erc20` literally. Create helpers such as
+   `to_native_denom`, `to_cw20`, and `to_ibc_denom`.
 
 6. Mirror protocol structure, not inefficient mechanics.
    Solidity inheritance becomes Rust modules, traits, helper functions, and explicit composition. Keep the responsibilities recognizable.
@@ -143,7 +148,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     Balance {
         account: Binary,
-        slot: Binary,
+        asset: Binary,
     },
     TrustedNode {
         node: Binary,
@@ -171,7 +176,7 @@ GUARDIANS:
   AccountId bytes -> bool
 
 BALANCES:
-  (account_id bytes, slot bytes) -> Uint128
+  (account_id bytes, asset_id bytes) -> Uint128
 
 NODE_RESOLVER:
   node_id bytes -> Addr
@@ -251,19 +256,21 @@ Then port `test/blocks.test.ts` into Rust tests. The first success condition is 
 
 ## ID Taxonomy
 
-Create CosmWasm-native representation tags, but keep shared Rootzero categories and subtypes.
+Create CosmWasm-native representation tags for structured IDs, but keep shared
+Rootzero categories and subtypes.
 
 Example:
 
 ```text
-[CosmWasm][Account][User][local handle/fingerprint payload]
-[CosmWasm][Node][Command][local field][message tag][contract fingerprint]
-[CosmWasm][Asset][NativeDenom][local handle/fingerprint payload]
-[CosmWasm][Asset][Cw20][local handle/fingerprint payload]
-[CosmWasm][Asset][IbcDenom][local handle/fingerprint payload]
+[CosmWasm][Account][User][local handle payload]
+[CosmWasm][Node][Command][local field][message tag][contract handle]
+[CosmWasm][Asset][NativeDenom][local handle payload]
+[CosmWasm][Asset][Cw20][local handle payload]
+[CosmWasm][Asset][IbcDenom][local handle payload]
+0x00 || bytes31(hash(native_identity))
 ```
 
-Category checks must remain protocol-wide:
+Category checks remain protocol-wide for structured IDs:
 
 ```rust
 fn is_account(id: &[u8; 32]) -> bool {
@@ -275,7 +282,9 @@ fn is_asset(id: &[u8; 32]) -> bool {
 }
 ```
 
-Do not create CosmWasm accounts that fail a shared `is_account` check. Do not create CosmWasm assets that fail a shared `is_asset` check.
+Opaque IDs do not carry category bytes; their role comes from the field where
+they appear. Do not create structured CosmWasm accounts that fail a shared
+`is_account` check, or structured CosmWasm assets that fail `is_asset`.
 
 ## CosmWasm Asset Helpers
 
@@ -290,7 +299,6 @@ fn to_ibc_denom(denom: &str) -> AssetId;
 fn is_native_denom(asset: &AssetId) -> bool;
 fn is_cw20(asset: &AssetId) -> bool;
 fn is_ibc_denom(asset: &AssetId) -> bool;
-fn slot(asset: &AssetId, meta: &[u8; 32]) -> [u8; 32];
 ```
 
 Suggested native asset representation:
@@ -303,11 +311,9 @@ pub enum NativeAsset {
 }
 ```
 
-`slot(asset, meta)` should follow the EVM behavior:
-
-- for simple 32-byte assets, the slot can be the asset ID itself
-- for metadata-backed assets, derive `keccak256(asset || meta)`
-- reject invalid asset/meta combinations consistently
+Balances are keyed by the asset ID itself. When a native asset has long
+metadata, use an opaque asset ID and resolve the metadata by lookup or witness
+only when native movement requires it.
 
 ## Access Control
 
@@ -418,7 +424,7 @@ pub struct CommandContext {
 `debit` and `credit` should use protocol IDs directly:
 
 ```text
-balance key = (account_id, slot(asset, meta))
+balance key = (account_id, asset_id)
 ```
 
 `deposit`, `withdraw`, and `payout` may cross into adapter logic because native tokens need bank/CW20 messages.
@@ -440,7 +446,6 @@ fn deposit(
     info: &MessageInfo,
     account: AccountId,
     asset: AssetId,
-    meta: [u8; 32],
     amount: Uint128,
 ) -> Result<Vec<CosmosMsg>, ContractError>;
 
@@ -448,7 +453,6 @@ fn withdraw(
     deps: DepsMut,
     account: AccountId,
     asset: AssetId,
-    meta: [u8; 32],
     amount: Uint128,
 ) -> Result<Vec<CosmosMsg>, ContractError>;
 ```
@@ -499,7 +503,7 @@ Port tests from `https://github.com/lastqubit/rootzero-contracts` in this order:
    Validate keys, headers, cursor movement, grouped runs, nested `#bytes`, STEP, CONTEXT, PIPE, BALANCE, AMOUNT, and TRANSACTION.
 
 2. `test/utils.test.ts`
-   Validate shared category checks, CosmWasm representation tags, local ID construction, asset helpers, slot derivation, and resolver behavior.
+   Validate shared category checks, CosmWasm representation tags, local ID construction, asset helpers, opaque hash IDs, and resolver behavior.
 
 3. `test/access.test.ts`
    Validate commander, trusted node, guardian, and peer restrictions.

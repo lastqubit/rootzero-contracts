@@ -36,14 +36,13 @@ pragma solidity ^0.8.33;
 
 import { Host, Balances } from "@rootzero/contracts/Core.sol";
 import { Deposit } from "@rootzero/contracts/Endpoints.sol";
-import { Assets } from "@rootzero/contracts/Utils.sol";
 
 contract ExampleHost is Host, Balances, Deposit {
     constructor(address rootzero) Host(rootzero) {}
 
-    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        uint balance = creditTo(account, Assets.slot(asset, meta), amount);
-        emit Balance(account, asset, meta, balance, int(amount), depositId);
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
+        uint balance = creditTo(account, asset, amount);
+        emit Balance(account, asset, balance, int(amount), depositId);
     }
 }
 ```
@@ -58,7 +57,7 @@ implementations):
 const host = await ethers.deployContract("ExampleHost", [deployer.address]);
 
 const account = encodeUserAccount(user.address); // receiving account
-const request = encodeAmountBlock(asset, meta, 100n); // what to deposit
+const request = encodeAmountBlock(asset, 100n); // what to deposit
 await host.deposit({ account, state: "0x", request }); // emits Balance
 ```
 
@@ -79,10 +78,10 @@ The key is `bytes4(keccak256("#name"))`, and the payload layout is described by
 a schema string. For example, the block that requests a deposit:
 
 ```txt
-#amount { bytes32 asset, bytes32 meta, uint amount }
+#amount { bytes32 asset, uint amount }
 ```
 
-is 104 bytes on the wire: an 8-byte header followed by three big-endian 32-byte
+is 72 bytes on the wire: an 8-byte header followed by two big-endian 32-byte
 fields. There is no ABI encoding and no chain-specific type anywhere in the
 format — field types are chain-neutral integers, bytes, and booleans. A deposit
 request built for an EVM host is byte-for-byte the request a CosmWasm or Solana
@@ -114,8 +113,8 @@ import { concat } from "ethers";
 import { encodeAmountBlock } from "./helpers/blocks";
 
 const request = concat([
-  encodeAmountBlock(usdc, meta, 250_000_000n),
-  encodeAmountBlock(dai, meta, 250n * 10n ** 18n),
+  encodeAmountBlock(usdc, 250_000_000n),
+  encodeAmountBlock(dai, 250n * 10n ** 18n),
 ]);
 // deposit(request) returns two #balance blocks, one per #amount
 ```
@@ -126,20 +125,32 @@ never a special case.
 
 ## IDs, Accounts, and Assets
 
-Everything the protocol touches — accounts, assets, chains, hosts, endpoints —
-is identified by a self-describing 256-bit ID:
+Everything the protocol touches - accounts, assets, chains, hosts, endpoints -
+is identified by one 32-byte word. The first byte selects the convention:
+
+- `0x00`: opaque ID, encoded as `0x00 || bytes31(hash)`. The hash preimage is
+  not recoverable from the ID; use a lookup table or witness data when the
+  native account, asset metadata, or node target is needed.
+- nonzero: structured ID. The value can be deconstructed according to its
+  layout.
+
+The field supplies the role for opaque IDs: a `bytes32 asset` with first byte
+`0x00` is still an asset, but its native metadata must come from lookup or
+witness data. The Solidity helpers below construct and deconstruct structured
+EVM IDs.
+
+Structured EVM IDs use:
 
 ```txt
 [uint32 type][uint32 chainid][192-bit payload]
 ```
 
-where `type` packs `[vm][width][category][subtype]`. Any ID therefore announces
+where `type` packs `[vm][width][category][subtype]`. A structured ID announces
 what it is (an account, an asset, a node) and which chain it lives on, and the
 payload usually embeds the underlying address. User accounts are
-chain-agnostic; admin and guardian accounts are chain-local. Assets cover the
-native coin, ERC-20, ERC-721, and ERC-1155; wide identities carry a second
-`meta` word (an ERC-721 token id, for example). Nodes are hosts, commands,
-peers, queries, and guards.
+chain-agnostic; admin and guardian accounts are chain-local. Assets are unique
+IDs in the same single-word form as accounts and nodes. Nodes are hosts,
+commands, peers, queries, and guards.
 
 The `Utils.sol` entry point provides the constructors and inspectors:
 
@@ -197,9 +208,9 @@ function deposit(CommandContext calldata c) external onlyCommand returns (bytes 
     Writer memory writer = Writers.allocBalances(groups);
 
     while (request.i < request.len) {
-        (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
-        deposit(c.account, asset, meta, amount); // host policy hook
-        writer.appendBalance(asset, meta, amount);
+        (bytes32 asset, uint amount) = request.unpackAmount();
+        deposit(c.account, asset, amount); // host policy hook
+        writer.appendBalance(asset, amount);
     }
 
     request.complete();
@@ -270,8 +281,8 @@ standard `getBalances` query takes a run of positions and answers each one in
 order:
 
 ```txt
-request:  #accountAsset { bytes32 account, bytes32 asset, bytes32 meta }
-response: #accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }
+request:  #accountAsset { bytes32 account, bytes32 asset }
+response: #accountAmount { bytes32 account, bytes32 asset, uint amount }
 ```
 
 Like commands, every query announces its request and response schemas at
@@ -283,7 +294,7 @@ Peers are the host-to-host surfaces, callable only by trusted hosts. The two
 central ones are batches all the way down:
 
 - `peerSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
-  bytes32 meta, uint amount }` blocks, debiting `from` and crediting `to` per
+  uint amount }` blocks, debiting `from` and crediting `to` per
   block — how two hosts record settlement between their ledgers.
 - `peerPipePayable` consumes `#pipe` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
@@ -313,8 +324,8 @@ drop a trusted node immediately.
 Hosts are self-describing. At deployment a host emits the ABI of every event it
 uses (`EventAbi`), a discovery event per endpoint with its full schemas, and
 labels for human-readable names. State changes then follow evented
-conventions: `Balance` for every ledger change and flow events (`Transfer`,
-`Received`, `Spent`) for value movement, each tagged with the endpoint that
+conventions: `Balance` for every ledger change and flow events (`Received`,
+`Spent`, `Locked`, `Unlocked`) for value movement, each tagged with the endpoint that
 caused it. An indexer can reconstruct the entire repository — endpoints,
 names, access sets, balances — from logs alone, with no artifact files.
 

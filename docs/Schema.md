@@ -21,7 +21,7 @@ The block key is:
 bytes4(keccak256("#name"))
 ```
 
-For example, `#amount { bytes32 asset, bytes32 meta, uint amount }` uses the key
+For example, `#amount { bytes32 asset, uint amount }` uses the key
 derived from `#amount`. Blocks must not be overloaded: one block name should have
 one protocol meaning.
 
@@ -30,7 +30,7 @@ one protocol meaning.
 A block starts with `#`. Fixed fields are written in braces:
 
 ```txt
-#amount { bytes32 asset, bytes32 meta, uint amount }
+#amount { bytes32 asset, uint amount }
 #account { bytes32 account }
 ```
 
@@ -46,7 +46,7 @@ Empty braces are invalid. A zero-payload block must omit braces.
 A schema is a comma-separated list of items. Order is significant.
 
 ```txt
-#amount { bytes32 asset, bytes32 meta, uint amount },
+#amount { bytes32 asset, uint amount },
 maybe #account { bytes32 account }
 ```
 
@@ -76,10 +76,10 @@ alias to give those bytes a presentation name:
 Cardinality is expressed with prefix keywords:
 
 ```txt
-#balance { bytes32 asset, bytes32 meta, uint amount }
-maybe #balance { bytes32 asset, bytes32 meta, uint amount }
-many #balance { bytes32 asset, bytes32 meta, uint amount }
-maybe many #balance { bytes32 asset, bytes32 meta, uint amount }
+#balance { bytes32 asset, uint amount }
+maybe #balance { bytes32 asset, uint amount }
+many #balance { bytes32 asset, uint amount }
+maybe many #balance { bytes32 asset, uint amount }
 ```
 
 - no prefix: one required item
@@ -190,6 +190,21 @@ types may pack these words differently, but a given chain type must use one
 stable format everywhere. For EVM chains, the low 128 bits are native value /
 endowment in wei; higher bits are reserved for execution resources such as gas.
 
+## Protocol IDs
+
+Account, asset, and node ID fields use one 32-byte convention:
+
+- first byte `0x00`: opaque ID, encoded as `0x00 || bytes31(hash)`. The full
+  preimage must come from a lookup table or witness data when native metadata is
+  needed.
+- first byte nonzero: structured ID. The value may be deconstructed according
+  to its chain/runtime layout.
+
+The field name supplies the protocol role for opaque IDs. For example, a
+`bytes32 asset` whose first byte is zero is still an asset in that block; it
+just cannot be decoded without external context. Runtime helpers that inspect
+the layout of an ID only apply to structured IDs.
+
 ## Identifiers
 
 Block names use lower camelCase ASCII identifiers. Field names and aliases use
@@ -246,9 +261,9 @@ expands to:
 Common protocol schemas live in `contracts/blocks/Schema.sol`:
 
 ```txt
-#amount { bytes32 asset, bytes32 meta, uint amount }
-#balance { bytes32 asset, bytes32 meta, uint amount }
-#custody { uint host, bytes32 asset, bytes32 meta, uint amount }
+#amount { bytes32 asset, uint amount }
+#balance { bytes32 asset, uint amount }
+#custody { uint host, bytes32 asset, uint amount }
 #call { uint target, uint resources, #bytes as payload }
 #step { uint target, uint resources, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
