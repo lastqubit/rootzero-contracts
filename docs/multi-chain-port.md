@@ -112,6 +112,15 @@ Use opaque IDs when the native identity or metadata does not fit or should not
 be exposed. The full preimage must be supplied by local lookup or by witness
 data at the boundary that needs it.
 
+Opaque preimages start with:
+
+```text
+[version:1][hashId:1][payload...]
+```
+
+Only the first two bytes are protocol-level convention for now. The remaining
+payload format is host/domain-specific until a future standard defines it.
+
 Structured IDs keep the Rootzero prefix taxonomy and make the payload
 local-first:
 
@@ -129,15 +138,19 @@ carry the `Layout.Asset` category bit. Opaque IDs do not carry these bits; their
 protocol role comes from the field they appear in (`account`, `asset`, `target`,
 and so on).
 
-This matches the existing Solidity pattern:
+In the EVM Solidity implementation, helpers should validate the full
+representation-specific family rather than only the shared category byte:
 
 ```solidity
-function isAccount(bytes32 account) internal pure returns (bool) {
-    return uint8(uint(account) >> 232) == Layout.Account;
+function isEvm(bytes32 account) internal pure returns (bool) {
+    return isFamily(uint(account), Family);
 }
 ```
 
-Because `isAccount` checks only the shared category byte, it can recognize accounts from every chain as long as those accounts use the shared Account category. Chain-specific representation tags should not break category-level helpers like `isAccount`, `isAsset`, or node-family checks.
+That keeps EVM deconstruction helpers honest: they only accept IDs whose
+payload layout is actually EVM-compatible. Cross-chain ports can expose their
+own representation-specific helpers while preserving the same Account, Node,
+and Asset taxonomy where it applies.
 
 The representation bytes describe how a structured payload should be
 interpreted. EVM uses `Layout.Evm` because its payloads are built around
@@ -196,7 +209,7 @@ node id -> lower 160 bits -> EVM address
 account id -> payload bits -> EVM address or opaque account commitment
 ```
 
-That means helpers like `Ids.nodeAddr(id)` can recover the call target directly from the ID.
+That means helpers like `Nodes.addr(id)` can recover the call target directly from the ID.
 
 Non-EVM ports should classify each native identity type:
 
@@ -483,7 +496,7 @@ The authorization set should store protocol IDs where possible. Resolve to nativ
 On EVM:
 
 ```solidity
-host = Ids.toHost(address(this));
+host = Nodes.toHost(address(this));
 ```
 
 On other chains:
@@ -576,7 +589,7 @@ Examples:
 No global non-EVM registry is needed. Keep the existing EVM-local helpers:
 
 ```text
-contracts/utils/Ids.sol       - EVM node IDs
+contracts/utils/Nodes.sol       - EVM node IDs
 contracts/utils/Assets.sol    - EVM asset IDs
 contracts/utils/Accounts.sol  - EVM account IDs
 contracts/utils/Utils.sol     - EVM local base helpers

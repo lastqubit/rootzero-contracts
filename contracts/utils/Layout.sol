@@ -12,6 +12,8 @@ pragma solidity ^0.8.33;
 /// Values whose first byte is zero are opaque IDs:
 ///   `[0x00][bytes31 truncated hash]`
 /// They require lookup or witness data when the native preimage is needed.
+/// Opaque preimages start with `[uint8 version][uint8 hashId]`; the remaining
+/// bytes are host/domain-specific until further standardized.
 /// Values whose first byte is nonzero follow the structured layout above.
 library Layout {
     // -------------------------------------------------------------------------

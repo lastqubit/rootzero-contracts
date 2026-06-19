@@ -134,6 +134,15 @@ is identified by one 32-byte word. The first byte selects the convention:
 - nonzero: structured ID. The value can be deconstructed according to its
   layout.
 
+Opaque preimages start with:
+
+```txt
+[uint8 version][uint8 hashId][payload...]
+```
+
+Only the first two bytes are protocol-level convention for now. The remaining
+payload format is host/domain-specific until a future standard defines it.
+
 The field supplies the role for opaque IDs: a `bytes32 asset` with first byte
 `0x00` is still an asset, but its native metadata must come from lookup or
 witness data. The Solidity helpers below construct and deconstruct structured
@@ -157,7 +166,7 @@ The `Utils.sol` entry point provides the constructors and inspectors:
 ```solidity
 bytes32 account = Accounts.toUser(msg.sender); // chain-agnostic user account
 bytes32 asset = Assets.toErc20(tokenAddress);  // ERC-20 asset ID
-uint hostId = Ids.toHost(address(this));       // host node ID
+uint hostId = Nodes.toHost(address(this));       // host node ID
 ```
 
 ## Hosts
@@ -339,7 +348,7 @@ Import from the package entry points rather than deep paths:
   mixins and their hooks
 - `@rootzero/contracts/Cursors.sol` — `Cur` cursor reader, `Writers`, `Schemas`,
   `Keys`
-- `@rootzero/contracts/Utils.sol` — `Ids`, `Assets`, `Accounts`, layout and
+- `@rootzero/contracts/Utils.sol` — `Nodes`, `Assets`, `Accounts`, layout and
   value helpers
 - `@rootzero/contracts/Events.sol` — protocol event contracts
 

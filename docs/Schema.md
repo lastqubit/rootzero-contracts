@@ -200,6 +200,10 @@ Account, asset, and node ID fields use one 32-byte convention:
 - first byte nonzero: structured ID. The value may be deconstructed according
   to its chain/runtime layout.
 
+Opaque preimages must start with `[version:1][hashId:1]`. The remaining bytes
+are host/domain-specific until the protocol standardizes a fuller preimage
+payload format.
+
 The field name supplies the protocol role for opaque IDs. For example, a
 `bytes32 asset` whose first byte is zero is still an asset in that block; it
 just cannot be decoded without external context. Runtime helpers that inspect
