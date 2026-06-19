@@ -12,7 +12,7 @@ interface IPeerDenyAssets {
 }
 
 /// @title PeerDenyAssets
-/// @notice Peer that blocks a list of (asset, meta) pairs on behalf of a peer host.
+/// @notice Peer that blocks a list of assets on behalf of a peer host.
 /// Each ASSET block in the request calls `denyAsset`. Restricted to trusted peers.
 abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook, IPeerDenyAssets {
     uint internal immutable peerDenyAssetsId = peerId(this.peerDenyAssets.selector);
@@ -29,8 +29,8 @@ abstract contract PeerDenyAssets is PeerBase, DenyAssetsHook, IPeerDenyAssets {
         (Cur memory assets, , ) = Cursors.init(request, 1);
 
         while (assets.i < assets.len) {
-            (bytes32 asset, bytes32 meta) = assets.unpackAsset();
-            denyAsset(asset, meta);
+            bytes32 asset = assets.unpackAsset();
+            denyAsset(asset);
         }
 
         assets.complete();

@@ -13,14 +13,13 @@ describe("Examples", () => {
 
       const account = encodeUserAccount(commander);
       const asset = ethers.zeroPadValue("0x01", 32);
-      const meta = ethers.zeroPadValue("0x02", 32);
       const amount = 123n;
       const fee = 4n;
-      const request = encodeDataBlock(concat(asset, meta, pad32(amount), encodeFeeBlock(fee)));
+      const request = encodeDataBlock(concat(asset, pad32(amount), encodeFeeBlock(fee)));
 
       await expect(host.myCommand({ account, state: "0x", request }))
         .to.emit(host, "PaymentSeen")
-        .withArgs(asset, meta, amount, fee);
+        .withArgs(asset, amount, fee);
     });
   });
 });

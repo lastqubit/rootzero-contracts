@@ -12,9 +12,8 @@ abstract contract DebitAccountHook {
     /// Called once per AMOUNT block before a matching BALANCE is emitted.
     /// @param account Source account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount to debit.
-    function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function debitAccount(bytes32 account, bytes32 asset, uint amount) internal virtual;
 }
 
 /// @title DebitAccount
@@ -37,9 +36,9 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
         Writer memory writer = Writers.allocBalances(groups);
 
         while (input.i < input.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = input.unpackAmount();
-            debitAccount(account, asset, meta, amount);
-            writer.appendBalance(asset, meta, amount);
+            (bytes32 asset, uint amount) = input.unpackAmount();
+            debitAccount(account, asset, amount);
+            writer.appendBalance(asset, amount);
         }
 
         input.complete();

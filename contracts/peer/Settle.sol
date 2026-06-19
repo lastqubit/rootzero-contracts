@@ -30,9 +30,9 @@ abstract contract PeerSettle is PeerBase, DebitAccountHook, CreditAccountHook, I
         (Cur memory state, , ) = Cursors.init(request, 1);
 
         while (state.i < state.len) {
-            (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) = state.unpackTransaction();
-            if (from != 0) debitAccount(from, asset, meta, amount);
-            if (to != 0) creditAccount(to, asset, meta, amount);
+            (bytes32 from, bytes32 to, bytes32 asset, uint amount) = state.unpackTransaction();
+            if (from != 0) debitAccount(from, asset, amount);
+            if (to != 0) creditAccount(to, asset, amount);
         }
 
         state.complete();

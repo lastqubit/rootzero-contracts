@@ -11,20 +11,19 @@ using Cursors for Cur;
 using Writers for Writer;
 
 contract TestCursorHelper {
-    function testWriteBalanceBlock(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
+    function testWriteBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
-        w.appendBalance(asset, meta, amount);
+        w.appendBalance(asset, amount);
         return w.finish();
     }
 
     function testWriteCustodyBlock(
         uint host_,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.HostAmount);
-        w.appendCustody(host_, asset, meta, amount);
+        w.appendCustody(host_, asset, amount);
         return w.finish();
     }
 
@@ -32,11 +31,10 @@ contract TestCursorHelper {
         bytes32 from_,
         bytes32 to_,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Transaction);
-        w.appendTransaction(Tx({ from: from_, to: to_, asset: asset, meta: meta, amount: amount }));
+        w.appendTransaction(Tx({ from: from_, to: to_, asset: asset, amount: amount }));
         return w.finish();
     }
 
@@ -59,17 +57,16 @@ contract TestCursorHelper {
         return Cursors.toDispatchBlock(chain, resources, payload);
     }
 
-    function testToBalanceBlock(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
-        return Cursors.toBalanceBlock(asset, meta, amount);
+    function testToBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
+        return Cursors.toBalanceBlock(asset, amount);
     }
 
     function testToCustodyBlock(
         uint host_,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) external pure returns (bytes memory) {
-        return Cursors.toCustodyBlock(host_, asset, meta, amount);
+        return Cursors.toCustodyBlock(host_, asset, amount);
     }
 
     function testWriterFinishIncomplete() external pure returns (bytes memory) {
@@ -77,9 +74,9 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testWriterFinish(bytes32 asset, bytes32 meta, uint amount) external pure returns (bytes memory) {
+    function testWriterFinish(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance * 2);
-        w.appendBalance(asset, meta, amount);
+        w.appendBalance(asset, amount);
         return w.finish();
     }
 
@@ -96,21 +93,21 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, bytes32 meta, uint amount) {
+    function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, uint amount) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackBalance();
     }
 
     function testUnpackHostAccountAsset(
         bytes calldata source
-    ) external pure returns (uint host_, bytes32 account, bytes32 asset, bytes32 meta) {
+    ) external pure returns (uint host_, bytes32 account, bytes32 asset) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackHostAccountAsset();
     }
 
     function testUnpackAccountAsset(
         bytes calldata source
-    ) external pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+    ) external pure returns (bytes32 account, bytes32 asset) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackAccountAsset();
     }
@@ -130,10 +127,10 @@ contract TestCursorHelper {
         return cur.unpackRaw(key);
     }
 
-    function testToTxValue(bytes calldata source) external pure returns (bytes32 from_, bytes32 to_, bytes32 asset, bytes32 meta, uint amount) {
+    function testToTxValue(bytes calldata source) external pure returns (bytes32 from_, bytes32 to_, bytes32 asset, uint amount) {
         Cur memory cur = Cursors.open(source);
         Tx memory value = cur.unpackTxValue();
-        return (value.from, value.to, value.asset, value.meta, value.amount);
+        return (value.from, value.to, value.asset, value.amount);
     }
 
     function testRun(bytes calldata source, uint group)
@@ -369,22 +366,20 @@ contract TestCursorHelper {
 
     function testRequireAmount(
         bytes calldata source,
-        bytes32 asset,
-        bytes32 meta
+        bytes32 asset
     ) external pure returns (uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
-        amount = cur.requireAssetAmount(Keys.Amount, asset, meta);
+        amount = cur.requireAssetAmount(Keys.Amount, asset);
         i = cur.i;
     }
 
     function testEnsureBalanceLimit(
         bytes calldata source,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
-        cur.ensureBalanceLimit(asset, meta, amount);
+        cur.ensureBalanceLimit(asset, amount);
         i = cur.i;
     }
 
@@ -392,11 +387,10 @@ contract TestCursorHelper {
         bytes calldata source,
         uint host_,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
-        cur.ensureCustodyLimit(host_, asset, meta, amount);
+        cur.ensureCustodyLimit(host_, asset, amount);
         i = cur.i;
     }
 

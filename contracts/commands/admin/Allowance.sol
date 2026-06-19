@@ -13,9 +13,8 @@ abstract contract AllowanceHook {
     /// or another host-specific authorization record.
     /// @param peer Host node receiving the allowed cap.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Allowed cap amount.
-    function allowance(uint peer, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function allowance(uint peer, bytes32 asset, uint amount) internal virtual;
 }
 
 /// @title Allowance
@@ -36,8 +35,8 @@ abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
         (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
-            (uint peer, bytes32 asset, bytes32 meta, uint amount) = request.unpackAllowance();
-            allowance(peer, asset, meta, amount);
+            (uint peer, bytes32 asset, uint amount) = request.unpackAllowance();
+            allowance(peer, asset, amount);
         }
 
         request.complete();

@@ -13,9 +13,8 @@ abstract contract PayoutHook {
     /// @param account Source account identifier.
     /// @param to Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount to pay out.
-    function payout(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function payout(bytes32 account, bytes32 to, bytes32 asset, uint amount) internal virtual;
 }
 
 /// @title Payout
@@ -37,9 +36,9 @@ abstract contract Payout is CommandBase, PayoutHook {
         (Cur memory request, ) = Cursors.init(c.request, 1, groups);
 
         while (state.i < state.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
+            (bytes32 asset, uint amount) = state.unpackBalance();
             bytes32 to = Accounts.ensure(request.unpackAccount());
-            payout(c.account, to, asset, meta, amount);
+            payout(c.account, to, asset, amount);
         }
 
         state.complete();

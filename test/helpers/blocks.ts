@@ -70,44 +70,44 @@ function block(key: string, payload: string): string {
   return ethers.concat([key, encodeUint32(payloadBytes.length), payload]);
 }
 
-export function encodeAmountBlock(asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Amount, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeAmountBlock(asset: string, amount: bigint): string {
+  return block(Keys.Amount, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
-export function encodeBalanceBlock(asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Balance, ethers.concat([pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeBalanceBlock(asset: string, amount: bigint): string {
+  return block(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
-export function encodeBalanceLimitBlock(asset: string, meta: string, min: bigint, max: bigint): string {
-  return block(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(meta), pad32(min), pad32(max)]));
+export function encodeBalanceLimitBlock(asset: string, min: bigint, max: bigint): string {
+  return block(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(min), pad32(max)]));
 }
 
-export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string, meta: string): string {
-  return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset), pad32(meta)]));
+export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string): string {
+  return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset)]));
 }
 
-export function encodeAccountAssetBlock(account: string, asset: string, meta: string): string {
-  return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset), pad32(meta)]));
+export function encodeAccountAssetBlock(account: string, asset: string): string {
+  return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset)]));
 }
 
-export function encodeAccountAmountBlock(account: string, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeAccountAmountBlock(account: string, asset: string, amount: bigint): string {
+  return block(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(amount)]));
 }
 
-export function encodeAllocationBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeAllocationBlock(host: bigint, asset: string, amount: bigint): string {
+  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
-export function encodeAllowanceBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Allowance, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeAllowanceBlock(host: bigint, asset: string, amount: bigint): string {
+  return block(Keys.Allowance, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
-export function encodeCustodyBlock(host: bigint, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeCustodyBlock(host: bigint, asset: string, amount: bigint): string {
+  return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
-export function encodeCustodyLimitBlock(host: bigint, asset: string, meta: string, min: bigint, max: bigint): string {
-  return block(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(meta), pad32(min), pad32(max)]));
+export function encodeCustodyLimitBlock(host: bigint, asset: string, min: bigint, max: bigint): string {
+  return block(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(min), pad32(max)]));
 }
 
 export function encodeAccountBlock(account: string): string {
@@ -118,16 +118,16 @@ export function encodeNodeBlock(id: bigint): string {
   return block(Keys.Node, pad32(id));
 }
 
-export function encodeAssetBlock(asset: string, meta: string): string {
-  return block(Keys.Asset, ethers.concat([pad32(asset), pad32(meta)]));
+export function encodeAssetBlock(asset: string): string {
+  return block(Keys.Asset, pad32(asset));
 }
 
 export function encodeFeeBlock(amount: bigint): string {
   return block(Keys.Fee, pad32(amount));
 }
 
-export function encodeTxBlock(from: string, to: string, asset: string, meta: string, amount: bigint): string {
-  return block(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(meta), pad32(amount)]));
+export function encodeTxBlock(from: string, to: string, asset: string, amount: bigint): string {
+  return block(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(amount)]));
 }
 
 export function encodeStepBlock(target: bigint, value: bigint, request: string): string {

@@ -10,37 +10,31 @@ using Cursors for Cur;
 contract TestErc20CursorHelper {
     function expectErc20Amount(Cur memory cur, uint i) private view returns (address token, uint amount) {
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (asset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Amount);
+        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Amount);
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
-        meta;
     }
 
     function expectErc20Balance(Cur memory cur, uint i) private view returns (address token, uint amount) {
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (asset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Balance);
+        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Balance);
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
-        meta;
     }
 
     function expectErc20Custody(Cur memory cur, uint i, uint host) private view returns (address token, uint amount) {
         bytes32 rawHost;
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (rawHost, asset, meta, rawAmount) = Cursors.unpack128(cur, Keys.Custody);
+        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Keys.Custody);
         if (uint(rawHost) != host) revert Cursors.UnexpectedValue();
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
-        meta;
     }
 
     function testExpectErc20Amount(bytes calldata source, uint i) external view returns (address token, uint amount) {
@@ -51,12 +45,10 @@ contract TestErc20CursorHelper {
     function testRequireErc20Amount(bytes calldata source) external view returns (address token, uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
-        (asset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Amount);
+        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Amount);
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        meta;
         return (token, amount, cur.i);
     }
 
@@ -68,12 +60,10 @@ contract TestErc20CursorHelper {
     function testRequireErc20Balance(bytes calldata source) external view returns (address token, uint amount, uint i) {
         Cur memory cur = Cursors.open(source);
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
-        (asset, meta, rawAmount) = Cursors.unpack96(cur, Keys.Balance);
+        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Balance);
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        meta;
         return (token, amount, cur.i);
     }
 
@@ -93,13 +83,11 @@ contract TestErc20CursorHelper {
         Cur memory cur = Cursors.open(source);
         bytes32 rawHost;
         bytes32 asset;
-        bytes32 meta;
         bytes32 rawAmount;
-        (rawHost, asset, meta, rawAmount) = Cursors.unpack128(cur, Keys.Custody);
+        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Keys.Custody);
         if (uint(rawHost) != host) revert Cursors.UnexpectedValue();
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        meta;
         return (token, amount, cur.i);
     }
 

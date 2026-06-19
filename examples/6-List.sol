@@ -25,9 +25,9 @@ import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
 using Cursors for Cur;
 
 // Lists are declared with the `many` prefix.
-// Here the item shape is `#asset { bytes32 asset, bytes32 meta }`, so:
+// Here the item shape is `#asset { bytes32 asset }`, so:
 //
-//   many #asset { bytes32 asset, bytes32 meta }
+//   many #asset { bytes32 asset }
 //
 // means "one LIST block whose payload is a repeated stream of ASSET blocks".
 // The request can still batch multiple such LIST blocks at the top level.
@@ -35,7 +35,7 @@ string constant INPUT = string.concat("many ", Schemas.Asset);
 
 abstract contract MyCommand is CommandBase {
     uint internal immutable myCommandId = commandId(this.myCommand.selector);
-    event AssetSeen(uint indexed listIndex, bytes32 asset, bytes32 meta);
+    event AssetSeen(uint indexed listIndex, bytes32 asset);
 
     constructor() {
         emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
@@ -54,8 +54,8 @@ abstract contract MyCommand is CommandBase {
         uint next = input.list();
 
         while (input.i < next) {
-            (bytes32 asset, bytes32 meta) = input.unpackAsset();
-            emit AssetSeen(listIndex, asset, meta);
+            bytes32 asset = input.unpackAsset();
+            emit AssetSeen(listIndex, asset);
         }
 
         input.exit(next);

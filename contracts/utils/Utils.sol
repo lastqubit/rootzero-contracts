@@ -8,6 +8,8 @@ uint16 constant MAX_BPS = 10_000;
 error ValueOverflow();
 /// @dev Thrown by `divisible` when `n` is not evenly divisible by `divisor`.
 error NotDivisible();
+/// @dev Thrown when an ID claims to carry an address but the embedded address is zero.
+error ZeroAddress();
 
 /// @notice Assert that `value` fits in uint8 and return it unchanged.
 function max8(uint value) pure returns (uint) {
@@ -90,6 +92,12 @@ function divisible(uint n, uint divisor) pure {
 /// @notice Return `addr` if non-zero, otherwise return `or`.
 function addrOr(address addr, address or) pure returns (address) {
     return addr == address(0) ? or : addr;
+}
+
+/// @notice Assert that `addr` is non-zero and return it unchanged.
+function ensureAddr(address addr) pure returns (address) {
+    if (addr == address(0)) revert ZeroAddress();
+    return addr;
 }
 
 /// @notice Convert a signed integer to its 32-byte two's-complement representation.

@@ -12,7 +12,7 @@ interface IPeerAllowAssets {
 }
 
 /// @title PeerAllowAssets
-/// @notice Peer that permits a list of (asset, meta) pairs on behalf of a peer host.
+/// @notice Peer that permits a list of assets on behalf of a peer host.
 /// Each ASSET block in the request calls `allowAsset`. Restricted to trusted peers.
 abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook, IPeerAllowAssets {
     uint internal immutable peerAllowAssetsId = peerId(this.peerAllowAssets.selector);
@@ -29,8 +29,8 @@ abstract contract PeerAllowAssets is PeerBase, AllowAssetsHook, IPeerAllowAssets
         (Cur memory assets, , ) = Cursors.init(request, 1);
 
         while (assets.i < assets.len) {
-            (bytes32 asset, bytes32 meta) = assets.unpackAsset();
-            allowAsset(asset, meta);
+            bytes32 asset = assets.unpackAsset();
+            allowAsset(asset);
         }
 
         assets.complete();

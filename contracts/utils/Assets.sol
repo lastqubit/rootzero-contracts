@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
-import {matchesBase, toLocalBase} from "./Utils.sol";
+import {ensureAddr, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Assets
 /// @notice Encoding and decoding helpers for 256-bit asset identifiers.
@@ -10,8 +10,12 @@ import {matchesBase, toLocalBase} from "./Utils.sol";
 /// Asset IDs embed a 4-byte type tag in bits [255:224]:
 ///   - `Native` - native chain coin/token; no address payload
 ///   - `Erc20` - ERC-20 token; contract address in bits [191:32]
-///   - `Erc721` - ERC-721 collection; collection address in bits [191:32]
-///   - `Erc1155` - ERC-1155 collection; collection address in bits [191:32]
+///
+/// If the first byte is zero, the asset is an opaque
+/// `0x00 || bytes31(hash)` ID. The full asset metadata must be supplied by
+/// lookup or witness data when native token handling needs it.
+///
+/// The helpers in this library validate and deconstruct structured asset IDs.
 ///
 /// All asset IDs are chain-local (include `block.chainid` in bits [223:192]).
 library Assets {
@@ -21,27 +25,13 @@ library Assets {
     error UnauthorizedAsset();
 
     /// @dev Full 4-byte type prefix for the native chain coin/token asset.
-    uint32 constant Native = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Native);
+    uint32 constant Native = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Native);
     /// @dev Full 4-byte type prefix for ERC-20 assets.
-    uint32 constant Erc20 = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc20);
-    /// @dev Full 4-byte type prefix for ERC-721 assets.
-    uint32 constant Erc721 = (uint32(Layout.Evm64) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc721);
-    /// @dev Full 4-byte type prefix for ERC-1155 assets.
-    uint32 constant Erc1155 = (uint32(Layout.Evm64) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc1155);
+    uint32 constant Erc20 = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc20);
 
     /// @notice Return true if `asset` uses the Asset category tag in the type field.
     function isAsset(bytes32 asset) internal pure returns (bool) {
         return uint8(uint(asset) >> 232) == Layout.Asset;
-    }
-
-    /// @notice Return true if `asset` uses a 32-byte asset layout with no metadata identity.
-    function is32(bytes32 asset) internal pure returns (bool) {
-        return isAsset(asset) && uint8(uint(asset) >> 240) == Layout.Width32;
-    }
-
-    /// @notice Return true if `asset` uses a 64-byte asset layout with metadata-backed identity.
-    function is64(bytes32 asset) internal pure returns (bool) {
-        return isAsset(asset) && uint8(uint(asset) >> 240) == Layout.Width64;
     }
 
     /// @notice Return true if `asset` is the local native chain coin/token asset.
@@ -52,16 +42,6 @@ library Assets {
     /// @notice Return true if `asset` is a local ERC-20 asset.
     function isErc20(bytes32 asset) internal view returns (bool) {
         return matchesBase(asset, toLocalBase(Erc20));
-    }
-
-    /// @notice Return true if `asset` is a local ERC-721 asset.
-    function isErc721(bytes32 asset) internal view returns (bool) {
-        return matchesBase(asset, toLocalBase(Erc721));
-    }
-
-    /// @notice Return true if `asset` is a local ERC-1155 asset.
-    function isErc1155(bytes32 asset) internal view returns (bool) {
-        return matchesBase(asset, toLocalBase(Erc1155));
     }
 
     /// @notice Assert that `input` is the local native chain coin/token asset and return it unchanged.
@@ -80,22 +60,6 @@ library Assets {
         return input;
     }
 
-    /// @notice Assert that `input` is a local ERC-721 asset and return it unchanged.
-    /// @param input Asset identifier to validate.
-    /// @return asset The same `input` if it is a local ERC-721 asset.
-    function erc721(bytes32 input) internal view returns (bytes32 asset) {
-        if (!isErc721(input)) revert InvalidAsset();
-        return input;
-    }
-
-    /// @notice Assert that `input` is a local ERC-1155 asset and return it unchanged.
-    /// @param input Asset identifier to validate.
-    /// @return asset The same `input` if it is a local ERC-1155 asset.
-    function erc1155(bytes32 input) internal view returns (bytes32 asset) {
-        if (!isErc1155(input)) revert InvalidAsset();
-        return input;
-    }
-
     /// @notice Create a chain-local native coin/token asset ID.
     /// @return Asset ID for the native token on the current chain.
     function toNative() internal view returns (bytes32) {
@@ -109,26 +73,12 @@ library Assets {
         return bytes32(toLocalBase(Erc20) | (uint(uint160(addr)) << 32));
     }
 
-    /// @notice Create a chain-local ERC-721 asset ID for `collection`.
-    /// @param collection ERC-721 collection contract address.
-    /// @return Asset ID with `collection` embedded in bits [191:32].
-    function toErc721(address collection) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Erc721) | (uint(uint160(collection)) << 32));
-    }
-
-    /// @notice Create a chain-local ERC-1155 asset ID for `collection`.
-    /// @param collection ERC-1155 collection contract address.
-    /// @return Asset ID with `collection` embedded in bits [191:32].
-    function toErc1155(address collection) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Erc1155) | (uint(uint160(collection)) << 32));
-    }
-
     /// @notice Extract the ERC-20 contract address from an asset ID.
     /// Reverts if `asset` is not a local ERC-20 asset.
     /// @param asset ERC-20 asset identifier.
     /// @return Token contract address embedded in bits [191:32].
     function erc20Addr(bytes32 asset) internal view returns (address) {
-        return address(uint160(uint(erc20(asset)) >> 32));
+        return ensureAddr(address(uint160(uint(erc20(asset)) >> 32)));
     }
 
     /// @notice Assert that `asset` is a local ERC-20 for `token` and return it unchanged.
@@ -141,56 +91,6 @@ library Assets {
         return asset;
     }
 
-    /// @notice Extract the ERC-721 collection address from an asset ID.
-    /// Reverts if `asset` is not a local ERC-721 asset.
-    /// @param asset ERC-721 asset identifier.
-    /// @return Collection contract address embedded in bits [191:32].
-    function erc721Collection(bytes32 asset) internal view returns (address) {
-        return address(uint160(uint(erc721(asset)) >> 32));
-    }
-
-    /// @notice Assert that `asset` is a local ERC-721 for `collection` and return it unchanged.
-    /// Reverts if `asset` is not a local ERC-721 asset or if its collection address differs.
-    /// @param asset ERC-721 asset identifier.
-    /// @param collection Expected ERC-721 collection address.
-    /// @return The same `asset` value if valid.
-    function matchErc721(bytes32 asset, address collection) internal view returns (bytes32) {
-        if (erc721Collection(asset) != collection) revert InvalidAsset();
-        return asset;
-    }
-
-    /// @notice Extract the ERC-1155 collection address from an asset ID.
-    /// Reverts if `asset` is not a local ERC-1155 asset.
-    /// @param asset ERC-1155 asset identifier.
-    /// @return Collection contract address embedded in bits [191:32].
-    function erc1155Collection(bytes32 asset) internal view returns (address) {
-        return address(uint160(uint(erc1155(asset)) >> 32));
-    }
-
-    /// @notice Assert that `asset` is a local ERC-1155 for `collection` and return it unchanged.
-    /// Reverts if `asset` is not a local ERC-1155 asset or if its collection address differs.
-    /// @param asset ERC-1155 asset identifier.
-    /// @param collection Expected ERC-1155 collection address.
-    /// @return The same `asset` value if valid.
-    function matchErc1155(bytes32 asset, address collection) internal view returns (bytes32) {
-        if (erc1155Collection(asset) != collection) revert InvalidAsset();
-        return asset;
-    }
-
-    /// @notice Derive a storage slot for an (asset, meta) pair.
-    /// For 32-byte assets (no meta), the slot is the asset ID itself.
-    /// For assets with metadata (e.g. ERC-721 or ERC-1155 token IDs), the slot is
-    /// `keccak256(asset ++ meta)`.
-    /// Reverts only if `asset` is zero.
-    /// For 32-byte assets, `meta` is ignored and does not affect the derived slot.
-    /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot (e.g. token ID context).
-    /// @return Storage slot for the (asset, meta) combination.
-    function slot(bytes32 asset, bytes32 meta) internal pure returns (bytes32) {
-        if (is32(asset)) return asset;
-        if (meta == 0 || !is64(asset)) revert InvalidAsset();
-        return keccak256(bytes.concat(asset, meta));
-    }
 }
 
 /// @title Amounts

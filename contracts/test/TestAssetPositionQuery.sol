@@ -8,21 +8,18 @@ using Writers for Writer;
 
 contract TestGetPositionQuery is GetPosition {
     bytes32 public immutable firstAsset = bytes32(uint(0xA11));
-    bytes32 public immutable firstMeta = bytes32(uint(0xB11));
     bytes32 public immutable secondAsset = bytes32(uint(0xA22));
-    bytes32 public immutable secondMeta = bytes32(uint(0xB22));
 
     constructor() GetPosition("uint position") {}
 
     function appendPosition(
         bytes32,
         bytes32 asset,
-        bytes32 meta,
         Writer memory response
     ) internal view override {
         uint resolved = 0;
-        if (asset == firstAsset && meta == firstMeta) resolved = 11;
-        if (asset == secondAsset && meta == secondMeta) resolved = 22;
+        if (asset == firstAsset) resolved = 11;
+        if (asset == secondAsset) resolved = 22;
         response.appendBlock(Keys.Data, abi.encode(resolved));
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
-import {isLocalFamily, matchesBase, toLocalBase} from "./Utils.sol";
+import {ensureAddr, isLocalFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Ids
 /// @notice Encoding and decoding helpers for 256-bit node identifiers.
@@ -12,24 +12,30 @@ import {isLocalFamily, matchesBase, toLocalBase} from "./Utils.sol";
 ///   - bits [223:192] — current `block.chainid` (makes IDs chain-local)
 ///   - bits [191:160] — 4-byte ABI selector (commands and peers only)
 ///   - bits [159:0]   — 160-bit EVM contract address
+///
+/// If the first byte is zero, the node is an opaque
+/// `0x00 || bytes31(hash)` ID. The callable target must be resolved by lookup
+/// or witness data before dispatch.
+///
+/// The helpers in this library validate and deconstruct structured node IDs.
 library Ids {
     /// @dev Thrown when an ID does not match the expected node type or chain.
     error InvalidId();
 
-    /// @dev 24-bit family tag shared by all node types (Evm32 + Node category).
-    uint24 constant Node = (uint24(Layout.Evm32) << 8) | uint24(Layout.Node);
+    /// @dev 24-bit family tag shared by all node types (Evm + Node category).
+    uint24 constant Node = (uint24(Layout.Evm) << 8) | uint24(Layout.Node);
     /// @dev Full 4-byte type prefix for chain/domain nodes.
-    uint32 constant Chain = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Chain);
+    uint32 constant Chain = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Chain);
     /// @dev Full 4-byte type prefix for host nodes.
-    uint32 constant Host = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Host);
+    uint32 constant Host = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Host);
     /// @dev Full 4-byte type prefix for command nodes.
-    uint32 constant Command = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
+    uint32 constant Command = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
     /// @dev Full 4-byte type prefix for peer nodes.
-    uint32 constant Peer = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Peer);
+    uint32 constant Peer = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Peer);
     /// @dev Full 4-byte type prefix for query nodes.
-    uint32 constant Query = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
+    uint32 constant Query = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
     /// @dev Full 4-byte type prefix for guard action nodes.
-    uint32 constant Guard = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Guard);
+    uint32 constant Guard = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Guard);
 
     /// @notice Return true if `id` is a host node ID.
     function isHost(uint id) internal pure returns (bool) {
@@ -58,7 +64,7 @@ library Ids {
 
     /// @notice Return true if `id` is a local node ID for this contract.
     function isLocalNode(uint id) internal view returns (bool) {
-        return uint32(id >> 224) != Chain && isLocalFamily(id, Node) && address(uint160(id)) == address(this);
+        return isLocalFamily(id, Node) && address(uint160(id)) == address(this);
     }
 
     /// @notice Assert that `id` is a command ID and return it unchanged.
@@ -131,11 +137,9 @@ library Ids {
     }
 
     /// @notice Build the chain node ID for the current chain.
-    /// @return Chain node ID with the Chain prefix and `block.chainid` payload.
+    /// @return Chain node ID with zero selector and `address(0)` payload.
     function localChain() internal view returns (uint) {
-        uint id = block.chainid;
-        if (id >> 224 != 0) revert InvalidId();
-        return (uint(Chain) << 224) | id;
+        return toLocalBase(Chain);
     }
 
     /// @notice Build a chain-local host ID for `target`.
@@ -186,21 +190,21 @@ library Ids {
     }
 
     /// @notice Extract the contract address from any local node ID.
-    /// Reverts if `id` does not belong to the local node family.
-    /// @param id Node ID (host, command, or peer).
+    /// Reverts if `id` does not belong to the local node family or carries `address(0)`.
+    /// @param id Node ID.
     /// @return Contract address in the lower 160 bits of `id`.
     function nodeAddr(uint id) internal view returns (address) {
-        if (uint32(id >> 224) == Chain || !isLocalFamily(id, Node)) revert InvalidId();
-        return address(uint160(id));
+        if (!isLocalFamily(id, Node)) revert InvalidId();
+        return ensureAddr(address(uint160(id)));
     }
 
     /// @notice Extract the contract address from a local host ID.
-    /// Reverts if `id` does not match the local host base.
+    /// Reverts if `id` does not match the local host base or carries `address(0)`.
     /// @param id Host node ID.
     /// @return Host contract address in the lower 160 bits of `id`.
     function hostAddr(uint id) internal view returns (address) {
         if (!matchesBase(bytes32(id), toLocalBase(Host))) revert InvalidId();
-        return address(uint160(id));
+        return ensureAddr(address(uint160(id)));
     }
 }
 

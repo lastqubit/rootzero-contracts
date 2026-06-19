@@ -7,15 +7,14 @@ import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 abstract contract DenyAssetsHook {
-    /// @dev Override to deny a single asset/meta pair.
+    /// @dev Override to deny a single asset.
     /// Called once per ASSET block in the request.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
-    function denyAsset(bytes32 asset, bytes32 meta) internal virtual;
+    function denyAsset(bytes32 asset) internal virtual;
 }
 
 /// @title DenyAssets
-/// @notice Admin command that blocks a list of (asset, meta) pairs via a virtual hook.
+/// @notice Admin command that blocks a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
 abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
     uint internal immutable denyAssetsId = commandId(this.denyAssets.selector);
@@ -34,8 +33,8 @@ abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
         (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
-            (bytes32 asset, bytes32 meta) = request.unpackAsset();
-            denyAsset(asset, meta);
+            bytes32 asset = request.unpackAsset();
+            denyAsset(asset);
         }
 
         request.complete();

@@ -9,16 +9,15 @@ using Cursors for Cur;
 using Writers for Writer;
 
 abstract contract AssetStatusHook {
-    /// @notice Resolve support status for one asset tuple.
+    /// @notice Resolve support status for one asset.
     /// Concrete implementations define the support policy and optional context codes.
     /// @param asset Requested asset identifier.
-    /// @param meta Requested asset metadata slot.
     /// @return status Asset support status. Zero means unsupported; nonzero means supported.
-    function assetStatus(bytes32 asset, bytes32 meta) internal view virtual returns (uint status);
+    function assetStatus(bytes32 asset) internal view virtual returns (uint status);
 }
 
 /// @title AssetStatus
-/// @notice Rootzero query that checks support status for one or more `(asset, meta)` tuples.
+/// @notice Rootzero query that checks support status for one or more assets.
 /// The request is a run of `ASSET` blocks.
 /// The response returns one `STATUS` form block per query entry, preserving request order.
 abstract contract AssetStatus is QueryBase, AssetStatusHook {
@@ -29,16 +28,16 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
         emit Labeled(assetStatusId, bytes32(0), "assetStatus");
     }
 
-    /// @notice Resolve asset support status for a run of requested `(asset, meta)` tuples.
-    /// @param request Block-stream request consisting of `#asset { bytes32 asset, bytes32 meta }` blocks.
+    /// @notice Resolve asset support status for a run of requested assets.
+    /// @param request Block-stream request consisting of `#asset { bytes32 asset }` blocks.
     /// @return Block-stream response containing one `#status { uint code }` per asset block.
     function assetStatus(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups, ) = Cursors.init(request, 1);
         Writer memory response = Writers.allocStatuses(groups);
 
         while (query.i < query.len) {
-            (bytes32 asset, bytes32 meta) = query.unpackAsset();
-            uint status = assetStatus(asset, meta);
+            bytes32 asset = query.unpackAsset();
+            uint status = assetStatus(asset);
             response.appendStatus(status);
         }
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
-import {isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
+import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
 
 /// @title Accounts
 /// @notice Encoding and decoding helpers for 256-bit account identifiers.
@@ -11,18 +11,24 @@ import {isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
 ///   - `Admin`    — chain-local EVM address in bits [191:32]
 ///   - `Guardian` — chain-local EVM address in bits [191:32]
 ///   - `User`     — chain-agnostic EVM address in bits [191:32]
+///
+/// If the first byte is zero, the account is an opaque
+/// `0x00 || bytes31(hash)` ID. The full account identity must be supplied by
+/// lookup or witness data when native account metadata is needed.
+///
+/// The helpers in this library validate and deconstruct structured account IDs.
 library Accounts {
     /// @dev Thrown when an account ID does not belong to the EVM family.
     error InvalidAccount();
 
     /// @dev 24-bit family tag shared by all EVM-backed account types.
-    uint24 constant Family = (uint24(Layout.Evm32) << 8) | uint24(Layout.Account);
+    uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Account);
     /// @dev Full 4-byte type prefix for admin accounts (chain-local EVM address).
-    uint32 constant Admin = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Admin);
+    uint32 constant Admin = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Admin);
     /// @dev Full 4-byte type prefix for guardian accounts (chain-local EVM address).
-    uint32 constant Guardian = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Guardian);
+    uint32 constant Guardian = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Guardian);
     /// @dev Full 4-byte type prefix for user accounts (chain-agnostic EVM address).
-    uint32 constant User = (uint32(Layout.Evm32) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.User);
+    uint32 constant User = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.User);
 
     /// @notice Extract the 4-byte type prefix from an account ID.
     /// @param account Account identifier.
@@ -84,24 +90,24 @@ library Accounts {
     }
 
     /// @notice Encode an EVM address as a chain-local admin account ID.
-    /// @param addr EVM address to embed.
+    /// @param account EVM address to embed.
     /// @return Admin account ID bound to the current chain.
-    function toAdmin(address addr) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Admin) | (uint(uint160(addr)) << 32));
+    function toAdmin(address account) internal view returns (bytes32) {
+        return bytes32(toLocalBase(Admin) | (uint(uint160(account)) << 32));
     }
 
     /// @notice Encode an EVM address as a chain-local guardian account ID.
-    /// @param addr EVM address to embed.
+    /// @param account EVM address to embed.
     /// @return Guardian account ID bound to the current chain.
-    function toGuardian(address addr) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Guardian) | (uint(uint160(addr)) << 32));
+    function toGuardian(address account) internal view returns (bytes32) {
+        return bytes32(toLocalBase(Guardian) | (uint(uint160(account)) << 32));
     }
 
     /// @notice Encode an EVM address as a chain-agnostic user account ID.
-    /// @param addr EVM address to embed.
+    /// @param account EVM address to embed.
     /// @return User account ID without a chain binding.
-    function toUser(address addr) internal pure returns (bytes32) {
-        return bytes32(toUnspecifiedBase(User) | (uint(uint160(addr)) << 32));
+    function toUser(address account) internal pure returns (bytes32) {
+        return bytes32(toUnspecifiedBase(User) | (uint(uint160(account)) << 32));
     }
 
     /// @notice Assert that `account` belongs to the EVM account family and return it unchanged.
@@ -122,11 +128,11 @@ library Accounts {
         return account;
     }
 
-    /// @notice Extract the EVM address embedded in an EVM-family account ID.
+    /// @notice Extract the address embedded in an EVM-family account ID.
     /// Reverts if `account` is not an EVM-family account.
     /// @param account EVM-family account ID.
-    /// @return Embedded EVM address (bits [191:32] of the ID).
-    function addrEvm(bytes32 account) internal pure returns (address) {
-        return address(uint160(uint(ensureEvm(account)) >> 32));
+    /// @return Embedded address (bits [191:32] of the ID).
+    function addr(bytes32 account) internal pure returns (address) {
+        return ensureAddr(address(uint160(uint(ensureEvm(account)) >> 32)));
     }
 }

@@ -7,15 +7,14 @@ import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 abstract contract AllowAssetsHook {
-    /// @dev Override to allow a single asset/meta pair.
+    /// @dev Override to allow a single asset.
     /// Called once per ASSET block in the request.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
-    function allowAsset(bytes32 asset, bytes32 meta) internal virtual;
+    function allowAsset(bytes32 asset) internal virtual;
 }
 
 /// @title AllowAssets
-/// @notice Admin command that permits a list of (asset, meta) pairs via a virtual hook.
+/// @notice Admin command that permits a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `allowAsset`. Only callable by the admin account.
 abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
     uint internal immutable allowAssetsId = commandId(this.allowAssets.selector);
@@ -34,8 +33,8 @@ abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
         (Cur memory request, , ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
-            (bytes32 asset, bytes32 meta) = request.unpackAsset();
-            allowAsset(asset, meta);
+            bytes32 asset = request.unpackAsset();
+            allowAsset(asset);
         }
 
         request.complete();

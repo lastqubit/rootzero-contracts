@@ -10,9 +10,8 @@ abstract contract WithdrawHook {
     /// Called once per BALANCE block in state.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount to deliver.
-    function withdraw(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function withdraw(bytes32 account, bytes32 asset, uint amount) internal virtual;
 }
 
 /// @title Withdraw
@@ -36,8 +35,8 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
         (Cur memory state, , ) = Cursors.init(c.state, 1);
 
         while (state.i < state.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            withdraw(c.account, asset, meta, amount);
+            (bytes32 asset, uint amount) = state.unpackBalance();
+            withdraw(c.account, asset, amount);
         }
 
         state.complete();

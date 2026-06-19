@@ -36,11 +36,12 @@ import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 import { PeerBase, encodePeerCall } from "./peer/Base.sol";
 import { PeerAllowAssets, IPeerAllowAssets } from "./peer/AllowAssets.sol";
 import { PeerAllowance, IPeerAllowance } from "./peer/Allowance.sol";
-import { PeerBalancePull, BalancePullHook, IPeerBalancePull } from "./peer/BalancePull.sol";
-import { PeerCreditTo, IPeerCreditTo } from "./peer/Credit.sol";
-import { PeerDebitFrom, IPeerDebitFrom } from "./peer/Debit.sol";
+import { PeerRedeemBalance, RedeemBalanceHook, IPeerRedeemBalance } from "./peer/Redeem.sol";
+import { PeerCreditAccount, IPeerCreditAccount } from "./peer/Credit.sol";
+import { PeerDebitAccount, IPeerDebitAccount } from "./peer/Debit.sol";
 import { PeerDenyAssets, IPeerDenyAssets } from "./peer/DenyAssets.sol";
 import { PeerPipePayable, IPeerPipePayable } from "./peer/Pipe.sol";
+import { PeerRecover, RecoverHook, IPeerRecover } from "./peer/Recover.sol";
 import { PeerDispatchPayable, IPeerDispatchPayable } from "./peer/Dispatch.sol";
 import { PeerSettle, IPeerSettle } from "./peer/Settle.sol";
 

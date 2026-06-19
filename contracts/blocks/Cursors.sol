@@ -502,21 +502,19 @@ library Cursors {
 
     /// @notice Encode a BALANCE block.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     /// @return Encoded BALANCE block bytes.
-    function toBalanceBlock(bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
-        return createBlock96(Keys.Balance, asset, meta, bytes32(amount));
+    function toBalanceBlock(bytes32 asset, uint amount) internal pure returns (bytes memory) {
+        return createBlock64(Keys.Balance, asset, bytes32(amount));
     }
 
     /// @notice Encode a CUSTODY block.
     /// @param host Host node ID holding the custody.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     /// @return Encoded CUSTODY block bytes.
-    function toCustodyBlock(uint host, bytes32 asset, bytes32 meta, uint amount) internal pure returns (bytes memory) {
-        return createBlock128(Keys.Custody, bytes32(host), asset, meta, bytes32(amount));
+    function toCustodyBlock(uint host, bytes32 asset, uint amount) internal pure returns (bytes memory) {
+        return createBlock96(Keys.Custody, bytes32(host), asset, bytes32(amount));
     }
 
     /// @notice Encode a STEP block.
@@ -813,94 +811,84 @@ library Cursors {
 
     // Generic typed-shape decoders
 
-    /// @notice Consume a fixed-size asset amount block and return asset, meta, and amount.
+    /// @notice Consume a fixed-size asset amount block and return asset and amount.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Scalar amount value.
     function unpackAssetAmount(
         Cur memory cur,
         bytes4 key
-    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 96, 96);
+    ) internal pure returns (bytes32 asset, uint amount) {
+        uint abs = consume(cur, 0, key, 64, 64);
         asset = bytes32(msg.data[abs:abs + 32]);
-        meta = bytes32(msg.data[abs + 32:abs + 64]);
-        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
+        amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
     }
 
-    /// @notice Consume a fixed-size account amount block and return account, asset, meta, and amount.
+    /// @notice Consume a fixed-size account amount block and return account, asset, and amount.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Scalar amount value.
     function unpackAccountAmount(
         Cur memory cur,
         bytes4 key
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
+        uint abs = consume(cur, 0, key, 96, 96);
         account = bytes32(msg.data[abs:abs + 32]);
         asset = bytes32(msg.data[abs + 32:abs + 64]);
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
+        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
-    /// @notice Consume a fixed-size host amount block and return host, asset, meta, and amount.
+    /// @notice Consume a fixed-size host amount block and return host, asset, and amount.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @return host Host node ID.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Scalar amount value.
     function unpackHostAmount(
         Cur memory cur,
         bytes4 key
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+        uint abs = consume(cur, 0, key, 96, 96);
         host = uint(bytes32(msg.data[abs:abs + 32]));
         asset = bytes32(msg.data[abs + 32:abs + 64]);
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
+        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
-    /// @notice Consume a fixed-size host account asset block and return host, account, asset, and meta.
+    /// @notice Consume a fixed-size host account asset block and return host, account, and asset.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @return host Host node ID.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     function unpackHostAccountAsset(
         Cur memory cur,
         bytes4 key
-    ) internal pure returns (uint host, bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (uint host, bytes32 account, bytes32 asset) {
+        uint abs = consume(cur, 0, key, 96, 96);
         host = uint(bytes32(msg.data[abs:abs + 32]));
         account = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
-        meta = bytes32(msg.data[abs + 96:abs + 128]);
     }
 
-    /// @notice Consume a fixed-size transaction block and return from, to, asset, meta, and amount.
+    /// @notice Consume a fixed-size transaction block and return from, to, asset, and amount.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @return from Source account identifier.
     /// @return to Destination account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Scalar amount value.
     function unpackTransaction(
         Cur memory cur,
         bytes4 key
-    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 160, 160);
+    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
+        uint abs = consume(cur, 0, key, 128, 128);
         from = bytes32(msg.data[abs:abs + 32]);
         to = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
-        meta = bytes32(msg.data[abs + 96:abs + 128]);
-        amount = uint(bytes32(msg.data[abs + 128:abs + 160]));
+        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
     }
 
     // Type-specific fixed-width decoders
@@ -926,31 +914,28 @@ library Cursors {
         amount = uint(unpack32(cur, Keys.Fee));
     }
 
-    /// @notice Consume an ASSET block and return the asset descriptor fields.
+    /// @notice Consume an ASSET block and return the asset identifier.
     /// @param cur Cursor; advanced past the block.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    function unpackAsset(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta) {
-        (asset, meta) = unpack64(cur, Keys.Asset);
+    function unpackAsset(Cur memory cur) internal pure returns (bytes32 asset) {
+        asset = unpack32(cur, Keys.Asset);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
-    function unpackAccountAsset(Cur memory cur) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, 0, Keys.AccountAsset, 96, 96);
+    function unpackAccountAsset(Cur memory cur) internal pure returns (bytes32 account, bytes32 asset) {
+        uint abs = consume(cur, 0, Keys.AccountAsset, 64, 64);
         account = bytes32(msg.data[abs:abs + 32]);
         asset = bytes32(msg.data[abs + 32:abs + 64]);
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded account, asset, and meta.
+    /// @return value Decoded account and asset.
     function unpackAccountAssetValue(Cur memory cur) internal pure returns (AccountAsset memory value) {
-        (value.account, value.asset, value.meta) = unpackAccountAsset(cur);
+        (value.account, value.asset) = unpackAccountAsset(cur);
     }
 
     /// @notice Consume a BOUNTY block and return the reward amount and relayer.
@@ -966,33 +951,31 @@ library Cursors {
     /// @notice Consume an AMOUNT block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
-    function unpackAmount(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+    function unpackAmount(Cur memory cur) internal pure returns (bytes32 asset, uint amount) {
         return unpackAssetAmount(cur, Keys.Amount);
     }
 
     /// @notice Consume an AMOUNT block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and amount.
+    /// @return value Decoded asset and amount.
     function unpackAmountValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Amount);
+        (value.asset, value.amount) = unpackAssetAmount(cur, Keys.Amount);
     }
 
     /// @notice Consume a BALANCE block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
-    function unpackBalance(Cur memory cur) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
+    function unpackBalance(Cur memory cur) internal pure returns (bytes32 asset, uint amount) {
         return unpackAssetAmount(cur, Keys.Balance);
     }
 
     /// @notice Consume a BALANCE block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded asset, meta, and amount.
+    /// @return value Decoded asset and amount.
     function unpackBalanceValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.meta, value.amount) = unpackAssetAmount(cur, Keys.Balance);
+        (value.asset, value.amount) = unpackAssetAmount(cur, Keys.Balance);
     }
 
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as separate values.
@@ -1000,92 +983,87 @@ library Cursors {
     /// @return host Host node ID.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     function unpackHostAccountAsset(
         Cur memory cur
-    ) internal pure returns (uint host, bytes32 account, bytes32 asset, bytes32 meta) {
+    ) internal pure returns (uint host, bytes32 account, bytes32 asset) {
         return unpackHostAccountAsset(cur, Keys.HostAccountAsset);
     }
 
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, account, asset, and meta.
+    /// @return value Decoded host, account, and asset.
     function unpackHostAccountAssetValue(Cur memory cur) internal pure returns (HostAccountAsset memory value) {
-        (value.host, value.account, value.asset, value.meta) = unpackHostAccountAsset(cur, Keys.HostAccountAsset);
+        (value.host, value.account, value.asset) = unpackHostAccountAsset(cur, Keys.HostAccountAsset);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
     function unpackAccountAmount(
         Cur memory cur
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta, uint amount) {
+    ) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
         return unpackAccountAmount(cur, Keys.AccountAmount);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded account, asset, meta, and amount.
+    /// @return value Decoded account, asset, and amount.
     function unpackAccountAmountValue(Cur memory cur) internal pure returns (AccountAmount memory value) {
-        (value.account, value.asset, value.meta, value.amount) = unpackAccountAmount(cur, Keys.AccountAmount);
+        (value.account, value.asset, value.amount) = unpackAccountAmount(cur, Keys.AccountAmount);
     }
 
     /// @notice Consume an ALLOCATION block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
     function unpackAllocation(
         Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    ) internal pure returns (uint host, bytes32 asset, uint amount) {
         return unpackHostAmount(cur, Keys.Allocation);
     }
 
     /// @notice Consume an ALLOCATION block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, meta, and amount.
+    /// @return value Decoded host, asset, and amount.
     function unpackAllocationValue(Cur memory cur) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.meta, value.amount) = unpackHostAmount(cur, Keys.Allocation);
+        (value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Allocation);
     }
 
     /// @notice Consume an ALLOWANCE block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
     function unpackAllowance(
         Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    ) internal pure returns (uint host, bytes32 asset, uint amount) {
         return unpackHostAmount(cur, Keys.Allowance);
     }
 
     /// @notice Consume an ALLOWANCE block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, meta, and amount.
+    /// @return value Decoded host, asset, and amount.
     function unpackAllowanceValue(Cur memory cur) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.meta, value.amount) = unpackHostAmount(cur, Keys.Allowance);
+        (value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Allowance);
     }
 
     /// @notice Consume a CUSTODY block and return its fields as separate values.
     /// @param cur Cursor; advanced past the block.
     /// @return host Host node ID.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
-    function unpackCustody(Cur memory cur) internal pure returns (uint host, bytes32 asset, bytes32 meta, uint amount) {
+    function unpackCustody(Cur memory cur) internal pure returns (uint host, bytes32 asset, uint amount) {
         return unpackHostAmount(cur, Keys.Custody);
     }
 
     /// @notice Consume a CUSTODY block and return its fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded host, asset, meta, and amount.
+    /// @return value Decoded host, asset, and amount.
     function unpackCustodyValue(Cur memory cur) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.meta, value.amount) = unpackHostAmount(cur, Keys.Custody);
+        (value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Custody);
     }
 
     /// @notice Consume a TRANSACTION block and return its fields as separate values.
@@ -1093,19 +1071,18 @@ library Cursors {
     /// @return from Source account identifier.
     /// @return to Destination account identifier.
     /// @return asset Asset identifier.
-    /// @return meta Asset metadata slot.
     /// @return amount Token amount.
     function unpackTransaction(
         Cur memory cur
-    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount) {
+    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
         return unpackTransaction(cur, Keys.Transaction);
     }
 
     /// @notice Consume a TRANSACTION block and return all fields as a struct.
     /// @param cur Cursor; advanced past the block.
-    /// @return value Decoded from, to, asset, meta, and amount.
+    /// @return value Decoded from, to, asset, and amount.
     function unpackTxValue(Cur memory cur) internal pure returns (Tx memory value) {
-        (value.from, value.to, value.asset, value.meta, value.amount) = unpackTransaction(cur);
+        (value.from, value.to, value.asset, value.amount) = unpackTransaction(cur);
     }
 
     // Type-specific dynamic decoders
@@ -1225,47 +1202,25 @@ library Cursors {
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block type key.
     /// @param asset Expected asset identifier.
-    /// @return meta Metadata slot from the block.
     /// @return amount Amount from the block.
     function requireAssetAmount(
         Cur memory cur,
         bytes4 key,
         bytes32 asset
-    ) internal pure returns (bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 96, 96);
-        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        meta = bytes32(msg.data[abs + 32:abs + 64]);
-        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
-    }
-
-    /// @notice Consume an asset amount block and assert it matches the expected asset and meta.
-    /// @param cur Cursor; advanced past the block.
-    /// @param key Expected block type key.
-    /// @param asset Expected asset identifier.
-    /// @param meta Expected metadata slot.
-    /// @return amount Amount from the block.
-    function requireAssetAmount(
-        Cur memory cur,
-        bytes4 key,
-        bytes32 asset,
-        bytes32 meta
     ) internal pure returns (uint amount) {
-        uint abs = consume(cur, 0, key, 96, 96);
+        uint abs = consume(cur, 0, key, 64, 64);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        if (bytes32(msg.data[abs + 32:abs + 64]) != meta) revert UnexpectedValue();
-        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
+        amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
     }
 
     /// @notice Consume an asset amount block, assert it matches the expected asset, and require the amount to be 1.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block type key.
     /// @param asset Expected asset identifier.
-    /// @return meta Metadata slot from the block.
-    function requireUnitAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure returns (bytes32 meta) {
-        uint abs = consume(cur, 0, key, 96, 96);
+    function requireUnitAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure {
+        uint abs = consume(cur, 0, key, 64, 64);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        meta = bytes32(msg.data[abs + 32:abs + 64]);
-        if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 32:abs + 64])) != 1) revert UnexpectedValue();
     }
 
     /// @notice Consume a host amount block and assert it matches the expected host.
@@ -1273,18 +1228,16 @@ library Cursors {
     /// @param key Expected block type key.
     /// @param host Expected host node ID.
     /// @return asset Asset identifier from the block.
-    /// @return meta Metadata slot from the block.
     /// @return amount Amount from the block.
     function requireHostAmount(
         Cur memory cur,
         bytes4 key,
         uint host
-    ) internal pure returns (bytes32 asset, bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (bytes32 asset, uint amount) {
+        uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         asset = bytes32(msg.data[abs + 32:abs + 64]);
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
+        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
     /// @notice Consume a host amount block and assert it matches the expected host and asset.
@@ -1292,19 +1245,17 @@ library Cursors {
     /// @param key Expected block type key.
     /// @param host Expected host node ID.
     /// @param asset Expected asset identifier.
-    /// @return meta Metadata slot from the block.
     /// @return amount Amount from the block.
     function requireHostAmount(
         Cur memory cur,
         bytes4 key,
         uint host,
         bytes32 asset
-    ) internal pure returns (bytes32 meta, uint amount) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (uint amount) {
+        uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        amount = uint(bytes32(msg.data[abs + 96:abs + 128]));
+        amount = uint(bytes32(msg.data[abs + 64:abs + 96]));
     }
 
     /// @notice Consume a host amount block, assert it matches the expected host and asset, and require the amount to be 1.
@@ -1312,18 +1263,16 @@ library Cursors {
     /// @param key Expected block type key.
     /// @param host Expected host node ID.
     /// @param asset Expected asset identifier.
-    /// @return meta Metadata slot from the block.
     function requireUnitHostAmount(
         Cur memory cur,
         bytes4 key,
         uint host,
         bytes32 asset
-    ) internal pure returns (bytes32 meta) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure {
+        uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
-        meta = bytes32(msg.data[abs + 64:abs + 96]);
-        if (uint(bytes32(msg.data[abs + 96:abs + 128])) != 1) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) != 1) revert UnexpectedValue();
     }
 
     /// @notice Consume a host account asset block and assert it matches the expected host and account.
@@ -1332,49 +1281,44 @@ library Cursors {
     /// @param host Expected host node ID.
     /// @param account Expected account identifier.
     /// @return asset Asset identifier from the block.
-    /// @return meta Metadata slot from the block.
     function requireHostAccountAsset(
         Cur memory cur,
         bytes4 key,
         uint host,
         bytes32 account
-    ) internal pure returns (bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (bytes32 asset) {
+        uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != account) revert UnexpectedValue();
         asset = bytes32(msg.data[abs + 64:abs + 96]);
-        meta = bytes32(msg.data[abs + 96:abs + 128]);
     }
 
-    /// @notice Consume a host account asset block, assert it targets the expected host, and return account, asset, and meta.
+    /// @notice Consume a host account asset block, assert it targets the expected host, and return account and asset.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected block key.
     /// @param host Expected host node ID.
     /// @return account Account identifier from the block.
     /// @return asset Asset identifier from the block.
-    /// @return meta Metadata slot from the block.
     function requireHostAccountAsset(
         Cur memory cur,
         bytes4 key,
         uint host
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
-        uint abs = consume(cur, 0, key, 128, 128);
+    ) internal pure returns (bytes32 account, bytes32 asset) {
+        uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         account = bytes32(msg.data[abs + 32:abs + 64]);
         asset = bytes32(msg.data[abs + 64:abs + 96]);
-        meta = bytes32(msg.data[abs + 96:abs + 128]);
     }
 
-    /// @notice Consume a HOST_ACCOUNT_ASSET form block, assert it targets the expected host, and return account, asset, and meta.
+    /// @notice Consume a HOST_ACCOUNT_ASSET form block, assert it targets the expected host, and return account and asset.
     /// @param cur Cursor; advanced past the block.
     /// @param host Expected host node ID.
     /// @return account Account identifier from the block.
     /// @return asset Asset identifier from the block.
-    /// @return meta Metadata slot from the block.
     function requireHostAccountAsset(
         Cur memory cur,
         uint host
-    ) internal pure returns (bytes32 account, bytes32 asset, bytes32 meta) {
+    ) internal pure returns (bytes32 account, bytes32 asset) {
         return requireHostAccountAsset(cur, Keys.HostAccountAsset, host);
     }
 
@@ -1395,29 +1339,25 @@ library Cursors {
     /// @notice Consume a BALANCE_LIMIT block and assert all constraint fields match the provided balance.
     /// @param cur Cursor; advanced past the block.
     /// @param asset Expected asset identifier.
-    /// @param meta Expected metadata slot.
     /// @param amount Amount that must fall within the encoded min/max range.
-    function ensureBalanceLimit(Cur memory cur, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        uint abs = consume(cur, 0, Keys.BalanceLimit, 128, 128);
+    function ensureBalanceLimit(Cur memory cur, bytes32 asset, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.BalanceLimit, 96, 96);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        if (bytes32(msg.data[abs + 32:abs + 64]) != meta) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 64:abs + 96])) > amount) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 96:abs + 128])) < amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 32:abs + 64])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) < amount) revert UnexpectedValue();
     }
 
     /// @notice Consume a CUSTODY_LIMIT block and assert all constraint fields match the provided custody.
     /// @param cur Cursor; advanced past the block.
     /// @param host Expected host node ID.
     /// @param asset Expected asset identifier.
-    /// @param meta Expected metadata slot.
     /// @param amount Amount that must fall within the encoded min/max range.
-    function ensureCustodyLimit(Cur memory cur, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        uint abs = consume(cur, 0, Keys.CustodyLimit, 160, 160);
+    function ensureCustodyLimit(Cur memory cur, uint host, bytes32 asset, uint amount) internal pure {
+        uint abs = consume(cur, 0, Keys.CustodyLimit, 128, 128);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
-        if (bytes32(msg.data[abs + 64:abs + 96]) != meta) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 96:abs + 128])) > amount) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 128:abs + 160])) < amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 64:abs + 96])) > amount) revert UnexpectedValue();
+        if (uint(bytes32(msg.data[abs + 96:abs + 128])) < amount) revert UnexpectedValue();
     }
 
     // -------------------------------------------------------------------------

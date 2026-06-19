@@ -6,7 +6,7 @@ import { Burn } from "../commands/Burn.sol";
 import { Ids } from "../utils/Ids.sol";
 
 contract TestBurnHost is Host, Burn {
-    event BurnCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
+    event BurnCalled(bytes32 account, bytes32 asset, uint amount);
 
     constructor(address cmdr)
         Host(address(0))
@@ -15,11 +15,11 @@ contract TestBurnHost is Host, Burn {
         if (cmdr != address(0)) setNode(Ids.toHost(cmdr), true);
     }
 
-    function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount)
+    function burn(bytes32 account, bytes32 asset, uint amount)
         internal override
         returns (uint)
     {
-        emit BurnCalled(account, asset, meta, amount);
+        emit BurnCalled(account, asset, amount);
         return amount;
     }
 

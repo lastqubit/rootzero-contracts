@@ -41,58 +41,57 @@ contract TestHost is
     DenyAssets,
     Allowance
 {
-    event DepositCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event DepositPayableCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
-    event WithdrawCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event CreditToCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
-    event DebitFromCalled(bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint returned);
-    event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount);
-    event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount);
-    event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, bytes32 meta, uint amount, uint remaining);
+    event DepositCalled(bytes32 account, bytes32 asset, uint amount);
+    event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
+    event WithdrawCalled(bytes32 account, bytes32 asset, uint amount);
+    event CreditToCalled(bytes32 account, bytes32 asset, uint amount, uint returned);
+    event DebitFromCalled(bytes32 account, bytes32 asset, uint amount, uint returned);
+    event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
+    event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
+    event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint chain, uint resources, bytes pipe);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
-    event AllowAssetCalled(bytes32 asset, bytes32 meta);
-    event DenyAssetCalled(bytes32 asset, bytes32 meta);
-    event AllowanceCalled(uint host_, bytes32 asset, bytes32 meta, uint amount);
+    event AllowAssetCalled(bytes32 asset);
+    event DenyAssetCalled(bytes32 asset);
+    event AllowanceCalled(uint host_, bytes32 asset, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
 
     constructor(address rootzero) Host(rootzero) Deposit() Provision() Init("") Destroy("") {}
 
-    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit DepositCalled(account, asset, meta, amount);
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
+        emit DepositCalled(account, asset, amount);
     }
 
     function deposit(
         bytes32 account,
         bytes32 asset,
-        bytes32 meta,
         uint amount,
         Budget memory budget
     ) internal override {
-        emit DepositPayableCalled(account, asset, meta, Values.use(budget, uint128(amount)), budget.remaining);
+        emit DepositPayableCalled(account, asset, Values.use(budget, uint128(amount)), budget.remaining);
     }
 
-    function withdraw(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit WithdrawCalled(account, asset, meta, amount);
+    function withdraw(bytes32 account, bytes32 asset, uint amount) internal override {
+        emit WithdrawCalled(account, asset, amount);
     }
 
-    function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit CreditToCalled(account, asset, meta, amount, amount);
+    function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {
+        emit CreditToCalled(account, asset, amount, amount);
     }
 
-    function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit DebitFromCalled(account, asset, meta, amount, amount);
+    function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {
+        emit DebitFromCalled(account, asset, amount, amount);
     }
 
-    function payout(bytes32 account, bytes32 to, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit PayoutCalled(account, to, asset, meta, amount);
+    function payout(bytes32 account, bytes32 to, bytes32 asset, uint amount) internal override {
+        emit PayoutCalled(account, to, asset, amount);
     }
 
     function provision(bytes32 account, HostAmount memory custody) internal override {
-        emit ProvisionCalled(custody.host, account, custody.asset, custody.meta, custody.amount);
+        emit ProvisionCalled(custody.host, account, custody.asset, custody.amount);
     }
 
     function provision(
@@ -101,7 +100,7 @@ contract TestHost is
         Budget memory budget
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, custody.meta, Values.use(budget, uint128(custody.amount)), budget.remaining
+            custody.host, account, custody.asset, Values.use(budget, uint128(custody.amount)), budget.remaining
         );
     }
 
@@ -136,16 +135,16 @@ contract TestHost is
         emit DestroyCalled(inputData);
     }
 
-    function allowAsset(bytes32 asset, bytes32 meta) internal override {
-        emit AllowAssetCalled(asset, meta);
+    function allowAsset(bytes32 asset) internal override {
+        emit AllowAssetCalled(asset);
     }
 
-    function denyAsset(bytes32 asset, bytes32 meta) internal override {
-        emit DenyAssetCalled(asset, meta);
+    function denyAsset(bytes32 asset) internal override {
+        emit DenyAssetCalled(asset);
     }
 
-    function allowance(uint peer, bytes32 asset, bytes32 meta, uint amount) internal override {
-        emit AllowanceCalled(peer, asset, meta, amount);
+    function allowance(uint peer, bytes32 asset, uint amount) internal override {
+        emit AllowanceCalled(peer, asset, amount);
     }
 
     function dispatch(

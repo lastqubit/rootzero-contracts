@@ -29,10 +29,8 @@ contract TestBalancesQuery is GetBalances {
         return nativeAsset;
     }
 
-    function getBalance(bytes32 account, bytes32 asset, bytes32 meta) internal view override returns (uint amount) {
-        Assets.slot(asset, meta);
-
-        address accountAddr = Accounts.addrEvm(account);
+    function getBalance(bytes32 account, bytes32 asset) internal view override returns (uint amount) {
+        address accountAddr = Accounts.addr(account);
         if (asset == nativeAsset) return accountAddr.balance;
         if (asset == tokenAsset) return token.balanceOf(accountAddr);
         revert Assets.InvalidAsset();

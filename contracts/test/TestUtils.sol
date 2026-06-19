@@ -26,8 +26,8 @@ contract TestUtils is Payable {
         return Accounts.toUser(addr);
     }
 
-    function testAccountEvmAddr(bytes32 account) external pure returns (address) {
-        return Accounts.addrEvm(account);
+    function testAccountAddr(bytes32 account) external pure returns (address) {
+        return Accounts.addr(account);
     }
 
     function testIsAdminAccount(bytes32 account) external pure returns (bool) {
@@ -70,24 +70,8 @@ contract TestUtils is Payable {
         return Assets.toErc20(addr);
     }
 
-    function testToErc721Asset(address addr) external view returns (bytes32) {
-        return Assets.toErc721(addr);
-    }
-
-    function testToErc1155Asset(address addr) external view returns (bytes32) {
-        return Assets.toErc1155(addr);
-    }
-
-    function testIsAsset32(bytes32 asset) external pure returns (bool) {
-        return Assets.is32(asset);
-    }
-
     function testIsAsset(bytes32 asset) external pure returns (bool) {
         return Assets.isAsset(asset);
-    }
-
-    function testIsAsset64(bytes32 asset) external pure returns (bool) {
-        return Assets.is64(asset);
     }
 
     function testResolveAmount(uint available, uint min, uint max) external pure returns (uint) {
@@ -102,32 +86,12 @@ contract TestUtils is Payable {
         return Amounts.ensure(amount, min, max);
     }
 
-    function testAssetSlot(bytes32 asset, bytes32 meta) external pure returns (bytes32) {
-        return Assets.slot(asset, meta);
-    }
-
     function testLocalErc20Addr(bytes32 asset) external view returns (address) {
         return Assets.erc20Addr(asset);
     }
 
     function testMatchErc20(bytes32 asset, address token) external view returns (bytes32) {
         return Assets.matchErc20(asset, token);
-    }
-
-    function testLocalErc721Collection(bytes32 asset) external view returns (address) {
-        return Assets.erc721Collection(asset);
-    }
-
-    function testMatchErc721(bytes32 asset, address collection) external view returns (bytes32) {
-        return Assets.matchErc721(asset, collection);
-    }
-
-    function testLocalErc1155Collection(bytes32 asset) external view returns (address) {
-        return Assets.erc1155Collection(asset);
-    }
-
-    function testMatchErc1155(bytes32 asset, address collection) external view returns (bytes32) {
-        return Assets.matchErc1155(asset, collection);
     }
 
     function testToHostId(address addr) external view returns (uint) {

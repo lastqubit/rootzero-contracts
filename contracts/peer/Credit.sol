@@ -7,30 +7,30 @@ import { Cursors, Cur, Forms } from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPeerCreditTo {
-    function peerCreditTo(bytes calldata request) external returns (bytes memory);
+interface IPeerCreditAccount {
+    function peerCreditAccount(bytes calldata request) external returns (bytes memory);
 }
 
-/// @title PeerCreditTo
+/// @title PeerCreditAccount
 /// @notice Peer that lets a trusted peer credit supplied accounts directly.
 /// Each ACCOUNT_AMOUNT block calls `creditAccount` for its account.
-abstract contract PeerCreditTo is PeerBase, CreditAccountHook, IPeerCreditTo {
-    uint internal immutable peerCreditToId = peerId(this.peerCreditTo.selector);
+abstract contract PeerCreditAccount is PeerBase, CreditAccountHook, IPeerCreditAccount {
+    uint internal immutable peerCreditAccountId = peerId(this.peerCreditAccount.selector);
 
     constructor() {
-        emit Peer(host, peerCreditToId, "1:0", Forms.AccountAmount, "", false);
-        emit Labeled(peerCreditToId, bytes32(0), "peerCreditTo");
+        emit Peer(host, peerCreditAccountId, "1:0", Forms.AccountAmount, "", false);
+        emit Labeled(peerCreditAccountId, bytes32(0), "peerCreditAccount");
     }
 
     /// @notice Execute the peer-credit call.
     /// @param request ACCOUNT_AMOUNT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
-    function peerCreditTo(bytes calldata request) external onlyPeer returns (bytes memory) {
+    function peerCreditAccount(bytes calldata request) external onlyPeer returns (bytes memory) {
         (Cur memory amounts, , ) = Cursors.init(request, 1);
 
         while (amounts.i < amounts.len) {
-            (bytes32 account, bytes32 asset, bytes32 meta, uint amount) = amounts.unpackAccountAmount();
-            creditAccount(account, asset, meta, amount);
+            (bytes32 account, bytes32 asset, uint amount) = amounts.unpackAccountAmount();
+            creditAccount(account, asset, amount);
         }
 
         amounts.complete();

@@ -15,9 +15,8 @@ abstract contract DepositHook {
     /// output after each call.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount received.
-    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal virtual;
 }
 
 abstract contract DepositPayableHook {
@@ -26,10 +25,9 @@ abstract contract DepositPayableHook {
     /// output after each call.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount received.
     /// @param budget Mutable native-value budget drawn from `msg.value`.
-    function deposit(bytes32 account, bytes32 asset, bytes32 meta, uint amount, Budget memory budget) internal virtual;
+    function deposit(bytes32 account, bytes32 asset, uint amount, Budget memory budget) internal virtual;
 }
 
 /// @title Deposit
@@ -54,9 +52,9 @@ abstract contract Deposit is CommandBase, DepositHook {
         Writer memory writer = Writers.allocBalances(groups);
 
         while (request.i < request.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
-            deposit(c.account, asset, meta, amount);
-            writer.appendBalance(asset, meta, amount);
+            (bytes32 asset, uint amount) = request.unpackAmount();
+            deposit(c.account, asset, amount);
+            writer.appendBalance(asset, amount);
         }
 
         request.complete();
@@ -86,9 +84,9 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
         Budget memory budget = valueBudget();
 
         while (request.i < request.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = request.unpackAmount();
-            deposit(c.account, asset, meta, amount, budget);
-            writer.appendBalance(asset, meta, amount);
+            (bytes32 asset, uint amount) = request.unpackAmount();
+            deposit(c.account, asset, amount, budget);
+            writer.appendBalance(asset, amount);
         }
 
         settleValue(c.account, budget);

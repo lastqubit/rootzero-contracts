@@ -11,11 +11,10 @@ describe("GetPosition", () => {
   it("returns one response block for one asset query", async () => {
     const query = await deploy("TestGetPositionQuery");
     const asset = await query.firstAsset();
-    const meta = await query.firstMeta();
     const account = pad32(0n);
 
     const result: string = await query.getPosition.staticCall(
-      encodeAccountAssetBlock(account, asset, meta),
+      encodeAccountAssetBlock(account, asset),
     );
 
     expect(result).to.equal(encodeDataBlock(pad32(11n)));
@@ -24,14 +23,12 @@ describe("GetPosition", () => {
   it("maps multiple asset blocks into matching response blocks in order", async () => {
     const query = await deploy("TestGetPositionQuery");
     const firstAsset = await query.firstAsset();
-    const firstMeta = await query.firstMeta();
     const secondAsset = await query.secondAsset();
-    const secondMeta = await query.secondMeta();
     const account = pad32(0n);
 
     const request = concat(
-      encodeAccountAssetBlock(account, firstAsset, firstMeta),
-      encodeAccountAssetBlock(account, secondAsset, secondMeta),
+      encodeAccountAssetBlock(account, firstAsset),
+      encodeAccountAssetBlock(account, secondAsset),
     );
 
     const result: string = await query.getPosition.staticCall(request);

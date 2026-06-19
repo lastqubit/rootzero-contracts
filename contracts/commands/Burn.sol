@@ -10,10 +10,9 @@ abstract contract BurnHook {
     /// Called once per BALANCE block in state.
     /// @param account Caller's account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount to burn.
     /// @return Amount actually burned (may differ from `amount` for partial burns).
-    function burn(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual returns (uint);
+    function burn(bytes32 account, bytes32 asset, uint amount) internal virtual returns (uint);
 }
 
 /// @title Burn
@@ -34,8 +33,8 @@ abstract contract Burn is CommandBase, BurnHook {
         (Cur memory state, , ) = Cursors.init(c.state, 1);
 
         while (state.i < state.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            burn(c.account, asset, meta, amount);
+            (bytes32 asset, uint amount) = state.unpackBalance();
+            burn(c.account, asset, amount);
         }
 
         state.complete();

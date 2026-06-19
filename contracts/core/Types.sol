@@ -5,8 +5,6 @@ pragma solidity ^0.8.33;
 struct AssetAmount {
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
     /// @dev Token amount in the asset's native units.
     uint amount;
 }
@@ -17,8 +15,6 @@ struct AccountAsset {
     bytes32 account;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
 }
 
 /// @notice Account-scoped amount shape for requests, responses, and reporting.
@@ -27,8 +23,6 @@ struct AccountAmount {
     bytes32 account;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
     /// @dev Token amount in the asset's native units.
     uint amount;
 }
@@ -39,8 +33,6 @@ struct HostAmount {
     uint host;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
     /// @dev Token amount in the asset's native units.
     uint amount;
 }
@@ -53,8 +45,6 @@ struct HostAccountAsset {
     bytes32 account;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
 }
 
 /// @notice Host-scoped account amount shape.
@@ -65,8 +55,6 @@ struct HostAccountAmount {
     bytes32 account;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
     /// @dev Token amount in the asset's native units.
     uint amount;
 }
@@ -79,8 +67,6 @@ struct Tx {
     bytes32 to;
     /// @dev Asset identifier.
     bytes32 asset;
-    /// @dev Asset metadata slot.
-    bytes32 meta;
     /// @dev Transfer amount in the asset's native units.
     uint amount;
 }

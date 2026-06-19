@@ -31,8 +31,8 @@ abstract contract PeerAllowance is PeerBase, AllowanceHook, IPeerAllowance {
         uint peer = caller();
 
         while (amounts.i < amounts.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = amounts.unpackAmount();
-            allowance(peer, asset, meta, amount);
+            (bytes32 asset, uint amount) = amounts.unpackAmount();
+            allowance(peer, asset, amount);
         }
 
         amounts.complete();

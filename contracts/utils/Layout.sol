@@ -7,23 +7,19 @@ pragma solidity ^0.8.33;
 ///
 /// IDs are structured as:
 ///   `[uint32 type][uint32 chainid][192-bit payload]`
-/// where `type` is `[uint8 vm][uint8 width][uint8 category][uint8 subtype]`.
+/// where `type` is `[uint16 representation][uint8 category][uint8 subtype]`.
+///
+/// Values whose first byte is zero are opaque IDs:
+///   `[0x00][bytes31 truncated hash]`
+/// They require lookup or witness data when the native preimage is needed.
+/// Values whose first byte is nonzero follow the structured layout above.
 library Layout {
     // -------------------------------------------------------------------------
-    // VM and data-width tags (top 2 bytes of the ID type field)
+    // Representation tags (top 2 bytes of the ID type field)
     // -------------------------------------------------------------------------
 
-    /// @dev EVM-compatible value; payloads are built around 20-byte addresses.
-    uint8 constant Evm = 0x01;
-    /// @dev 32-byte ID; no paired metadata word is required.
-    uint8 constant Width32 = 0x20;
-    /// @dev 64-byte ID; a paired metadata word completes the identity.
-    uint8 constant Width64 = 0x40;
-
-    /// @dev 32-byte EVM-compatible value; lower 20 bytes hold an address.
-    uint16 constant Evm32 = (uint16(Evm) << 8) | uint16(Width32);
-    /// @dev 64-byte EVM-compatible value; used when a paired metadata word completes the identity.
-    uint16 constant Evm64 = (uint16(Evm) << 8) | uint16(Width64);
+    /// @dev EVM-compatible ID; lower 20 payload bytes hold an address when present.
+    uint16 constant Evm = 0x0120;
 
     // -------------------------------------------------------------------------
     // Category tags (uint8, third byte of the ID type field)
@@ -71,8 +67,4 @@ library Layout {
     uint8 constant Native = 0x01;
     /// @dev ERC-20 fungible token; lower 20 bytes of the ID hold the contract address.
     uint8 constant Erc20 = 0x02;
-    /// @dev ERC-721 non-fungible token; lower 20 bytes of the ID hold the collection address.
-    uint8 constant Erc721 = 0x03;
-    /// @dev ERC-1155 multi-token asset; lower 20 bytes of the ID hold the collection address.
-    uint8 constant Erc1155 = 0x04;
 }

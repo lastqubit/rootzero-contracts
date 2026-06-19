@@ -136,21 +136,25 @@ describe("Utils", () => {
       await expectCustomError(utils.testEnsureAccount(await utils.testToNativeAsset()), "InvalidAccount");
     });
 
-    it("accountEvmAddr extracts embedded address", async () => {
+    it("accountAddr extracts embedded address", async () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
-      const extracted = await utils.testAccountEvmAddr(userAccount);
+      const extracted = await utils.testAccountAddr(userAccount);
       expect(extracted.toLowerCase()).to.equal(signerAddress.toLowerCase());
     });
 
-    it("accountEvmAddr reverts for non-EVM account", async () => {
-      await expectCustomError(utils.testAccountEvmAddr(await utils.testToNativeAsset()), "InvalidAccount");
+    it("accountAddr reverts for non-EVM account", async () => {
+      await expectCustomError(utils.testAccountAddr(await utils.testToNativeAsset()), "InvalidAccount");
+    });
+
+    it("accountAddr reverts ZeroAddress for zero embedded address", async () => {
+      await expectCustomError(utils.testAccountAddr(await utils.testToUserAccount(ethers.ZeroAddress)), "ZeroAddress");
     });
   });
 
   // ── Assets ────────────────────────────────────────────────────────────────
 
   describe("Assets", () => {
-    it("toNativeAsset returns an EVM32 asset", async () => {
+    it("toNativeAsset returns an EVM asset", async () => {
       const asset: string = await utils.testToNativeAsset();
       expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0120n);
     });
@@ -163,61 +167,14 @@ describe("Utils", () => {
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(token.toLowerCase());
     });
 
-    it("toErc721Asset embeds collection address", async () => {
-      const collection = signerAddress;
-      const asset: string = await utils.testToErc721Asset(collection);
-      const val = BigInt(asset);
-      const embedded = (val >> 32n) & ((1n << 160n) - 1n);
-      expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
-      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0140n);
-    });
-
-    it("toErc1155Asset embeds collection address", async () => {
-      const collection = signerAddress;
-      const asset: string = await utils.testToErc1155Asset(collection);
-      const val = BigInt(asset);
-      const embedded = (val >> 32n) & ((1n << 160n) - 1n);
-      expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(collection.toLowerCase());
-      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0140n);
-    });
-
-    it("isAsset32 returns true when the width byte is 0x20", async () => {
-      const asset = await utils.testToNativeAsset();
-      expect(await utils.testIsAsset32(asset)).to.be.true;
-    });
-
     it("isAsset returns true for supported asset IDs", async () => {
       expect(await utils.testIsAsset(await utils.testToNativeAsset())).to.be.true;
       expect(await utils.testIsAsset(await utils.testToErc20Asset(signerAddress))).to.be.true;
-      expect(await utils.testIsAsset(await utils.testToErc721Asset(signerAddress))).to.be.true;
-      expect(await utils.testIsAsset(await utils.testToErc1155Asset(signerAddress))).to.be.true;
     });
 
     it("isAsset returns false for non-asset category values", async () => {
       expect(await utils.testIsAsset(await utils.testToUserAccount(signerAddress))).to.be.false;
       expect(await utils.testIsAsset(ethers.ZeroHash)).to.be.false;
-    });
-
-    it("isAsset32 returns false for non-asset values", async () => {
-      const asset = ethers.zeroPadValue("0x01", 32);
-      expect(await utils.testIsAsset32(asset)).to.be.false;
-    });
-
-    it("isAsset32 returns false for ERC721 and ERC1155 assets", async () => {
-      const collection = signerAddress;
-      expect(await utils.testIsAsset32(await utils.testToErc721Asset(collection))).to.be.false;
-      expect(await utils.testIsAsset32(await utils.testToErc1155Asset(collection))).to.be.false;
-    });
-
-    it("isAsset64 returns true for ERC721 and ERC1155 assets", async () => {
-      const collection = signerAddress;
-      expect(await utils.testIsAsset64(await utils.testToErc721Asset(collection))).to.be.true;
-      expect(await utils.testIsAsset64(await utils.testToErc1155Asset(collection))).to.be.true;
-    });
-
-    it("isAsset64 returns false for native and ERC20 assets", async () => {
-      expect(await utils.testIsAsset64(await utils.testToNativeAsset())).to.be.false;
-      expect(await utils.testIsAsset64(await utils.testToErc20Asset(signerAddress))).to.be.false;
     });
 
     it("resolveAmount clamps to max", async () => {
@@ -245,31 +202,6 @@ describe("Utils", () => {
       await expectCustomError(utils.testEnsureAmountRange(11n, 1n, 10n), "BadAmount");
     });
 
-    it("assetSlot returns asset for 32-byte asset with zero meta", async () => {
-      const asset = await utils.testToNativeAsset();
-      const result = await utils.testAssetSlot(asset, ethers.ZeroHash);
-      expect(result).to.equal(asset);
-    });
-
-    it("assetSlot ignores non-zero meta for 32-byte assets", async () => {
-      const asset = await utils.testToNativeAsset();
-      const meta = ethers.hexlify(ethers.randomBytes(32));
-      const result = await utils.testAssetSlot(asset, meta);
-      expect(result).to.equal(asset);
-    });
-
-    it("assetSlot reverts InvalidAsset for zero asset", async () => {
-      await expectCustomError(utils.testAssetSlot(ethers.ZeroHash, ethers.ZeroHash), "InvalidAsset");
-    });
-
-    it("assetSlot returns keccak for 64-byte asset families", async () => {
-      const asset = await utils.testToErc721Asset(signerAddress);
-      const meta = ethers.zeroPadValue("0x02", 32);
-      const result = await utils.testAssetSlot(asset, meta);
-      const expected = ethers.keccak256(ethers.concat([asset, meta]));
-      expect(result).to.equal(expected);
-    });
-
     it("localErc20Addr extracts token address from ERC20 asset", async () => {
       const token = signerAddress;
       const asset = await utils.testToErc20Asset(token);
@@ -283,35 +215,14 @@ describe("Utils", () => {
       expect(await utils.testMatchErc20(asset, token)).to.equal(asset);
     });
 
-    it("localErc721Collection extracts collection address from ERC721 asset", async () => {
-      const collection = signerAddress;
-      const asset = await utils.testToErc721Asset(collection);
-      const extracted = await utils.testLocalErc721Collection(asset);
-      expect(extracted.toLowerCase()).to.equal(collection.toLowerCase());
-    });
-
-    it("matchErc721 returns the asset when it matches the collection", async () => {
-      const collection = signerAddress;
-      const asset = await utils.testToErc721Asset(collection);
-      expect(await utils.testMatchErc721(asset, collection)).to.equal(asset);
-    });
-
-    it("localErc1155Collection extracts collection address from ERC1155 asset", async () => {
-      const collection = signerAddress;
-      const asset = await utils.testToErc1155Asset(collection);
-      const extracted = await utils.testLocalErc1155Collection(asset);
-      expect(extracted.toLowerCase()).to.equal(collection.toLowerCase());
-    });
-
-    it("matchErc1155 returns the asset when it matches the collection", async () => {
-      const collection = signerAddress;
-      const asset = await utils.testToErc1155Asset(collection);
-      expect(await utils.testMatchErc1155(asset, collection)).to.equal(asset);
-    });
-
     it("localErc20Addr reverts InvalidAsset for native asset", async () => {
       const asset = await utils.testToNativeAsset();
       await expectCustomError(utils.testLocalErc20Addr(asset), "InvalidAsset");
+    });
+
+    it("localErc20Addr reverts ZeroAddress for zero embedded address", async () => {
+      const asset = await utils.testToErc20Asset(ethers.ZeroAddress);
+      await expectCustomError(utils.testLocalErc20Addr(asset), "ZeroAddress");
     });
 
     it("matchErc20 reverts InvalidAsset for the wrong token", async () => {
@@ -321,46 +232,27 @@ describe("Utils", () => {
       await expectCustomError(utils.testMatchErc20(asset, other), "InvalidAsset");
     });
 
-    it("matchErc721 reverts InvalidAsset for the wrong collection", async () => {
-      const collection = signerAddress;
-      const other = "0x00000000000000000000000000000000000000ab";
-      const asset = await utils.testToErc721Asset(collection);
-      await expectCustomError(utils.testMatchErc721(asset, other), "InvalidAsset");
-    });
-
-    it("matchErc1155 reverts InvalidAsset for the wrong collection", async () => {
-      const collection = signerAddress;
-      const other = "0x00000000000000000000000000000000000000ab";
-      const asset = await utils.testToErc1155Asset(collection);
-      await expectCustomError(utils.testMatchErc1155(asset, other), "InvalidAsset");
-    });
-
-    it("localErc721Collection reverts InvalidAsset for native asset", async () => {
-      const asset = await utils.testToNativeAsset();
-      await expectCustomError(utils.testLocalErc721Collection(asset), "InvalidAsset");
-    });
-
-    it("localErc1155Collection reverts InvalidAsset for native asset", async () => {
-      const asset = await utils.testToNativeAsset();
-      await expectCustomError(utils.testLocalErc1155Collection(asset), "InvalidAsset");
-    });
   });
 
   // ── Ids ───────────────────────────────────────────────────────────────────
 
   describe("Ids", () => {
-    it("localChainId creates a chain node ID with the local chain id payload", async () => {
+    it("localChainId creates a chain node ID with zero selector and address", async () => {
       const id: bigint = await utils.testLocalChainId();
       const prefix = (id >> 224n) & 0xffffffffn;
-      const payload = id & ((1n << 224n) - 1n);
+      const embeddedChainId = (id >> 192n) & 0xffffffffn;
+      const selector = (id >> 160n) & 0xffffffffn;
+      const embeddedAddress = id & ((1n << 160n) - 1n);
 
       expect(prefix).to.equal(0x01200201n);
-      expect(payload).to.equal(chainId);
+      expect(embeddedChainId).to.equal(chainId);
+      expect(selector).to.equal(0n);
+      expect(embeddedAddress).to.equal(0n);
     });
 
     it("localNodeAddr rejects chain node IDs", async () => {
       const chainNode: bigint = await utils.testLocalChainId();
-      await expectCustomError(utils.testLocalNodeAddr(chainNode), "InvalidId");
+      await expectCustomError(utils.testLocalNodeAddr(chainNode), "ZeroAddress");
     });
 
     it("toHostId creates host ID from address", async () => {
@@ -418,6 +310,11 @@ describe("Utils", () => {
       const id: bigint = await utils.testToHostId(signerAddress);
       const addr = await utils.testLocalHostAddr(id);
       expect(addr.toLowerCase()).to.equal(signerAddress.toLowerCase());
+    });
+
+    it("localHostAddr reverts ZeroAddress for zero embedded address", async () => {
+      const id: bigint = await utils.testToHostId(ethers.ZeroAddress);
+      await expectCustomError(utils.testLocalHostAddr(id), "ZeroAddress");
     });
 
     it("ensureHost reverts InvalidId for wrong address", async () => {
@@ -515,7 +412,7 @@ describe("Utils", () => {
 
     it("isFamily matches family prefix", async () => {
       // Build a value with a known family prefix
-      // EVM32 = 0x0120, ACCOUNT = 0x01 -> family = (0x0120 << 8) | 0x01 = 0x012001
+      // EVM = 0x0120, ACCOUNT = 0x01 -> family = (0x0120 << 8) | 0x01 = 0x012001
       const family = 0x012001n;
       const value = (family << 232n) | (1n << 191n); // some filler
       expect(await utils.testIsFamily(value, 0x012001)).to.be.true;

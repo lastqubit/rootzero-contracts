@@ -59,15 +59,15 @@ library Schemas {
     string constant Unit = "#unit";
     string constant Node = "#node { uint id }";
     string constant Account = "#account { bytes32 account }";
-    string constant Asset = "#asset { bytes32 asset, bytes32 meta }";
-    string constant Amount = "#amount { bytes32 asset, bytes32 meta, uint amount }";
-    string constant Balance = "#balance { bytes32 asset, bytes32 meta, uint amount }";
-    string constant BalanceLimit = "#balanceLimit { bytes32 asset, bytes32 meta, uint min, uint max }";
-    string constant Custody = "#custody { uint host, bytes32 asset, bytes32 meta, uint amount }";
-    string constant CustodyLimit = "#custodyLimit { uint host, bytes32 asset, bytes32 meta, uint min, uint max }";
-    string constant Allocation = "#allocation { uint host, bytes32 asset, bytes32 meta, uint amount }";
-    string constant Allowance = "#allowance { uint host, bytes32 asset, bytes32 meta, uint amount }";
-    string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, bytes32 meta, uint amount }";
+    string constant Asset = "#asset { bytes32 asset }";
+    string constant Amount = "#amount { bytes32 asset, uint amount }";
+    string constant Balance = "#balance { bytes32 asset, uint amount }";
+    string constant BalanceLimit = "#balanceLimit { bytes32 asset, uint min, uint max }";
+    string constant Custody = "#custody { uint host, bytes32 asset, uint amount }";
+    string constant CustodyLimit = "#custodyLimit { uint host, bytes32 asset, uint min, uint max }";
+    string constant Allocation = "#allocation { uint host, bytes32 asset, uint amount }";
+    string constant Allowance = "#allowance { uint host, bytes32 asset, uint amount }";
+    string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
     string constant Pipe = "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }";
     string constant Call = "#call { uint target, uint resources, #bytes as payload }";
@@ -90,13 +90,12 @@ library Schemas {
 /// These describe payload form without assigning command or query semantics.
 library Forms {
     string constant Status = "#status { uint code }";
-    string constant AssetAmount = "#assetAmount { bytes32 asset, bytes32 meta, uint amount }";
-    string constant AccountAsset = "#accountAsset { bytes32 account, bytes32 asset, bytes32 meta }";
-    string constant AccountAmount = "#accountAmount { bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
-    string constant HostAmount = "#hostAmount { uint host, bytes32 asset, bytes32 meta, uint amount }";
-    string constant HostAccountAsset = "#hostAccountAsset { uint host, bytes32 account, bytes32 asset, bytes32 meta }";
-    string constant HostAccountAmount =
-        "#hostAccountAmount { uint host, bytes32 account, bytes32 asset, bytes32 meta, uint amount }";
+    string constant AssetAmount = "#assetAmount { bytes32 asset, uint amount }";
+    string constant AccountAsset = "#accountAsset { bytes32 account, bytes32 asset }";
+    string constant AccountAmount = "#accountAmount { bytes32 account, bytes32 asset, uint amount }";
+    string constant HostAmount = "#hostAmount { uint host, bytes32 asset, uint amount }";
+    string constant HostAccountAsset = "#hostAccountAsset { uint host, bytes32 account, bytes32 asset }";
+    string constant HostAccountAmount = "#hostAccountAmount { uint host, bytes32 account, bytes32 asset, uint amount }";
 }
 
 /// @title Sizes
@@ -122,20 +121,20 @@ library Sizes {
     uint constant Auth = B64 + Header + Proof;
     /// @dev STATUS block: 8 header + 32 status code = 40 bytes
     uint constant Status = B32;
-    /// @dev AMOUNT block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
-    uint constant Amount = B96;
-    /// @dev BALANCE block: 8 header + 32 asset + 32 meta + 32 amount = 104 bytes
-    uint constant Balance = B96;
-    /// @dev BALANCE_LIMIT block: 8 header + 32 asset + 32 meta + 32 min + 32 max = 136 bytes
-    uint constant BalanceLimit = B128;
+    /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
+    uint constant Amount = B64;
+    /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
+    uint constant Balance = B64;
+    /// @dev BALANCE_LIMIT block: 8 header + 32 asset + 32 min + 32 max = 104 bytes
+    uint constant BalanceLimit = B96;
     /// @dev FEE block: 8 header + 32 amount = 40 bytes
     uint constant Fee = B32;
     /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
     uint constant Bounty = B64;
-    /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 meta + 32 amount = 136 bytes
-    uint constant HostAmount = B128;
-    /// @dev CUSTODY_LIMIT block: 8 header + 32 host + 32 asset + 32 meta + 32 min + 32 max = 168 bytes
-    uint constant CustodyLimit = B160;
-    /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 meta + 32 amount = 168 bytes
-    uint constant Transaction = B160;
+    /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
+    uint constant HostAmount = B96;
+    /// @dev CUSTODY_LIMIT block: 8 header + 32 host + 32 asset + 32 min + 32 max = 136 bytes
+    uint constant CustodyLimit = B128;
+    /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 amount = 136 bytes
+    uint constant Transaction = B128;
 }

@@ -14,20 +14,17 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../contracts/Core.sol";
 import { DebitAccount } from "../contracts/Endpoints.sol";
-import { Assets } from "../contracts/Utils.sol";
 
 contract ExampleHost is Host, DebitAccount {
-    // Internal balance ledger: account -> asset slot -> amount
-    mapping(bytes32 account => mapping(bytes32 assetSlot => uint amount)) internal balances;
+    // Internal balance ledger: account -> asset -> amount
+    mapping(bytes32 account => mapping(bytes32 asset => uint amount)) internal balances;
 
     constructor(address rootzero) Host(rootzero) {}
 
     // debitAccount is the hook DebitAccount calls for each AMOUNT block.
     // Implement this with whatever storage your app uses.
-    function debitAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal override {
-        // slot combines asset + meta into a single composite storage slot.
-        bytes32 slot = Assets.slot(asset, meta);
-        balances[account][slot] -= amount;
+    function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {
+        balances[account][asset] -= amount;
     }
 }
 

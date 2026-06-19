@@ -171,42 +171,42 @@ library Writers {
     /// @param count Number of asset blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAssets(uint count) internal pure returns (Writer memory writer) {
-        return alloc64s(count);
+        return alloc32s(count);
     }
 
     /// @notice Allocate a writer sized for exactly `count` AMOUNT blocks.
     /// @param count Number of amount blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAmounts(uint count) internal pure returns (Writer memory writer) {
-        return alloc96s(count);
+        return alloc64s(count);
     }
 
     /// @notice Allocate a writer sized for exactly `count` BALANCE blocks.
     /// @param count Number of balance blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocBalances(uint count) internal pure returns (Writer memory writer) {
-        return alloc96s(count);
+        return alloc64s(count);
     }
 
     /// @notice Allocate a writer sized for exactly `count` ACCOUNT_AMOUNT form blocks.
     /// @param count Number of account amount blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocAccountAmounts(uint count) internal pure returns (Writer memory writer) {
-        return alloc128s(count);
+        return alloc96s(count);
     }
 
     /// @notice Allocate a writer sized for exactly `count` CUSTODY blocks.
     /// @param count Number of custody blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocCustodies(uint count) internal pure returns (Writer memory writer) {
-        return alloc128s(count);
+        return alloc96s(count);
     }
 
     /// @notice Allocate a writer sized for exactly `count` TRANSACTION blocks.
     /// @param count Number of transaction blocks to allocate space for.
     /// @return writer Allocated writer.
     function allocTransactions(uint count) internal pure returns (Writer memory writer) {
-        return alloc160s(count);
+        return alloc128s(count);
     }
 
     /// @notice Allocate a writer for `count` STEP blocks using a per-block capacity hint.
@@ -941,64 +941,59 @@ library Writers {
     /// @notice Append a BALANCE block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendBalance(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        appendBlock96(writer, Keys.Balance, asset, meta, bytes32(amount), 32);
+    function appendBalance(Writer memory writer, bytes32 asset, uint amount) internal pure {
+        appendBlock64(writer, Keys.Balance, asset, bytes32(amount), 32);
     }
 
     /// @notice Append a BALANCE block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Balance fields to encode.
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
-        appendBalance(writer, value.asset, value.meta, value.amount);
+        appendBalance(writer, value.asset, value.amount);
     }
 
     /// @notice Append an AMOUNT block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendAmount(Writer memory writer, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        appendBlock96(writer, Keys.Amount, asset, meta, bytes32(amount), 32);
+    function appendAmount(Writer memory writer, bytes32 asset, uint amount) internal pure {
+        appendBlock64(writer, Keys.Amount, asset, bytes32(amount), 32);
     }
 
     /// @notice Append an AMOUNT block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param value Amount fields to encode.
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
-        appendAmount(writer, value.asset, value.meta, value.amount);
+        appendAmount(writer, value.asset, value.amount);
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block using separate field values.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
     /// @param account Account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
     function appendAccountAmount(
         Writer memory writer,
         bytes32 account,
         bytes32 asset,
-        bytes32 meta,
         uint amount
     ) internal pure {
-        appendBlock128(writer, Keys.AccountAmount, account, asset, meta, bytes32(amount), 32);
+        appendBlock96(writer, Keys.AccountAmount, account, asset, bytes32(amount), 32);
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
     /// @param value Account amount fields to encode.
     function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
-        appendAccountAmount(writer, value.account, value.asset, value.meta, value.amount);
+        appendAccountAmount(writer, value.account, value.asset, value.amount);
     }
 
     /// @notice Append an ASSET block.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B64`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B32`.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
-    function appendAsset(Writer memory writer, bytes32 asset, bytes32 meta) internal pure {
-        appendBlock64(writer, Keys.Asset, asset, meta, 32);
+    function appendAsset(Writer memory writer, bytes32 asset) internal pure {
+        appendBlock32(writer, Keys.Asset, asset, 32);
     }
 
     /// @notice Append a BOUNTY block to the writer.
@@ -1013,10 +1008,9 @@ library Writers {
     /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param host Host node ID.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Token amount.
-    function appendCustody(Writer memory writer, uint host, bytes32 asset, bytes32 meta, uint amount) internal pure {
-        appendBlock128(writer, Keys.Custody, bytes32(host), asset, meta, bytes32(amount), 32);
+    function appendCustody(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
+        appendBlock96(writer, Keys.Custody, bytes32(host), asset, bytes32(amount), 32);
     }
 
     /// @notice Append a CUSTODY block from a host and asset amount.
@@ -1024,27 +1018,26 @@ library Writers {
     /// @param host Host node ID.
     /// @param value Custody fields to encode.
     function appendCustody(Writer memory writer, uint host, AssetAmount memory value) internal pure {
-        appendCustody(writer, host, value.asset, value.meta, value.amount);
+        appendCustody(writer, host, value.asset, value.amount);
     }
 
     /// @notice Append a CUSTODY block from a host amount struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.HostAmount`.
     /// @param value Custody fields to encode.
     function appendCustody(Writer memory writer, HostAmount memory value) internal pure {
-        appendCustody(writer, value.host, value.asset, value.meta, value.amount);
+        appendCustody(writer, value.host, value.asset, value.amount);
     }
 
     /// @notice Append a TRANSACTION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
     /// @param value Transfer record fields to encode.
     function appendTransaction(Writer memory writer, Tx memory value) internal pure {
-        appendBlock160(
+        appendBlock128(
             writer,
             Keys.Transaction,
             bytes32(value.from),
             bytes32(value.to),
             value.asset,
-            value.meta,
             bytes32(value.amount),
             32
         );

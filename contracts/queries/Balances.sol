@@ -12,13 +12,12 @@ abstract contract GetBalancesHook {
     /// Concrete implementations define how assets are resolved.
     /// @param account Account identifier carried by the query payload.
     /// @param asset Requested asset identifier.
-    /// @param meta Requested asset metadata slot.
     /// @return amount Current balance in the asset's native units.
-    function getBalance(bytes32 account, bytes32 asset, bytes32 meta) internal view virtual returns (uint amount);
+    function getBalance(bytes32 account, bytes32 asset) internal view virtual returns (uint amount);
 }
 
 /// @title GetBalances
-/// @notice Rootzero query that resolves balances for one or more `(account, asset, meta)` tuples.
+/// @notice Rootzero query that resolves balances for one or more `(account, asset)` tuples.
 /// The request is a run of `ACCOUNT_ASSET` form blocks.
 /// The response returns one `ACCOUNT_AMOUNT` form block per requested position, preserving request order.
 abstract contract GetBalances is QueryBase, GetBalancesHook {
@@ -29,17 +28,17 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
         emit Labeled(getBalancesId, bytes32(0), "getBalances");
     }
 
-    /// @notice Resolve balances for a run of requested `(account, asset, meta)` tuples.
-    /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
-    /// @return Block-stream response containing one `accountAmount(account, asset, meta, amount)` block per request block.
+    /// @notice Resolve balances for a run of requested `(account, asset)` tuples.
+    /// @param request Block-stream request consisting of `accountAsset(account, asset)*`.
+    /// @return Block-stream response containing one `accountAmount(account, asset, amount)` block per request block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups, ) = Cursors.init(request, 1);
         Writer memory response = Writers.allocAccountAmounts(groups);
 
         while (query.i < query.len) {
-            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackAccountAsset();
-            uint amount = getBalance(account, asset, meta);
-            response.appendAccountAmount(account, asset, meta, amount);
+            (bytes32 account, bytes32 asset) = query.unpackAccountAsset();
+            uint amount = getBalance(account, asset);
+            response.appendAccountAmount(account, asset, amount);
         }
 
         query.complete();

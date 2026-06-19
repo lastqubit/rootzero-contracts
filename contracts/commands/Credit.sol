@@ -11,9 +11,8 @@ abstract contract CreditAccountHook {
     /// Called once per BALANCE block in state.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param meta Asset metadata slot.
     /// @param amount Amount to credit.
-    function creditAccount(bytes32 account, bytes32 asset, bytes32 meta, uint amount) internal virtual;
+    function creditAccount(bytes32 account, bytes32 asset, uint amount) internal virtual;
 }
 
 /// @title CreditAccount
@@ -36,8 +35,8 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
         (Cur memory state, , ) = Cursors.init(c.state, 1);
 
         while (state.i < state.len) {
-            (bytes32 asset, bytes32 meta, uint amount) = state.unpackBalance();
-            creditAccount(c.account, asset, meta, amount);
+            (bytes32 asset, uint amount) = state.unpackBalance();
+            creditAccount(c.account, asset, amount);
         }
 
         state.complete();

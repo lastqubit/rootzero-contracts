@@ -14,12 +14,10 @@ abstract contract GetPositionHook {
     /// the query output schema.
     /// @param account Requested account identifier.
     /// @param asset Requested asset identifier.
-    /// @param meta Requested asset metadata slot.
     /// @param response Destination writer for the response stream.
     function appendPosition(
         bytes32 account,
         bytes32 asset,
-        bytes32 meta,
         Writer memory response
     ) internal view virtual;
 }
@@ -36,17 +34,17 @@ abstract contract GetPosition is QueryBase, GetPositionHook {
         emit Labeled(getPositionId, bytes32(0), "getPosition");
     }
 
-    /// @notice Resolve positions for a run of requested `(account, asset, meta)` tuples.
+    /// @notice Resolve positions for a run of requested `(account, asset)` tuples.
     /// @dev Allocates from a per-block capacity hint and grows when position outputs exceed it.
-    /// @param request Block-stream request consisting of `accountAsset(account, asset, meta)*`.
+    /// @param request Block-stream request consisting of `accountAsset(account, asset)*`.
     /// @return Block-stream response containing one output-schema block per position block.
     function getPosition(bytes calldata request) external view returns (bytes memory) {
         (Cur memory query, uint groups, ) = Cursors.init(request, 1);
         Writer memory response = Writers.allocAny(groups);
 
         while (query.i < query.len) {
-            (bytes32 account, bytes32 asset, bytes32 meta) = query.unpackAccountAsset();
-            appendPosition(account, asset, meta, response);
+            (bytes32 account, bytes32 asset) = query.unpackAccountAsset();
+            appendPosition(account, asset, response);
         }
 
         query.complete();

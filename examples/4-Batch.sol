@@ -34,11 +34,11 @@ abstract contract MyCommand is CommandBase {
 
         // Walk every AMOUNT block in the current request run.
         while (inputs.i < inputs.len) {
-            // Unpack asset, meta, and amount from the next AMOUNT block.
-            (bytes32 asset, bytes32 meta, uint amount) = inputs.unpackAmount();
+            // Unpack asset and amount from the next AMOUNT block.
+            (bytes32 asset, uint amount) = inputs.unpackAmount();
 
             // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
-            writer.appendBalance(asset, meta, amount);
+            writer.appendBalance(asset, amount);
         }
 
         // Finalize by checking the cursor completed its run, then

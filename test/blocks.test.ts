@@ -34,8 +34,6 @@ describe("Cursors", () => {
   let helper: Awaited<ReturnType<typeof deploy>>;
   let stringHelper: Awaited<ReturnType<typeof deploy>>;
   let erc20Helper: Awaited<ReturnType<typeof deploy>>;
-  let erc1155Helper: Awaited<ReturnType<typeof deploy>>;
-  let erc721Helper: Awaited<ReturnType<typeof deploy>>;
   let operation: Awaited<ReturnType<typeof deploy>>;
   let utils: Awaited<ReturnType<typeof deploy>>;
 
@@ -43,59 +41,56 @@ describe("Cursors", () => {
     helper = await deploy("TestCursorHelper");
     stringHelper = await deploy("TestStringCursorHelper");
     erc20Helper = await deploy("TestErc20CursorHelper");
-    erc1155Helper = await deploy("TestErc1155CursorHelper");
-    erc721Helper = await deploy("TestErc721CursorHelper");
     operation = await deploy("TestOperation");
     utils = await deploy("TestUtils");
   });
 
   describe("Writers", () => {
     const asset = ethers.zeroPadValue("0x01", 32);
-    const meta = ethers.zeroPadValue("0x02", 32);
     const amount = 12345n;
 
     it("writeBalanceBlock round-trips", async () => {
-      const data: string = await helper.testWriteBalanceBlock(asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(104);
+      const data: string = await helper.testWriteBalanceBlock(asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.Balance);
-      expect(data.slice(10, 18)).to.equal("00000060");
-      expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, meta, amount]);
+      expect(data.slice(10, 18)).to.equal("00000040");
+      expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
     });
 
     it("hostAccountAsset block round-trips", async () => {
       const host = 1234n;
       const account = encodeUserAccount("0x03");
-      const data = encodeHostAccountAssetBlock(host, account, asset, meta);
-      expect(ethers.getBytes(data).length).to.equal(136);
+      const data = encodeHostAccountAssetBlock(host, account, asset);
+      expect(ethers.getBytes(data).length).to.equal(104);
       expect(data.slice(0, 10)).to.equal(Keys.HostAccountAsset);
-      expect(await helper.testUnpackHostAccountAsset(data)).to.deep.equal([host, account, asset, meta]);
+      expect(await helper.testUnpackHostAccountAsset(data)).to.deep.equal([host, account, asset]);
     });
 
     it("accountAsset block round-trips", async () => {
       const account = encodeUserAccount("0x03");
-      const data = encodeAccountAssetBlock(account, asset, meta);
-      expect(ethers.getBytes(data).length).to.equal(104);
+      const data = encodeAccountAssetBlock(account, asset);
+      expect(ethers.getBytes(data).length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.AccountAsset);
-      expect(await helper.testUnpackAccountAsset(data)).to.deep.equal([account, asset, meta]);
+      expect(await helper.testUnpackAccountAsset(data)).to.deep.equal([account, asset]);
     });
 
-    it("writeCustodyBlock produces 136 bytes", async () => {
-      const data: string = await helper.testWriteCustodyBlock(1234n, asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(136);
+    it("writeCustodyBlock produces 104 bytes", async () => {
+      const data: string = await helper.testWriteCustodyBlock(1234n, asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(104);
     });
 
     it("writeTxBlock round-trips", async () => {
       const from_ = encodeUserAccount("0x03");
       const to_ = encodeUserAccount("0x04");
-      const data: string = await helper.testWriteTxBlock(from_, to_, asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(168);
-      expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, meta, amount]);
+      const data: string = await helper.testWriteTxBlock(from_, to_, asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(136);
+      expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, amount]);
     });
 
     it("writePipeBlock matches the canonical pipe encoding", async () => {
       const account = encodeUserAccount("0x12");
-      const state = encodeBalanceBlock(asset, meta, amount);
-      const request = encodeAmountBlock(asset, meta, 7n);
+      const state = encodeBalanceBlock(asset, amount);
+      const request = encodeAmountBlock(asset, 7n);
       const data: string = await helper.testWritePipeBlock(55n, account, state, request);
       expect(data).to.equal(encodePipeBlock(55n, account, state, request));
     });
@@ -110,15 +105,15 @@ describe("Cursors", () => {
     });
 
     it("toBalanceBlock returns a valid encoded BALANCE block", async () => {
-      const data: string = await helper.testToBalanceBlock(asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(104);
+      const data: string = await helper.testToBalanceBlock(asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.Balance);
-      expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, meta, amount]);
+      expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
     });
 
     it("toCustodyBlock returns a valid encoded CUSTODY block", async () => {
-      const data: string = await helper.testToCustodyBlock(1234n, asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(136);
+      const data: string = await helper.testToCustodyBlock(1234n, asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(104);
       expect(data.slice(0, 10)).to.equal(Keys.Custody);
     });
 
@@ -143,8 +138,8 @@ describe("Cursors", () => {
     });
 
     it("finish truncates to actual written length", async () => {
-      const data: string = await helper.testWriterFinish(asset, meta, amount);
-      expect(ethers.getBytes(data).length).to.equal(104);
+      const data: string = await helper.testWriterFinish(asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(72);
     });
 
     it("reverts when appending past logical writer capacity", async () => {
@@ -153,7 +148,7 @@ describe("Cursors", () => {
     });
 
     it("reverts when a dynamic block exceeds allocated payload size", async () => {
-      const oversized = ethers.concat([asset, meta]);
+      const oversized = ethers.concat([asset, asset]);
       await expect(helper.testWriterRejectsOversizedDynamicBlock(oversized))
         .to.be.revertedWithCustomError(helper, "WriterOverflow");
     });
@@ -161,13 +156,13 @@ describe("Cursors", () => {
 
   describe("Cursor helpers", () => {
     const asset = ethers.zeroPadValue("0xaa", 32);
-    const meta = ethers.zeroPadValue("0xbb", 32);
+    const otherAsset = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
 
     it("run returns key and groups, and truncates len to the matching run", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeAmountBlock(asset, meta, 2n);
-      const c = encodeBalanceBlock(asset, meta, 3n);
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeAmountBlock(asset, 2n);
+      const c = encodeBalanceBlock(asset, 3n);
       const source = concat(a, b, c);
       const [key, groups, offset, i, len] = await helper.testRun(source, 1n);
       expect(key).to.equal(Keys.Amount);
@@ -178,7 +173,7 @@ describe("Cursors", () => {
     });
 
     it("run reverts ZeroGroup when group is 0", async () => {
-      const source = encodeAmountBlock(asset, meta, amount);
+      const source = encodeAmountBlock(asset, amount);
       await expect(helper.testRun(source, 0n))
         .to.be.revertedWithCustomError(helper, "ZeroGroup");
     });
@@ -189,8 +184,8 @@ describe("Cursors", () => {
     });
 
     it("open(source, i) creates a cursor over the source tail", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeBalanceBlock(asset, meta, 2n);
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeBalanceBlock(asset, 2n);
       const source = concat(a, b);
       const i = BigInt(ethers.getBytes(a).length);
       const [offset, cursorI, len] = await helper.testOpenAt(source, i);
@@ -200,9 +195,9 @@ describe("Cursors", () => {
     });
 
     it("init(source, group) creates a cursor over the matching first run", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeAmountBlock(asset, meta, 2n);
-      const c = encodeBalanceBlock(asset, meta, 3n);
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeAmountBlock(asset, 2n);
+      const c = encodeBalanceBlock(asset, 3n);
       const source = concat(a, b, c);
       const run = concat(a, b);
       const [offset, cursorI, len, groups, next] = await helper.testInit(source, 1n);
@@ -215,8 +210,8 @@ describe("Cursors", () => {
 
     it("init expected-groups overload returns the matching run cursor", async () => {
       const source = concat(
-        encodeAmountBlock(asset, meta, 1n),
-        encodeAmountBlock(asset, meta, 2n),
+        encodeAmountBlock(asset, 1n),
+        encodeAmountBlock(asset, 2n),
       );
       const [i, len, next] = await helper.testInitExpected(source, 1n, 2n);
       expect(i).to.equal(0n);
@@ -226,41 +221,41 @@ describe("Cursors", () => {
 
     it("init expected-groups overload reverts BadRatio on count mismatch", async () => {
       const source = concat(
-        encodeAmountBlock(asset, meta, 1n),
-        encodeAmountBlock(asset, meta, 2n),
+        encodeAmountBlock(asset, 1n),
+        encodeAmountBlock(asset, 2n),
       );
       await expect(helper.testInitExpected(source, 1n, 1n))
         .to.be.revertedWithCustomError(helper, "BadRatio");
     });
 
     it("peek returns the next key and payload length", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
-      expect(await helper.testPeek(source, 0n)).to.deep.equal([Keys.Balance, 96n]);
+      const source = encodeBalanceBlock(asset, amount);
+      expect(await helper.testPeek(source, 0n)).to.deep.equal([Keys.Balance, 64n]);
     });
 
     it("past returns the offset immediately past the current block without advancing", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
-      expect(await helper.testPastCurrent(source)).to.equal(104n);
+      const source = encodeBalanceBlock(asset, amount);
+      expect(await helper.testPastCurrent(source)).to.equal(72n);
     });
 
     it("isAt returns true for a matching well-formed block at the current cursor position", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
+      const source = encodeBalanceBlock(asset, amount);
       expect(await helper.testIsAtCurrent(source, Keys.Balance)).to.equal(true);
     });
 
     it("isAt returns false when the key does not match", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
+      const source = encodeBalanceBlock(asset, amount);
       expect(await helper.testIsAtCurrent(source, Keys.Amount)).to.equal(false);
     });
 
     it("isAt returns true for a truncated block when the current header key matches", async () => {
-      const source = "0x" + Keys.Balance.slice(2) + "00000060";
+      const source = "0x" + Keys.Balance.slice(2) + "00000040";
       expect(await helper.testIsAtCurrent(source, Keys.Balance)).to.equal(true);
     });
 
     it("hasAt checks a block key at an arbitrary source position", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeBalanceBlock(asset, meta, 2n);
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeBalanceBlock(asset, 2n);
       const source = concat(a, b);
       const i = BigInt(ethers.getBytes(a).length);
       expect(await helper.testHasAt(source, i, Keys.Balance)).to.equal(true);
@@ -269,16 +264,16 @@ describe("Cursors", () => {
     });
 
     it("countRun counts consecutive matching blocks from i", async () => {
-      const a = encodeAmountBlock(asset, meta, 1n);
-      const b = encodeAmountBlock(asset, meta, 2n);
-      const c = encodeBalanceBlock(asset, meta, 3n);
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeAmountBlock(asset, 2n);
+      const c = encodeBalanceBlock(asset, 3n);
       const [count, next] = await helper.testCountRun(concat(a, b, c), 0n, Keys.Amount);
       expect(count).to.equal(2n);
       expect(next).to.equal(BigInt(ethers.getBytes(concat(a, b)).length));
     });
 
     it("slice creates a subcursor over the requested range", async () => {
-      const a = encodeAssetBlock(asset, meta);
+      const a = encodeAssetBlock(asset);
       const b = encodeAccountBlock(encodeUserAccount("0x12"));
       const source = concat(a, b);
       const from = BigInt(ethers.getBytes(a).length);
@@ -290,7 +285,7 @@ describe("Cursors", () => {
     });
 
     it("slice reverts MalformedBlocks when the requested range is invalid", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAccountBlock(encodeUserAccount("0x12")));
+      const source = concat(encodeAssetBlock(asset), encodeAccountBlock(encodeUserAccount("0x12")));
       await expect(helper.testSlice(source, 10n, 9n))
         .to.be.revertedWithCustomError(helper, "MalformedBlocks");
       await expect(helper.testSlice(source, 0n, BigInt(ethers.getBytes(source).length + 1)))
@@ -298,12 +293,12 @@ describe("Cursors", () => {
     });
 
     it("raw returns the full cursor region as calldata", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAccountBlock(encodeUserAccount("0x12")));
+      const source = concat(encodeAssetBlock(asset), encodeAccountBlock(encodeUserAccount("0x12")));
       expect(await helper.testRaw(source)).to.equal(source);
     });
 
     it("raw returns a sliced cursor region as calldata", async () => {
-      const a = encodeAssetBlock(asset, meta);
+      const a = encodeAssetBlock(asset);
       const b = encodeAccountBlock(encodeUserAccount("0x12"));
       const source = concat(a, b);
       const from = BigInt(ethers.getBytes(a).length);
@@ -331,33 +326,33 @@ describe("Cursors", () => {
     });
 
     it("skipTo moves the cursor to the provided end offset", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
+      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
       expect(await helper.testSkipTo(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
     it("skipTo reverts IncompleteCursor when the cursor has passed the end offset", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
-      const end = BigInt(ethers.getBytes(source).length - ethers.getBytes(encodeAssetBlock(meta, asset)).length);
+      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
+      const end = BigInt(ethers.getBytes(source).length - ethers.getBytes(encodeAssetBlock(otherAsset)).length);
       await expect(helper.testSkipToPastEnd(source, end))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("exit succeeds when the cursor is exactly at the requested offset", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
+      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
       const at = BigInt(ethers.getBytes(source).length);
       expect(await helper.testExit(source, at)).to.equal(at);
     });
 
     it("exit reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
-      const source = concat(encodeAssetBlock(asset, meta), encodeAssetBlock(meta, asset));
-      const at = BigInt(ethers.getBytes(encodeAssetBlock(asset, meta)).length);
+      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
+      const at = BigInt(ethers.getBytes(encodeAssetBlock(asset)).length);
       await expect(helper.testExitMismatch(source, at))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("list returns the next offset and advances past the list header", async () => {
-      const item1 = encodeAssetBlock(asset, meta);
-      const item2 = encodeAssetBlock(meta, asset);
+      const item1 = encodeAssetBlock(asset);
+      const item2 = encodeAssetBlock(otherAsset);
       const list = encodeListBlock(item1, item2);
       const [inputI, next] = await helper.testList(list);
       expect(inputI).to.equal(8n);
@@ -367,7 +362,7 @@ describe("Cursors", () => {
     it("data uses a shared key and carries merged payload fields without child headers", async () => {
       const payload = ethers.concat([
         asset,
-        meta,
+        otherAsset,
         ethers.zeroPadValue(ethers.toBeHex(amount), 32),
         ethers.zeroPadValue(ethers.toBeHex(77n), 32),
       ]);
@@ -391,7 +386,7 @@ describe("Cursors", () => {
     });
 
     it("take reverts when the current block key does not match", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
+      const source = encodeBalanceBlock(asset, amount);
       await expect(helper.testTake(source, Keys.Data))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
@@ -407,7 +402,7 @@ describe("Cursors", () => {
     });
 
     it("maybeTake returns an empty cursor and does not advance when the current block does not match", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
+      const source = encodeBalanceBlock(asset, amount);
       const [outOffset, outI, outLen, inputI] = await helper.testMaybeTake(source, Keys.Data);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
@@ -416,7 +411,7 @@ describe("Cursors", () => {
     });
 
     it("maybeData returns an empty cursor and does not advance when the current block is not DATA", async () => {
-      const source = encodeBalanceBlock(asset, meta, amount);
+      const source = encodeBalanceBlock(asset, amount);
       const [outOffset, outI, outLen, inputI] = await helper.testMaybeData(source);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
@@ -425,7 +420,7 @@ describe("Cursors", () => {
     });
 
     it("unpackStep consumes the block and returns the trailing request", async () => {
-      const req = encodeAmountBlock(asset, meta, amount);
+      const req = encodeAmountBlock(asset, amount);
       const step = encodeStepBlock(7n, 55n, req);
       const [target, value, outReq, i] = await helper.testUnpackStep(step);
       expect(target).to.equal(7n);
@@ -436,8 +431,8 @@ describe("Cursors", () => {
 
     it("unpackContext consumes account, state, and request bytes", async () => {
       const account = encodeUserAccount("0x12");
-      const state = encodeBalanceBlock(asset, meta, amount);
-      const request = encodeAmountBlock(asset, meta, 7n);
+      const state = encodeBalanceBlock(asset, amount);
+      const request = encodeAmountBlock(asset, 7n);
       const context = encodeContextBlock(account, state, request);
       const [outAccount, outState, outRequest, i] = await helper.testUnpackContext(context);
       expect(outAccount).to.equal(account);
@@ -448,8 +443,8 @@ describe("Cursors", () => {
 
     it("unpackPipe consumes resources and nested context bytes", async () => {
       const account = encodeUserAccount("0x12");
-      const state = encodeBalanceBlock(asset, meta, amount);
-      const request = encodeAmountBlock(asset, meta, 7n);
+      const state = encodeBalanceBlock(asset, amount);
+      const request = encodeAmountBlock(asset, 7n);
       const pipe = encodePipeBlock(55n, account, state, request);
       const [value, outAccount, outState, outRequest, i] = await helper.testUnpackPipe(pipe);
       expect(value).to.equal(55n);
@@ -461,7 +456,7 @@ describe("Cursors", () => {
 
     it("unpackRelay consumes chain, resources, and step bytes", async () => {
       const chain: bigint = await utils.testLocalChainId();
-      const steps = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, meta, 7n));
+      const steps = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
       const relay = encodeRelayBlock(chain, 55n, steps);
       const [outChain, resources, outSteps, i] = await helper.testUnpackRelay(relay);
       expect(outChain).to.equal(chain);
@@ -513,43 +508,43 @@ describe("Cursors", () => {
     });
 
     it("requireAmount validates and advances by one fixed-size block", async () => {
-      const source = encodeAmountBlock(asset, meta, amount);
-      const [out, i] = await helper.testRequireAmount(source, asset, meta);
+      const source = encodeAmountBlock(asset, amount);
+      const [out, i] = await helper.testRequireAmount(source, asset);
       expect(out).to.equal(amount);
-      expect(i).to.equal(104n);
+      expect(i).to.equal(72n);
     });
 
     it("ensureBalanceLimit validates all fields and advances by one limit block", async () => {
-      const source = encodeBalanceLimitBlock(asset, meta, 10n, amount);
-      expect(await helper.testEnsureBalanceLimit(source, asset, meta, amount)).to.equal(136n);
+      const source = encodeBalanceLimitBlock(asset, 10n, amount);
+      expect(await helper.testEnsureBalanceLimit(source, asset, amount)).to.equal(104n);
     });
 
     it("ensureBalanceLimit reverts UnexpectedValue when the balance is outside the range", async () => {
-      const source = encodeBalanceLimitBlock(asset, meta, 10n, 20n);
-      await expect(helper.testEnsureBalanceLimit(source, asset, meta, 21n))
+      const source = encodeBalanceLimitBlock(asset, 10n, 20n);
+      await expect(helper.testEnsureBalanceLimit(source, asset, 21n))
         .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
     it("ensureBalanceLimit reverts UnexpectedValue when asset fields differ", async () => {
-      const source = encodeBalanceLimitBlock(asset, meta, 10n, 20n);
-      await expect(helper.testEnsureBalanceLimit(source, ethers.zeroPadValue("0xcc", 32), meta, 15n))
+      const source = encodeBalanceLimitBlock(asset, 10n, 20n);
+      await expect(helper.testEnsureBalanceLimit(source, ethers.zeroPadValue("0xcc", 32), 15n))
         .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
     it("ensureCustodyLimit validates all fields and advances by one limit block", async () => {
-      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, amount);
-      expect(await helper.testEnsureCustodyLimit(source, 123n, asset, meta, amount)).to.equal(168n);
+      const source = encodeCustodyLimitBlock(123n, asset, 10n, amount);
+      expect(await helper.testEnsureCustodyLimit(source, 123n, asset, amount)).to.equal(136n);
     });
 
     it("ensureCustodyLimit reverts UnexpectedValue when the custody is outside the range", async () => {
-      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, 20n);
-      await expect(helper.testEnsureCustodyLimit(source, 123n, asset, meta, 21n))
+      const source = encodeCustodyLimitBlock(123n, asset, 10n, 20n);
+      await expect(helper.testEnsureCustodyLimit(source, 123n, asset, 21n))
         .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
     it("ensureCustodyLimit reverts UnexpectedValue when host differs", async () => {
-      const source = encodeCustodyLimitBlock(123n, asset, meta, 10n, 20n);
-      await expect(helper.testEnsureCustodyLimit(source, 321n, asset, meta, 15n))
+      const source = encodeCustodyLimitBlock(123n, asset, 10n, 20n);
+      await expect(helper.testEnsureCustodyLimit(source, 321n, asset, 15n))
         .to.be.revertedWithCustomError(helper, "UnexpectedValue");
     });
 
@@ -568,31 +563,31 @@ describe("Cursors", () => {
     });
 
     it("complete reverts IncompleteCursor when run input remains", async () => {
-      const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
+      const source = concat(encodeBalanceBlock(asset, 1n), encodeBalanceBlock(asset, 2n));
       await expect(helper.testCursorCompleteRunPartial(source, 1n))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("complete succeeds after the run is consumed", async () => {
-      const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
+      const source = concat(encodeBalanceBlock(asset, 1n), encodeBalanceBlock(asset, 2n));
       expect(await helper.testCursorCompleteRunConsumed(source, 1n)).to.equal(true);
     });
 
     it("complete reverts IncompleteCursor when bytes remain in the cursor region", async () => {
-      const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
+      const source = concat(encodeBalanceBlock(asset, 1n), encodeBalanceBlock(asset, 2n));
       await expect(helper.testCursorCompletePartial(source))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("complete succeeds after the full cursor region is consumed", async () => {
-      const source = concat(encodeBalanceBlock(asset, meta, 1n), encodeBalanceBlock(asset, meta, 2n));
+      const source = concat(encodeBalanceBlock(asset, 1n), encodeBalanceBlock(asset, 2n));
       expect(await helper.testCursorCompleteConsumed(source)).to.equal(true);
     });
 
     it("expectErc20Amount returns the token and amount from a local ERC20 amount block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 66n);
+      const source = encodeAmountBlock(assetId, 66n);
 
       expect(await erc20Helper.testExpectErc20Amount(source, 0n)).to.deep.equal([token, 66n]);
     });
@@ -600,15 +595,15 @@ describe("Cursors", () => {
     it("requireErc20Amount returns the token and amount and advances by one amount block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 66n);
+      const source = encodeAmountBlock(assetId, 66n);
 
-      expect(await erc20Helper.testRequireErc20Amount(source)).to.deep.equal([token, 66n, 104n]);
+      expect(await erc20Helper.testRequireErc20Amount(source)).to.deep.equal([token, 66n, 72n]);
     });
 
     it("expectErc20Balance returns the token and amount from a local ERC20 balance block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeBalanceBlock(assetId, ethers.ZeroHash, 67n);
+      const source = encodeBalanceBlock(assetId, 67n);
 
       expect(await erc20Helper.testExpectErc20Balance(source, 0n)).to.deep.equal([token, 67n]);
     });
@@ -616,15 +611,15 @@ describe("Cursors", () => {
     it("requireErc20Balance returns the token and amount and advances by one balance block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeBalanceBlock(assetId, ethers.ZeroHash, 67n);
+      const source = encodeBalanceBlock(assetId, 67n);
 
-      expect(await erc20Helper.testRequireErc20Balance(source)).to.deep.equal([token, 67n, 104n]);
+      expect(await erc20Helper.testRequireErc20Balance(source)).to.deep.equal([token, 67n, 72n]);
     });
 
     it("expectErc20Custody returns the token and amount from a local ERC20 custody block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+      const source = encodeCustodyBlock(123n, assetId, 68n);
 
       expect(await erc20Helper.testExpectErc20Custody(source, 0n, 123n)).to.deep.equal([token, 68n]);
     });
@@ -632,15 +627,15 @@ describe("Cursors", () => {
     it("requireErc20Custody returns the token, amount, and advances by one custody block", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+      const source = encodeCustodyBlock(123n, assetId, 68n);
 
-      expect(await erc20Helper.testRequireErc20Custody(source, 123n)).to.deep.equal([token, 68n, 136n]);
+      expect(await erc20Helper.testRequireErc20Custody(source, 123n)).to.deep.equal([token, 68n, 104n]);
     });
 
     it("expectErc20Custody reverts UnexpectedValue when the host does not match", async () => {
       const token = "0x00000000000000000000000000000000000000a0";
       const assetId = await utils.testToErc20Asset(token);
-      const source = encodeCustodyBlock(123n, assetId, ethers.ZeroHash, 68n);
+      const source = encodeCustodyBlock(123n, assetId, 68n);
 
       await expect(erc20Helper.testExpectErc20Custody(source, 0n, 321n))
         .to.be.revertedWithCustomError(erc20Helper, "UnexpectedValue");
@@ -648,174 +643,29 @@ describe("Cursors", () => {
 
     it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
       const assetId = await utils.testToNativeAsset();
-      const source = encodeAmountBlock(assetId, ethers.ZeroHash, 77n);
+      const source = encodeAmountBlock(assetId, 77n);
 
       await expect(erc20Helper.testExpectErc20Amount(source, 0n))
         .to.be.revertedWithCustomError(erc20Helper, "InvalidAsset");
     });
 
-    it("expectErc1155Amount returns meta and amount from a matching local ERC1155 amount block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x11", 32);
-      const source = encodeAmountBlock(assetId, meta, 66n);
-
-      expect(await erc1155Helper.testExpectErc1155Amount(source, 0n, assetId)).to.deep.equal([meta, 66n]);
-    });
-
-    it("requireErc1155Amount returns meta, amount, and advances by one amount block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x11", 32);
-      const source = encodeAmountBlock(assetId, meta, 66n);
-
-      expect(await erc1155Helper.testRequireErc1155Amount(source, assetId)).to.deep.equal([meta, 66n, 104n]);
-    });
-
-    it("expectErc1155Balance returns meta and amount from a matching local ERC1155 balance block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x12", 32);
-      const source = encodeBalanceBlock(assetId, meta, 67n);
-
-      expect(await erc1155Helper.testExpectErc1155Balance(source, 0n, assetId)).to.deep.equal([meta, 67n]);
-    });
-
-    it("requireErc1155Balance returns meta, amount, and advances by one balance block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x12", 32);
-      const source = encodeBalanceBlock(assetId, meta, 67n);
-
-      expect(await erc1155Helper.testRequireErc1155Balance(source, assetId)).to.deep.equal([meta, 67n, 104n]);
-    });
-
-    it("expectErc1155Custody returns meta and amount from a matching local ERC1155 custody block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x15", 32);
-      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
-
-      expect(await erc1155Helper.testExpectErc1155Custody(source, 0n, 123n, assetId)).to.deep.equal([meta, 68n]);
-    });
-
-    it("requireErc1155Custody returns meta, amount, and advances by one custody block", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x15", 32);
-      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
-
-      expect(await erc1155Helper.testRequireErc1155Custody(source, 123n, assetId)).to.deep.equal([meta, 68n, 136n]);
-    });
-
-    it("expectErc1155Custody reverts UnexpectedValue when the host does not match", async () => {
-      const collection = "0x00000000000000000000000000000000000000d0";
-      const assetId = await utils.testToErc1155Asset(collection);
-      const meta = ethers.zeroPadValue("0x15", 32);
-      const source = encodeCustodyBlock(123n, assetId, meta, 68n);
-
-      await expect(erc1155Helper.testExpectErc1155Custody(source, 0n, 321n, assetId))
-        .to.be.revertedWithCustomError(erc1155Helper, "UnexpectedValue");
-    });
-
-    it("expectErc1155Amount reverts UnexpectedValue when the source asset does not match the expected ERC1155 asset", async () => {
-      const assetId = await utils.testToNativeAsset();
-      const source = encodeAmountBlock(assetId, ethers.zeroPadValue("0x11", 32), 77n);
-
-      const expectedAsset = await utils.testToErc1155Asset("0x00000000000000000000000000000000000000d0");
-
-      await expect(erc1155Helper.testExpectErc1155Amount(source, 0n, expectedAsset))
-        .to.be.revertedWithCustomError(erc1155Helper, "UnexpectedValue");
-    });
-
-    it("expectErc721Balance returns meta from a matching local ERC721 balance block", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const meta = ethers.zeroPadValue("0x02", 32);
-      const source = encodeBalanceBlock(assetId, meta, 1n);
-
-      expect(await erc721Helper.testExpectErc721Balance(source, 0n, collection)).to.equal(meta);
-    });
-
-    it("requireErc721Balance returns meta and advances by one balance block", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const meta = ethers.zeroPadValue("0x02", 32);
-      const source = encodeBalanceBlock(assetId, meta, 1n);
-
-      expect(await erc721Helper.testRequireErc721Balance(source, collection)).to.deep.equal([meta, 104n]);
-    });
-
-    it("expectErc721Custody returns meta from a matching local ERC721 custody block", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const meta = ethers.zeroPadValue("0x03", 32);
-      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
-
-      expect(await erc721Helper.testExpectErc721Custody(source, 0n, 321n, collection)).to.equal(meta);
-    });
-
-    it("requireErc721Custody returns meta and advances by one custody block", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const meta = ethers.zeroPadValue("0x03", 32);
-      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
-
-      expect(await erc721Helper.testRequireErc721Custody(source, 321n, collection)).to.deep.equal([meta, 136n]);
-    });
-
-    it("expectErc721Custody reverts UnexpectedValue when the host does not match", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const meta = ethers.zeroPadValue("0x03", 32);
-      const source = encodeCustodyBlock(321n, assetId, meta, 1n);
-
-      await expect(erc721Helper.testExpectErc721Custody(source, 0n, 123n, collection))
-        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
-    });
-    it("expectErc721Balance reverts InvalidAsset when the asset is not a local ERC721", async () => {
-      const assetId = await utils.testToNativeAsset();
-      const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x01", 32), 1n);
-
-      await expect(erc721Helper.testExpectErc721Balance(source, 0n, "0x00000000000000000000000000000000000000c0"))
-        .to.be.revertedWithCustomError(erc721Helper, "InvalidAsset");
-    });
-
-    it("expectErc721Balance reverts UnexpectedValue when amount is not 1", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const source = encodeBalanceBlock(assetId, ethers.zeroPadValue("0x02", 32), 2n);
-
-      await expect(erc721Helper.testExpectErc721Balance(source, 0n, collection))
-        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
-    });
-
-    it("expectErc721Custody reverts UnexpectedValue when amount is not 1", async () => {
-      const collection = "0x00000000000000000000000000000000000000c0";
-      const assetId = await utils.testToErc721Asset(collection);
-      const source = encodeCustodyBlock(321n, assetId, ethers.zeroPadValue("0x03", 32), 2n);
-
-      await expect(erc721Helper.testExpectErc721Custody(source, 0n, 321n, collection))
-        .to.be.revertedWithCustomError(erc721Helper, "UnexpectedValue");
-    });
-
     it("accepts matching 2:1 ratio between state and request runs", async () => {
       const state = concat(
-        encodeBalanceBlock(asset, meta, 1n),
-        encodeBalanceBlock(asset, meta, 2n),
+        encodeBalanceBlock(asset, 1n),
+        encodeBalanceBlock(asset, 2n),
       );
-      const request = encodeAmountBlock(asset, meta, 3n);
+      const request = encodeAmountBlock(asset, 3n);
 
       expect(await operation.testCheckCursorRatio(state, 2n, request, 1n)).to.equal(true);
     });
 
     it("reverts BadRatio when state and request runs break the expected ratio", async () => {
       const state = concat(
-        encodeBalanceBlock(asset, meta, 1n),
-        encodeBalanceBlock(asset, meta, 2n),
-        encodeBalanceBlock(asset, meta, 3n),
+        encodeBalanceBlock(asset, 1n),
+        encodeBalanceBlock(asset, 2n),
+        encodeBalanceBlock(asset, 3n),
       );
-      const request = encodeAmountBlock(asset, meta, 4n);
+      const request = encodeAmountBlock(asset, 4n);
 
       await expect(operation.testCheckCursorRatio(state, 2n, request, 1n))
         .to.be.revertedWithCustomError(operation, "BadRatio");

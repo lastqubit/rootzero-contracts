@@ -5,7 +5,7 @@ pragma solidity ^0.8.33;
 // Import this file to get access to every event emitter in one import.
 
 import { AdminEvent } from "./events/Admin.sol";
-import { AssetStatusEvent } from "./events/Asset.sol";
+import { AssetEvent, AssetStatusEvent } from "./events/Asset.sol";
 import { Actions } from "./utils/Actions.sol";
 import { BalanceEvent } from "./events/Balance.sol";
 import { CommanderEvent } from "./events/Commander.sol";
