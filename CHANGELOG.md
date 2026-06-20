@@ -3,6 +3,30 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.5.0
+
+### Breaking Changes
+
+- Refactored account, asset, and node IDs around the shared convention that
+  first byte `0x00` means opaque and nonzero means structured.
+- Replaced the previous generic ID helpers with `Nodes` for structured host,
+  chain, command, peer, query, and guard node IDs.
+- Changed assets to single-word IDs: `bytes32 asset` is now the unique asset key
+  without a separate metadata field or asset slot.
+- `Payout` now passes destination accounts through to the hook unchanged; payout
+  account policy is the hook implementation's responsibility.
+
+### Added
+
+- Added `Ids` as the shared helper library for opaque IDs, including
+  `Ids.isOpaque`, `Ids.opaque`, `Ids.toKeccak`, and `Ids.matchKeccak`.
+- Added opaque account, asset, and node helper wrappers in `Accounts`, `Assets`,
+  and `Nodes`.
+- Added `Asset(uint indexed host, bytes32 asset, bytes preimage)` for declaring
+  opaque asset preimages.
+- Documented opaque preimages as `[formatHash:1][payload...]`, where `0x01`
+  means keccak256.
+
 ## 1.4.0
 
 ### Breaking Changes
