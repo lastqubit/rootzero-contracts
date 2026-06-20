@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
-import {Accounts} from "../utils/Accounts.sol";
 
 using Cursors for Cur;
 
@@ -37,8 +36,7 @@ abstract contract Payout is CommandBase, PayoutHook {
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
-            bytes32 to = Accounts.evm(request.unpackAccount());
-            payout(c.account, to, asset, amount);
+            payout(c.account, request.unpackAccount(), asset, amount);
         }
 
         state.complete();
