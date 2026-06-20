@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
+import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { encodeGuardCall } from "../guards/Base.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
@@ -12,6 +13,22 @@ import { Payable } from "../core/Payable.sol";
 contract TestUtils is Payable {
     function testAddrOr(address addr, address or_) external pure returns (address) {
         return addrOr(addr, or_);
+    }
+
+    function testIsOpaqueId(bytes32 id) external pure returns (bool) {
+        return Ids.isOpaque(id);
+    }
+
+    function testOpaqueId(bytes32 id) external pure returns (bytes32) {
+        return Ids.opaque(id);
+    }
+
+    function testToKeccak(bytes memory preimage) external pure returns (bytes32) {
+        return Ids.toKeccak(preimage);
+    }
+
+    function testMatchKeccak(bytes32 id, bytes memory preimage) external pure returns (bytes32) {
+        return Ids.matchKeccak(id, preimage);
     }
 
     function testToAdminAccount(address addr) external view returns (bytes32) {
@@ -58,8 +75,24 @@ contract TestUtils is Payable {
         return Accounts.isEvm(account);
     }
 
+    function testIsOpaqueAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isOpaque(account);
+    }
+
     function testEvmAccount(bytes32 account) external pure returns (bytes32) {
         return Accounts.evm(account);
+    }
+
+    function testOpaqueAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.opaque(account);
+    }
+
+    function testToKeccakAccount(bytes memory preimage) external pure returns (bytes32) {
+        return Accounts.toKeccak(preimage);
+    }
+
+    function testMatchKeccakAccount(bytes32 account, bytes memory preimage) external pure returns (bytes32) {
+        return Accounts.matchKeccak(account, preimage);
     }
 
     function testToNativeAsset() external view returns (bytes32) {
@@ -74,8 +107,24 @@ contract TestUtils is Payable {
         return Assets.isEvm(asset);
     }
 
+    function testIsOpaqueAsset(bytes32 asset) external pure returns (bool) {
+        return Assets.isOpaque(asset);
+    }
+
     function testEvmAsset(bytes32 asset) external pure returns (bytes32) {
         return Assets.evm(asset);
+    }
+
+    function testOpaqueAsset(bytes32 asset) external pure returns (bytes32) {
+        return Assets.opaque(asset);
+    }
+
+    function testToKeccakAsset(bytes memory preimage) external pure returns (bytes32) {
+        return Assets.toKeccak(preimage);
+    }
+
+    function testMatchKeccakAsset(bytes32 asset, bytes memory preimage) external pure returns (bytes32) {
+        return Assets.matchKeccak(asset, preimage);
     }
 
     function testResolveAmount(uint available, uint min, uint max) external pure returns (uint) {
@@ -138,6 +187,10 @@ contract TestUtils is Payable {
         return Nodes.isEvm(node);
     }
 
+    function testIsOpaqueNode(uint node) external pure returns (bool) {
+        return Nodes.isOpaque(node);
+    }
+
     function testIsLocalNode(uint node) external view returns (bool) {
         return Nodes.isLocal(node);
     }
@@ -160,6 +213,18 @@ contract TestUtils is Payable {
 
     function testEvmNode(uint value) external pure returns (uint) {
         return Nodes.evm(value);
+    }
+
+    function testOpaqueNode(uint value) external pure returns (uint) {
+        return Nodes.opaque(value);
+    }
+
+    function testToKeccakNode(bytes memory preimage) external pure returns (uint) {
+        return Nodes.toKeccak(preimage);
+    }
+
+    function testMatchKeccakNode(uint node, bytes memory preimage) external pure returns (uint) {
+        return Nodes.matchKeccak(node, preimage);
     }
 
     function testLocalNode(uint value) external view returns (uint) {

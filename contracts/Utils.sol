@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-// Aggregator: re-exports all utility libraries (Keys, Accounts, Actions, Assets, ECDSA, Nodes, Layout, Utils, Value).
+// Aggregator: re-exports all utility libraries (Keys, Accounts, Actions, Assets, ECDSA, Ids, Nodes, Layout, Utils, Value).
 // Import this file to access the full utility surface without managing individual paths.
 
 import { Keys } from "./blocks/Keys.sol";
@@ -9,6 +9,7 @@ import { Accounts } from "./utils/Accounts.sol";
 import { Actions } from "./utils/Actions.sol";
 import { Amounts, Assets } from "./utils/Assets.sol";
 import { ECDSA } from "./utils/ECDSA.sol";
+import { Ids } from "./utils/Ids.sol";
 import { Nodes } from "./utils/Nodes.sol";
 import { Layout } from "./utils/Layout.sol";
 import { Schemas } from "./blocks/Schema.sol";

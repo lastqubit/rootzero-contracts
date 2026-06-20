@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Nodes
@@ -67,6 +68,11 @@ library Nodes {
         return isFamily(node, Family);
     }
 
+    /// @notice Return true if `node` is opaque.
+    function isOpaque(uint node) internal pure returns (bool) {
+        return Ids.isOpaque(bytes32(node));
+    }
+
     /// @notice Return true if `node` belongs to the EVM node family on the current chain.
     function isLocal(uint node) internal view returns (bool) {
         return isEvm(node) && uint32(node >> 192) == block.chainid;
@@ -117,6 +123,14 @@ library Nodes {
     /// @return node The same `value` if it is an EVM node.
     function evm(uint value) internal pure returns (uint node) {
         if (!isEvm(value)) revert InvalidId();
+        return value;
+    }
+
+    /// @notice Assert that `value` is an opaque node and return it unchanged.
+    /// @param value Node ID to validate.
+    /// @return node The same `value` if it is opaque.
+    function opaque(uint value) internal pure returns (uint node) {
+        if (!Ids.isOpaque(bytes32(value))) revert InvalidId();
         return value;
     }
 
@@ -212,6 +226,22 @@ library Nodes {
     function toGuard(bytes4 selector, address target) internal view returns (uint node) {
         node = toLocalBase(Guard) | uint(uint160(target));
         node |= uint(uint32(selector)) << 160;
+    }
+
+    /// @notice Derive an opaque node ID from a keccak preimage.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return node `0x00 || bytes31(keccak256(preimage))`.
+    function toKeccak(bytes memory preimage) internal pure returns (uint node) {
+        return uint(Ids.toKeccak(preimage));
+    }
+
+    /// @notice Assert that `node` matches the opaque keccak ID for `preimage`.
+    /// @param node Opaque node ID to validate.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return The same `node` value if it matches.
+    function matchKeccak(uint node, bytes memory preimage) internal pure returns (uint) {
+        if (node != uint(Ids.toKeccak(preimage))) revert InvalidId();
+        return node;
     }
 
     /// @notice Extract the contract address from any local node ID.

@@ -25,8 +25,8 @@ The goal is not to make CosmWasm look like Solidity. The goal is to preserve Roo
    If an identity does not fit or should stay opaque, encode it as
    `0x00 || bytes31(hash)`. Resolve the full native identity through local
    lookup or witness data only at adapter boundaries. Opaque preimages start
-   with `[version:1][hashId:1]`; the remaining payload format is intentionally
-   left for a future convention.
+   with a one-byte format/hash tag; `0x01` means keccak256. The remaining
+   payload format is intentionally left for a future convention.
 
 4. No global chain IDs.
    CosmWasm code should not know about EVM chain IDs, Solana IDs, or a global chain registry. Bridge routes are transport metadata outside Rootzero core.

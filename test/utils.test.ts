@@ -13,6 +13,11 @@ async function expectCustomError(promise: Promise<unknown>, name: string) {
   }
 }
 
+function opaqueKeccak(preimage: string) {
+  const hash = ethers.keccak256(preimage);
+  return `0x00${hash.slice(2, 64)}`;
+}
+
 describe("Utils", () => {
   let utils: Awaited<ReturnType<typeof deploy>>;
   let signerAddress: string;
@@ -25,6 +30,41 @@ describe("Utils", () => {
     const provider = await getProvider();
     const network = await provider.getNetwork();
     chainId = network.chainId;
+  });
+
+  // ── IDs ───────────────────────────────────────────────────────────────────
+
+  describe("Ids", () => {
+    it("derives opaque keccak IDs with a zero first byte", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:asset:gold")]);
+      const expected = opaqueKeccak(preimage);
+
+      expect(await utils.testToKeccak(preimage)).to.equal(expected);
+      expect(await utils.testIsOpaqueId(expected)).to.be.true;
+      expect(BigInt(expected) >> 248n).to.equal(0n);
+    });
+
+    it("opaque validator returns matching IDs", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:account:user")]);
+      const opaque = opaqueKeccak(preimage);
+      const structured = await utils.testToUserAccount(signerAddress);
+
+      expect(await utils.testOpaqueId(opaque)).to.equal(opaque);
+      await expectCustomError(utils.testOpaqueId(structured), "InvalidId");
+    });
+
+    it("rejects non-keccak opaque preimages", async () => {
+      await expectCustomError(utils.testToKeccak("0x"), "InvalidPreimage");
+      await expectCustomError(utils.testToKeccak("0x02abcd"), "InvalidPreimage");
+    });
+
+    it("matches opaque keccak IDs against their preimage", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:node:remote")]);
+      const id = opaqueKeccak(preimage);
+
+      expect(await utils.testMatchKeccak(id, preimage)).to.equal(id);
+      await expectCustomError(utils.testMatchKeccak(ethers.ZeroHash, preimage), "InvalidId");
+    });
   });
 
   // ── Accounts ──────────────────────────────────────────────────────────────
@@ -119,6 +159,18 @@ describe("Utils", () => {
       expect(await utils.testIsEvmAccount(ethers.ZeroHash)).to.be.false;
     });
 
+    it("opaque account helpers use account errors", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:account:opaque")]);
+      const account = opaqueKeccak(preimage);
+      const structured = await utils.testToUserAccount(signerAddress);
+
+      expect(await utils.testIsOpaqueAccount(account)).to.be.true;
+      expect(await utils.testToKeccakAccount(preimage)).to.equal(account);
+      expect(await utils.testOpaqueAccount(account)).to.equal(account);
+      expect(await utils.testMatchKeccakAccount(account, preimage)).to.equal(account);
+      await expectCustomError(utils.testOpaqueAccount(structured), "InvalidAccount");
+    });
+
     it("typed account helpers return matching accounts", async () => {
       const adminAccount = await utils.testToAdminAccount(signerAddress);
       const guardianAccount = await utils.testToGuardianAccount(signerAddress);
@@ -183,6 +235,18 @@ describe("Utils", () => {
     it("EVM asset helpers reject non-EVM assets", async () => {
       await expectCustomError(utils.testEvmAsset(await utils.testToUserAccount(signerAddress)), "InvalidAsset");
       expect(await utils.testIsEvmAsset(ethers.ZeroHash)).to.be.false;
+    });
+
+    it("opaque asset helpers use asset errors", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:asset:opaque")]);
+      const asset = opaqueKeccak(preimage);
+      const structured = await utils.testToNativeAsset();
+
+      expect(await utils.testIsOpaqueAsset(asset)).to.be.true;
+      expect(await utils.testToKeccakAsset(preimage)).to.equal(asset);
+      expect(await utils.testOpaqueAsset(asset)).to.equal(asset);
+      expect(await utils.testMatchKeccakAsset(asset, preimage)).to.equal(asset);
+      await expectCustomError(utils.testOpaqueAsset(structured), "InvalidAsset");
     });
 
     it("resolveAmount clamps to max", async () => {
@@ -288,6 +352,18 @@ describe("Utils", () => {
       await expectCustomError(utils.testLocalNode(0n), "InvalidId");
       expect(await utils.testIsEvmNode(0n)).to.be.false;
       expect(await utils.testIsLocalNode(0n)).to.be.false;
+    });
+
+    it("opaque node helpers use node IDs and errors", async () => {
+      const preimage = ethers.concat(["0x01", ethers.toUtf8Bytes("rootzero:node:opaque")]);
+      const node = BigInt(opaqueKeccak(preimage));
+      const structured = await utils.testToHostId(signerAddress);
+
+      expect(await utils.testIsOpaqueNode(node)).to.be.true;
+      expect(await utils.testToKeccakNode(preimage)).to.equal(node);
+      expect(await utils.testOpaqueNode(node)).to.equal(node);
+      expect(await utils.testMatchKeccakNode(node, preimage)).to.equal(node);
+      await expectCustomError(utils.testOpaqueNode(structured), "InvalidId");
     });
 
     it("local node helper rejects foreign-chain EVM nodes", async () => {

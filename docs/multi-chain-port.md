@@ -115,11 +115,12 @@ data at the boundary that needs it.
 Opaque preimages start with:
 
 ```text
-[version:1][hashId:1][payload...]
+[formatHash:1][payload...]
 ```
 
-Only the first two bytes are protocol-level convention for now. The remaining
-payload format is host/domain-specific until a future standard defines it.
+Only the first byte is protocol-level convention for now. `0x01` means
+keccak256. The remaining payload format is host/domain-specific until a future
+standard defines it.
 
 Structured IDs keep the Rootzero prefix taxonomy and make the payload
 local-first:
@@ -590,9 +591,10 @@ No global non-EVM registry is needed. Keep the existing EVM-local helpers:
 
 ```text
 contracts/utils/Nodes.sol       - EVM node IDs
-contracts/utils/Assets.sol    - EVM asset IDs
-contracts/utils/Accounts.sol  - EVM account IDs
-contracts/utils/Utils.sol     - EVM local base helpers
+contracts/utils/Assets.sol      - EVM asset IDs
+contracts/utils/Accounts.sol    - EVM account IDs
+contracts/utils/Ids.sol         - shared opaque/structured ID helpers
+contracts/utils/Utils.sol       - EVM local base helpers
 ```
 
 Optional additive helpers can be considered later, but avoid adding:

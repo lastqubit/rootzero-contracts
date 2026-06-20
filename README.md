@@ -123,7 +123,7 @@ Everything downstream keeps this shape: commands loop over request blocks,
 settlement loops over transactions, pipelines loop over steps. Batching is
 never a special case.
 
-## IDs, Accounts, and Assets
+## IDs, Accounts, Assets, and Nodes
 
 Everything the protocol touches - accounts, assets, chains, hosts, endpoints -
 is identified by one 32-byte word. The first byte selects the convention:
@@ -137,11 +137,12 @@ is identified by one 32-byte word. The first byte selects the convention:
 Opaque preimages start with:
 
 ```txt
-[uint8 version][uint8 hashId][payload...]
+[uint8 formatHash][payload...]
 ```
 
-Only the first two bytes are protocol-level convention for now. The remaining
-payload format is host/domain-specific until a future standard defines it.
+Only the first byte is protocol-level convention for now. `0x01` means
+keccak256. The remaining payload format is host/domain-specific until a future
+standard defines it.
 
 The field supplies the role for opaque IDs: a `bytes32 asset` with first byte
 `0x00` is still an asset, but its native metadata must come from lookup or
@@ -154,12 +155,17 @@ Structured EVM IDs use:
 [uint32 type][uint32 chainid][192-bit payload]
 ```
 
-where `type` packs `[vm][width][category][subtype]`. A structured ID announces
-what it is (an account, an asset, a node) and which chain it lives on, and the
-payload usually embeds the underlying address. User accounts are
-chain-agnostic; admin and guardian accounts are chain-local. Assets are unique
-IDs in the same single-word form as accounts and nodes. Nodes are hosts,
-commands, peers, queries, and guards.
+where `type` packs `[uint16 representation][uint8 category][uint8 subtype]`. A
+structured ID announces what it is (an account, an asset, a node) and which
+chain it lives on, and the payload usually embeds the underlying address. User
+accounts are chain-agnostic; admin and guardian accounts are chain-local.
+Assets are unique IDs in the same single-word form as accounts and nodes.
+Nodes are hosts, commands, peers, queries, and guards.
+
+Opaque asset declarations use `Asset(host, asset, preimage)`. The preimage
+starts with a one-byte format/hash tag, letting offchain indexers or witnesses
+verify and resolve `0x00 || bytes31(hash(preimage))` assets. `0x01` means
+keccak256.
 
 The `Utils.sol` entry point provides the constructors and inspectors:
 
@@ -167,6 +173,7 @@ The `Utils.sol` entry point provides the constructors and inspectors:
 bytes32 account = Accounts.toUser(msg.sender); // chain-agnostic user account
 bytes32 asset = Assets.toErc20(tokenAddress);  // ERC-20 asset ID
 uint hostId = Nodes.toHost(address(this));       // host node ID
+bytes32 opaque = Ids.toKeccak(preimage);  // 0x00-prefixed opaque ID
 ```
 
 ## Hosts
@@ -348,8 +355,8 @@ Import from the package entry points rather than deep paths:
   mixins and their hooks
 - `@rootzero/contracts/Cursors.sol` — `Cur` cursor reader, `Writers`, `Schemas`,
   `Keys`
-- `@rootzero/contracts/Utils.sol` — `Nodes`, `Assets`, `Accounts`, layout and
-  value helpers
+- `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
+  layout and value helpers
 - `@rootzero/contracts/Events.sol` — protocol event contracts
 
 Repo layout:
@@ -360,7 +367,7 @@ Repo layout:
 - `contracts/guards` — guardian direct actions
 - `contracts/queries` — read-only query endpoints
 - `contracts/blocks` — block schema, cursor parsing, writers
-- `contracts/utils` — IDs, assets, accounts, layout, ECDSA
+- `contracts/utils` — ids, nodes, assets, accounts, layout, ECDSA
 - `contracts/events` — event contracts and emitters
 - `docs` — [`Schema.md`](docs/Schema.md) (wire format and schema DSL)
 

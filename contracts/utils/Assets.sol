@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Assets
@@ -36,6 +37,11 @@ library Assets {
         return isFamily(uint(asset), Family);
     }
 
+    /// @notice Return true if `asset` is opaque.
+    function isOpaque(bytes32 asset) internal pure returns (bool) {
+        return Ids.isOpaque(asset);
+    }
+
     /// @notice Return true if `asset` is the local native chain coin/token asset.
     function isNative(bytes32 asset) internal view returns (bool) {
         return asset == toNative();
@@ -51,6 +57,14 @@ library Assets {
     /// @return asset The same `value` if it is an EVM asset.
     function evm(bytes32 value) internal pure returns (bytes32 asset) {
         if (!isEvm(value)) revert InvalidAsset();
+        return value;
+    }
+
+    /// @notice Assert that `value` is an opaque asset and return it unchanged.
+    /// @param value Asset identifier to validate.
+    /// @return asset The same `value` if it is opaque.
+    function opaque(bytes32 value) internal pure returns (bytes32 asset) {
+        if (!Ids.isOpaque(value)) revert InvalidAsset();
         return value;
     }
 
@@ -81,6 +95,22 @@ library Assets {
     /// @return Asset ID with `addr` embedded in bits [191:32].
     function toErc20(address addr) internal view returns (bytes32) {
         return bytes32(toLocalBase(Erc20) | (uint(uint160(addr)) << 32));
+    }
+
+    /// @notice Derive an opaque asset ID from a keccak preimage.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return asset `0x00 || bytes31(keccak256(preimage))`.
+    function toKeccak(bytes memory preimage) internal pure returns (bytes32 asset) {
+        return Ids.toKeccak(preimage);
+    }
+
+    /// @notice Assert that `asset` matches the opaque keccak ID for `preimage`.
+    /// @param asset Opaque asset ID to validate.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return The same `asset` value if it matches.
+    function matchKeccak(bytes32 asset, bytes memory preimage) internal pure returns (bytes32) {
+        if (asset != Ids.toKeccak(preimage)) revert InvalidAsset();
+        return asset;
     }
 
     /// @notice Extract the ERC-20 contract address from an asset ID.

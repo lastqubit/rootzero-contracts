@@ -73,12 +73,13 @@ replaying them yields the exact current access sets.
 
 All account, asset, and node IDs are 32-byte values with one top-byte rule:
 `0x00` means opaque `0x00 || bytes31(hash)`, and nonzero means structured.
-Structured EVM IDs use `[uint32 type][uint32 chainid][192-bit payload]`, with
-type = `[vm][width][category][subtype]`; see `utils/Layout.sol`. Indexers can
-decode structured IDs directly. Opaque IDs need host-specific lookup or witness
-data when the underlying account, asset metadata, or node target is needed.
-Opaque preimages start with `[version:1][hashId:1]`; the remaining bytes are
-host/domain-specific for now.
+Structured EVM IDs use `[uint32 type][uint32 chainid][192-bit payload]`, where
+`type` packs `[uint16 representation][uint8 category][uint8 subtype]`; see
+`utils/Layout.sol`. Indexers can decode structured IDs directly. Opaque IDs need
+host-specific lookup or witness data when the underlying account, asset
+metadata, or node target is needed.
+Opaque preimages start with a one-byte format/hash tag; `0x01` means
+keccak256. The remaining bytes are host/domain-specific for now.
 
 ### Cold-Start Recipe
 
@@ -168,8 +169,9 @@ value and changes a ledger total emits both.
 **Opaque assets.** Hosts that create or register opaque asset IDs emit `Asset`
 with the canonical preimage used to resolve the asset. Indexers should treat
 `asset` as the ledger key and can verify host-specific opaque IDs by checking
-`asset == 0x00 || bytes31(hash(preimage))`. The first two preimage bytes are
-`[version:1][hashId:1]`; the rest of the payload is not yet standardized.
+`asset == 0x00 || bytes31(hash(preimage))`. The first preimage byte is a
+format/hash tag; `0x01` means keccak256. The rest of the payload is not yet
+standardized.
 
 **Invocations.** Top-level pipeline entrypoints emit `Rooted` once per
 invocation with the acting account, deadline, and attached value. Detailed

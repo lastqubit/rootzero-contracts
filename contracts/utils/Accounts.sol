@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
 
 /// @title Accounts
@@ -42,6 +43,11 @@ library Accounts {
         return isFamily(uint(account), Family);
     }
 
+    /// @notice Return true if `account` is opaque.
+    function isOpaque(bytes32 account) internal pure returns (bool) {
+        return Ids.isOpaque(account);
+    }
+
     /// @notice Return true if `account` is an admin account.
     function isAdmin(bytes32 account) internal pure returns (bool) {
         return prefix(account) == Admin;
@@ -62,6 +68,14 @@ library Accounts {
     /// @return account The same `value` if it is an EVM account.
     function evm(bytes32 value) internal pure returns (bytes32 account) {
         if (!isEvm(value)) revert InvalidAccount();
+        return value;
+    }
+
+    /// @notice Assert that `value` is an opaque account and return it unchanged.
+    /// @param value Account identifier to validate.
+    /// @return account The same `value` if it is opaque.
+    function opaque(bytes32 value) internal pure returns (bytes32 account) {
+        if (!Ids.isOpaque(value)) revert InvalidAccount();
         return value;
     }
 
@@ -108,6 +122,22 @@ library Accounts {
     /// @return User account ID without a chain binding.
     function toUser(address account) internal pure returns (bytes32) {
         return bytes32(toUnspecifiedBase(User) | (uint(uint160(account)) << 32));
+    }
+
+    /// @notice Derive an opaque account ID from a keccak preimage.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return account `0x00 || bytes31(keccak256(preimage))`.
+    function toKeccak(bytes memory preimage) internal pure returns (bytes32 account) {
+        return Ids.toKeccak(preimage);
+    }
+
+    /// @notice Assert that `account` matches the opaque keccak ID for `preimage`.
+    /// @param account Opaque account ID to validate.
+    /// @param preimage Preimage whose first byte is `0x01`.
+    /// @return The same `account` value if it matches.
+    function matchKeccak(bytes32 account, bytes memory preimage) internal pure returns (bytes32) {
+        if (account != Ids.toKeccak(preimage)) revert InvalidAccount();
+        return account;
     }
 
     /// @notice Extract the address embedded in an EVM-family account ID.
