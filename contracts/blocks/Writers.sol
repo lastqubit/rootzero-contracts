@@ -939,7 +939,7 @@ library Writers {
     }
 
     /// @notice Append a BALANCE block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
     /// @param asset Asset identifier.
     /// @param amount Token amount.
     function appendBalance(Writer memory writer, bytes32 asset, uint amount) internal pure {
@@ -962,14 +962,14 @@ library Writers {
     }
 
     /// @notice Append an AMOUNT block from a struct.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.Balance`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Amount`.
     /// @param value Amount fields to encode.
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
         appendAmount(writer, value.asset, value.amount);
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block using separate field values.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
     /// @param account Account identifier.
     /// @param asset Asset identifier.
     /// @param amount Token amount.
@@ -983,7 +983,7 @@ library Writers {
     }
 
     /// @notice Append an ACCOUNT_AMOUNT form block from a struct.
-    /// @param writer Destination writer; `i` is advanced by `Sizes.B128`.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.B96`.
     /// @param value Account amount fields to encode.
     function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
         appendAccountAmount(writer, value.account, value.asset, value.amount);
