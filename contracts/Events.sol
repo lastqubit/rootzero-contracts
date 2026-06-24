@@ -10,6 +10,7 @@ import { Actions } from "./utils/Actions.sol";
 import { BalanceEvent } from "./events/Balance.sol";
 import { CommanderEvent } from "./events/Commander.sol";
 import { CommandEvent } from "./events/Command.sol";
+import { CommitmentEvent } from "./events/Commitment.sol";
 import { PositionEvent } from "./events/Position.sol";
 import { ReceivedEvent } from "./events/Received.sol";
 import { EventEmitter } from "./events/Emitter.sol";
