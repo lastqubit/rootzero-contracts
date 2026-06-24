@@ -3,6 +3,22 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.6.0
+
+### Added
+
+- Added `AdminBase` as the shared base for admin commands and exported it from
+  `Endpoints.sol`.
+- Added `Cursors.read1` and `Cursors.read2` for unchecked byte-sized calldata
+  reads.
+- Added `NativeAsset` as a reusable base for helpers that need the local native
+  asset ID without the full host runtime.
+- Added `Escrows` as a keyed ledger for amounts reserved outside normal
+  balances.
+- Added `Commitment(bytes32 indexed account, bytes32 key, bytes32 digest, uint status)`
+  and the `Commitments` core mixin for digest commitments and witness/recovery
+  flows.
+
 ## 1.5.0
 
 ### Breaking Changes
