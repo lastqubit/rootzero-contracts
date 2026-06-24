@@ -599,6 +599,30 @@ library Cursors {
         cur.i += n;
     }
 
+    /// @notice Read the next byte from the cursor and advance by 1 byte.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 1 byte.
+    /// @return value Loaded bytes1 value.
+    function read1(Cur memory cur) internal pure returns (bytes1 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 1;
+    }
+
+    /// @notice Read the next 2 bytes from the cursor and advance by 2 bytes.
+    /// @dev Performs no bounds, key, length, or cursor checks.
+    /// @param cur Cursor whose current position is advanced by 2 bytes.
+    /// @return value Loaded bytes2 value.
+    function read2(Cur memory cur) internal pure returns (bytes2 value) {
+        uint abs = cur.offset + cur.i;
+        assembly ("memory-safe") {
+            value := calldataload(abs)
+        }
+        cur.i += 2;
+    }
+
     /// @notice Read the next 4 bytes from the cursor and advance by 4 bytes.
     /// @dev Performs no bounds, key, length, or cursor checks.
     /// @param cur Cursor whose current position is advanced by 4 bytes.
