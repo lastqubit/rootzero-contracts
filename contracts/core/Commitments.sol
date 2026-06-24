@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {CommitmentEvent} from "../events/Commitment.sol";
 
 /// @title Commitments
-/// @notice On-chain registry for account-scoped digest commitments.
+/// @notice On-chain registry for digest commitments.
 abstract contract Commitments is CommitmentEvent {
     /// @dev key -> committed digest.
     mapping(bytes32 key => bytes32 digest) internal commitments;

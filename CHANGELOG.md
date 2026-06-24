@@ -15,7 +15,7 @@ breaking API changes. Breaking changes are called out explicitly.
   asset ID without the full host runtime.
 - Added `Escrows` as a keyed ledger for amounts reserved outside normal
   balances.
-- Added `Commitment(bytes32 indexed account, bytes32 key, bytes32 digest, uint status)`
+- Added `Commitment(uint indexed host, bytes32 key, bytes32 digest, uint status)`
   and the `Commitments` core mixin for digest commitments and witness/recovery
   flows.
 
