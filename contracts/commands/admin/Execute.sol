@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, Keys} from "../Base.sol";
+import {AdminBase, CommandContext, Keys} from "./Base.sol";
 import {Payable} from "../../core/Payable.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
-import {AdminEvent} from "../../events/Admin.sol";
 import {Budget} from "../../utils/Value.sol";
 import {Nodes} from "../../utils/Nodes.sol";
 
@@ -15,7 +14,7 @@ using Cursors for Cur;
 /// Each CALL block specifies a target node ID, chain resources, and raw calldata payload.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` remains on this host.
-abstract contract ExecutePayable is CommandBase, Payable, AdminEvent {
+abstract contract ExecutePayable is AdminBase, Payable {
     uint internal immutable executePayableId = commandId(this.executePayable.selector);
 
     constructor() {

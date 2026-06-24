@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, Keys} from "../Base.sol";
+import {AdminBase, CommandContext, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
-import {AdminEvent} from "../../events/Admin.sol";
 using Cursors for Cur;
 
 abstract contract AllowanceHook {
@@ -20,7 +19,7 @@ abstract contract AllowanceHook {
 /// @title Allowance
 /// @notice Admin command that applies cross-host allowance entries via a virtual hook.
 /// Each ALLOWANCE block grants or updates a host-scoped asset cap. Only callable by the admin account.
-abstract contract Allowance is CommandBase, AdminEvent, AllowanceHook {
+abstract contract Allowance is AdminBase, AllowanceHook {
     uint internal immutable allowanceId = commandId(this.allowance.selector);
 
     constructor() {

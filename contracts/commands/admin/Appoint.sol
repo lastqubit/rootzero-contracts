@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "../Base.sol";
+import { AdminBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../../Cursors.sol";
-import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 /// @title Appoint
 /// @notice Admin command that grants guardian status to a list of account IDs.
 /// Each ACCOUNT block in the request is enabled as a guardian on the host.
 /// Only callable by the admin account.
-abstract contract Appoint is CommandBase, AdminEvent {
+abstract contract Appoint is AdminBase {
     uint internal immutable appointId = commandId(this.appoint.selector);
 
     constructor() {

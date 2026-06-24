@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "../Base.sol";
+import { AdminBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../../Cursors.sol";
-import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 abstract contract AllowAssetsHook {
@@ -16,7 +15,7 @@ abstract contract AllowAssetsHook {
 /// @title AllowAssets
 /// @notice Admin command that permits a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `allowAsset`. Only callable by the admin account.
-abstract contract AllowAssets is CommandBase, AdminEvent, AllowAssetsHook {
+abstract contract AllowAssets is AdminBase, AllowAssetsHook {
     uint internal immutable allowAssetsId = commandId(this.allowAssets.selector);
 
     constructor() {

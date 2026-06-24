@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, Keys} from "../Base.sol";
+import {AdminBase, CommandContext, Keys} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
-import {AdminEvent} from "../../events/Admin.sol";
 using Cursors for Cur;
 
 /// @title Label
 /// @notice Admin command that publishes namespaced labels for node IDs.
 /// Each LABEL block in the request emits one `Labeled` event. Only callable by
 /// the admin account.
-abstract contract Label is CommandBase, AdminEvent {
+abstract contract Label is AdminBase {
     uint internal immutable labelId = commandId(this.label.selector);
 
     constructor() {

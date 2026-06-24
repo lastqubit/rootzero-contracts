@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "../Base.sol";
+import { AdminBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../../Cursors.sol";
-import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 /// @title Dismiss
 /// @notice Admin command that revokes guardian status from a list of account IDs.
 /// Each ACCOUNT block in the request is disabled as a guardian on the host.
 /// Only callable by the admin account.
-abstract contract Dismiss is CommandBase, AdminEvent {
+abstract contract Dismiss is AdminBase {
     uint internal immutable dismissId = commandId(this.dismiss.selector);
 
     constructor() {

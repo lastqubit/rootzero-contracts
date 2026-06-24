@@ -20,6 +20,7 @@ import { RelayPayable, DispatchPayableHook } from "./commands/Relay.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
 // Admin commands
+import { AdminBase } from "./commands/admin/Base.sol";
 import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Allowance, AllowanceHook } from "./commands/admin/Allowance.sol";
 import { Appoint } from "./commands/admin/Appoint.sol";

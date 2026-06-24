@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "../Base.sol";
+import { AdminBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur, Schemas } from "../../Cursors.sol";
-import { AdminEvent } from "../../events/Admin.sol";
 using Cursors for Cur;
 
 abstract contract DenyAssetsHook {
@@ -16,7 +15,7 @@ abstract contract DenyAssetsHook {
 /// @title DenyAssets
 /// @notice Admin command that blocks a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
-abstract contract DenyAssets is CommandBase, AdminEvent, DenyAssetsHook {
+abstract contract DenyAssets is AdminBase, DenyAssetsHook {
     uint internal immutable denyAssetsId = commandId(this.denyAssets.selector);
 
     constructor() {

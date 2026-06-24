@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "../Base.sol";
+import { AdminBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur } from "../../Cursors.sol";
-import { AdminEvent } from "../../events/Admin.sol";
 
 using Cursors for Cur;
 
@@ -16,7 +15,7 @@ abstract contract InitHook {
 /// @title Init
 /// @notice Admin command that runs host initialization logic via a virtual hook.
 /// The full request is passed to `init` as a cursor. Only callable by the admin account.
-abstract contract Init is CommandBase, AdminEvent, InitHook {
+abstract contract Init is AdminBase, InitHook {
     uint internal immutable initId = commandId(this.init.selector);
 
     constructor(string memory input) {
