@@ -7,7 +7,7 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodePipeBlock, encodeRelayBlock,
+  encodeContextBlock, encodeContextRecoveryBlock, encodeRelayBlock,
   concat
 } from "./helpers/blocks.js";
 
@@ -404,7 +404,7 @@ describe("Commands", () => {
           await host.host(),
           await host.getRelayPayableId(),
           ethers.encodeBytes32String("1:0:0"),
-          "#relay { uint chain, uint resources, #bytes as steps }",
+          "#relay { uint chain, uint resources, #bytes as request }",
           Keys.Any,
           Keys.Empty,
           true,
@@ -413,21 +413,21 @@ describe("Commands", () => {
         .withArgs(await host.getRelayPayableId(), ethers.ZeroHash, "relayPayable");
     });
 
-    it("passes the RELAY block as an encoded destination pipe to the hook", async () => {
+    it("passes the RELAY block as an encoded destination context to the hook", async () => {
       const asset = ethers.zeroPadValue("0x80", 32);
       const state = encodeBalanceBlock(asset, 12n);
       const chain = chainNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
       const request = encodeRelayBlock(chain, resources, steps);
-      const pipe = encodePipeBlock(resources, userAccount, state, steps);
+      const context = encodeContextBlock(userAccount, state, steps);
 
       const result: string = await host.relayPayable.staticCall(ctx({ state, request }));
       expect(result).to.equal("0x");
 
       const tx = await callAs(0, "relayPayable", ctx({ state, request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, resources, pipe);
+        .withArgs(chain, resources, context);
     });
 
     it("reverts ZeroCursor when request has no RELAY block", async () => {
@@ -466,11 +466,11 @@ describe("Commands", () => {
       const chain = chainNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
       const request = encodeRelayBlock(chain, 2n, steps);
-      const pipe = encodePipeBlock(2n, userAccount, "0x", steps);
+      const context = encodeContextBlock(userAccount, "0x", steps);
 
       const tx = await callAs(0, "relayPayable", ctx({ request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, 2n, pipe);
+        .withArgs(chain, 2n, context);
     });
 
     it("settles unspent command value after relay dispatch", async () => {
@@ -478,6 +478,51 @@ describe("Commands", () => {
       const request = encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"));
 
       await expect(callAs(0, "relayPayable", ctx({ request }), { value: 1n }))
+        .to.be.revertedWithCustomError(host, "UnusedValue");
+    });
+  });
+
+  describe("recoverContextPayable", () => {
+    it("discovers recoverContextPayable as a payable context recovery command", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Command")
+        .withArgs(
+          await host.host(),
+          await host.getRecoverContextPayableId(),
+          ethers.encodeBytes32String("1:0:0"),
+          "#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }",
+          Keys.Empty,
+          Keys.Empty,
+          true,
+        );
+      await expect(deployment!).to.emit(host, "Labeled")
+        .withArgs(await host.getRecoverContextPayableId(), ethers.ZeroHash, "recoverContextPayable");
+    });
+
+    it("passes the recovery key, resources, and context cursor to the hook", async () => {
+      const key = ethers.zeroPadValue("0xbeef", 32);
+      const target = 99n;
+      const resources = 13n;
+      const step = encodeStepBlock(0n, 0n, "0x1234");
+      const context = encodeContextBlock(userAccount, "0x", step);
+      const request = encodeContextRecoveryBlock(target, key, resources, context);
+
+      const result: string = await host.recoverContextPayable.staticCall(ctx({ request }));
+      expect(result).to.equal("0x");
+
+      const tx = await callAs(0, "recoverContextPayable", ctx({ request }));
+      await expect(tx).to.emit(host, "RecoverContextCalled")
+        .withArgs(target, key, resources, context, 0n);
+    });
+
+    it("settles unspent command value after recovery", async () => {
+      const key = ethers.zeroPadValue("0xcafe", 32);
+      const context = encodeContextBlock(userAccount, "0x", "0x");
+      const request = encodeContextRecoveryBlock(0n, key, 0n, context);
+
+      await expect(callAs(0, "recoverContextPayable", ctx({ request }), { value: 1n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
     });
   });

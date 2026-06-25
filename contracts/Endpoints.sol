@@ -16,6 +16,7 @@ import { DebitAccount, DebitAccountHook } from "./commands/Debit.sol";
 import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./commands/Deposit.sol";
 import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
+import { RecoverContextPayable, RecoverContextPayableHook } from "./commands/Recover.sol";
 import { RelayPayable, DispatchPayableHook } from "./commands/Relay.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
@@ -42,7 +43,7 @@ import { PeerCreditAccount, IPeerCreditAccount } from "./peer/Credit.sol";
 import { PeerDebitAccount, IPeerDebitAccount } from "./peer/Debit.sol";
 import { PeerDenyAssets, IPeerDenyAssets } from "./peer/DenyAssets.sol";
 import { PeerPipePayable, IPeerPipePayable } from "./peer/Pipe.sol";
-import { PeerRecover, RecoverHook, IPeerRecover } from "./peer/Recover.sol";
+import { PeerRecoverContextPayable, RecoverPayableHook, IPeerRecoverContextPayable } from "./peer/Recover.sol";
 import { PeerDispatchPayable, IPeerDispatchPayable } from "./peer/Dispatch.sol";
 import { PeerSettle, IPeerSettle } from "./peer/Settle.sol";
 

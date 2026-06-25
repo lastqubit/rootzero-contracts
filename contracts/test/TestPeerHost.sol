@@ -7,18 +7,18 @@ import { PeerRedeemBalance } from "../peer/Redeem.sol";
 import { PeerCreditAccount } from "../peer/Credit.sol";
 import { PeerDebitAccount } from "../peer/Debit.sol";
 import { PeerPipePayable } from "../peer/Pipe.sol";
-import { PeerRecover } from "../peer/Recover.sol";
+import { PeerRecoverContextPayable } from "../peer/Recover.sol";
 import { PeerDispatchPayable } from "../peer/Dispatch.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { Budget } from "../utils/Value.sol";
 
-contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccount, PeerDebitAccount, PeerSettle, PeerPipePayable, PeerRecover, PeerDispatchPayable {
+contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccount, PeerDebitAccount, PeerSettle, PeerPipePayable, PeerRecoverContextPayable, PeerDispatchPayable {
     event PeerAllowanceCalled(uint peer, bytes32 asset, uint amount);
     event PeerRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PeerDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PeerCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PeerDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
-    event PeerRecoverCalled(bytes32 account, bytes state, bytes steps);
+    event PeerRecoverCalled(bytes32 account, bytes state, bytes steps, uint remaining);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
@@ -48,9 +48,10 @@ contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccou
     function recover(
         bytes32 account,
         bytes calldata state,
-        bytes calldata steps
+        bytes calldata steps,
+        Budget memory budget
     ) internal override {
-        emit PeerRecoverCalled(account, state, steps);
+        emit PeerRecoverCalled(account, state, steps, budget.remaining);
     }
 
     function dispatch(
@@ -70,7 +71,7 @@ contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccou
     function getPeerDebitAccountId() external view returns (uint) { return peerDebitAccountId; }
     function getPeerSettleId() external view returns (uint) { return peerSettleId; }
     function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
-    function getPeerRecoverId() external view returns (uint) { return peerRecoverId; }
+    function getPeerRecoverContextPayableId() external view returns (uint) { return peerRecoverContextPayableId; }
     function getPeerDispatchPayableId() external view returns (uint) { return peerDispatchPayableId; }
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }

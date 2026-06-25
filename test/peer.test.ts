@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { deploy, getProvider, getSigner } from "./helpers/setup.js";
 import {
   concat,
-  encodePipeBlock,
+  encodeContextBlock,
   encodeAmountBlock,
   encodeAccountAmountBlock,
   encodeBalanceBlock,
@@ -93,7 +93,7 @@ describe("Peer Entrypoints", () => {
         await host.host(),
         await host.getPeerPipePayableId(),
         ethers.encodeBytes32String("1:0"),
-        "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }",
+        "#context { bytes32 account, #bytes as state, #bytes as request }",
         "",
         true,
       );
@@ -105,15 +105,15 @@ describe("Peer Entrypoints", () => {
       .to.emit(host, "Peer")
       .withArgs(
         await host.host(),
-        await host.getPeerRecoverId(),
+        await host.getPeerRecoverContextPayableId(),
         ethers.encodeBytes32String("1:0"),
-        "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }",
+        "#context { bytes32 account, #bytes as state, #bytes as request }",
         "",
-        false,
+        true,
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerRecoverId(), ethers.ZeroHash, "peerRecover");
+      .withArgs(await host.getPeerRecoverContextPayableId(), ethers.ZeroHash, "peerRecoverContextPayable");
 
     await expect(tx!)
       .to.emit(host, "Peer")
@@ -140,7 +140,7 @@ describe("Peer Entrypoints", () => {
       | "peerDebitAccount(bytes)"
       | "peerSettle(bytes)"
       | "peerPipePayable(bytes)"
-      | "peerRecover(bytes)"
+      | "peerRecoverContextPayable(bytes)"
       | "peerDispatchPayable(bytes)",
     request = "0x",
     overrides: Record<string, bigint> = {}
@@ -448,9 +448,9 @@ describe("Peer Entrypoints", () => {
     const method = "peerPipePayable(bytes)";
     const account = encodeUserAccount("0x44");
 
-    it("unpacks PIPE blocks and dispatches nested context request as pipe steps", async () => {
+    it("unpacks CONTEXT blocks and dispatches nested request as pipe steps", async () => {
       const step = encodeStepBlock(123n, 0n, "0xabcd");
-      const request = encodePipeBlock(0n, account, "0x", step);
+      const request = encodeContextBlock(account, "0x", step);
       const startCount = await host.stepCount();
 
       const tx = await callAs(1, method, request);
@@ -458,9 +458,9 @@ describe("Peer Entrypoints", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 0n);
     });
 
-    it("allocates independent value sub-budgets across multiple pipes", async () => {
-      const first = encodePipeBlock(2n, account, "0x", encodeStepBlock(111n, 2n, "0x"));
-      const second = encodePipeBlock(3n, account, "0x", encodeStepBlock(222n, 3n, "0x"));
+    it("shares one value budget across multiple pipes", async () => {
+      const first = encodeContextBlock(account, "0x", encodeStepBlock(111n, 2n, "0x"));
+      const second = encodeContextBlock(account, "0x", encodeStepBlock(222n, 3n, "0x"));
       const startCount = await host.stepCount();
 
       const tx = await callAs(1, method, concat(first, second), { value: 5n });
@@ -471,29 +471,22 @@ describe("Peer Entrypoints", () => {
 
     it("reverts UnexpectedState when a pipe context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), 77n);
-      const request = encodePipeBlock(0n, account, state, encodeStepBlock(0n, 0n, "0x"));
+      const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
       const signer = await getSigner(1);
 
       await expect((host.connect(signer) as any)[method].staticCall(request))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
-    it("reverts InsufficientValue when a pipe step requests more than its value", async () => {
-      const request = encodePipeBlock(0n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("reverts InsufficientValue when a pipe step requests more than the shared budget", async () => {
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
 
-      await expect(callAs(1, method, request, { value: 2n }))
+      await expect(callAs(1, method, request, { value: 0n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("reverts UnusedValue when a pipe sub-budget is not fully spent", async () => {
-      const request = encodePipeBlock(2n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
-
-      await expect(callAs(1, method, request, { value: 2n }))
-        .to.be.revertedWithCustomError(host, "UnusedValue");
-    });
-
-    it("keeps top-level value that is not allocated to pipes", async () => {
-      const request = encodePipeBlock(1n, account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("keeps unspent peer value on the host", async () => {
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
       const provider = await getProvider();
       const hostAddress = await host.getAddress();
 
@@ -507,46 +500,55 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerRecover", () => {
-    const method = "peerRecover(bytes)";
+  describe("peerRecoverContextPayable", () => {
+    const method = "peerRecoverContextPayable(bytes)";
     const account = encodeUserAccount("0x66");
 
-    it("unpacks PIPE blocks and forwards nested context to the recovery hook", async () => {
+    it("unpacks CONTEXT blocks and forwards nested context to the recovery hook", async () => {
       const step = encodeStepBlock(321n, 0n, "0xabcd");
-      const request = encodePipeBlock(0n, account, "0x", step);
+      const request = encodeContextBlock(account, "0x", step);
 
       const tx = await callAs(1, method, request);
 
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", step);
+      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", step, 0n);
     });
 
-    it("forwards each recovery context and ignores pipe resources", async () => {
+    it("forwards each recovery context", async () => {
       const firstStep = encodeStepBlock(333n, 0n, "0x");
       const secondStep = encodeStepBlock(444n, 0n, "0x");
-      const first = encodePipeBlock(2n, account, "0x", firstStep);
-      const second = encodePipeBlock(3n, account, "0x", secondStep);
+      const first = encodeContextBlock(account, "0x", firstStep);
+      const second = encodeContextBlock(account, "0x", secondStep);
 
       const tx = await callAs(1, method, concat(first, second));
 
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", firstStep);
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", secondStep);
+      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", firstStep, 0n);
+      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", secondStep, 0n);
     });
 
-    it("returns empty bytes after processing recovery pipe blocks", async () => {
+    it("passes the shared value budget to the recovery hook", async () => {
+      const step = encodeStepBlock(555n, 0n, "0x");
+      const request = encodeContextBlock(account, "0x", step);
+
+      const tx = await callAs(1, method, request, { value: 7n });
+
+      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", step, 7n);
+    });
+
+    it("returns empty bytes after processing recovery context blocks", async () => {
       const signer = await getSigner(1);
-      const request = encodePipeBlock(0n, account, "0x", encodeStepBlock(0n, 0n, "0x"));
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
       const result: string = await (host.connect(signer) as any)[method].staticCall(request);
       expect(result).to.equal("0x");
     });
 
     it("reverts CommanderNotAllowed for the commander", async () => {
-      const request = encodePipeBlock(0n, account, "0x", encodeStepBlock(0n, 0n, "0x"));
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
       await expect(callAs(0, method, request))
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
-      const request = encodePipeBlock(0n, account, "0x", encodeStepBlock(0n, 0n, "0x"));
+      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
       await expect(callAs(2, method, request))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
@@ -595,7 +597,7 @@ describe("Peer Entrypoints", () => {
     });
 
     it("reverts InvalidBlock when request is not a DISPATCH block", async () => {
-      const request = encodePipeBlock(0n, encodeUserAccount("0x55"), "0x", "0x");
+      const request = encodeContextBlock(encodeUserAccount("0x55"), "0x", "0x");
       await expect(callAs(1, method, request))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });

@@ -9,6 +9,7 @@ import { DebitAccount } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable } from "../commands/Relay.sol";
+import { RecoverContextPayable } from "../commands/Recover.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { PeerSettle } from "../peer/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
@@ -33,6 +34,7 @@ contract TestHost is
     Provision,
     ProvisionPayable,
     RelayPayable,
+    RecoverContextPayable,
     Pipeline,
     PeerSettle,
     Init,
@@ -49,7 +51,8 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
-    event RelayCalled(uint chain, uint resources, bytes pipe);
+    event RelayCalled(uint chain, uint resources, bytes context);
+    event RecoverContextCalled(uint target, bytes32 key, uint resources, bytes context, uint remaining);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset);
@@ -71,7 +74,7 @@ contract TestHost is
         uint amount,
         Budget memory budget
     ) internal override {
-        emit DepositPayableCalled(account, asset, Values.use(budget, uint128(amount)), budget.remaining);
+        emit DepositPayableCalled(account, asset, Values.use(budget, amount), budget.remaining);
     }
 
     function withdraw(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -100,13 +103,23 @@ contract TestHost is
         Budget memory budget
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, Values.use(budget, uint128(custody.amount)), budget.remaining
+            custody.host, account, custody.asset, Values.use(budget, custody.amount), budget.remaining
         );
     }
 
-    function dispatch(uint chain, uint resources, bytes memory pipe, Budget memory budget) internal override {
+    function dispatch(uint chain, uint resources, bytes memory context, Budget memory budget) internal override {
         budget;
-        emit RelayCalled(chain, resources, pipe);
+        emit RelayCalled(chain, resources, context);
+    }
+
+    function recoverContext(
+        uint target,
+        bytes32 key,
+        uint resources,
+        Cur memory context,
+        Budget memory budget
+    ) internal override {
+        emit RecoverContextCalled(target, key, resources, context.raw(), budget.remaining);
     }
 
     function init(Cur memory input) internal override {
@@ -159,7 +172,9 @@ contract TestHost is
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
-        pipe(account, state, steps, valueBudget());
+        Budget memory budget = openValue();
+        pipe(account, state, steps, budget);
+        closeValue(account, budget);
     }
 
     // Expose internal host/admin IDs for tests
@@ -201,6 +216,10 @@ contract TestHost is
 
     function getRelayPayableId() external view returns (uint) {
         return relayPayableId;
+    }
+
+    function getRecoverContextPayableId() external view returns (uint) {
+        return recoverContextPayableId;
     }
 
     function getInitId() external view returns (uint) {
