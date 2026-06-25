@@ -549,6 +549,12 @@ describe("Utils", () => {
     it("allocate reverts InsufficientValue when amount exceeds remaining", async () => {
       await expectCustomError(utils.testAllocate(101n, 100n), "InsufficientValue");
     });
+
+    it("drain returns and clears the remaining budget", async () => {
+      const [drained, remaining] = await utils.testDrain(100n);
+      expect(drained).to.equal(100n);
+      expect(remaining).to.equal(0n);
+    });
   });
 
   // ── Strings ───────────────────────────────────────────────────────────────

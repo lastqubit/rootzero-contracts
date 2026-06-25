@@ -268,7 +268,7 @@ contract TestUtils is Payable {
     }
 
     function testMsgValue() external payable returns (uint) {
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
         return budget.remaining;
     }
 
@@ -286,6 +286,12 @@ contract TestUtils is Payable {
         Budget memory sub = Values.allocate(budget, amount);
         subRemaining = sub.remaining;
         parentRemainingAfter = budget.remaining;
+    }
+
+    function testDrain(uint remaining) external pure returns (uint drained, uint remainingAfter) {
+        Budget memory budget = Budget({remaining: remaining});
+        drained = Values.drain(budget);
+        remainingAfter = budget.remaining;
     }
 
     function testBytes32ToString(bytes32 value) external pure returns (string memory) {

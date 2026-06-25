@@ -78,7 +78,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     ) external payable onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocCustodies(groups);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
         while (request.i < request.len) {
             HostAmount memory allocation = request.unpackAllocationValue();
@@ -86,7 +86,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
             writer.appendCustody(allocation);
         }
 
-        settleValue(c.account, budget);
+        closeValue(c.account, budget);
         request.complete();
         return writer.finish();
     }

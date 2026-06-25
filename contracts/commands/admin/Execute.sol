@@ -27,7 +27,7 @@ abstract contract ExecutePayable is AdminBase, Payable {
     /// @return Empty output state.
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory request, , ) = Cursors.init(c.request, 1);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
         while (request.i < request.len) {
             (uint target, uint resources, bytes calldata data) = request.unpackCall();

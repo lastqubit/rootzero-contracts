@@ -32,6 +32,7 @@ abstract contract Pipeline is Payable {
 
     /// @notice Execute a STEP block stream through the pipeline.
     /// @dev Reverts with `UnexpectedState` if the final threaded state is non-empty.
+    /// Callers remain responsible for settling any unspent value in `budget`.
     /// @param account Account identifier used for each dispatched step.
     /// @param state Initial state block stream passed to the first step.
     /// @param steps STEP block stream to execute.
@@ -50,7 +51,6 @@ abstract contract Pipeline is Payable {
         }
 
         if (state.length != 0) revert UnexpectedState();
-        settleValue(account, budget);
         input.complete();
     }
 }

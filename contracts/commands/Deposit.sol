@@ -81,7 +81,7 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
     ) external payable onlyCommand returns (bytes memory) {
         (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
         Writer memory writer = Writers.allocBalances(groups);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
         while (request.i < request.len) {
             (bytes32 asset, uint amount) = request.unpackAmount();
@@ -89,7 +89,7 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
             writer.appendBalance(asset, amount);
         }
 
-        settleValue(c.account, budget);
+        closeValue(c.account, budget);
         request.complete();
         return writer.finish();
     }

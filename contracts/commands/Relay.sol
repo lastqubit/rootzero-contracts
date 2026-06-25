@@ -37,12 +37,12 @@ abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
     /// @return output Empty output state.
     function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory output) {
         (Cur memory request, ) = Cursors.init(c.request, 1, 1);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
-        (uint chain, uint resources, bytes memory pipe) = request.relayToPipe(c.account, c.state);
-        dispatch(chain, resources, pipe, budget);
+        (uint chain, uint resources, bytes memory context) = request.relayToContext(c.account, c.state);
+        dispatch(chain, resources, context, budget);
         
-        settleValue(c.account, budget);
+        closeValue(c.account, budget);
         request.complete();
         return "";
     }

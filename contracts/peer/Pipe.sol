@@ -13,29 +13,28 @@ interface IPeerPipePayable {
 }
 
 /// @title PeerPipePayable
-/// @notice Peer that consumes PIPE blocks and executes each context step stream.
-/// Each PIPE block carries chain resources plus a CONTEXT block; the nested
-/// context steps are passed to the shared pipeline as the step stream.
+/// @notice Peer that consumes CONTEXT blocks and executes each request as a step stream.
+/// Each context's request bytes are passed to the shared pipeline as the steps.
 abstract contract PeerPipePayable is PeerBase, Pipeline, IPeerPipePayable {
     uint internal immutable peerPipePayableId = peerId(this.peerPipePayable.selector);
 
     constructor() {
-        emit Peer(host, peerPipePayableId, "1:0", Schemas.Pipe, "", true);
+        emit Peer(host, peerPipePayableId, "1:0", Schemas.Context, "", true);
         emit Labeled(peerPipePayableId, bytes32(0), "peerPipePayable");
     }
 
-    /// @notice Execute peer-supplied pipes through the shared payable pipe.
-    /// @dev Each pipe receives its own explicit EVM value sub-budget. Any top-level
-    ///      `msg.value` not assigned to a pipe remains on this host.
-    /// @param request PIPE block stream supplied by the trusted peer.
+    /// @notice Execute peer-supplied contexts through the shared payable pipe.
+    /// @dev All contexts share the peer call's native-value budget. Any unspent
+    ///      `msg.value` remains on this host.
+    /// @param request CONTEXT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory) {
         (Cur memory input, , ) = Cursors.init(request, 1);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
         while (input.i < input.len) {
-            (uint resources, bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackPipe();
-            pipe(account, state, steps, allocateValue(budget, resources));
+            (bytes32 account, bytes calldata state, bytes calldata steps) = input.unpackContext();
+            pipe(account, state, steps, budget);
         }
 
         input.complete();

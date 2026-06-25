@@ -30,7 +30,7 @@ abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook,
     /// @return output Empty response bytes.
     function peerDispatchPayable(bytes calldata request) external payable onlyPeer returns (bytes memory output) {
         (Cur memory input, , ) = Cursors.init(request, 1);
-        Budget memory budget = valueBudget();
+        Budget memory budget = openValue();
 
         while (input.i < input.len) {
             (uint chain, uint resources, bytes calldata payload) = input.unpackDispatch();
