@@ -41,16 +41,16 @@ library Keys {
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint resources, #bytes as request)
     bytes4 constant Step = bytes4(keccak256("#step"));
-    /// @dev Cross-chain pipe relay - (uint chain, uint resources, #bytes as steps)
+    /// @dev Cross-chain relay request - (uint chain, uint resources, #bytes as request)
     bytes4 constant Relay = bytes4(keccak256("#relay"));
+    /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
+    bytes4 constant Context = bytes4(keccak256("#context"));
+    /// @dev Recoverable context witness - (uint target, bytes32 key, uint resources, #context)
+    bytes4 constant ContextRecovery = bytes4(keccak256("#contextRecovery"));
     /// @dev Cross-chain encoded payload dispatch - (uint chain, uint resources, #bytes as payload)
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
     /// @dev Raw external call - (uint target, uint resources, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));
-    /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
-    bytes4 constant Context = bytes4(keccak256("#context"));
-    /// @dev Pipeline invocation - (uint resources, #context)
-    bytes4 constant Pipe = bytes4(keccak256("#pipe"));
     /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
     bytes4 constant Auth = bytes4(keccak256("#auth"));
     /// @dev Asset descriptor without amount - (bytes32 asset)

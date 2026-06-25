@@ -271,8 +271,8 @@ blocks executed in order within one transaction:
 
 Each step names a target command, the resources it may spend, and its request.
 The state threads through: whatever one command returns becomes the input
-state of the next, and the final state must be empty — value cannot be left
-dangling at the end of a pipeline. This is the core of `Pipeline.pipe`:
+state of the next, and the final state must be empty. This is the core of
+`Pipeline.pipe`:
 
 ```solidity
 while (input.i < input.len) {
@@ -312,9 +312,9 @@ central ones are batches all the way down:
 - `peerSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
   block — how two hosts record settlement between their ledgers.
-- `peerPipePayable` consumes `#pipe` blocks, each carrying an account, an
+- `peerPipePayable` consumes `#context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
-  host, executed locally with its own resource budget.
+  host, executed locally against the peer call's shared value budget.
 
 This is also the cross-chain mechanism. `relayPayable` (or `peerDispatchPayable`)
 wraps a pipe and addresses it to a chain; a bridge adapter moves the **raw

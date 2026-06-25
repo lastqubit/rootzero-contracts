@@ -154,7 +154,6 @@ with the matching `Actions` code:
 | debitAccount               | `Spent`    | `Actions.Transfer` |
 | payout                     | `Spent` / `Received` | `Actions.Payout` |
 | peerSettle                 | `Spent` / `Received` | `Actions.Settle` |
-| settleValue (leftover ETH) | `Received` | `Actions.Settle`   |
 | provision (lock custody)   | `Locked`   | per operation      |
 | custody release            | `Unlocked` | per operation      |
 

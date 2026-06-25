@@ -23,7 +23,7 @@ export const Keys = {
   Step: blockKey("#step"),
   Call: blockKey("#call"),
   Context: blockKey("#context"),
-  Pipe: blockKey("#pipe"),
+  ContextRecovery: blockKey("#contextRecovery"),
   Relay: blockKey("#relay"),
   Dispatch: blockKey("#dispatch"),
   Transaction: blockKey("#transaction"),
@@ -142,12 +142,12 @@ export function encodeContextBlock(account: string, state: string, request: stri
   return block(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
 }
 
-export function encodePipeBlock(value: bigint, account: string, state: string, request: string): string {
-  return block(Keys.Pipe, ethers.concat([pad32(value), encodeContextBlock(account, state, request)]));
+export function encodeContextRecoveryBlock(target: bigint, key: string, resources: bigint, context: string): string {
+  return block(Keys.ContextRecovery, ethers.concat([pad32(target), pad32(key), pad32(resources), context]));
 }
 
-export function encodeRelayBlock(chain: bigint, resources: bigint, steps: string): string {
-  return block(Keys.Relay, ethers.concat([pad32(chain), pad32(resources), encodeBytesBlock(steps)]));
+export function encodeRelayBlock(chain: bigint, resources: bigint, request: string): string {
+  return block(Keys.Relay, ethers.concat([pad32(chain), pad32(resources), encodeBytesBlock(request)]));
 }
 
 export function encodeDispatchBlock(chain: bigint, resources: bigint, payload: string): string {

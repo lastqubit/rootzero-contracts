@@ -158,7 +158,7 @@ pub enum QueryMsg {
 }
 ```
 
-`PeerPipe { request }` is the CosmWasm equivalent of the EVM peer pipe entrypoint. It receives raw PIPE block bytes and runs the local pipeline.
+`PeerPipe { request }` is the CosmWasm equivalent of the EVM peer pipe entrypoint. It receives raw CONTEXT block bytes and runs the local pipeline.
 
 `BridgeReceive` is optional. Use it if a bridge must call a specific adapter entrypoint first. The bridge adapter should authenticate the bridge message, then call the same internal `peer_pipe` implementation.
 
@@ -243,7 +243,6 @@ Rules:
 - nested bytes are encoded as `#bytes` blocks
 - STEP payload is `[target:32][value:32][#bytes request]`
 - CONTEXT payload is `[account:32][#bytes state][#bytes request]`
-- PIPE payload is `[value:32][#context { account, state, request }]`
 
 Port these first:
 
@@ -392,12 +391,12 @@ ExecuteMsg::PeerPipe { request }
 Internal behavior:
 
 1. Enforce trusted peer/bridge caller.
-2. Parse `request` as one or more PIPE blocks.
-3. For each PIPE block, unpack `(value, account, state, steps)`.
-4. Run `pipe(account, state, steps, allocated_budget)`.
+2. Parse `request` as one or more CONTEXT blocks.
+3. For each CONTEXT block, unpack `(account, state, request)`.
+4. Run `pipe(account, state, request, budget)`.
 5. Return an empty response payload unless the EVM behavior being ported returns data.
 
-The bridge should deliver raw PIPE bytes. The bridge route, source chain, source sender, nonce, and proof are bridge adapter data, not Rootzero core data.
+The bridge should deliver raw CONTEXT bytes. The bridge route, source chain, source sender, nonce, and proof are bridge adapter data, not Rootzero core data.
 
 ## Commands
 
@@ -502,7 +501,7 @@ Include protocol IDs as hex strings and native addresses only when the event is 
 Port tests from `https://github.com/lastqubit/rootzero-contracts` in this order:
 
 1. `test/blocks.test.ts`
-   Validate keys, headers, cursor movement, grouped runs, nested `#bytes`, STEP, CONTEXT, PIPE, BALANCE, AMOUNT, and TRANSACTION.
+   Validate keys, headers, cursor movement, grouped runs, nested `#bytes`, STEP, CONTEXT, BALANCE, AMOUNT, and TRANSACTION.
 
 2. `test/utils.test.ts`
    Validate shared category checks, CosmWasm representation tags, local ID construction, asset helpers, opaque hash IDs, and resolver behavior.
@@ -551,7 +550,7 @@ CosmWasm writer bytes -> TypeScript/Solidity parser -> exact byte match
 - No ERC helper names are used unless wrapping real EVM/ERC assets.
 - Balances use protocol account IDs as keys.
 - Asset/account/node resolution happens only at native boundaries.
-- `PeerPipe` accepts raw PIPE bytes and calls the same pipeline path as local execution.
+- `PeerPipe` accepts raw CONTEXT bytes and calls the same pipeline path as local execution.
 - STEP targets are local CosmWasm node IDs.
 - The port has no global chain ID registry.
 - Ported tests pass against fixtures from `rootzero-contracts`.

@@ -21,6 +21,8 @@ pragma solidity ^0.8.33;
 //   stable format everywhere. EVM resources use the low 128 bits as native value.
 // - dotted field names and aliases, e.g. `dst.chain` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
+// - a child block without an inline body, e.g. `#context as witness`, may resolve
+//   to a known schema in the active schema context; unresolved aliases are invalid
 // - fixed fields are packed in declaration order
 // - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
@@ -69,10 +71,10 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant Pipe = "#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }";
+    string constant ContextRecovery = "#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }";
     string constant Call = "#call { uint target, uint resources, #bytes as payload }";
     string constant Step = "#step { uint target, uint resources, #bytes as request }";
-    string constant Relay = "#relay { uint chain, uint resources, #bytes as steps }";
+    string constant Relay = "#relay { uint chain, uint resources, #bytes as request }";
     string constant Dispatch = "#dispatch { uint chain, uint resources, #bytes as payload }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
     string constant Fee = "#fee { uint amount }";

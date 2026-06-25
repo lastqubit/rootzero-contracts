@@ -17,9 +17,9 @@ The important design constraint is that a chain runtime should not need to know 
 The cross-chain shape is:
 
 1. A bridge or messaging layer moves raw bytes to another chain.
-2. Those bytes are Rootzero PIPE blocks.
+2. Those bytes are Rootzero CONTEXT blocks.
 3. The destination chain has a local host exposing a peer pipe entrypoint.
-4. That host unpacks the PIPE blocks and runs the normal local `pipe()` loop.
+4. That host unpacks the CONTEXT blocks and runs the normal local `pipe()` loop.
 
 The bridge knows how to deliver bytes to the destination chain, but Rootzero core does not need to know how the bridge routes them. Once bytes arrive at a destination host, the host interprets them as local Rootzero protocol data.
 
@@ -41,7 +41,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
    structured and may be deconstructed by their local runtime layout.
 
 5. **Routing metadata lives outside Rootzero core.**
-   A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the PIPE payload. When the destination host receives the request, each STEP target is already a local node ID for that host's runtime.
+   A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the CONTEXT payload. When the destination host receives the request, each STEP target is already a local node ID for that host's runtime.
 
 6. **Each chain owns its native identity model.**
    EVM uses addresses and ABI selectors. Solana uses program IDs, accounts, and instruction discriminators. CosmWasm uses contract addresses and execute message variants. NEAR uses account IDs and method names. The shared protocol should not force those into a global foreign-chain shape.
@@ -68,7 +68,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Peer/Query/Guard roles | `commands/`, `peer/`, `queries/` | Same logical roles, expressed with local call primitives. |
-| Peer pipe request shape | `peer/Pipe.sol`, `blocks/Schema.sol` | PIPE blocks wrap `(value, account, state, steps)`; portable as raw bytes. |
+| Peer pipe request shape | `peer/Pipe.sol`, `blocks/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
 
 ### Chain-Specific
@@ -295,7 +295,7 @@ representation only when an adapter performs native movement.
 
 ### Bridge Route References
 
-A bridge or off-chain orchestrator can still describe a multi-chain delivery, but it should keep route metadata outside the PIPE block stream:
+A bridge or off-chain orchestrator can still describe a multi-chain delivery, but it should keep route metadata outside the CONTEXT block stream:
 
 ```ts
 type RouteRef = {
@@ -305,7 +305,7 @@ type RouteRef = {
 };
 ```
 
-`chain` and `host` are transport concerns. The submitted Rootzero payload is still just PIPE blocks. Inside those PIPE blocks, STEP targets are local node IDs for the destination host.
+`chain` and `host` are transport concerns. The submitted Rootzero payload is still just CONTEXT blocks. Inside those contexts, STEP targets are local node IDs for the destination host.
 
 This keeps the core libraries simple: Solana code does not parse EVM chain IDs, and EVM contracts do not need a registry of Solana network constants.
 
@@ -317,17 +317,17 @@ The bridge is a byte transport. It does not need to understand Rootzero internal
 
 On the source side:
 
-1. Build a PIPE block stream.
-2. Each PIPE block contains `(value, account, state, steps)`.
-3. Each nested `steps` value is a STEP block stream whose targets are local IDs on the destination host.
-4. Submit the raw PIPE bytes to the bridge with whatever destination metadata the bridge requires.
+1. Build a CONTEXT block stream.
+2. Each CONTEXT block contains `(account, state, request)`.
+3. Each nested `request` value is a STEP block stream whose targets are local IDs on the destination host.
+4. Submit the raw CONTEXT bytes to the bridge with whatever destination metadata the bridge requires.
 
 On the destination side:
 
 1. The bridge endpoint verifies the bridge message using its own security model.
-2. The bridge endpoint calls the destination host's peer pipe entrypoint with the raw PIPE bytes.
+2. The bridge endpoint calls the destination host's peer pipe entrypoint with the raw CONTEXT bytes.
 3. The host checks that the local caller is trusted, just like `PeerBase.onlyPeer` does on EVM.
-4. The host unpacks each PIPE block and runs `pipe(account, state, steps, budget)`.
+4. The host unpacks each CONTEXT block and runs `pipe(account, state, request, budget)`.
 5. `pipe()` dispatches local STEP targets exactly like a same-chain pipeline.
 
 In EVM today, the entrypoint is:
@@ -344,22 +344,19 @@ fn peer_pipe(request: &[u8], attached_value: NativeValue) -> Result<Vec<u8>>
 
 The bridge adapter is the only component that cares about remote chain identity. The host only sees a trusted local caller and a byte payload.
 
-### PIPE Payload Shape
+### Context Payload Shape
 
 The destination payload is:
 
 ```text
-#pipe {
-  uint resources,
-  #context {
-    bytes32 account,
-    #bytes state,
-    #bytes steps     // STEP block stream
-  }
+#context {
+  bytes32 account,
+  #bytes state,
+  #bytes request     // STEP block stream for pipe execution
 }
 ```
 
-Multiple PIPE blocks can be batched in one bridge message. Each one gets its own value sub-budget and executes independently through the same host pipeline.
+Multiple CONTEXT blocks can be batched in one bridge message. They share the peer call's value budget and execute independently through the same host pipeline.
 
 Important consequence: target IDs inside the nested STEP stream are destination-local. The source chain does not need to understand them, and the destination chain does not need to understand where the bytes came from beyond trusting the bridge adapter.
 
@@ -543,7 +540,7 @@ Dispatch should not extract a target chain ID. It should only validate that `tar
 
 #### Peer Pipe
 
-`peer/Pipe.sol` is the cross-chain execution pattern to preserve. The peer pipe entrypoint consumes raw PIPE blocks from a trusted local caller, then forwards the nested STEP stream into `pipe()`.
+`peer/Pipe.sol` is the cross-chain execution pattern to preserve. The peer pipe entrypoint consumes raw CONTEXT blocks from a trusted local caller, then forwards the nested STEP stream into `pipe()`.
 
 This means the bridge does not need a special "execute remote command" API. It only needs to deliver bytes to the destination host's peer pipe. From that point onward, execution is identical to local pipeline execution.
 
@@ -691,7 +688,7 @@ sdk/ts/
       cosmwasm.ts
       near.ts
     pipeline.ts
-    pipe.ts             - builds PIPE payloads for local or bridged execution
+    pipe.ts             - builds CONTEXT payloads for local or bridged execution
     routes.ts           - bridge/orchestrator route table; never submitted as core ID data
 ```
 
@@ -733,7 +730,7 @@ trait PeerPipe {
 }
 ```
 
-The implementation enforces local peer authorization, parses PIPE blocks, and calls the same `pipe()` function used by local execution.
+The implementation enforces local peer authorization, parses CONTEXT blocks, and calls the same `pipe()` function used by local execution.
 
 ### LocalIds
 
@@ -795,11 +792,11 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 3. **Identity strategy**: decide which node, account, and asset identities fit inline and which require local lookup.
 4. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
 5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer settlement.
-6. **Peer pipe port**: implement the local peer pipe entrypoint that consumes PIPE blocks and calls `pipe()`.
+6. **Peer pipe port**: implement the local peer pipe entrypoint that consumes CONTEXT blocks and calls `pipe()`.
 7. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
 8. **CosmWasm host template**: wire `rootzero-protocol` to CosmWasm storage, `Addr` resolution, native denom/CW20/IBC assets, and bridge adapter entrypoints.
 9. **Solana and NEAR templates**: repeat the same pattern with their native identity and asset hooks.
-10. **TypeScript orchestrator SDK**: compose PIPE payloads for bridge delivery and keep route metadata outside the submitted bytes.
+10. **TypeScript orchestrator SDK**: compose CONTEXT payloads for bridge delivery and keep route metadata outside the submitted bytes.
 
 ---
 
@@ -813,11 +810,11 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 | Balance opacity | Credit and debit balances using opaque account IDs without resolving them to native addresses. |
 | Dispatch isolation | A host dispatches a local command ID without checking or parsing a foreign chain ID. |
 | Lookup dispatch | A host dispatches a command whose native address does not fit in the ID by resolving the local node ID first. |
-| Peer pipe delivery | Feed bridge-delivered PIPE bytes into destination `peer_pipe`; verify it calls the same pipeline path as local execution. |
+| Peer pipe delivery | Feed bridge-delivered CONTEXT bytes into destination `peer_pipe`; verify it calls the same pipeline path as local execution. |
 | Command equivalence | Run `debitAccount` on EVM and a non-EVM host with equivalent `CommandContext` bytes; verify equivalent BALANCE output. |
 | Pipeline execution | Run a two-step local pipeline, such as deposit then withdraw, and verify final state is empty. |
 | Access control | Unauthorized local caller fails; trusted local node succeeds. |
-| Bridge routing | TypeScript route table sends PIPE bytes to the intended host while keeping route metadata out of the submitted block bytes. |
+| Bridge routing | TypeScript route table sends CONTEXT bytes to the intended host while keeping route metadata out of the submitted block bytes. |
 
 Parity checklist:
 
@@ -835,4 +832,4 @@ Parity checklist:
 
 The previous approach introduced explicit non-EVM chain slots, a `ChainIds.sol` registry, and `toExternalBase(prefix, chainSlot)`. That would make the libraries aware of other chains and would require ongoing coordination of global numeric identifiers.
 
-This version removes that coupling. EVM keeps its EVM-local `block.chainid` behavior. New chain ports use local ID modules. Bridges carry raw PIPE bytes to a destination host, and each on-chain runtime only understands its own native identities, trusted nodes, assets, peer pipe endpoint, and dispatch table.
+This version removes that coupling. EVM keeps its EVM-local `block.chainid` behavior. New chain ports use local ID modules. Bridges carry raw CONTEXT bytes to a destination host, and each on-chain runtime only understands its own native identities, trusted nodes, assets, peer pipe endpoint, and dispatch table.

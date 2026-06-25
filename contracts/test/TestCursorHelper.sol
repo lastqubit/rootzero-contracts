@@ -38,17 +38,6 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testWritePipeBlock(
-        uint resources,
-        bytes32 account,
-        bytes memory state,
-        bytes memory request
-    ) external pure returns (bytes memory) {
-        Writer memory w = Writers.allocPipes(1);
-        w.appendPipe(resources, account, state, request);
-        return w.finish();
-    }
-
     function testToBountyBlock(uint amount, bytes32 relayer) external pure returns (bytes memory) {
         return Cursors.toBountyBlock(amount, relayer);
     }
@@ -334,24 +323,25 @@ contract TestCursorHelper {
         return (account, state, request, cur.i);
     }
 
-    function testUnpackPipe(bytes calldata source)
+    function testUnpackContextRecovery(bytes calldata source)
         external
         pure
-        returns (uint resources, bytes32 account, bytes calldata state, bytes calldata request, uint i)
+        returns (uint target, bytes32 key, uint resources, bytes calldata context, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (resources, account, state, request) = cur.unpackPipe();
-        return (resources, account, state, request, cur.i);
+        Cur memory out;
+        (target, key, resources, out) = cur.unpackContextRecovery();
+        return (target, key, resources, out.raw(), cur.i);
     }
 
     function testUnpackRelay(bytes calldata source)
         external
         pure
-        returns (uint chain, uint resources, bytes calldata steps, uint i)
+        returns (uint chain, uint resources, bytes calldata request, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (chain, resources, steps) = cur.unpackRelay();
-        return (chain, resources, steps, cur.i);
+        (chain, resources, request) = cur.unpackRelay();
+        return (chain, resources, request, cur.i);
     }
 
     function testUnpackDispatch(bytes calldata source)

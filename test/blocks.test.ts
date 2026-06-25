@@ -10,7 +10,6 @@ import {
   encodeBalanceBlock,
   encodeBalanceLimitBlock,
   encodeBountyBlock,
-  encodePipeBlock,
   encodeRelayBlock,
   encodeDispatchBlock,
   encodeListBlock,
@@ -20,6 +19,7 @@ import {
   encodeAccountBlock,
   encodeAccountAssetBlock,
   encodeContextBlock,
+  encodeContextRecoveryBlock,
   encodeHostAccountAssetBlock,
   encodeDataBlock,
   encodeLabelBlock,
@@ -85,14 +85,6 @@ describe("Cursors", () => {
       const data: string = await helper.testWriteTxBlock(from_, to_, asset, amount);
       expect(ethers.getBytes(data).length).to.equal(136);
       expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, amount]);
-    });
-
-    it("writePipeBlock matches the canonical pipe encoding", async () => {
-      const account = encodeUserAccount("0x12");
-      const state = encodeBalanceBlock(asset, amount);
-      const request = encodeAmountBlock(asset, 7n);
-      const data: string = await helper.testWritePipeBlock(55n, account, state, request);
-      expect(data).to.equal(encodePipeBlock(55n, account, state, request));
     });
 
     it("writeStringBlock round-trips UTF-8 payloads", async () => {
@@ -441,27 +433,30 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
-    it("unpackPipe consumes resources and nested context bytes", async () => {
+    it("unpackContextRecovery consumes target, key, resources, and nested context", async () => {
+      const target = 42n;
+      const key = ethers.zeroPadValue("0x1234", 32);
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, amount);
       const request = encodeAmountBlock(asset, 7n);
-      const pipe = encodePipeBlock(55n, account, state, request);
-      const [value, outAccount, outState, outRequest, i] = await helper.testUnpackPipe(pipe);
-      expect(value).to.equal(55n);
-      expect(outAccount).to.equal(account);
-      expect(outState).to.equal(state);
-      expect(outRequest).to.equal(request);
-      expect(i).to.equal(BigInt(ethers.getBytes(pipe).length));
+      const context = encodeContextBlock(account, state, request);
+      const recovery = encodeContextRecoveryBlock(target, key, 55n, context);
+      const [outTarget, outKey, resources, outContext, i] = await helper.testUnpackContextRecovery(recovery);
+      expect(outTarget).to.equal(target);
+      expect(outKey).to.equal(key);
+      expect(resources).to.equal(55n);
+      expect(outContext).to.equal(context);
+      expect(i).to.equal(BigInt(ethers.getBytes(recovery).length));
     });
 
-    it("unpackRelay consumes chain, resources, and step bytes", async () => {
+    it("unpackRelay consumes chain, resources, and request bytes", async () => {
       const chain: bigint = await utils.testLocalChainId();
-      const steps = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
-      const relay = encodeRelayBlock(chain, 55n, steps);
-      const [outChain, resources, outSteps, i] = await helper.testUnpackRelay(relay);
+      const request = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
+      const relay = encodeRelayBlock(chain, 55n, request);
+      const [outChain, resources, outRequest, i] = await helper.testUnpackRelay(relay);
       expect(outChain).to.equal(chain);
       expect(resources).to.equal(55n);
-      expect(outSteps).to.equal(steps);
+      expect(outRequest).to.equal(request);
       expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
     });
 

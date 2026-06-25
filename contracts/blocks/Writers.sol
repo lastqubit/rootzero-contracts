@@ -28,7 +28,6 @@ library Hints {
     uint constant Step = 256;
     uint constant Call = 256;
     uint constant Context = 512;
-    uint constant Pipe = 608;
 }
 
 /// @title Writers
@@ -231,14 +230,6 @@ library Writers {
     /// @return writer Allocated growable writer.
     function allocContexts(uint count) internal pure returns (Writer memory writer) {
         return allocFromHint(count, Hints.Context);
-    }
-
-    /// @notice Allocate a writer for `count` PIPE blocks using a per-block capacity hint.
-    /// @dev The backing buffer expands automatically if encoded pipes exceed the initial hint.
-    /// @param count Number of pipe blocks to allocate space for.
-    /// @return writer Allocated growable writer.
-    function allocPipes(uint count) internal pure returns (Writer memory writer) {
-        return allocFromHint(count, Hints.Pipe);
     }
 
     // -------------------------------------------------------------------------
@@ -903,32 +894,6 @@ library Writers {
     /// @param request Raw nested request payload.
     function appendContext(Writer memory writer, bytes32 account, bytes memory state, bytes memory request) internal pure {
         appendBlock32BytesBytes(writer, Keys.Context, account, state, request);
-    }
-
-    /// @notice Append a PIPE block with a nested CONTEXT block.
-    /// @param writer Destination writer; `i` is advanced by the encoded PIPE block length.
-    /// @param resources Chain resources assigned to the pipe.
-    /// @param account Command account identifier.
-    /// @param state Raw nested state payload.
-    /// @param steps Raw nested step payload.
-    function appendPipe(
-        Writer memory writer,
-        uint resources,
-        bytes32 account,
-        bytes memory state,
-        bytes memory steps
-    ) internal pure {
-        uint i = writer.i;
-        uint len = 64 + 3 * Sizes.Header + state.length + steps.length;
-        uint next = i + Sizes.Header + len;
-        i = reserve(writer, next, next);
-
-        uint p = writeHeader(writer.dst, i, Keys.Pipe, uint32(max32(len)));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), resources)
-        }
-
-        writeBlock32BytesBytes(writer.dst, i + Sizes.Header + 32, Keys.Context, account, state, steps);
     }
 
     /// @notice Append a STATUS form block.

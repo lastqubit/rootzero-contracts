@@ -548,28 +548,13 @@ library Cursors {
         return createBlock(Keys.Context, bytes.concat(account, toBytesBlock(state), toBytesBlock(request)));
     }
 
-    /// @notice Encode a PIPE block.
-    /// @param resources Chain resources assigned to the pipe.
-    /// @param account Command account identifier.
-    /// @param state Embedded state block stream.
-    /// @param steps Embedded step block stream.
-    /// @return Encoded PIPE block bytes.
-    function toPipeBlock(
-        uint resources,
-        bytes32 account,
-        bytes memory state,
-        bytes memory steps
-    ) internal pure returns (bytes memory) {
-        return createBlock(Keys.Pipe, bytes.concat(bytes32(resources), toContextBlock(account, state, steps)));
-    }
-
     /// @notice Encode a RELAY block.
     /// @param chain Destination chain node ID.
-    /// @param resources Chain-adapter-specific resources for the destination pipe.
-    /// @param steps Nested step block stream.
+    /// @param resources Chain-adapter-specific resources for the destination context.
+    /// @param request Nested request block stream.
     /// @return Encoded RELAY block bytes.
-    function toRelayBlock(uint chain, uint resources, bytes memory steps) internal pure returns (bytes memory) {
-        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(steps)));
+    function toRelayBlock(uint chain, uint resources, bytes memory request) internal pure returns (bytes memory) {
+        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(request)));
     }
 
     /// @notice Encode a DISPATCH block.
@@ -1155,33 +1140,18 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a PIPE block and return its resources and context fields.
-    /// @param cur Cursor; advanced past the block.
-    /// @return resources Chain resources assigned to the pipe.
-    /// @return account Command account identifier.
-    /// @return state Embedded state block stream.
-    /// @return steps Embedded step block stream.
-    function unpackPipe(
-        Cur memory cur
-    ) internal pure returns (uint resources, bytes32 account, bytes calldata state, bytes calldata steps) {
-        uint end = cur.enter(Keys.Pipe, 32 + Sizes.Header + 32 + 2 * Sizes.Header, 0);
-        resources = uint(cur.read32());
-        (account, state, steps) = cur.unpackContext();
-        cur.exit(end);
-    }
-
-    /// @notice Consume a RELAY block and return its destination chain, resources, and step stream.
+    /// @notice Consume a RELAY block and return its destination chain, resources, and request stream.
     /// @param cur Cursor; advanced past the block.
     /// @return chain Destination chain node ID.
-    /// @return resources Chain-adapter-specific resources for the destination pipe.
-    /// @return steps Embedded step block stream.
+    /// @return resources Chain-adapter-specific resources for the destination context.
+    /// @return request Embedded request block stream.
     function unpackRelay(
         Cur memory cur
-    ) internal pure returns (uint chain, uint resources, bytes calldata steps) {
+    ) internal pure returns (uint chain, uint resources, bytes calldata request) {
         uint end = cur.enter(Keys.Relay, 64 + Sizes.Header, 0);
         chain = cur.readUint();
         resources = cur.readUint();
-        steps = cur.unpackBytes();
+        request = cur.unpackBytes();
         cur.exit(end);
     }
 
@@ -1197,6 +1167,23 @@ library Cursors {
         chain = cur.readUint();
         resources = cur.readUint();
         payload = cur.unpackBytes();
+        cur.exit(end);
+    }
+
+    /// @notice Consume a CONTEXT_RECOVERY block and return its target, key, resources, and embedded context cursor.
+    /// @param cur Cursor; advanced past the block.
+    /// @return target Recovery handler node ID.
+    /// @return key Commitment or recovery lookup key.
+    /// @return resources Chain resources assigned to the recovery attempt.
+    /// @return context Cursor scoped to the embedded CONTEXT witness block.
+    function unpackContextRecovery(
+        Cur memory cur
+    ) internal pure returns (uint target, bytes32 key, uint resources, Cur memory context) {
+        uint end = cur.enter(Keys.ContextRecovery, 96 + Sizes.Header, 0);
+        target = cur.readUint();
+        key = cur.read32();
+        resources = cur.readUint();
+        context = cur.take(Keys.Context);
         cur.exit(end);
     }
 
@@ -1388,21 +1375,21 @@ library Cursors {
     // Transform helpers
     // -------------------------------------------------------------------------
 
-    /// @notice Consume a RELAY block and encode its destination pipe payload.
+    /// @notice Consume a RELAY block and encode its destination context payload.
     /// @param cur Cursor; advanced past the RELAY block.
-    /// @param account Account identifier to embed in the destination pipe context.
-    /// @param state State block stream to embed in the destination pipe context.
+    /// @param account Account identifier to embed in the destination context.
+    /// @param state State block stream to embed in the destination context.
     /// @return chain Destination chain node ID.
-    /// @return resources Chain resources assigned to the destination pipe.
-    /// @return pipe Encoded PIPE block containing `account`, `state`, and relay steps.
-    function relayToPipe(
+    /// @return resources Chain resources assigned to the destination context.
+    /// @return context Encoded CONTEXT block containing `account`, `state`, and relay request.
+    function relayToContext(
         Cur memory cur,
         bytes32 account,
         bytes calldata state
-    ) internal pure returns (uint chain, uint resources, bytes memory pipe) {
-        bytes calldata steps;
-        (chain, resources, steps) = cur.unpackRelay();
-        pipe = toPipeBlock(resources, account, bytes(state), bytes(steps));
+    ) internal pure returns (uint chain, uint resources, bytes memory context) {
+        bytes calldata request;
+        (chain, resources, request) = cur.unpackRelay();
+        context = toContextBlock(account, bytes(state), bytes(request));
     }
 
     // -------------------------------------------------------------------------

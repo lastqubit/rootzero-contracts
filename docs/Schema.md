@@ -58,7 +58,6 @@ Once a child block appears, no more fixed fields may follow.
 ```txt
 #call { uint target, uint resources, #bytes as payload }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }
 ```
 
 The tail is embedded directly as child block bytes. There is no wrapper around a
@@ -117,6 +116,18 @@ maybe #account { bytes32 account } as recipient
 ```
 
 Aliases may be used on any block item, including child blocks and prime items.
+
+A child block without an inline body may also be used as a schema reference:
+
+```txt
+#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }
+```
+
+Alias resolution is context-dependent. A consumer may resolve `#context` from the
+standard `Schemas` table, from app-specific schemas, or from another active
+schema context. Consumers should reject schemas with unresolved aliases. The
+runtime encoding is still an embedded child block with the referenced key and
+layout.
 
 ## Field Paths
 
@@ -271,7 +282,7 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #call { uint target, uint resources, #bytes as payload }
 #step { uint target, uint resources, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#pipe { uint resources, #context { bytes32 account, #bytes as state, #bytes as steps } }
+#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }
 #auth { uint cid, uint deadline, #bytes as proof }
 ```
 
