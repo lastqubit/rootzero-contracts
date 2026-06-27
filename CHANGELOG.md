@@ -3,6 +3,39 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.7.0
+
+### Breaking Changes
+
+- Renamed peer callable surfaces to ports:
+  - `contracts/peer` moved to `contracts/ports`.
+  - `PeerEvent` / `event Peer` became `PortEvent` / `event Port`.
+  - `PeerBase`, `IPeer*`, and `Peer*` endpoint contracts became `PortBase`,
+    `IPort*`, and `Port*`.
+  - Peer endpoint functions and labels now use `port*` names, such as
+    `portPipePayable`, `portDispatchPayable`, and `portSettle`.
+  - Node helpers and layout tags now use `Port` terminology:
+    `Nodes.toPort`, `Nodes.isPort`, `Nodes.port`, and
+    `Nodes.portSelector`.
+- Removed the generic `PortRecoverContextPayable`; recovery is now routed by
+  the command-level `recoverContextPayable` to concrete ports such as
+  `portPipePayable`.
+- Renamed the `#contextRecovery` handler field from `target` to `port`.
+- Changed port entrypoint calldata parameter naming to `data` to avoid
+  clashing with nested context `request` fields.
+
+### Added
+
+- Added `RecoverContextPayable` and `#contextRecovery` for command-level
+  recovery routing with a commitment key, resources, handler port, and context
+  witness.
+- Added `Dispatch(uint indexed host, uint chain, uint resources, bytes32 digest, bytes32 ref)`
+  as the discovery/event surface for dispatch tracking.
+- Added `ContextRecovery` schema/cursor support and context schema aliases for
+  reusable nested block schemas.
+- Added `Values.drain`, `Payable.openValue`, and `Payable.closeValue` to make
+  payable command budget lifecycles explicit.
+
 ## 1.6.0
 
 ### Added
