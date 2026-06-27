@@ -1170,17 +1170,17 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a CONTEXT_RECOVERY block and return its target, key, resources, and embedded context cursor.
+    /// @notice Consume a CONTEXT_RECOVERY block and return its port, key, resources, and embedded context cursor.
     /// @param cur Cursor; advanced past the block.
-    /// @return target Recovery handler node ID.
+    /// @return port Recovery handler port node ID.
     /// @return key Commitment or recovery lookup key.
     /// @return resources Chain resources assigned to the recovery attempt.
     /// @return context Cursor scoped to the embedded CONTEXT witness block.
     function unpackContextRecovery(
         Cur memory cur
-    ) internal pure returns (uint target, bytes32 key, uint resources, Cur memory context) {
+    ) internal pure returns (uint port, bytes32 key, uint resources, Cur memory context) {
         uint end = cur.enter(Keys.ContextRecovery, 96 + Sizes.Header, 0);
-        target = cur.readUint();
+        port = cur.readUint();
         key = cur.read32();
         resources = cur.readUint();
         context = cur.take(Keys.Context);

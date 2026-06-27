@@ -71,7 +71,7 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant ContextRecovery = "#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }";
+    string constant ContextRecovery = "#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }";
     string constant Call = "#call { uint target, uint resources, #bytes as payload }";
     string constant Step = "#step { uint target, uint resources, #bytes as request }";
     string constant Relay = "#relay { uint chain, uint resources, #bytes as request }";

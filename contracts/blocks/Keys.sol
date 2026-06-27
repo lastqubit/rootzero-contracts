@@ -45,7 +45,7 @@ library Keys {
     bytes4 constant Relay = bytes4(keccak256("#relay"));
     /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
     bytes4 constant Context = bytes4(keccak256("#context"));
-    /// @dev Recoverable context witness - (uint target, bytes32 key, uint resources, #context)
+    /// @dev Recoverable context witness - (uint port, bytes32 key, uint resources, #context)
     bytes4 constant ContextRecovery = bytes4(keccak256("#contextRecovery"));
     /// @dev Cross-chain encoded payload dispatch - (uint chain, uint resources, #bytes as payload)
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));

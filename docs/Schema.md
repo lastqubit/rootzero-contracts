@@ -120,7 +120,7 @@ Aliases may be used on any block item, including child blocks and prime items.
 A child block without an inline body may also be used as a schema reference:
 
 ```txt
-#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }
+#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }
 ```
 
 Alias resolution is context-dependent. A consumer may resolve `#context` from the
@@ -282,7 +282,7 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #call { uint target, uint resources, #bytes as payload }
 #step { uint target, uint resources, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }
+#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }
 #auth { uint cid, uint deadline, #bytes as proof }
 ```
 

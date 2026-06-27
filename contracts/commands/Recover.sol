@@ -10,12 +10,12 @@ using Cursors for Cur;
 
 abstract contract RecoverContextPayableHook {
     /// @notice Override to recover one committed context witness.
-    /// @param target Recovery handler node ID.
+    /// @param port Recovery handler port node ID.
     /// @param key Commitment or recovery lookup key.
     /// @param resources Chain resources assigned to the recovery attempt.
     /// @param context Cursor scoped to the embedded CONTEXT witness block.
     /// @param budget Mutable native-value budget available to the recovery attempt.
-    function recoverContext(uint target, bytes32 key, uint resources, Cur memory context, Budget memory budget) internal virtual;
+    function recoverContext(uint port, bytes32 key, uint resources, Cur memory context, Budget memory budget) internal virtual;
 }
 
 /// @title RecoverContextPayable
@@ -37,8 +37,8 @@ abstract contract RecoverContextPayable is CommandBase, Payable, RecoverContextP
         Budget memory budget = openValue();
 
         while (request.i < request.len) {
-            (uint target, bytes32 key, uint resources, Cur memory context) = request.unpackContextRecovery();
-            recoverContext(target, key, resources, context, budget);
+            (uint port, bytes32 key, uint resources, Cur memory context) = request.unpackContextRecovery();
+            recoverContext(port, key, resources, context, budget);
         }
 
         closeValue(c.account, budget);
