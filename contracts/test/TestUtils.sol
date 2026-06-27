@@ -159,8 +159,8 @@ contract TestUtils is Payable {
         return Nodes.toCommand(selector, addr);
     }
 
-    function testToPeerId(bytes4 selector, address addr) external view returns (uint) {
-        return Nodes.toPeer(selector, addr);
+    function testToPortId(bytes4 selector, address addr) external view returns (uint) {
+        return Nodes.toPort(selector, addr);
     }
 
     function testToGuardId(bytes4 selector, address addr) external view returns (uint) {
@@ -175,8 +175,8 @@ contract TestUtils is Payable {
         return Nodes.isCommand(node);
     }
 
-    function testIsPeer(uint node) external pure returns (bool) {
-        return Nodes.isPeer(node);
+    function testIsPort(uint node) external pure returns (bool) {
+        return Nodes.isPort(node);
     }
 
     function testIsGuard(uint node) external pure returns (bool) {
@@ -203,8 +203,8 @@ contract TestUtils is Payable {
         return Nodes.command(value);
     }
 
-    function testPeerNode(uint value) external pure returns (uint) {
-        return Nodes.peer(value);
+    function testPortNode(uint value) external pure returns (uint) {
+        return Nodes.port(value);
     }
 
     function testGuardNode(uint value) external pure returns (uint) {

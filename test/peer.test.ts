@@ -15,27 +15,27 @@ import {
 import { ethers } from "ethers";
 import "./helpers/matchers.js";
 
-describe("Peer Entrypoints", () => {
+describe("Port Entrypoints", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
 
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
-    host = await deploy("TestPeerHost", commander);
+    host = await deploy("TestPortHost", commander);
     const trustedPeer = await callerHost(1);
     const adminAccount: string = await host.getAdminAccount();
     await host.authorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(trustedPeer) });
   });
 
-  it("emits Peer discovery events with id as the second argument", async () => {
+  it("emits Port discovery events with id as the second argument", async () => {
     const tx = host.deploymentTransaction();
     expect(tx).to.not.equal(null);
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerAllowanceId(),
+        await host.getPortAllowanceId(),
         ethers.encodeBytes32String("1:0"),
         "#amount { bytes32 asset, uint amount }",
         "",
@@ -43,13 +43,13 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerAllowanceId(), ethers.ZeroHash, "peerAllowance");
+      .withArgs(await host.getPortAllowanceId(), ethers.ZeroHash, "portAllowance");
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerRedeemBalanceId(),
+        await host.getPortRedeemBalanceId(),
         ethers.encodeBytes32String("1:0"),
         "#balance { bytes32 asset, uint amount }",
         "",
@@ -57,13 +57,13 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerRedeemBalanceId(), ethers.ZeroHash, "peerRedeemBalance");
+      .withArgs(await host.getPortRedeemBalanceId(), ethers.ZeroHash, "portRedeemBalance");
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerCreditAccountId(),
+        await host.getPortCreditAccountId(),
         ethers.encodeBytes32String("1:0"),
         "#accountAmount { bytes32 account, bytes32 asset, uint amount }",
         "",
@@ -71,13 +71,13 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerCreditAccountId(), ethers.ZeroHash, "peerCreditAccount");
+      .withArgs(await host.getPortCreditAccountId(), ethers.ZeroHash, "portCreditAccount");
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerDebitAccountId(),
+        await host.getPortDebitAccountId(),
         ethers.encodeBytes32String("1:0"),
         "#accountAmount { bytes32 account, bytes32 asset, uint amount }",
         "",
@@ -85,13 +85,13 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerDebitAccountId(), ethers.ZeroHash, "peerDebitAccount");
+      .withArgs(await host.getPortDebitAccountId(), ethers.ZeroHash, "portDebitAccount");
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerPipePayableId(),
+        await host.getPortPipePayableId(),
         ethers.encodeBytes32String("1:0"),
         "#context { bytes32 account, #bytes as state, #bytes as request }",
         "",
@@ -99,27 +99,13 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerPipePayableId(), ethers.ZeroHash, "peerPipePayable");
+      .withArgs(await host.getPortPipePayableId(), ethers.ZeroHash, "portPipePayable");
 
     await expect(tx!)
-      .to.emit(host, "Peer")
+      .to.emit(host, "Port")
       .withArgs(
         await host.host(),
-        await host.getPeerRecoverContextPayableId(),
-        ethers.encodeBytes32String("1:0"),
-        "#context { bytes32 account, #bytes as state, #bytes as request }",
-        "",
-        true,
-      );
-    await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerRecoverContextPayableId(), ethers.ZeroHash, "peerRecoverContextPayable");
-
-    await expect(tx!)
-      .to.emit(host, "Peer")
-      .withArgs(
-        await host.host(),
-        await host.getPeerDispatchPayableId(),
+        await host.getPortDispatchPayableId(),
         ethers.encodeBytes32String("1:0"),
         "#dispatch { uint chain, uint resources, #bytes as payload }",
         "",
@@ -127,21 +113,20 @@ describe("Peer Entrypoints", () => {
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPeerDispatchPayableId(), ethers.ZeroHash, "peerDispatchPayable");
+      .withArgs(await host.getPortDispatchPayableId(), ethers.ZeroHash, "portDispatchPayable");
 
   });
 
   async function callAs(
     signerIndex: number,
     method:
-      | "peerAllowance(bytes)"
-      | "peerRedeemBalance(bytes)"
-      | "peerCreditAccount(bytes)"
-      | "peerDebitAccount(bytes)"
-      | "peerSettle(bytes)"
-      | "peerPipePayable(bytes)"
-      | "peerRecoverContextPayable(bytes)"
-      | "peerDispatchPayable(bytes)",
+      | "portAllowance(bytes)"
+      | "portRedeemBalance(bytes)"
+      | "portCreditAccount(bytes)"
+      | "portDebitAccount(bytes)"
+      | "portSettle(bytes)"
+      | "portPipePayable(bytes)"
+      | "portDispatchPayable(bytes)",
     request = "0x",
     overrides: Record<string, bigint> = {}
   ) {
@@ -165,17 +150,17 @@ describe("Peer Entrypoints", () => {
     return (CHAIN_PREFIX << 224n) | network.chainId;
   }
 
-  describe("peerAllowance", () => {
-    const method = "peerAllowance(bytes)";
+  describe("portAllowance", () => {
+    const method = "portAllowance(bytes)";
     const asset = ethers.zeroPadValue("0xa0", 32);
 
-    it("emits PeerAllowanceCalled for a single AMOUNT block scoped to the caller host", async () => {
+    it("emits PortAllowanceCalled for a single AMOUNT block scoped to the caller host", async () => {
       const peer = await callerHost(1);
       const tx = await callAs(1, method, encodeAmountBlock(asset, 123n));
-      await expect(tx).to.emit(host, "PeerAllowanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset, 123n);
     });
 
-    it("emits PeerAllowanceCalled for each AMOUNT block when multiple are present", async () => {
+    it("emits PortAllowanceCalled for each AMOUNT block when multiple are present", async () => {
       const peer = await callerHost(1);
       const asset2 = ethers.zeroPadValue("0xc0", 32);
       const tx = await callAs(
@@ -186,8 +171,8 @@ describe("Peer Entrypoints", () => {
           encodeAmountBlock(asset2, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PeerAllowanceCalled").withArgs(peer, asset, 123n);
-      await expect(tx).to.emit(host, "PeerAllowanceCalled").withArgs(peer, asset2, 456n);
+      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset2, 456n);
     });
 
     it("returns empty bytes after processing amount blocks", async () => {
@@ -212,17 +197,17 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerRedeemBalance", () => {
-    const method = "peerRedeemBalance(bytes)";
+  describe("portRedeemBalance", () => {
+    const method = "portRedeemBalance(bytes)";
     const asset = ethers.zeroPadValue("0xaa", 32);
 
-    it("emits PeerRedeemBalanceCalled for a single BALANCE block", async () => {
+    it("emits PortRedeemBalanceCalled for a single BALANCE block", async () => {
       const peer = await callerHost(1);
       const tx = await callAs(1, method, encodeBalanceBlock(asset, 123n));
-      await expect(tx).to.emit(host, "PeerRedeemBalanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset, 123n);
     });
 
-    it("emits PeerRedeemBalanceCalled for each BALANCE block when multiple are present", async () => {
+    it("emits PortRedeemBalanceCalled for each BALANCE block when multiple are present", async () => {
       const peer = await callerHost(1);
       const asset2 = ethers.zeroPadValue("0xcc", 32);
       const tx = await callAs(
@@ -233,8 +218,8 @@ describe("Peer Entrypoints", () => {
           encodeBalanceBlock(asset2, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PeerRedeemBalanceCalled").withArgs(peer, asset, 123n);
-      await expect(tx).to.emit(host, "PeerRedeemBalanceCalled").withArgs(peer, asset2, 456n);
+      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset2, 456n);
     });
 
     it("returns empty bytes after processing balance blocks", async () => {
@@ -259,14 +244,14 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerCreditAccount", () => {
-    const method = "peerCreditAccount(bytes)";
+  describe("portCreditAccount", () => {
+    const method = "portCreditAccount(bytes)";
     const account = encodeUserAccount("0x11");
     const asset = ethers.zeroPadValue("0xaa", 32);
 
     it("credits the account from a single ACCOUNT_AMOUNT block", async () => {
       const tx = await callAs(1, method, encodeAccountAmountBlock(account, asset, 123n));
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account, asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(account, asset, 123n);
     });
 
     it("credits each account amount block when multiple are present", async () => {
@@ -281,8 +266,8 @@ describe("Peer Entrypoints", () => {
         )
       );
 
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account, asset, 123n);
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(account2, asset2, 456n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(account, asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(account2, asset2, 456n);
     });
 
     it("returns empty bytes after processing account amount blocks", async () => {
@@ -314,14 +299,14 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerDebitAccount", () => {
-    const method = "peerDebitAccount(bytes)";
+  describe("portDebitAccount", () => {
+    const method = "portDebitAccount(bytes)";
     const account = encodeUserAccount("0x11");
     const asset = ethers.zeroPadValue("0xaa", 32);
 
     it("debits the account from a single ACCOUNT_AMOUNT block", async () => {
       const tx = await callAs(1, method, encodeAccountAmountBlock(account, asset, 123n));
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account, asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(account, asset, 123n);
     });
 
     it("debits each account amount block when multiple are present", async () => {
@@ -336,8 +321,8 @@ describe("Peer Entrypoints", () => {
         )
       );
 
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account, asset, 123n);
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(account2, asset2, 456n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(account, asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(account2, asset2, 456n);
     });
 
     it("returns empty bytes after processing account amount blocks", async () => {
@@ -369,16 +354,16 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerSettle", () => {
-    const method = "peerSettle(bytes)";
+  describe("portSettle", () => {
+    const method = "portSettle(bytes)";
     const from_ = encodeUserAccount("0x11");
     const to_ = encodeUserAccount("0x22");
     const asset = ethers.zeroPadValue("0xaa", 32);
 
     it("debits and credits both sides of a single TX block", async () => {
       const tx = await callAs(1, method, encodeTxBlock(from_, to_, asset, 123n));
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(from_, asset, 123n);
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(to_, asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(from_, asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(to_, asset, 123n);
     });
 
     it("debits and credits each TX block when multiple are present", async () => {
@@ -391,15 +376,15 @@ describe("Peer Entrypoints", () => {
           encodeTxBlock(from2, to_, asset, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(from_, asset, 123n);
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(to_, asset, 123n);
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(from2, asset, 456n);
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(to_, asset, 456n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(from_, asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(to_, asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(from2, asset, 456n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(to_, asset, 456n);
     });
 
     it("skips the debit hook when TX from is zero", async () => {
       const tx = await callAs(1, method, encodeTxBlock(ethers.ZeroHash, to_, asset, 123n));
-      await expect(tx).to.emit(host, "PeerCreditAccountCalled").withArgs(to_, asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(to_, asset, 123n);
 
       const receipt = await tx.wait();
       const names = receipt?.logs.map((log) => {
@@ -409,12 +394,12 @@ describe("Peer Entrypoints", () => {
           return null;
         }
       });
-      expect(names).to.not.include("PeerDebitAccountCalled");
+      expect(names).to.not.include("PortDebitAccountCalled");
     });
 
     it("skips the credit hook when TX to is zero", async () => {
       const tx = await callAs(1, method, encodeTxBlock(from_, ethers.ZeroHash, asset, 123n));
-      await expect(tx).to.emit(host, "PeerDebitAccountCalled").withArgs(from_, asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(from_, asset, 123n);
 
       const receipt = await tx.wait();
       const names = receipt?.logs.map((log) => {
@@ -424,7 +409,7 @@ describe("Peer Entrypoints", () => {
           return null;
         }
       });
-      expect(names).to.not.include("PeerCreditAccountCalled");
+      expect(names).to.not.include("PortCreditAccountCalled");
     });
 
     it("returns empty bytes after processing tx blocks", async () => {
@@ -444,8 +429,8 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerPipePayable", () => {
-    const method = "peerPipePayable(bytes)";
+  describe("portPipePayable", () => {
+    const method = "portPipePayable(bytes)";
     const account = encodeUserAccount("0x44");
 
     it("unpacks CONTEXT blocks and dispatches nested request as pipe steps", async () => {
@@ -492,7 +477,7 @@ describe("Peer Entrypoints", () => {
 
       const tx = await callAs(1, method, request, { value: 2n });
       const receipt = await tx.wait();
-      if (!receipt || receipt.status === 0) throw new Error("peerPipePayable tx reverted");
+      if (!receipt || receipt.status === 0) throw new Error("portPipePayable tx reverted");
 
       const before = await provider.getBalance(hostAddress, receipt.blockNumber - 1);
       const after = await provider.getBalance(hostAddress, receipt.blockNumber);
@@ -500,67 +485,8 @@ describe("Peer Entrypoints", () => {
     });
   });
 
-  describe("peerRecoverContextPayable", () => {
-    const method = "peerRecoverContextPayable(bytes)";
-    const account = encodeUserAccount("0x66");
-
-    it("unpacks CONTEXT blocks and forwards nested context to the recovery hook", async () => {
-      const step = encodeStepBlock(321n, 0n, "0xabcd");
-      const request = encodeContextBlock(account, "0x", step);
-
-      const tx = await callAs(1, method, request);
-
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", step, 0n);
-    });
-
-    it("forwards each recovery context", async () => {
-      const firstStep = encodeStepBlock(333n, 0n, "0x");
-      const secondStep = encodeStepBlock(444n, 0n, "0x");
-      const first = encodeContextBlock(account, "0x", firstStep);
-      const second = encodeContextBlock(account, "0x", secondStep);
-
-      const tx = await callAs(1, method, concat(first, second));
-
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", firstStep, 0n);
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", secondStep, 0n);
-    });
-
-    it("passes the shared value budget to the recovery hook", async () => {
-      const step = encodeStepBlock(555n, 0n, "0x");
-      const request = encodeContextBlock(account, "0x", step);
-
-      const tx = await callAs(1, method, request, { value: 7n });
-
-      await expect(tx).to.emit(host, "PeerRecoverCalled").withArgs(account, "0x", step, 7n);
-    });
-
-    it("returns empty bytes after processing recovery context blocks", async () => {
-      const signer = await getSigner(1);
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
-      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
-      expect(result).to.equal("0x");
-    });
-
-    it("reverts CommanderNotAllowed for the commander", async () => {
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
-      await expect(callAs(0, method, request))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
-    });
-
-    it("reverts AccessDenied for an untrusted caller", async () => {
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 0n, "0x"));
-      await expect(callAs(2, method, request))
-        .to.be.revertedWithCustomError(host, "AccessDenied");
-    });
-
-    it("reverts ZeroCursor when request is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
-    });
-  });
-
-  describe("peerDispatchPayable", () => {
-    const method = "peerDispatchPayable(bytes)";
+  describe("portDispatchPayable", () => {
+    const method = "portDispatchPayable(bytes)";
 
     it("dispatches a single DISPATCH block and exposes the remaining value budget", async () => {
       const chain = await localChain();
@@ -569,7 +495,7 @@ describe("Peer Entrypoints", () => {
 
       const tx = await callAs(1, method, request, { value: 8n });
 
-      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, payload, 5n, 8n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, payload, 5n, 8n);
     });
 
     it("returns empty bytes after dispatching a payload", async () => {
@@ -613,15 +539,15 @@ describe("Peer Entrypoints", () => {
 
       const tx = await callAs(1, method, request, { value: 5n });
 
-      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, first, 2n, 5n);
-      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(chain, second, 3n, 5n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, first, 2n, 5n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, second, 3n, 5n);
     });
 
     it("passes dispatch resources through even when it exceeds msg.value", async () => {
       const request = encodeDispatchBlock(await localChain(), 2n, "0x");
 
       const tx = await callAs(1, method, request, { value: 1n });
-      await expect(tx).to.emit(host, "PeerDispatchCalled").withArgs(await localChain(), "0x", 2n, 1n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(await localChain(), "0x", 2n, 1n);
     });
   });
 });

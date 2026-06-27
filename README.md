@@ -304,19 +304,19 @@ response: #accountAmount { bytes32 account, bytes32 asset, uint amount }
 Like commands, every query announces its request and response schemas at
 deployment, so tooling knows how to call it without artifacts.
 
-## Peers
+## Ports
 
-Peers are the host-to-host surfaces, callable only by trusted hosts. The two
+Ports are the host-to-host surfaces, callable only by trusted peer hosts. The two
 central ones are batches all the way down:
 
-- `peerSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
+- `portSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
   block — how two hosts record settlement between their ledgers.
-- `peerPipePayable` consumes `#context` blocks, each carrying an account, an
+- `portPipePayable` consumes `#context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the peer call's shared value budget.
 
-This is also the cross-chain mechanism. `relayPayable` (or `peerDispatchPayable`)
+This is also the cross-chain mechanism. `relayPayable` (or `portDispatchPayable`)
 wraps a pipe and addresses it to a chain; a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step targets
@@ -363,7 +363,7 @@ Repo layout:
 
 - `contracts/core` — host, access control, balances, pipeline, validation
 - `contracts/commands` — standard commands and admin commands
-- `contracts/peer` — peer surfaces for inter-host and cross-chain flows
+- `contracts/ports` — peer surfaces for inter-host and cross-chain flows
 - `contracts/guards` — guardian direct actions
 - `contracts/queries` — read-only query endpoints
 - `contracts/blocks` — block schema, cursor parsing, writers

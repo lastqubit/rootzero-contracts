@@ -9,9 +9,9 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 /// @notice Encoding and decoding helpers for 256-bit node identifiers.
 ///
 /// Node IDs share a common layout:
-///   - bits [255:224] — 4-byte type prefix (`Host`, `Command`, or `Peer`)
+///   - bits [255:224] — 4-byte type prefix (`Host`, `Command`, `Port`, etc.)
 ///   - bits [223:192] — current `block.chainid` (makes IDs chain-local)
-///   - bits [191:160] — 4-byte ABI selector (commands and peers only)
+///   - bits [191:160] — 4-byte ABI selector (commands, ports, queries, and guards)
 ///   - bits [159:0]   — 160-bit EVM contract address
 ///
 /// If the first byte is zero, the node is an opaque
@@ -31,8 +31,8 @@ library Nodes {
     uint32 constant Host = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Host);
     /// @dev Full 4-byte type prefix for command nodes.
     uint32 constant Command = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
-    /// @dev Full 4-byte type prefix for peer nodes.
-    uint32 constant Peer = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Peer);
+    /// @dev Full 4-byte type prefix for port nodes.
+    uint32 constant Port = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Port);
     /// @dev Full 4-byte type prefix for query nodes.
     uint32 constant Query = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
     /// @dev Full 4-byte type prefix for guard action nodes.
@@ -48,9 +48,9 @@ library Nodes {
         return uint32(node >> 224) == Command;
     }
 
-    /// @notice Return true if `node` is a peer node ID.
-    function isPeer(uint node) internal pure returns (bool) {
-        return uint32(node >> 224) == Peer;
+    /// @notice Return true if `node` is a port node ID.
+    function isPort(uint node) internal pure returns (bool) {
+        return uint32(node >> 224) == Port;
     }
 
     /// @notice Return true if `node` is a query node ID.
@@ -94,11 +94,11 @@ library Nodes {
         return value;
     }
 
-    /// @notice Assert that `value` is a peer node ID and return it as a node.
+    /// @notice Assert that `value` is a port node ID and return it as a node.
     /// @param value Value to validate.
-    /// @return node The same `value` if it is a peer node.
-    function peer(uint value) internal pure returns (uint node) {
-        if (!isPeer(value)) revert InvalidId();
+    /// @return node The same `value` if it is a port node.
+    function port(uint value) internal pure returns (uint node) {
+        if (!isPort(value)) revert InvalidId();
         return value;
     }
 
@@ -149,11 +149,11 @@ library Nodes {
         return bytes4(uint32(command(node) >> 160));
     }
 
-    /// @notice Assert that `node` is a peer ID and return its embedded ABI selector.
+    /// @notice Assert that `node` is a port ID and return its embedded ABI selector.
     /// @param node Node ID to validate.
-    /// @return selector 4-byte peer selector stored in bits [191:160].
-    function peerSelector(uint node) internal pure returns (bytes4 selector) {
-        return bytes4(uint32(peer(node) >> 160));
+    /// @return selector 4-byte port selector stored in bits [191:160].
+    function portSelector(uint node) internal pure returns (bytes4 selector) {
+        return bytes4(uint32(port(node) >> 160));
     }
 
     /// @notice Assert that `node` is a query ID and return its embedded ABI selector.
@@ -201,12 +201,12 @@ library Nodes {
         node |= uint(uint32(selector)) << 160;
     }
 
-    /// @notice Build a chain-local peer ID for the given selector and contract.
-    /// @param selector 4-byte ABI selector of the peer entry point.
-    /// @param target Peer contract address.
-    /// @return node Peer node ID embedding both the selector and address.
-    function toPeer(bytes4 selector, address target) internal view returns (uint node) {
-        node = toLocalBase(Peer) | uint(uint160(target));
+    /// @notice Build a chain-local port ID for the given selector and contract.
+    /// @param selector 4-byte ABI selector of the port entry point.
+    /// @param target Port contract address.
+    /// @return node Port node ID embedding both the selector and address.
+    function toPort(bytes4 selector, address target) internal view returns (uint node) {
+        node = toLocalBase(Port) | uint(uint160(target));
         node |= uint(uint32(selector)) << 160;
     }
 

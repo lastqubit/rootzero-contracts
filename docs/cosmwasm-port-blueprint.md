@@ -9,7 +9,7 @@ Use it together with:
 - Local EVM behavior blueprint: `contracts/`, `test/`, and `test/helpers/blocks.ts`
 - CosmWasm project/docs: `https://cosmwasm.com/` and `https://github.com/CosmWasm/cosmwasm`
 
-The goal is not to make CosmWasm look like Solidity. The goal is to preserve Rootzero protocol behavior, wire bytes, ID taxonomy, command semantics, peer pipe execution, access rules, and test outcomes while using native CosmWasm structure where that is clearer or more efficient.
+The goal is not to make CosmWasm look like Solidity. The goal is to preserve Rootzero protocol behavior, wire bytes, ID taxonomy, command semantics, port pipe execution, access rules, and test outcomes while using native CosmWasm structure where that is clearer or more efficient.
 
 ## Core Rules
 
@@ -70,7 +70,7 @@ rootzero-cosmwasm-workspace/
           base.rs
           debit.rs
           credit.rs
-        peer/
+        ports/
           mod.rs
           settle.rs
       tests/
@@ -92,7 +92,7 @@ rootzero-cosmwasm-workspace/
           deposit.rs
           withdraw.rs
           payout.rs
-        peer/
+        ports/
           mod.rs
           pipe.rs
         adapter/
@@ -130,7 +130,7 @@ pub enum InstantiateMsg {
 }
 
 pub enum ExecuteMsg {
-    PeerPipe {
+    PortPipe {
         request: Binary,
     },
     BridgeReceive {
@@ -158,7 +158,7 @@ pub enum QueryMsg {
 }
 ```
 
-`PeerPipe { request }` is the CosmWasm equivalent of the EVM peer pipe entrypoint. It receives raw CONTEXT block bytes and runs the local pipeline.
+`PortPipe { request }` is the CosmWasm equivalent of the EVM port pipe entrypoint. It receives raw CONTEXT block bytes and runs the local pipeline.
 
 `BridgeReceive` is optional. Use it if a bridge must call a specific adapter entrypoint first. The bridge adapter should authenticate the bridge message, then call the same internal `peer_pipe` implementation.
 
@@ -378,14 +378,14 @@ match command_tag(target)? {
 
 If a command target refers to another local contract, resolve the node ID to `Addr` and emit a `WasmMsg::Execute`. If a native-efficient internal dispatch is enough, prefer internal dispatch.
 
-## Peer Pipe
+## Port Pipe
 
-Port `peer/Pipe.sol` as the cross-chain byte execution surface.
+Port `ports/Pipe.sol` as the cross-chain byte execution surface.
 
 External CosmWasm entrypoint:
 
 ```rust
-ExecuteMsg::PeerPipe { request }
+ExecuteMsg::PortPipe { request }
 ```
 
 Internal behavior:
@@ -513,7 +513,7 @@ Port tests from `https://github.com/lastqubit/rootzero-contracts` in this order:
    Validate debit, credit, deposit, withdraw, payout, and pipeline state threading.
 
 5. `test/peer.test.ts`
-   Validate peer pipe byte delivery, batching, trusted caller checks, and final empty state.
+   Validate port pipe byte delivery, batching, trusted caller checks, and final empty state.
 
 6. Query tests as needed.
    Port query behavior only for query surfaces the CosmWasm host exposes.
@@ -535,7 +535,7 @@ CosmWasm writer bytes -> TypeScript/Solidity parser -> exact byte match
 6. Add CosmWasm storage and resolver maps.
 7. Add CosmWasm access control.
 8. Add CosmWasm pipeline dispatch.
-9. Add CosmWasm peer pipe.
+9. Add CosmWasm port pipe.
 10. Add CosmWasm native asset adapter.
 11. Add bridge adapter if needed.
 12. Port test suites until behavior matches the EVM blueprint.
@@ -550,7 +550,7 @@ CosmWasm writer bytes -> TypeScript/Solidity parser -> exact byte match
 - No ERC helper names are used unless wrapping real EVM/ERC assets.
 - Balances use protocol account IDs as keys.
 - Asset/account/node resolution happens only at native boundaries.
-- `PeerPipe` accepts raw CONTEXT bytes and calls the same pipeline path as local execution.
+- `PortPipe` accepts raw CONTEXT bytes and calls the same pipeline path as local execution.
 - STEP targets are local CosmWasm node IDs.
 - The port has no global chain ID registry.
 - Ported tests pass against fixtures from `rootzero-contracts`.

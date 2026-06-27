@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
-import { commandSelector, guardSelector, peerSelector } from "./helpers/blocks.js";
+import { commandSelector, guardSelector, portSelector } from "./helpers/blocks.js";
 
 async function expectCustomError(promise: Promise<unknown>, name: string) {
   try {
@@ -394,9 +394,9 @@ describe("Utils", () => {
       expect(await utils.testIsCommand(hid)).to.be.false;
     });
 
-    it("isPeer returns true for peer ID", async () => {
-      const pid: bigint = await utils.testToPeerId(peerSelector("peerAllowance"), signerAddress);
-      expect(await utils.testIsPeer(pid)).to.be.true;
+    it("isPort returns true for port ID", async () => {
+      const pid: bigint = await utils.testToPortId(portSelector("portAllowance"), signerAddress);
+      expect(await utils.testIsPort(pid)).to.be.true;
     });
 
     it("isGuard returns true for guard ID", async () => {
@@ -404,9 +404,9 @@ describe("Utils", () => {
       expect(await utils.testIsGuard(gid)).to.be.true;
     });
 
-    it("isPeer returns false for host ID", async () => {
+    it("isPort returns false for host ID", async () => {
       const hid: bigint = await utils.testToHostId(signerAddress);
-      expect(await utils.testIsPeer(hid)).to.be.false;
+      expect(await utils.testIsPort(hid)).to.be.false;
     });
 
     it("isGuard returns false for host ID", async () => {
@@ -448,9 +448,9 @@ describe("Utils", () => {
       expect(result).to.equal(cid);
     });
 
-    it("peer succeeds for peer ID", async () => {
-      const pid: bigint = await utils.testToPeerId(peerSelector("peerAllowance"), signerAddress);
-      const result: bigint = await utils.testPeerNode(pid);
+    it("port succeeds for port ID", async () => {
+      const pid: bigint = await utils.testToPortId(portSelector("portAllowance"), signerAddress);
+      const result: bigint = await utils.testPortNode(pid);
       expect(result).to.equal(pid);
     });
 

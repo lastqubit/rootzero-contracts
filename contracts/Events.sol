@@ -21,7 +21,7 @@ import { IntroductionEvent } from "./events/Introduction.sol";
 import { LabeledEvent } from "./events/Labeled.sol";
 import { LockedEvent } from "./events/Locked.sol";
 import { NodeEvent } from "./events/Node.sol";
-import { PeerEvent } from "./events/Peer.sol";
+import { PortEvent } from "./events/Port.sol";
 import { QueryEvent } from "./events/Query.sol";
 import { RootedEvent } from "./events/Rooted.sol";
 import { RouteEvent } from "./events/Route.sol";

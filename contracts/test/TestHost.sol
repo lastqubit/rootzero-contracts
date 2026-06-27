@@ -11,7 +11,7 @@ import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable } from "../commands/Relay.sol";
 import { RecoverContextPayable } from "../commands/Recover.sol";
 import { Pipeline } from "../core/Pipeline.sol";
-import { PeerSettle } from "../peer/Settle.sol";
+import { PortSettle } from "../ports/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Destroy } from "../commands/admin/Destroy.sol";
@@ -36,7 +36,7 @@ contract TestHost is
     RelayPayable,
     RecoverContextPayable,
     Pipeline,
-    PeerSettle,
+    PortSettle,
     Init,
     Destroy,
     AllowAssets,
@@ -52,7 +52,7 @@ contract TestHost is
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint chain, uint resources, bytes context);
-    event RecoverContextCalled(uint target, bytes32 key, uint resources, bytes context, uint remaining);
+    event RecoverContextCalled(uint port, bytes32 key, uint resources, bytes context, uint remaining);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset);
@@ -113,13 +113,13 @@ contract TestHost is
     }
 
     function recoverContext(
-        uint target,
+        uint port,
         bytes32 key,
         uint resources,
         Cur memory context,
         Budget memory budget
     ) internal override {
-        emit RecoverContextCalled(target, key, resources, context.raw(), budget.remaining);
+        emit RecoverContextCalled(port, key, resources, context.raw(), budget.remaining);
     }
 
     function init(Cur memory input) internal override {
@@ -202,8 +202,8 @@ contract TestHost is
         return payoutId;
     }
 
-    function getPeerSettleId() external view returns (uint) {
-        return peerSettleId;
+    function getPortSettleId() external view returns (uint) {
+        return portSettleId;
     }
 
     function getProvisionId() external view returns (uint) {

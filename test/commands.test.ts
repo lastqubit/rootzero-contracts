@@ -492,7 +492,7 @@ describe("Commands", () => {
           await host.host(),
           await host.getRecoverContextPayableId(),
           ethers.encodeBytes32String("1:0:0"),
-          "#contextRecovery { uint target, bytes32 key, uint resources, #context as witness }",
+          "#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }",
           Keys.Empty,
           Keys.Empty,
           true,
@@ -503,18 +503,18 @@ describe("Commands", () => {
 
     it("passes the recovery key, resources, and context cursor to the hook", async () => {
       const key = ethers.zeroPadValue("0xbeef", 32);
-      const target = 99n;
+      const port = 99n;
       const resources = 13n;
       const step = encodeStepBlock(0n, 0n, "0x1234");
       const context = encodeContextBlock(userAccount, "0x", step);
-      const request = encodeContextRecoveryBlock(target, key, resources, context);
+      const request = encodeContextRecoveryBlock(port, key, resources, context);
 
       const result: string = await host.recoverContextPayable.staticCall(ctx({ request }));
       expect(result).to.equal("0x");
 
       const tx = await callAs(0, "recoverContextPayable", ctx({ request }));
       await expect(tx).to.emit(host, "RecoverContextCalled")
-        .withArgs(target, key, resources, context, 0n);
+        .withArgs(port, key, resources, context, 0n);
     });
 
     it("settles unspent command value after recovery", async () => {

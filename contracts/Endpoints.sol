@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-// Aggregator: re-exports command, admin, peer, guard, and query endpoint abstractions.
+// Aggregator: re-exports command, admin, port, guard, and query endpoint abstractions.
 // Import this file to inherit from the full rootzero callable host surface without managing individual paths.
 
 // Shared helpers
@@ -34,18 +34,17 @@ import { Init, InitHook } from "./commands/admin/Init.sol";
 import { Label } from "./commands/admin/Label.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 
-// Peer endpoints
-import { PeerBase, encodePeerCall } from "./peer/Base.sol";
-import { PeerAllowAssets, IPeerAllowAssets } from "./peer/AllowAssets.sol";
-import { PeerAllowance, IPeerAllowance } from "./peer/Allowance.sol";
-import { PeerRedeemBalance, RedeemBalanceHook, IPeerRedeemBalance } from "./peer/Redeem.sol";
-import { PeerCreditAccount, IPeerCreditAccount } from "./peer/Credit.sol";
-import { PeerDebitAccount, IPeerDebitAccount } from "./peer/Debit.sol";
-import { PeerDenyAssets, IPeerDenyAssets } from "./peer/DenyAssets.sol";
-import { PeerPipePayable, IPeerPipePayable } from "./peer/Pipe.sol";
-import { PeerRecoverContextPayable, RecoverPayableHook, IPeerRecoverContextPayable } from "./peer/Recover.sol";
-import { PeerDispatchPayable, IPeerDispatchPayable } from "./peer/Dispatch.sol";
-import { PeerSettle, IPeerSettle } from "./peer/Settle.sol";
+// Port endpoints
+import { PortBase, encodePortCall } from "./ports/Base.sol";
+import { PortAllowAssets, IPortAllowAssets } from "./ports/AllowAssets.sol";
+import { PortAllowance, IPortAllowance } from "./ports/Allowance.sol";
+import { PortRedeemBalance, RedeemBalanceHook, IPortRedeemBalance } from "./ports/Redeem.sol";
+import { PortCreditAccount, IPortCreditAccount } from "./ports/Credit.sol";
+import { PortDebitAccount, IPortDebitAccount } from "./ports/Debit.sol";
+import { PortDenyAssets, IPortDenyAssets } from "./ports/DenyAssets.sol";
+import { PortPipePayable, IPortPipePayable } from "./ports/Pipe.sol";
+import { PortDispatchPayable, IPortDispatchPayable } from "./ports/Dispatch.sol";
+import { PortSettle, IPortSettle } from "./ports/Settle.sol";
 
 // Guard endpoints
 import { GuardBase, encodeGuardCall } from "./guards/Base.sol";

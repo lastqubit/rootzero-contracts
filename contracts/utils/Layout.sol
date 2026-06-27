@@ -29,7 +29,7 @@ library Layout {
 
     /// @dev ID encodes an account.
     uint8 constant Account = 0x01;
-    /// @dev ID encodes a network node (host, command, or peer).
+    /// @dev ID encodes a network node (host, command, port, query, or guard).
     uint8 constant Node = 0x02;
     /// @dev ID encodes an asset.
     uint8 constant Asset = 0x03;
@@ -54,8 +54,8 @@ library Layout {
     uint8 constant Host = 0x02;
     /// @dev Node is a command contract.
     uint8 constant Command = 0x03;
-    /// @dev Node is a peer contract.
-    uint8 constant Peer = 0x04;
+    /// @dev Node is a port callable by trusted peer hosts.
+    uint8 constant Port = 0x04;
     /// @dev Node is a query contract.
     uint8 constant Query = 0x05;
     /// @dev Node is a guardian-only direct action.

@@ -142,8 +142,8 @@ export function encodeContextBlock(account: string, state: string, request: stri
   return block(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
 }
 
-export function encodeContextRecoveryBlock(target: bigint, key: string, resources: bigint, context: string): string {
-  return block(Keys.ContextRecovery, ethers.concat([pad32(target), pad32(key), pad32(resources), context]));
+export function encodeContextRecoveryBlock(port: bigint, key: string, resources: bigint, context: string): string {
+  return block(Keys.ContextRecovery, ethers.concat([pad32(port), pad32(key), pad32(resources), context]));
 }
 
 export function encodeRelayBlock(chain: bigint, resources: bigint, request: string): string {
@@ -196,15 +196,15 @@ export function concat(...parts: string[]): string {
 
 // Command args suffix appended when computing command selectors
 const COMMAND_ARGS = "((bytes32,bytes,bytes))";
-const PEER_ARGS = "(bytes)";
+const PORT_ARGS = "(bytes)";
 const GUARD_ARGS = "(bytes)";
 
 export function commandSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + COMMAND_ARGS), 0, 4);
 }
 
-export function peerSelector(name: string): string {
-  return ethers.dataSlice(ethers.id(name + PEER_ARGS), 0, 4);
+export function portSelector(name: string): string {
+  return ethers.dataSlice(ethers.id(name + PORT_ARGS), 0, 4);
 }
 
 export function guardSelector(name: string): string {

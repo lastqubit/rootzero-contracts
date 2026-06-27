@@ -3,15 +3,15 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Deposit } from "../commands/Deposit.sol";
-import { PeerRedeemBalance } from "../peer/Redeem.sol";
+import { PortRedeemBalance } from "../ports/Redeem.sol";
 import { GetBalances } from "../queries/Balances.sol";
 import { Nodes } from "../utils/Nodes.sol";
 
-contract TestCompositeHost is Host, Deposit, PeerRedeemBalance, GetBalances {
+contract TestCompositeHost is Host, Deposit, PortRedeemBalance, GetBalances {
     constructor(address cmdr)
         Host(address(0))
         Deposit()
-        PeerRedeemBalance()
+        PortRedeemBalance()
         GetBalances()
     {
         if (cmdr != address(0)) setNode(Nodes.toHost(cmdr), true);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { PeerBase } from "./Base.sol";
+import { PortBase } from "./Base.sol";
 import { Payable } from "../core/Payable.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
 import { DispatchPayableHook } from "../commands/Relay.sol";
@@ -9,27 +9,27 @@ import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-interface IPeerDispatchPayable {
-    function peerDispatchPayable(bytes calldata request) external payable returns (bytes memory);
+interface IPortDispatchPayable {
+    function portDispatchPayable(bytes calldata data) external payable returns (bytes memory);
 }
 
-/// @title PeerDispatchPayable
-/// @notice Peer endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
-abstract contract PeerDispatchPayable is PeerBase, Payable, DispatchPayableHook, IPeerDispatchPayable {
-    uint internal immutable peerDispatchPayableId = peerId(this.peerDispatchPayable.selector);
+/// @title PortDispatchPayable
+/// @notice Port endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
+abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook, IPortDispatchPayable {
+    uint internal immutable portDispatchPayableId = portId(this.portDispatchPayable.selector);
 
     constructor() {
-        emit Peer(host, peerDispatchPayableId, "1:0", Schemas.Dispatch, "", true);
-        emit Labeled(peerDispatchPayableId, bytes32(0), "peerDispatchPayable");
+        emit Port(host, portDispatchPayableId, "1:0", Schemas.Dispatch, "", true);
+        emit Labeled(portDispatchPayableId, bytes32(0), "portDispatchPayable");
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.
     /// @dev Dispatch hooks receive the shared top-level source-chain value
     ///      budget. Any `msg.value` not spent by the hook remains on this host.
-    /// @param request DISPATCH block stream supplied by the trusted peer.
+    /// @param data DISPATCH block stream supplied by the trusted peer.
     /// @return output Empty response bytes.
-    function peerDispatchPayable(bytes calldata request) external payable onlyPeer returns (bytes memory output) {
-        (Cur memory input, , ) = Cursors.init(request, 1);
+    function portDispatchPayable(bytes calldata data) external payable onlyPeer returns (bytes memory output) {
+        (Cur memory input, , ) = Cursors.init(data, 1);
         Budget memory budget = openValue();
 
         while (input.i < input.len) {

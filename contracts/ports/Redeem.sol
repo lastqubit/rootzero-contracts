@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {PeerBase} from "./Base.sol";
+import {PortBase} from "./Base.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPeerRedeemBalance {
-    function peerRedeemBalance(bytes calldata request) external returns (bytes memory);
+interface IPortRedeemBalance {
+    function portRedeemBalance(bytes calldata data) external returns (bytes memory);
 }
 
 abstract contract RedeemBalanceHook {
@@ -18,23 +18,23 @@ abstract contract RedeemBalanceHook {
     function redeemBalance(uint peer, bytes32 asset, uint amount) internal virtual;
 }
 
-/// @title PeerRedeemBalance
-/// @notice Peer that redeems balance state from a peer host into local assets.
+/// @title PortRedeemBalance
+/// @notice Port that redeems balance state from a peer host into local assets.
 /// Each BALANCE block in the request calls `redeemBalance(peer, asset, amount)`.
 /// Restricted to trusted peers.
-abstract contract PeerRedeemBalance is PeerBase, RedeemBalanceHook, IPeerRedeemBalance {
-    uint internal immutable peerRedeemBalanceId = peerId(this.peerRedeemBalance.selector);
+abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook, IPortRedeemBalance {
+    uint internal immutable portRedeemBalanceId = portId(this.portRedeemBalance.selector);
 
     constructor() {
-        emit Peer(host, peerRedeemBalanceId, "1:0", Schemas.Balance, "", false);
-        emit Labeled(peerRedeemBalanceId, bytes32(0), "peerRedeemBalance");
+        emit Port(host, portRedeemBalanceId, "1:0", Schemas.Balance, "", false);
+        emit Labeled(portRedeemBalanceId, bytes32(0), "portRedeemBalance");
     }
 
-    /// @notice Execute the balance redemption peer call.
-    /// @param request BALANCE block stream supplied by the trusted peer.
+    /// @notice Execute the balance redemption port call.
+    /// @param data BALANCE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
-    function peerRedeemBalance(bytes calldata request) external onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(request, 1);
+    function portRedeemBalance(bytes calldata data) external onlyPeer returns (bytes memory) {
+        (Cur memory input, , ) = Cursors.init(data, 1);
         uint peer = caller();
 
         while (input.i < input.len) {

@@ -18,7 +18,7 @@ The cross-chain shape is:
 
 1. A bridge or messaging layer moves raw bytes to another chain.
 2. Those bytes are Rootzero CONTEXT blocks.
-3. The destination chain has a local host exposing a peer pipe entrypoint.
+3. The destination chain has a local host exposing a port pipe entrypoint.
 4. That host unpacks the CONTEXT blocks and runs the normal local `pipe()` loop.
 
 The bridge knows how to deliver bytes to the destination chain, but Rootzero core does not need to know how the bridge routes them. Once bytes arrive at a destination host, the host interprets them as local Rootzero protocol data.
@@ -67,8 +67,8 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Pipeline state model | `core/Pipeline.sol` | STEP stream plus threaded `bytes` state. Only dispatch is chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
-| Command/Peer/Query/Guard roles | `commands/`, `peer/`, `queries/` | Same logical roles, expressed with local call primitives. |
-| Peer pipe request shape | `peer/Pipe.sol`, `blocks/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
+| Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
+| Port pipe request shape | `ports/Pipe.sol`, `blocks/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
 
 ### Chain-Specific
@@ -84,7 +84,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Native value | `msg.value` / ETH | Lamports, native Cosmos denom, yoctoNEAR, or chain-specific value model. |
 | Caller identity | `msg.sender` | Native signer/caller as exposed by the runtime. |
 | Host identity | `address(this)` | Program ID, contract address, account ID, or another native host handle. |
-| Bridge delivery | External bridge calls local peer | Local bridge adapter authenticates delivery and calls local peer pipe entrypoint. |
+| Bridge delivery | External bridge calls local peer | Local bridge adapter authenticates delivery and calls local port pipe entrypoint. |
 
 ---
 
@@ -158,7 +158,7 @@ interpreted. EVM uses `Layout.Evm` because its payloads are built around
 20-byte addresses. Non-EVM ports should define chain-appropriate representation
 tags, such as `Solana`, `CosmWasm`, or `Near`, while still keeping the
 same `Account`, `Node`, `Asset`, `Admin`, `Guardian`, `User`, `Host`,
-`Command`, `Peer`, `Query`, and `Guard` taxonomy where it applies.
+`Command`, `Port`, `Query`, and `Guard` taxonomy where it applies.
 
 The bits after the shared prefix are chain-specific. The `local domain / reserved field` is not a global chain ID. A chain can set it to zero, a host-local namespace, a deployment generation, or another local-only value if useful. No library should maintain constants like `SOLANA_MAINNET`, `COSMOS_HUB`, or `NEAR_MAINNET`.
 
@@ -325,15 +325,15 @@ On the source side:
 On the destination side:
 
 1. The bridge endpoint verifies the bridge message using its own security model.
-2. The bridge endpoint calls the destination host's peer pipe entrypoint with the raw CONTEXT bytes.
-3. The host checks that the local caller is trusted, just like `PeerBase.onlyPeer` does on EVM.
+2. The bridge endpoint calls the destination host's port pipe entrypoint with the raw CONTEXT bytes.
+3. The host checks that the local caller is trusted, just like `PortBase.onlyPeer` does on EVM.
 4. The host unpacks each CONTEXT block and runs `pipe(account, state, request, budget)`.
 5. `pipe()` dispatches local STEP targets exactly like a same-chain pipeline.
 
 In EVM today, the entrypoint is:
 
 ```solidity
-function peerPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory)
+function portPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory)
 ```
 
 The non-EVM ports should provide the same logical endpoint, even if the native name differs:
@@ -378,7 +378,7 @@ docs/cosmwasm-port-blueprint.md
 
 Ports should copy the behavior, wire formats, ID taxonomy, command semantics, and failure cases from this repository rather than inventing parallel rules.
 
-Ports should also mirror the EVM protocol structure as closely as the target runtime reasonably allows. The Solidity contracts are the blueprint for module boundaries and responsibilities: access control stays access control, pipeline execution stays pipeline execution, peer pipe stays peer pipe, and asset hooks stay adapter hooks.
+Ports should also mirror the EVM protocol structure as closely as the target runtime reasonably allows. The Solidity contracts are the blueprint for module boundaries and responsibilities: access control stays access control, pipeline execution stays pipeline execution, port pipe stays port pipe, and asset hooks stay adapter hooks.
 
 This is not a requirement to copy inefficient EVM mechanics. If mirroring the Solidity shape would cause a large performance, storage, compute, or fee penalty on the destination chain, prefer the native-efficient implementation. Preserve the externally visible protocol behavior, wire format, ID taxonomy, authorization rules, and test outcomes; optimize the internal structure where the chain requires it.
 
@@ -414,7 +414,7 @@ Implementation guidance:
 When a target chain cannot express the Solidity structure directly, adapt the implementation shape but keep the protocol shape. For example, Solidity uses inheritance to compose contracts:
 
 ```solidity
-abstract contract PeerPipePayable is PeerBase, Pipeline
+abstract contract PortPipePayable is PortBase, Pipeline
 ```
 
 Most non-EVM chains do not have Solidity-style contract inheritance. A port can use Rust traits, modules, helper functions, account structs, or explicit composition instead. The important part is that the resulting host still has the same responsibilities and behavior as the EVM composition.
@@ -427,7 +427,7 @@ The tests are part of the blueprint. When porting a module, port the matching te
 | `test/utils.test.ts` | ID layout, account/asset/node helpers, prefixes, and category checks. |
 | `test/access.test.ts` | Commander, trusted node, guardian, and caller authorization behavior. |
 | `test/commands.test.ts` | Standard command behavior and pipeline state threading. |
-| `test/peer.test.ts` | Peer entrypoints, peer pipe payload handling, and trusted peer restrictions. |
+| `test/peer.test.ts` | Port entrypoints, port pipe payload handling, and trusted peer restrictions. |
 | `test/validator.test.ts`, `test/ecdsa.test.ts` | Proof validation behavior, adapted to the destination chain's signature model. |
 | query tests | Query surfaces and encoded response behavior where the port exposes equivalent queries. |
 
@@ -538,15 +538,15 @@ The `pipe()` loop is pure protocol logic:
 
 Dispatch should not extract a target chain ID. It should only validate that `target` is a trusted local node and resolve it through the local chain's dispatch table.
 
-#### Peer Pipe
+#### Port Pipe
 
-`peer/Pipe.sol` is the cross-chain execution pattern to preserve. The peer pipe entrypoint consumes raw CONTEXT blocks from a trusted local caller, then forwards the nested STEP stream into `pipe()`.
+`ports/Pipe.sol` is the cross-chain execution pattern to preserve. The port pipe entrypoint consumes raw CONTEXT blocks from a trusted local caller, then forwards the nested STEP stream into `pipe()`.
 
-This means the bridge does not need a special "execute remote command" API. It only needs to deliver bytes to the destination host's peer pipe. From that point onward, execution is identical to local pipeline execution.
+This means the bridge does not need a special "execute remote command" API. It only needs to deliver bytes to the destination host's port pipe. From that point onward, execution is identical to local pipeline execution.
 
-#### Peer Settlement
+#### Port Settlement
 
-`peer/Settle.sol` ports directly at the logic level:
+`ports/Settle.sol` ports directly at the logic level:
 
 1. Iterate TRANSACTION blocks.
 2. For each `(from, to, asset, amount)`, debit the source balance.
@@ -630,7 +630,7 @@ rootzero-protocol/
       deposit.rs
       withdraw.rs
       payout.rs
-    peer/
+    ports/
       settle.rs
 
 sdk/rust/
@@ -715,10 +715,10 @@ trait Dispatcher {
 
 `LocalNodeId` can be a `u256` wrapper, but its interpretation belongs to the local chain module. If the native callable identity does not fit inside the ID, dispatch must resolve the ID before calling.
 
-### PeerPipe
+### PortPipe
 
 ```rust
-trait PeerPipe {
+trait PortPipe {
     type NativeValue;
 
     fn peer_pipe(
@@ -792,7 +792,7 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 3. **Identity strategy**: decide which node, account, and asset identities fit inline and which require local lookup.
 4. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
 5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer settlement.
-6. **Peer pipe port**: implement the local peer pipe entrypoint that consumes CONTEXT blocks and calls `pipe()`.
+6. **Port pipe port**: implement the local port pipe entrypoint that consumes CONTEXT blocks and calls `pipe()`.
 7. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
 8. **CosmWasm host template**: wire `rootzero-protocol` to CosmWasm storage, `Addr` resolution, native denom/CW20/IBC assets, and bridge adapter entrypoints.
 9. **Solana and NEAR templates**: repeat the same pattern with their native identity and asset hooks.
@@ -810,7 +810,7 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 | Balance opacity | Credit and debit balances using opaque account IDs without resolving them to native addresses. |
 | Dispatch isolation | A host dispatches a local command ID without checking or parsing a foreign chain ID. |
 | Lookup dispatch | A host dispatches a command whose native address does not fit in the ID by resolving the local node ID first. |
-| Peer pipe delivery | Feed bridge-delivered CONTEXT bytes into destination `peer_pipe`; verify it calls the same pipeline path as local execution. |
+| Port pipe delivery | Feed bridge-delivered CONTEXT bytes into destination `port_pipe`; verify it calls the same pipeline path as local execution. |
 | Command equivalence | Run `debitAccount` on EVM and a non-EVM host with equivalent `CommandContext` bytes; verify equivalent BALANCE output. |
 | Pipeline execution | Run a two-step local pipeline, such as deposit then withdraw, and verify final state is empty. |
 | Access control | Unauthorized local caller fails; trusted local node succeeds. |
@@ -832,4 +832,4 @@ Parity checklist:
 
 The previous approach introduced explicit non-EVM chain slots, a `ChainIds.sol` registry, and `toExternalBase(prefix, chainSlot)`. That would make the libraries aware of other chains and would require ongoing coordination of global numeric identifiers.
 
-This version removes that coupling. EVM keeps its EVM-local `block.chainid` behavior. New chain ports use local ID modules. Bridges carry raw CONTEXT bytes to a destination host, and each on-chain runtime only understands its own native identities, trusted nodes, assets, peer pipe endpoint, and dispatch table.
+This version removes that coupling. EVM keeps its EVM-local `block.chainid` behavior. New chain ports use local ID modules. Bridges carry raw CONTEXT bytes to a destination host, and each on-chain runtime only understands its own native identities, trusted nodes, assets, port pipe endpoint, and dispatch table.

@@ -2,23 +2,21 @@
 pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
-import { PeerAllowance } from "../peer/Allowance.sol";
-import { PeerRedeemBalance } from "../peer/Redeem.sol";
-import { PeerCreditAccount } from "../peer/Credit.sol";
-import { PeerDebitAccount } from "../peer/Debit.sol";
-import { PeerPipePayable } from "../peer/Pipe.sol";
-import { PeerRecoverContextPayable } from "../peer/Recover.sol";
-import { PeerDispatchPayable } from "../peer/Dispatch.sol";
-import { PeerSettle } from "../peer/Settle.sol";
+import { PortAllowance } from "../ports/Allowance.sol";
+import { PortRedeemBalance } from "../ports/Redeem.sol";
+import { PortCreditAccount } from "../ports/Credit.sol";
+import { PortDebitAccount } from "../ports/Debit.sol";
+import { PortPipePayable } from "../ports/Pipe.sol";
+import { PortDispatchPayable } from "../ports/Dispatch.sol";
+import { PortSettle } from "../ports/Settle.sol";
 import { Budget } from "../utils/Value.sol";
 
-contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccount, PeerDebitAccount, PeerSettle, PeerPipePayable, PeerRecoverContextPayable, PeerDispatchPayable {
-    event PeerAllowanceCalled(uint peer, bytes32 asset, uint amount);
-    event PeerRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
-    event PeerDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
-    event PeerCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
-    event PeerDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
-    event PeerRecoverCalled(bytes32 account, bytes state, bytes steps, uint remaining);
+contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccount, PortDebitAccount, PortSettle, PortPipePayable, PortDispatchPayable {
+    event PortAllowanceCalled(uint peer, bytes32 asset, uint amount);
+    event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
+    event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
+    event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
+    event PortDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
@@ -26,32 +24,23 @@ contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccou
     constructor(address cmdr) Host(cmdr) {}
 
     function allowance(uint peer, bytes32 asset, uint amount) internal override {
-        emit PeerAllowanceCalled(peer, asset, amount);
+        emit PortAllowanceCalled(peer, asset, amount);
     }
 
     function redeemBalance(uint peer, bytes32 asset, uint amount) internal override {
-        emit PeerRedeemBalanceCalled(peer, asset, amount);
+        emit PortRedeemBalanceCalled(peer, asset, amount);
     }
 
     function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {
-        emit PeerDebitAccountCalled(account, asset, amount);
+        emit PortDebitAccountCalled(account, asset, amount);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {
-        emit PeerCreditAccountCalled(account, asset, amount);
+        emit PortCreditAccountCalled(account, asset, amount);
     }
 
     function dispatch(uint chain, uint resources, bytes memory payload, Budget memory budget) internal override {
-        emit PeerDispatchCalled(chain, payload, resources, budget.remaining);
-    }
-
-    function recover(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata steps,
-        Budget memory budget
-    ) internal override {
-        emit PeerRecoverCalled(account, state, steps, budget.remaining);
+        emit PortDispatchCalled(chain, payload, resources, budget.remaining);
     }
 
     function dispatch(
@@ -65,14 +54,13 @@ contract TestPeerHost is Host, PeerAllowance, PeerRedeemBalance, PeerCreditAccou
         return state;
     }
 
-    function getPeerAllowanceId() external view returns (uint) { return peerAllowanceId; }
-    function getPeerRedeemBalanceId() external view returns (uint) { return peerRedeemBalanceId; }
-    function getPeerCreditAccountId() external view returns (uint) { return peerCreditAccountId; }
-    function getPeerDebitAccountId() external view returns (uint) { return peerDebitAccountId; }
-    function getPeerSettleId() external view returns (uint) { return peerSettleId; }
-    function getPeerPipePayableId() external view returns (uint) { return peerPipePayableId; }
-    function getPeerRecoverContextPayableId() external view returns (uint) { return peerRecoverContextPayableId; }
-    function getPeerDispatchPayableId() external view returns (uint) { return peerDispatchPayableId; }
+    function getPortAllowanceId() external view returns (uint) { return portAllowanceId; }
+    function getPortRedeemBalanceId() external view returns (uint) { return portRedeemBalanceId; }
+    function getPortCreditAccountId() external view returns (uint) { return portCreditAccountId; }
+    function getPortDebitAccountId() external view returns (uint) { return portDebitAccountId; }
+    function getPortSettleId() external view returns (uint) { return portSettleId; }
+    function getPortPipePayableId() external view returns (uint) { return portPipePayableId; }
+    function getPortDispatchPayableId() external view returns (uint) { return portDispatchPayableId; }
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 

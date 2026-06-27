@@ -33,12 +33,12 @@ contains its full endpoint catalog:
 event Command(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool funded)
 event Admin(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool funded)
 event Query(uint indexed host, uint id, bytes32 shape, string request, string response)
-event Peer(uint indexed host, uint id, bytes32 shape, string request, string response, bool funded)
+event Port(uint indexed host, uint id, bytes32 shape, string request, string response, bool funded)
 event Guard(uint indexed host, uint id, string request)
 ```
 
 - `shape` packs per-operation block counts as ASCII (`request:state:output` for
-  commands, `request:response` for queries and peers).
+  commands, `request:response` for queries and ports).
 - `request`, `response` are schema DSL strings per Schema.md, including dotted
   field paths and aliases for off-chain projection.
 - `state`, `output` are the block keys for pipeline state in and out
@@ -153,7 +153,7 @@ with the matching `Actions` code:
 | creditAccount              | `Received` | `Actions.Transfer` |
 | debitAccount               | `Spent`    | `Actions.Transfer` |
 | payout                     | `Spent` / `Received` | `Actions.Payout` |
-| peerSettle                 | `Spent` / `Received` | `Actions.Settle` |
+| portSettle                 | `Spent` / `Received` | `Actions.Settle` |
 | provision (lock custody)   | `Locked`   | per operation      |
 | custody release            | `Unlocked` | per operation      |
 

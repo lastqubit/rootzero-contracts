@@ -433,16 +433,16 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
-    it("unpackContextRecovery consumes target, key, resources, and nested context", async () => {
-      const target = 42n;
+    it("unpackContextRecovery consumes port, key, resources, and nested context", async () => {
+      const port = 42n;
       const key = ethers.zeroPadValue("0x1234", 32);
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, amount);
       const request = encodeAmountBlock(asset, 7n);
       const context = encodeContextBlock(account, state, request);
-      const recovery = encodeContextRecoveryBlock(target, key, 55n, context);
-      const [outTarget, outKey, resources, outContext, i] = await helper.testUnpackContextRecovery(recovery);
-      expect(outTarget).to.equal(target);
+      const recovery = encodeContextRecoveryBlock(port, key, 55n, context);
+      const [outPort, outKey, resources, outContext, i] = await helper.testUnpackContextRecovery(recovery);
+      expect(outPort).to.equal(port);
       expect(outKey).to.equal(key);
       expect(resources).to.equal(55n);
       expect(outContext).to.equal(context);
@@ -482,7 +482,7 @@ describe("Cursors", () => {
     it("unpackLabel consumes a LABEL block and returns its fields", async () => {
       const id = 789n;
       const namespace = ethers.encodeBytes32String("peer");
-      const name = "peerDispatchPayable";
+      const name = "portDispatchPayable";
       const source = encodeLabelBlock(id, namespace, name);
       const [outId, outNamespace, outName, i] = await stringHelper.testUnpackLabel(source);
       expect(outId).to.equal(id);
