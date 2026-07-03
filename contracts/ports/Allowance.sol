@@ -7,15 +7,11 @@ import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPortAllowance {
-    function portAllowance(bytes calldata data) external returns (bytes memory);
-}
-
 /// @title PortAllowance
 /// @notice Port that lets a trusted peer host request or refresh its own allowance.
 /// Each AMOUNT block in the request is scoped to the peer host and passed to the
 /// shared allowance hook as a host-scoped allowance. Restricted to trusted peers.
-abstract contract PortAllowance is PortBase, AllowanceHook, IPortAllowance {
+abstract contract PortAllowance is PortBase, AllowanceHook {
     uint internal immutable portAllowanceId = portId(this.portAllowance.selector);
 
     constructor() {

@@ -7,14 +7,10 @@ import { Cursors, Cur, Forms } from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPortDebitAccount {
-    function portDebitAccount(bytes calldata data) external returns (bytes memory);
-}
-
 /// @title PortDebitAccount
 /// @notice Port that lets a trusted peer debit supplied accounts directly.
 /// Each ACCOUNT_AMOUNT block calls `debitAccount` for its account.
-abstract contract PortDebitAccount is PortBase, DebitAccountHook, IPortDebitAccount {
+abstract contract PortDebitAccount is PortBase, DebitAccountHook {
     uint internal immutable portDebitAccountId = portId(this.portDebitAccount.selector);
 
     constructor() {

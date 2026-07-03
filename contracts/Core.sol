@@ -10,7 +10,7 @@ import { Commitments } from "./core/Commitments.sol";
 import { Escrows, InsufficientEscrow } from "./core/Escrows.sol";
 import { NativeAsset, Runtime } from "./core/Runtime.sol";
 import { Host, IHostIntroduction } from "./core/Host.sol";
-import { FailedCall, NodeCalls } from "./core/Calls.sol";
+import { CommandCalls, FailedCall, NodeCalls, PortCalls } from "./core/Calls.sol";
 import { Payable } from "./core/Payable.sol";
 import { Pipeline } from "./core/Pipeline.sol";
 import { AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Tx } from "./core/Types.sol";

@@ -140,16 +140,4 @@ describe("Guard Actions", () => {
     expect(await utils.testIsGuard(appointId)).to.be.false;
   });
 
-  it("encodes guard calls from guard IDs", async () => {
-    const revokeId = await host.getRevokeId();
-    const request = encodeNodeBlock(await hostIdFor(await (await getSigner(2)).getAddress()));
-
-    expect(await utils.testEncodeGuardCall(revokeId, request))
-      .to.equal(host.interface.encodeFunctionData("revoke", [request]));
-  });
-
-  it("reverts InvalidId when encoding a guard call for a non-guard ID", async () => {
-    await expect(utils.testEncodeGuardCall(await host.getDepositId(), "0x"))
-      .to.be.revertedWithCustomError(utils, "InvalidId");
-  });
 });

@@ -5,7 +5,6 @@ import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { encodeGuardCall } from "../guards/Base.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { Budget, Values } from "../utils/Value.sol";
 import { Payable } from "../core/Payable.sol";
@@ -241,10 +240,6 @@ contract TestUtils is Payable {
 
     function testEnsureHost(uint value, address target) external view returns (uint) {
         return Nodes.matchHost(value, target);
-    }
-
-    function testEncodeGuardCall(uint target, bytes calldata request) external pure returns (bytes memory) {
-        return encodeGuardCall(target, request);
     }
 
     function testApplyBps(uint amount, uint16 bps) external pure returns (uint) {

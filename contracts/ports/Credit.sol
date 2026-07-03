@@ -7,14 +7,10 @@ import { Cursors, Cur, Forms } from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPortCreditAccount {
-    function portCreditAccount(bytes calldata data) external returns (bytes memory);
-}
-
 /// @title PortCreditAccount
 /// @notice Port that lets a trusted peer credit supplied accounts directly.
 /// Each ACCOUNT_AMOUNT block calls `creditAccount` for its account.
-abstract contract PortCreditAccount is PortBase, CreditAccountHook, IPortCreditAccount {
+abstract contract PortCreditAccount is PortBase, CreditAccountHook {
     uint internal immutable portCreditAccountId = portId(this.portCreditAccount.selector);
 
     constructor() {

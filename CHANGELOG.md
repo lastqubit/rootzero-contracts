@@ -3,6 +3,26 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.8.0
+
+### Breaking Changes
+
+- Removed per-port `IPort*` interfaces. Port callers should use port node IDs,
+  discovery metadata, and `PortCalls.callPort`.
+- Removed unused standalone ABI encoder helpers: `encodePortCall`,
+  `encodeGuardCall`, and `encodeQueryCall`.
+- Reworked `NodeCalls` into a low-level node-call layer:
+  - `callAddr` and `queryAddr` were removed.
+  - `callTo` and `queryTo` were removed.
+  - Raw node calls now use `rawCall`, `tryRawCall`, and `rawQuery`.
+
+### Added
+
+- Added `trustedCall`, `tryTrustedCall`, and `trustedQuery` as shared trusted
+  wrappers over the raw node-call helpers.
+- Added `CommandCalls.callCommand` and `PortCalls.callPort` for selector-based
+  trusted calls to command and port nodes.
+
 ## 1.7.0
 
 ### Breaking Changes

@@ -6,17 +6,6 @@ import { PortEvent } from "../events/Port.sol";
 import { LabeledEvent } from "../events/Labeled.sol";
 import { Nodes } from "../utils/Nodes.sol";
 
-/// @notice ABI-encode a port call from a target port ID and data block stream.
-/// @dev Derives the function selector from `target` via `Nodes.portSelector(target)`.
-/// Reverts if `target` is not a valid port ID.
-/// @param target Destination port node ID embedding the target selector.
-/// @param data Input block stream for the port invocation.
-/// @return ABI-encoded calldata for the port entry point.
-function encodePortCall(uint target, bytes calldata data) pure returns (bytes memory) {
-    bytes4 selector = Nodes.portSelector(target);
-    return abi.encodeWithSelector(selector, data);
-}
-
 /// @title PortBase
 /// @notice Abstract base for peer-facing rootzero ports.
 /// Ports handle inter-host operations between cooperating hosts.

@@ -7,14 +7,10 @@ import { Cursors, Cur, Schemas } from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPortAllowAssets {
-    function portAllowAssets(bytes calldata data) external returns (bytes memory);
-}
-
 /// @title PortAllowAssets
 /// @notice Port that permits a list of assets on behalf of a peer host.
 /// Each ASSET block in the request calls `allowAsset`. Restricted to trusted peers.
-abstract contract PortAllowAssets is PortBase, AllowAssetsHook, IPortAllowAssets {
+abstract contract PortAllowAssets is PortBase, AllowAssetsHook {
     uint internal immutable portAllowAssetsId = portId(this.portAllowAssets.selector);
 
     constructor() {

@@ -12,7 +12,7 @@ import {Nodes} from "../utils/Nodes.sol";
 error FailedCall(address addr, bytes4 selector, bytes err);
 
 /// @title NodeCalls
-/// @notice Shared trusted inter-node call helpers for contracts that can talk to other nodes.
+/// @notice Shared low-level inter-node call helpers for contracts that can talk to other nodes.
 abstract contract NodeCalls is AccessControl {
     /// @notice Return the host node ID corresponding to the current caller.
     /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
@@ -21,64 +21,100 @@ abstract contract NodeCalls is AccessControl {
         return Nodes.toHost(msg.sender);
     }
 
-    /// @notice Make a low-level call to an address.
-    /// Forwards `value` ETH and `data` to `addr`.
-    /// Reverts with `FailedCall` if the call is unsuccessful.
-    /// @param addr Contract address to call.
+    /// @notice Try a raw low-level call to another node and return whether it succeeded.
+    /// @param node Node ID of the callee.
+    /// @param value Native value to forward in wei.
+    /// @param data Encoded calldata to send.
+    /// @return success True if the low-level call succeeded.
+    function tryRawCall(uint node, uint128 value, bytes memory data) internal returns (bool success) {
+        address addr = Nodes.addr(node);
+        (success, ) = payable(addr).call{value: value}(data);
+    }
+
+    /// @notice Try a trusted low-level call to another node and return whether it succeeded.
+    /// @param node Node ID of the callee.
+    /// @param value Native value to forward in wei.
+    /// @param data Encoded calldata to send.
+    /// @return success True if the low-level call succeeded.
+    function tryTrustedCall(uint node, uint128 value, bytes memory data) internal returns (bool success) {
+        return tryRawCall(ensureTrusted(node), value, data);
+    }
+
+    /// @notice Make a raw low-level call to another node and revert when it fails.
+    /// @param node Node ID of the callee.
     /// @param value Native value to forward in wei.
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful call.
-    function callAddr(address addr, uint128 value, bytes memory data) internal returns (bytes memory out) {
+    function rawCall(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
         bool success;
+        address addr = Nodes.addr(node);
         (success, out) = payable(addr).call{value: value}(data);
         if (!success) revert FailedCall(addr, bytes4(data), out);
     }
 
-    /// @notice Make a low-level read-only query to an address.
-    /// Issues a low-level `staticcall` with `data`.
-    /// Reverts with `FailedCall` if the call is unsuccessful.
-    /// @param addr Contract address to query.
+    /// @notice Make a trusted low-level call to another node and revert when it fails.
+    /// @param node Node ID of the callee.
+    /// @param value Native value to forward in wei.
+    /// @param data Encoded calldata to send.
+    /// @return out Return data from the successful call.
+    function trustedCall(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
+        return rawCall(ensureTrusted(node), value, data);
+    }
+
+    /// @notice Make a raw low-level read-only query to another node and revert when it fails.
+    /// @param node Node ID of the callee.
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful query.
-    function queryAddr(address addr, bytes memory data) internal view returns (bytes memory out) {
+    function rawQuery(uint node, bytes memory data) internal view returns (bytes memory out) {
         bool success;
+        address addr = Nodes.addr(node);
         (success, out) = addr.staticcall(data);
         if (!success) revert FailedCall(addr, bytes4(data), out);
     }
 
-    /// @notice Make a trusted call to another node in the network.
-    /// Looks up the node's contract address via `ensureTrusted` + `Nodes.addr`,
-    /// then issues a low-level call forwarding `value` ETH and `data`.
-    /// @param node Node ID of the callee (must be in the authorized set).
-    /// @param value Native value to forward in wei.
-    /// @param data Encoded calldata to send.
-    /// @return out Return data from the successful call.
-    function callTo(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
-        ensureTrusted(node);
-        address addr = Nodes.addr(node);
-        return callAddr(addr, value, data);
-    }
-
-    /// @notice Make a trusted query to another node in the network.
-    /// Looks up the node's contract address via `ensureTrusted` + `Nodes.addr`,
-    /// then issues a low-level `staticcall` with `data`.
-    /// @param node Node ID of the callee (must be in the authorized set).
+    /// @notice Make a trusted low-level read-only query to another node and revert when it fails.
+    /// @param node Node ID of the callee.
     /// @param data Encoded calldata to send.
     /// @return out Return data from the successful query.
-    function queryTo(uint node, bytes memory data) internal view returns (bytes memory out) {
-        ensureTrusted(node);
-        address addr = Nodes.addr(node);
-        return queryAddr(addr, data);
+    function trustedQuery(uint node, bytes memory data) internal view returns (bytes memory out) {
+        return rawQuery(ensureTrusted(node), data);
     }
+}
 
+/// @title CommandCalls
+/// @notice Trusted command-call helpers for contracts that route command nodes.
+abstract contract CommandCalls is NodeCalls {
     /// @notice Encode and call a trusted command node.
-    /// @param id Command node ID embedding the target selector.
+    /// @param command Command node ID embedding the target selector.
     /// @param value Native value to forward in wei.
-    /// @param ctx Command execution context.
+    /// @param account Command account identifier.
+    /// @param state Current command state block stream.
+    /// @param request Command input block stream.
     /// @return Decoded command output block stream.
-    function callCommand(uint id, uint128 value, CommandContext memory ctx) internal returns (bytes memory) {
-        bytes4 selector = Nodes.commandSelector(id);
-        bytes memory data = abi.encodeWithSelector(selector, ctx);
-        return abi.decode(callTo(id, value, data), (bytes));
+    function callCommand(
+        uint command,
+        uint128 value,
+        bytes32 account,
+        bytes memory state,
+        bytes calldata request
+    ) internal returns (bytes memory) {
+        bytes4 selector = Nodes.commandSelector(command);
+        bytes memory data = abi.encodeWithSelector(selector, CommandContext(account, state, request));
+        return abi.decode(trustedCall(command, value, data), (bytes));
+    }
+}
+
+/// @title PortCalls
+/// @notice Trusted port-call helpers for contracts that route port nodes.
+abstract contract PortCalls is NodeCalls {
+    /// @notice Encode and call a trusted port node.
+    /// @param port Port node ID embedding the target selector.
+    /// @param value Native value to forward in wei.
+    /// @param input Port input block stream.
+    /// @return Decoded port output block stream.
+    function callPort(uint port, uint128 value, bytes memory input) internal returns (bytes memory) {
+        bytes4 selector = Nodes.portSelector(port);
+        bytes memory data = abi.encodeWithSelector(selector, input);
+        return abi.decode(trustedCall(port, value, data), (bytes));
     }
 }

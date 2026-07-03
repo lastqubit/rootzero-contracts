@@ -5,7 +5,6 @@ import {AdminBase, CommandContext, Keys} from "./Base.sol";
 import {Payable} from "../../core/Payable.sol";
 import {Cursors, Cur, Schemas} from "../../Cursors.sol";
 import {Budget} from "../../utils/Value.sol";
-import {Nodes} from "../../utils/Nodes.sol";
 
 using Cursors for Cur;
 
@@ -31,8 +30,7 @@ abstract contract ExecutePayable is AdminBase, Payable {
 
         while (request.i < request.len) {
             (uint target, uint resources, bytes calldata data) = request.unpackCall();
-            address addr = Nodes.addr(target);
-            callAddr(addr, useValue(budget, resources), data);
+            rawCall(target, useValue(budget, resources), data);
         }
 
         request.complete();

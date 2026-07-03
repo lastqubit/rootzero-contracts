@@ -6,17 +6,6 @@ import { LabeledEvent } from "../events/Labeled.sol";
 import { QueryEvent } from "../events/Query.sol";
 import { Nodes } from "../utils/Nodes.sol";
 
-/// @notice ABI-encode a query call from a target query ID and request block stream.
-/// @dev Derives the function selector from `target` via `Nodes.querySelector(target)`.
-/// Reverts if `target` is not a valid query ID.
-/// @param target Destination query node ID embedding the target selector.
-/// @param request Input block stream for the query invocation.
-/// @return ABI-encoded calldata for the query entry point.
-function encodeQueryCall(uint target, bytes calldata request) pure returns (bytes memory) {
-    bytes4 selector = Nodes.querySelector(target);
-    return abi.encodeWithSelector(selector, request);
-}
-
 /// @title QueryBase
 /// @notice Abstract base for rootzero query contracts.
 /// Queries are view-only entry points that consume a block-stream request and

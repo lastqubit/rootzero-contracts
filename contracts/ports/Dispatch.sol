@@ -9,13 +9,9 @@ import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-interface IPortDispatchPayable {
-    function portDispatchPayable(bytes calldata data) external payable returns (bytes memory);
-}
-
 /// @title PortDispatchPayable
 /// @notice Port endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
-abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook, IPortDispatchPayable {
+abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook {
     uint internal immutable portDispatchPayableId = portId(this.portDispatchPayable.selector);
 
     constructor() {

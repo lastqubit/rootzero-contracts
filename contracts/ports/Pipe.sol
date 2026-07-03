@@ -8,14 +8,10 @@ import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
 
-interface IPortPipePayable {
-    function portPipePayable(bytes calldata data) external payable returns (bytes memory);
-}
-
 /// @title PortPipePayable
 /// @notice Port that consumes CONTEXT blocks and executes each request as a step stream.
 /// Each context's request bytes are passed to the shared pipeline.
-abstract contract PortPipePayable is PortBase, Pipeline, IPortPipePayable {
+abstract contract PortPipePayable is PortBase, Pipeline {
     uint internal immutable portPipePayableId = portId(this.portPipePayable.selector);
 
     constructor() {

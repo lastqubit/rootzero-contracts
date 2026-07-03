@@ -7,14 +7,10 @@ import {Cursors, Cur, Schemas} from "../Cursors.sol";
 
 using Cursors for Cur;
 
-interface IPortDenyAssets {
-    function portDenyAssets(bytes calldata data) external returns (bytes memory);
-}
-
 /// @title PortDenyAssets
 /// @notice Port that blocks a list of assets on behalf of a peer host.
 /// Each ASSET block in the request calls `denyAsset`. Restricted to trusted peers.
-abstract contract PortDenyAssets is PortBase, DenyAssetsHook, IPortDenyAssets {
+abstract contract PortDenyAssets is PortBase, DenyAssetsHook {
     uint internal immutable portDenyAssetsId = portId(this.portDenyAssets.selector);
 
     constructor() {
