@@ -7,4 +7,16 @@ import {Portal} from "../core/Portal.sol";
 
 contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
     constructor(address rootzero, uint handler) Host(rootzero) Portal(handler) {}
+
+    function testDeliver(bytes32 key, bytes calldata message, uint128 value) external payable {
+        deliver(key, message, value);
+    }
+
+    function getRecoverPayableId() external view returns (uint) {
+        return recoverPayableId;
+    }
+
+    function getAdminAccount() external view returns (bytes32) {
+        return admin;
+    }
 }
