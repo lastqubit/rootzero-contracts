@@ -120,7 +120,7 @@ Aliases may be used on any block item, including child blocks and prime items.
 A child block without an inline body may also be used as a schema reference:
 
 ```txt
-#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }
+#recover { uint handler, uint resources, bytes32 key, #bytes as witness }
 ```
 
 Alias resolution is context-dependent. A consumer may resolve `#context` from the
@@ -136,13 +136,13 @@ path does not change the block key, payload bytes, payload length, cursor
 behavior, or any onchain validation. It is metadata only.
 
 ```txt
-#dispatch { uint dst.chain, uint dst.resources, #bytes as dst.payload }
+#dispatch { uint dst.portal, uint dst.resources, #bytes as dst.payload }
 ```
 
 This has the same runtime layout as:
 
 ```txt
-#dispatch { uint chain, uint resources, #bytes as payload }
+#dispatch { uint portal, uint resources, #bytes as payload }
 ```
 
 Offchain tooling may decode the dotted form into a nested object:
@@ -150,7 +150,7 @@ Offchain tooling may decode the dotted form into a nested object:
 ```ts
 {
   dst: {
-    chain,
+    portal,
     resources,
     payload
   }
@@ -165,8 +165,8 @@ object.
 Tooling should reject duplicate full paths and prefix/value collisions:
 
 ```txt
-uint dst.chain, uint dst.chain      // duplicate path
-uint dst, uint dst.chain            // prefix/value collision
+uint dst.portal, uint dst.portal    // duplicate path
+uint dst, uint dst.portal           // prefix/value collision
 ```
 
 The same rule applies to block aliases:
@@ -196,10 +196,14 @@ true. `bytesN` values are encoded as exactly `N` bytes with no padding.
 
 ## Chain Resources
 
-Fields named `resources` are chain-specific resource words. Different chain
-types may pack these words differently, but a given chain type must use one
-stable format everywhere. For EVM chains, the low 128 bits are native value /
-endowment in wei; higher bits are reserved for execution resources such as gas.
+Fields named `portal` are routing identifiers; they are often the destination
+host ID, but a transport adapter may define a different stable handle.
+
+Fields named `resources` are chain-specific resource words. A portal adapter
+interprets them for the destination runtime. Different runtimes may pack these
+words differently, but a given runtime must use one stable format everywhere.
+For EVM chains, the low 128 bits are native value / endowment in wei; higher
+bits are reserved for execution resources such as gas.
 
 ## Protocol IDs
 
@@ -282,7 +286,7 @@ Common protocol schemas live in `contracts/blocks/Schema.sol`:
 #call { uint target, uint resources, #bytes as payload }
 #step { uint target, uint resources, #bytes as request }
 #context { bytes32 account, #bytes as state, #bytes as request }
-#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }
+#recover { uint handler, uint resources, bytes32 key, #bytes as witness }
 #auth { uint cid, uint deadline, #bytes as proof }
 ```
 

@@ -3,6 +3,26 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## Unreleased
+
+### Breaking Changes
+
+- Renamed relay and dispatch routing fields from `chain` to `portal` across
+  schemas, cursor helpers, dispatch hooks, and dispatch/route events.
+- Replaced the context-specific `RecoverContextPayable` / `#contextRecovery`
+  surface with generic `RecoverPayable` / `#recover` using byte witnesses.
+- Renamed the `Dispatch` event correlation field from `ref` to `key`.
+- Replaced `DispatchPayableHook.dispatch` with `RoutePayableHook.route` in the
+  portal core layer.
+- Added `status` to `Route(uint indexed host, uint portal, uint status)`
+  so routes can be removed by emitting zero status.
+- Added `Undelivered(uint indexed host, bytes32 key, bytes32 digest)` for portal
+  messages that could not be delivered to their handler port.
+- Added `Resolved(uint indexed host, bytes32 key)` as the
+  matching event for resolved undelivered digests.
+- Removed the generic `Commitments` core mixin and `Commitment` event in favor
+  of domain-specific events such as `Undelivered` and `Resolved`.
+
 ## 1.8.0
 
 ### Breaking Changes

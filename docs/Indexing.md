@@ -94,7 +94,7 @@ keccak256. The remaining bytes are host/domain-specific for now.
    `Node` and `Guardian` for live access sets.
 4. Subscribe to the state events below for balances and flows.
 
-The endpoint repository — commands, admin commands, queries, peers, and guards
+The endpoint repository — commands, admin commands, ports, queries, and guards
 with schemas, names, and access state — is fully reconstructible from logs
 today. No changes are proposed to the discovery layer.
 
@@ -110,7 +110,7 @@ conventions below. The `create-rootzero` template (`rootzero-evm-commander`) is
 the reference implementation of these conventions.
 
 ```txt
-event Chain(uint indexed chain, bytes32 native, uint commander, bytes32 admin)
+event Commander(uint indexed host, uint chain, bytes32 native, bytes32 admin)
 event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change, uint access)
 event Received(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
 event Spent(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
@@ -129,8 +129,8 @@ host that omits them still works on-chain, but its ledger is invisible to
 log-based tooling - there is no fallback channel, because command outputs are
 return data and requests are calldata.
 
-**Announcement.** A root (commander) host emits `Chain` once at construction
-with the local chain ID, native asset, its own host ID, and its admin account,
+**Announcement.** A root (commander) host emits `Commander` once at construction
+with its host ID, the local chain ID, native asset, and its admin account,
 and labels itself (e.g. `Labeled(host, "hosts", name)`). This closes the
 cold-start problem: `commander`, `admin`, and `nativeAsset` are constructor
 immutables that appear in no library event on the host itself. Child hosts need
@@ -180,7 +180,7 @@ logs of the transaction to attribute effects to the invocation.
 ### Correlation Fields
 
 `access` (on `Balance`) and `context` (on flow events) carry the node ID of the
-causing endpoint — the innermost command, peer, or guard whose semantic
+causing endpoint — the innermost command, port, or guard whose semantic
 performed the change — or zero when no endpoint context exists. `action` is a
 code from `utils/Actions.sol`:
 

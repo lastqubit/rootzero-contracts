@@ -2,7 +2,7 @@
 
 rootzero is a protocol for building **hosts**: contracts that expose a uniform
 set of endpoints over accounts and assets — commands that change state,
-queries that read it, and peer links that connect hosts to each other, on the
+queries that read it, and port links that connect hosts to each other, on the
 same chain or across chains.
 
 This repository is `@rootzero/contracts`, the Solidity library for the EVM port
@@ -160,7 +160,7 @@ structured ID announces what it is (an account, an asset, a node) and which
 chain it lives on, and the payload usually embeds the underlying address. User
 accounts are chain-agnostic; admin and guardian accounts are chain-local.
 Assets are unique IDs in the same single-word form as accounts and nodes.
-Nodes are hosts, commands, peers, queries, and guards.
+Nodes are hosts, commands, ports, queries, and guards.
 
 Opaque asset declarations use `Asset(host, asset, preimage)`. The preimage
 starts with a one-byte format/hash tag, letting offchain indexers or witnesses
@@ -258,7 +258,7 @@ The standard commands cover the common ledger movements: `deposit` and
 `depositPayable` (external funds in), `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
 state to other accounts), `provision` (allocate custody on another host), and
-`relayPayable` (hand a pipeline to another chain).
+`relayPayable` (hand a pipeline to another portal).
 
 ## Pipelines
 
@@ -285,9 +285,9 @@ if (state.length != 0) revert UnexpectedState();
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
 `#amount` request into `#balance` state, and `payout` consumes that state
 toward a recipient. Because a pipeline is just blocks, it is also the unit of
-command batching — and `resources` is a chain-typed word (on EVM, the low 128
-bits are native value in wei, drawn from a shared budget), so the same pipeline
-bytes are meaningful to every port.
+command batching — and `resources` is a chain-specific word interpreted by the
+portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
+shared budget), so the same pipeline bytes are meaningful to every port.
 
 ## Queries
 
@@ -314,10 +314,11 @@ central ones are batches all the way down:
   block — how two hosts record settlement between their ledgers.
 - `portPipePayable` consumes `#context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
-  host, executed locally against the peer call's shared value budget.
+  host, executed locally against the port call's shared value budget.
 
-This is also the cross-chain mechanism. `relayPayable` (or `portDispatchPayable`)
-wraps a pipe and addresses it to a chain; a bridge adapter moves the **raw
+This is also the cross-portal mechanism. `relayPayable` (or `portDispatchPayable`)
+wraps a pipe and addresses it to a portal, commonly the destination host ID;
+a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step targets
 are destination-local node IDs, and only the adapter boundary (native
@@ -350,8 +351,8 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Pipeline`, validator
-- `@rootzero/contracts/Endpoints.sol` — command, admin, peer, guard, and query
+  `Pipeline`, `Portal`, validator
+- `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
   mixins and their hooks
 - `@rootzero/contracts/Cursors.sol` — `Cur` cursor reader, `Writers`, `Schemas`,
   `Keys`
@@ -363,7 +364,7 @@ Repo layout:
 
 - `contracts/core` — host, access control, balances, pipeline, validation
 - `contracts/commands` — standard commands and admin commands
-- `contracts/ports` — peer surfaces for inter-host and cross-chain flows
+- `contracts/ports` — port surfaces for inter-host and cross-portal flows
 - `contracts/guards` — guardian direct actions
 - `contracts/queries` — read-only query endpoints
 - `contracts/blocks` — block schema, cursor parsing, writers
