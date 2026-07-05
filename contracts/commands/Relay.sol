@@ -3,28 +3,18 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext, Keys} from "./Base.sol";
 import {Payable} from "../core/Payable.sol";
+import {RoutePayableHook} from "../core/Portal.sol";
 import {Cursors, Cur, Schemas} from "../Cursors.sol";
 import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
-
-abstract contract DispatchPayableHook {
-    /// @notice Override to dispatch an encoded payload to `chain`.
-    /// @param chain Destination chain node ID.
-    /// @param resources Chain-adapter-specific destination resources. EVM adapters
-    /// may interpret this as packed execution gas and destination value.
-    /// @param payload Encoded payload ready for the transport layer.
-    /// @param budget Source-chain native-value budget available for transport
-    /// fees and destination resource funding.
-    function dispatch(uint chain, uint resources, bytes memory payload, Budget memory budget) internal virtual;
-}
 
 /// @title RelayPayable
 /// @notice Command that forwards one RELAY block to a host-defined relay hook.
 /// Reverts unless the request contains exactly one RELAY block, preventing
 /// the same state from being duplicated across multiple relays.
 /// Produces no output state.
-abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
+abstract contract RelayPayable is CommandBase, Payable, RoutePayableHook {
     uint internal immutable relayPayableId = commandId(this.relayPayable.selector);
 
     constructor() {
@@ -39,9 +29,9 @@ abstract contract RelayPayable is CommandBase, Payable, DispatchPayableHook {
         (Cur memory request, ) = Cursors.init(c.request, 1, 1);
         Budget memory budget = openValue();
 
-        (uint chain, uint resources, bytes memory context) = request.relayToContext(c.account, c.state);
-        dispatch(chain, resources, context, budget);
-        
+        (uint portal, uint resources, bytes memory context) = request.relayToContext(c.account, c.state);
+        route(portal, resources, context, budget);
+
         closeValue(c.account, budget);
         request.complete();
         return "";

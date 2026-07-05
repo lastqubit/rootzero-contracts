@@ -29,6 +29,7 @@ abstract contract GetPositionHook {
 abstract contract GetPosition is QueryBase, GetPositionHook {
     uint public immutable getPositionId = queryId(this.getPosition.selector);
 
+    /// @param output Response schema advertised for each position output block.
     constructor(string memory output) {
         emit Query(host, getPositionId, "1:1", Forms.AccountAsset, output);
         emit Labeled(getPositionId, bytes32(0), "getPosition");

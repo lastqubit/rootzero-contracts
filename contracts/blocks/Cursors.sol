@@ -519,7 +519,7 @@ library Cursors {
 
     /// @notice Encode a STEP block.
     /// @param target Command target identifier.
-    /// @param resources Chain resources assigned to the step.
+    /// @param resources Packed resources assigned to the step.
     /// @param request Raw nested request payload.
     /// @return Encoded STEP block bytes.
     function toStepBlock(uint target, uint resources, bytes memory request) internal pure returns (bytes memory) {
@@ -528,7 +528,7 @@ library Cursors {
 
     /// @notice Encode a CALL block.
     /// @param target Target node identifier.
-    /// @param resources Chain resources assigned to the call.
+    /// @param resources Packed resources assigned to the call.
     /// @param data Raw calldata payload for the target.
     /// @return Encoded CALL block bytes.
     function toCallBlock(uint target, uint resources, bytes memory data) internal pure returns (bytes memory) {
@@ -549,21 +549,21 @@ library Cursors {
     }
 
     /// @notice Encode a RELAY block.
-    /// @param chain Destination chain node ID.
-    /// @param resources Chain-adapter-specific resources for the destination context.
+    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param resources Chain-specific resources for the destination context.
     /// @param request Nested request block stream.
     /// @return Encoded RELAY block bytes.
-    function toRelayBlock(uint chain, uint resources, bytes memory request) internal pure returns (bytes memory) {
-        return createBlock(Keys.Relay, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(request)));
+    function toRelayBlock(uint portal, uint resources, bytes memory request) internal pure returns (bytes memory) {
+        return createBlock(Keys.Relay, bytes.concat(bytes32(portal), bytes32(resources), toBytesBlock(request)));
     }
 
     /// @notice Encode a DISPATCH block.
-    /// @param chain Destination chain node ID.
-    /// @param resources Chain-adapter-specific resources for the destination dispatch.
-    /// @param payload Encoded cross-chain payload.
+    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param resources Chain-specific resources for the destination dispatch.
+    /// @param payload Encoded payload.
     /// @return Encoded DISPATCH block bytes.
-    function toDispatchBlock(uint chain, uint resources, bytes memory payload) internal pure returns (bytes memory) {
-        return createBlock(Keys.Dispatch, bytes.concat(bytes32(chain), bytes32(resources), toBytesBlock(payload)));
+    function toDispatchBlock(uint portal, uint resources, bytes memory payload) internal pure returns (bytes memory) {
+        return createBlock(Keys.Dispatch, bytes.concat(bytes32(portal), bytes32(resources), toBytesBlock(payload)));
     }
 
     // -------------------------------------------------------------------------
@@ -1100,7 +1100,7 @@ library Cursors {
     /// The `req` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Destination node ID for the sub-command.
-    /// @return resources Chain resources assigned to the step.
+    /// @return resources Packed resources assigned to the step.
     /// @return req Embedded request bytes for the sub-command.
     function unpackStep(Cur memory cur) internal pure returns (uint target, uint resources, bytes calldata req) {
         uint end = cur.enter(Keys.Step, 64 + Sizes.Header, 0);
@@ -1114,7 +1114,7 @@ library Cursors {
     /// The `data` slice is the raw payload of the block's required BYTES child.
     /// @param cur Cursor; advanced past the block.
     /// @return target Target node ID to call.
-    /// @return resources Chain resources assigned to the call.
+    /// @return resources Packed resources assigned to the call.
     /// @return data Raw calldata payload for the target.
     function unpackCall(Cur memory cur) internal pure returns (uint target, uint resources, bytes calldata data) {
         uint end = cur.enter(Keys.Call, 64 + Sizes.Header, 0);
@@ -1140,50 +1140,50 @@ library Cursors {
         cur.exit(end);
     }
 
-    /// @notice Consume a RELAY block and return its destination chain, resources, and request stream.
+    /// @notice Consume a RELAY block and return its destination portal, resources, and request stream.
     /// @param cur Cursor; advanced past the block.
-    /// @return chain Destination chain node ID.
-    /// @return resources Chain-adapter-specific resources for the destination context.
+    /// @return portal Destination portal identifier, often the destination host ID.
+    /// @return resources Chain-specific resources for the destination context.
     /// @return request Embedded request block stream.
     function unpackRelay(
         Cur memory cur
-    ) internal pure returns (uint chain, uint resources, bytes calldata request) {
+    ) internal pure returns (uint portal, uint resources, bytes calldata request) {
         uint end = cur.enter(Keys.Relay, 64 + Sizes.Header, 0);
-        chain = cur.readUint();
+        portal = cur.readUint();
         resources = cur.readUint();
         request = cur.unpackBytes();
         cur.exit(end);
     }
 
-    /// @notice Consume a DISPATCH block and return its destination chain, resources, and payload.
+    /// @notice Consume a DISPATCH block and return its destination portal, resources, and payload.
     /// @param cur Cursor; advanced past the block.
-    /// @return chain Destination chain node ID.
-    /// @return resources Chain-adapter-specific resources for the destination dispatch.
-    /// @return payload Encoded cross-chain payload.
+    /// @return portal Destination portal identifier, often the destination host ID.
+    /// @return resources Chain-specific resources for the destination dispatch.
+    /// @return payload Encoded payload.
     function unpackDispatch(
         Cur memory cur
-    ) internal pure returns (uint chain, uint resources, bytes calldata payload) {
+    ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
         uint end = cur.enter(Keys.Dispatch, 64 + Sizes.Header, 0);
-        chain = cur.readUint();
+        portal = cur.readUint();
         resources = cur.readUint();
         payload = cur.unpackBytes();
         cur.exit(end);
     }
 
-    /// @notice Consume a CONTEXT_RECOVERY block and return its port, key, resources, and embedded context cursor.
+    /// @notice Consume a RECOVER block and return its handler, resources, key, and witness bytes.
     /// @param cur Cursor; advanced past the block.
-    /// @return port Recovery handler port node ID.
-    /// @return key Commitment or recovery lookup key.
-    /// @return resources Chain resources assigned to the recovery attempt.
-    /// @return context Cursor scoped to the embedded CONTEXT witness block.
-    function unpackContextRecovery(
+    /// @return handler Recovery handler port node ID.
+    /// @return resources Packed resources assigned to the recovery attempt.
+    /// @return key Recovery lookup key.
+    /// @return witness Witness bytes used by the recovery handler.
+    function unpackRecover(
         Cur memory cur
-    ) internal pure returns (uint port, bytes32 key, uint resources, Cur memory context) {
-        uint end = cur.enter(Keys.ContextRecovery, 96 + Sizes.Header, 0);
-        port = cur.readUint();
-        key = cur.read32();
+    ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
+        uint end = cur.enter(Keys.Recover, 96 + Sizes.Header, 0);
+        handler = cur.readUint();
         resources = cur.readUint();
-        context = cur.take(Keys.Context);
+        key = cur.read32();
+        witness = cur.unpackBytes();
         cur.exit(end);
     }
 
@@ -1379,16 +1379,16 @@ library Cursors {
     /// @param cur Cursor; advanced past the RELAY block.
     /// @param account Account identifier to embed in the destination context.
     /// @param state State block stream to embed in the destination context.
-    /// @return chain Destination chain node ID.
-    /// @return resources Chain resources assigned to the destination context.
+    /// @return portal Destination portal identifier, often the destination host ID.
+    /// @return resources Chain-specific resources assigned to the destination context.
     /// @return context Encoded CONTEXT block containing `account`, `state`, and relay request.
     function relayToContext(
         Cur memory cur,
         bytes32 account,
         bytes calldata state
-    ) internal pure returns (uint chain, uint resources, bytes memory context) {
+    ) internal pure returns (uint portal, uint resources, bytes memory context) {
         bytes calldata request;
-        (chain, resources, request) = cur.unpackRelay();
+        (portal, resources, request) = cur.unpackRelay();
         context = toContextBlock(account, bytes(state), bytes(request));
     }
 

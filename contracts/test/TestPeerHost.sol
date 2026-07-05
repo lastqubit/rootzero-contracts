@@ -16,7 +16,7 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
     event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
-    event PortDispatchCalled(uint chain, bytes payload, uint resources, uint remaining);
+    event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
@@ -39,8 +39,8 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         emit PortCreditAccountCalled(account, asset, amount);
     }
 
-    function dispatch(uint chain, uint resources, bytes memory payload, Budget memory budget) internal override {
-        emit PortDispatchCalled(chain, payload, resources, budget.remaining);
+    function route(uint portal, uint resources, bytes memory payload, Budget memory budget) internal override {
+        emit PortDispatchCalled(portal, payload, resources, budget.remaining);
     }
 
     function dispatch(

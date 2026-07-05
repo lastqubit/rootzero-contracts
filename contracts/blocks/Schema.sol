@@ -16,10 +16,11 @@ pragma solidity ^0.8.33;
 // - run items may repeat at top level for batching
 // - `maybe #x { ... }` marks an optional block item
 // - `many #x { ... }` emits one generic list block containing repeated `#x` items
-// - `resources` fields are chain-specific resource words; one chain type may
-//   pack them differently from another, but a given chain type must use one
-//   stable format everywhere. EVM resources use the low 128 bits as native value.
-// - dotted field names and aliases, e.g. `dst.chain` or `#bytes as dst.payload`,
+// - `portal` fields are routing identifiers, often destination host IDs
+// - `resources` fields are chain-specific resource words. A portal adapter
+//   interprets them for the destination runtime. EVM resources use the low
+//   128 bits as native value.
+// - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
 // - a child block without an inline body, e.g. `#context as witness`, may resolve
 //   to a known schema in the active schema context; unresolved aliases are invalid
@@ -71,11 +72,11 @@ library Schemas {
     string constant Allowance = "#allowance { uint host, bytes32 asset, uint amount }";
     string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, uint amount }";
     string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant ContextRecovery = "#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }";
+    string constant Recover = "#recover { uint handler, uint resources, bytes32 key, #bytes as witness }";
     string constant Call = "#call { uint target, uint resources, #bytes as payload }";
     string constant Step = "#step { uint target, uint resources, #bytes as request }";
-    string constant Relay = "#relay { uint chain, uint resources, #bytes as request }";
-    string constant Dispatch = "#dispatch { uint chain, uint resources, #bytes as payload }";
+    string constant Relay = "#relay { uint portal, uint resources, #bytes as request }";
+    string constant Dispatch = "#dispatch { uint portal, uint resources, #bytes as payload }";
     string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
     string constant Fee = "#fee { uint amount }";
     string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";

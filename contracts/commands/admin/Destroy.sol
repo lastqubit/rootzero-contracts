@@ -18,6 +18,7 @@ abstract contract DestroyHook {
 abstract contract Destroy is AdminBase, DestroyHook {
     uint internal immutable destroyId = commandId(this.destroy.selector);
 
+    /// @param input Request schema advertised for destruction input.
     constructor(string memory input) {
         emit Admin(host, destroyId, "1:0:0", input, Keys.Empty, Keys.Empty, false);
         emit Labeled(destroyId, bytes32(0), "destroy");

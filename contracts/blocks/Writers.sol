@@ -872,7 +872,7 @@ library Writers {
     /// @notice Append a STEP block with a nested request BYTES payload.
     /// @param writer Destination writer; `i` is advanced by the encoded STEP block length.
     /// @param target Command target identifier.
-    /// @param resources Chain resources assigned to the step.
+    /// @param resources Packed resources assigned to the step.
     /// @param request Raw nested request payload.
     function appendStep(Writer memory writer, uint target, uint resources, bytes memory request) internal pure {
         appendBlock64Bytes(writer, Keys.Step, bytes32(target), bytes32(resources), request);
@@ -881,7 +881,7 @@ library Writers {
     /// @notice Append a CALL block with a nested payload BYTES block.
     /// @param writer Destination writer; `i` is advanced by the encoded CALL block length.
     /// @param target Call target identifier.
-    /// @param resources Chain resources assigned to the call.
+    /// @param resources Packed resources assigned to the call.
     /// @param data Raw nested call payload.
     function appendCall(Writer memory writer, uint target, uint resources, bytes memory data) internal pure {
         appendBlock64Bytes(writer, Keys.Call, bytes32(target), bytes32(resources), data);

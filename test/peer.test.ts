@@ -107,7 +107,7 @@ describe("Port Entrypoints", () => {
         await host.host(),
         await host.getPortDispatchPayableId(),
         ethers.encodeBytes32String("1:0"),
-        "#dispatch { uint chain, uint resources, #bytes as payload }",
+        "#dispatch { uint portal, uint resources, #bytes as payload }",
         "",
         true,
       );
@@ -143,11 +143,8 @@ describe("Port Entrypoints", () => {
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
 
-  async function localChain() {
-    const provider = await getProvider();
-    const network = await provider.getNetwork();
-    const CHAIN_PREFIX = 0x01200201n;
-    return (CHAIN_PREFIX << 224n) | network.chainId;
+  async function localPortal() {
+    return await host.getPortDispatchPayableId();
   }
 
   describe("portAllowance", () => {
@@ -489,30 +486,30 @@ describe("Port Entrypoints", () => {
     const method = "portDispatchPayable(bytes)";
 
     it("dispatches a single DISPATCH block and exposes the remaining value budget", async () => {
-      const chain = await localChain();
+      const portal = await localPortal();
       const payload = ethers.hexlify(ethers.toUtf8Bytes("encoded-payload"));
-      const request = encodeDispatchBlock(chain, 5n, payload);
+      const request = encodeDispatchBlock(portal, 5n, payload);
 
       const tx = await callAs(1, method, request, { value: 8n });
 
-      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, payload, 5n, 8n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, payload, 5n, 8n);
     });
 
     it("returns empty bytes after dispatching a payload", async () => {
       const signer = await getSigner(1);
-      const request = encodeDispatchBlock(await localChain(), 0n, "0x1234");
+      const request = encodeDispatchBlock(await localPortal(), 0n, "0x1234");
       const result: string = await (host.connect(signer) as any)[method].staticCall(request);
       expect(result).to.equal("0x");
     });
 
     it("reverts CommanderNotAllowed for the commander", async () => {
-      const request = encodeDispatchBlock(await localChain(), 0n, "0x");
+      const request = encodeDispatchBlock(await localPortal(), 0n, "0x");
       await expect(callAs(0, method, request))
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
-      const request = encodeDispatchBlock(await localChain(), 0n, "0x");
+      const request = encodeDispatchBlock(await localPortal(), 0n, "0x");
       await expect(callAs(2, method, request))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
@@ -529,25 +526,25 @@ describe("Port Entrypoints", () => {
     });
 
     it("dispatches multiple DISPATCH blocks in one request", async () => {
-      const chain = await localChain();
+      const portal = await localPortal();
       const first = "0x01";
       const second = "0x02";
       const request = concat(
-        encodeDispatchBlock(chain, 2n, first),
-        encodeDispatchBlock(chain, 3n, second),
+        encodeDispatchBlock(portal, 2n, first),
+        encodeDispatchBlock(portal, 3n, second),
       );
 
       const tx = await callAs(1, method, request, { value: 5n });
 
-      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, first, 2n, 5n);
-      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(chain, second, 3n, 5n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, first, 2n, 5n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, second, 3n, 5n);
     });
 
     it("passes dispatch resources through even when it exceeds msg.value", async () => {
-      const request = encodeDispatchBlock(await localChain(), 2n, "0x");
+      const request = encodeDispatchBlock(await localPortal(), 2n, "0x");
 
       const tx = await callAs(1, method, request, { value: 1n });
-      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(await localChain(), "0x", 2n, 1n);
+      await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(await localPortal(), "0x", 2n, 1n);
     });
   });
 });

@@ -18,6 +18,7 @@ abstract contract InitHook {
 abstract contract Init is AdminBase, InitHook {
     uint internal immutable initId = commandId(this.init.selector);
 
+    /// @param input Request schema advertised for initialization input.
     constructor(string memory input) {
         emit Admin(host, initId, "1:0:0", input, Keys.Empty, Keys.Empty, false);
         emit Labeled(initId, bytes32(0), "init");

@@ -3,15 +3,15 @@ pragma solidity ^0.8.33;
 
 import { PortBase } from "./Base.sol";
 import { Payable } from "../core/Payable.sol";
+import { RoutePayableHook } from "../core/Portal.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
-import { DispatchPayableHook } from "../commands/Relay.sol";
 import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
 
 /// @title PortDispatchPayable
-/// @notice Port endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
-abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook {
+/// @notice Port endpoint that forwards DISPATCH blocks to a host-defined route hook.
+abstract contract PortDispatchPayable is PortBase, Payable, RoutePayableHook {
     uint internal immutable portDispatchPayableId = portId(this.portDispatchPayable.selector);
 
     constructor() {
@@ -19,8 +19,8 @@ abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook 
         emit Labeled(portDispatchPayableId, bytes32(0), "portDispatchPayable");
     }
 
-    /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.
-    /// @dev Dispatch hooks receive the shared top-level source-chain value
+    /// @notice Forward peer-supplied dispatches to the host-defined route hook.
+    /// @dev Route hooks receive the shared top-level source value
     ///      budget. Any `msg.value` not spent by the hook remains on this host.
     /// @param data DISPATCH block stream supplied by the trusted peer.
     /// @return output Empty response bytes.
@@ -29,8 +29,8 @@ abstract contract PortDispatchPayable is PortBase, Payable, DispatchPayableHook 
         Budget memory budget = openValue();
 
         while (input.i < input.len) {
-            (uint chain, uint resources, bytes calldata payload) = input.unpackDispatch();
-            dispatch(chain, resources, bytes(payload), budget);
+            (uint portal, uint resources, bytes calldata payload) = input.unpackDispatch();
+            route(portal, resources, bytes(payload), budget);
         }
 
         input.complete();

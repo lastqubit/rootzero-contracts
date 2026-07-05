@@ -19,7 +19,7 @@ abstract contract Payable {
     /// @notice Deduct the EVM value lane from a packed resource word and return it.
     /// @dev EVM resources use the low 128 bits as native value/endowment.
     /// @param budget Mutable budget to deduct from.
-    /// @param resources Packed chain resources.
+    /// @param resources Packed resources.
     /// @return value Native value to forward in wei.
     function useValue(Budget memory budget, uint resources) internal pure returns (uint128 value) {
         value = uint128(resources);

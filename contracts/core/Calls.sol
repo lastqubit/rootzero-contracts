@@ -107,12 +107,23 @@ abstract contract CommandCalls is NodeCalls {
 /// @title PortCalls
 /// @notice Trusted port-call helpers for contracts that route port nodes.
 abstract contract PortCalls is NodeCalls {
+    /// @notice Try to encode and call a trusted port node.
+    /// @param port Port node ID embedding the target selector.
+    /// @param value Native value to forward in wei.
+    /// @param input Port input block stream.
+    /// @return success True if the low-level port call succeeded.
+    function tryCallPort(uint port, uint128 value, bytes calldata input) internal returns (bool success) {
+        bytes4 selector = Nodes.portSelector(port);
+        bytes memory data = abi.encodeWithSelector(selector, input);
+        return tryTrustedCall(port, value, data);
+    }
+
     /// @notice Encode and call a trusted port node.
     /// @param port Port node ID embedding the target selector.
     /// @param value Native value to forward in wei.
     /// @param input Port input block stream.
     /// @return Decoded port output block stream.
-    function callPort(uint port, uint128 value, bytes memory input) internal returns (bytes memory) {
+    function callPort(uint port, uint128 value, bytes calldata input) internal returns (bytes memory) {
         bytes4 selector = Nodes.portSelector(port);
         bytes memory data = abi.encodeWithSelector(selector, input);
         return abi.decode(trustedCall(port, value, data), (bytes));

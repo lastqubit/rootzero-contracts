@@ -41,13 +41,13 @@ library Keys {
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
     /// @dev Sub-command invocation - (uint target, uint resources, #bytes as request)
     bytes4 constant Step = bytes4(keccak256("#step"));
-    /// @dev Cross-chain relay request - (uint chain, uint resources, #bytes as request)
+    /// @dev Portal relay request - (uint portal, uint resources, #bytes as request)
     bytes4 constant Relay = bytes4(keccak256("#relay"));
     /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
     bytes4 constant Context = bytes4(keccak256("#context"));
-    /// @dev Recoverable context witness - (uint port, bytes32 key, uint resources, #context)
-    bytes4 constant ContextRecovery = bytes4(keccak256("#contextRecovery"));
-    /// @dev Cross-chain encoded payload dispatch - (uint chain, uint resources, #bytes as payload)
+    /// @dev Recoverable witness - (uint handler, uint resources, bytes32 key, #bytes as witness)
+    bytes4 constant Recover = bytes4(keccak256("#recover"));
+    /// @dev Portal encoded payload dispatch - (uint portal, uint resources, #bytes as payload)
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
     /// @dev Raw external call - (uint target, uint resources, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));

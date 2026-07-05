@@ -30,6 +30,7 @@ abstract contract AccessControl is Runtime, NodeEvent, GuardianEvent {
     /// @dev Thrown when a caller, account, or node lacks required access.
     error AccessDenied();
 
+    /// @param cmdr Commander address, or zero to make this contract self-managed.
     constructor(address cmdr) {
         commander = addrOr(cmdr, address(this));
         admin = Accounts.toAdmin(commander);

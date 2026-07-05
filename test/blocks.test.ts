@@ -19,7 +19,7 @@ import {
   encodeAccountBlock,
   encodeAccountAssetBlock,
   encodeContextBlock,
-  encodeContextRecoveryBlock,
+  encodeRecoverBlock,
   encodeHostAccountAssetBlock,
   encodeDataBlock,
   encodeLabelBlock,
@@ -433,39 +433,40 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(context).length));
     });
 
-    it("unpackContextRecovery consumes port, key, resources, and nested context", async () => {
-      const port = 42n;
+    it("unpackRecover consumes handler, resources, key, and witness bytes", async () => {
+      const handler = 42n;
       const key = ethers.zeroPadValue("0x1234", 32);
       const account = encodeUserAccount("0x12");
       const state = encodeBalanceBlock(asset, amount);
       const request = encodeAmountBlock(asset, 7n);
-      const context = encodeContextBlock(account, state, request);
-      const recovery = encodeContextRecoveryBlock(port, key, 55n, context);
-      const [outPort, outKey, resources, outContext, i] = await helper.testUnpackContextRecovery(recovery);
-      expect(outPort).to.equal(port);
+      const witness = encodeContextBlock(account, state, request);
+      const resources = 55n;
+      const recovery = encodeRecoverBlock(handler, resources, key, witness);
+      const [outHandler, outResources, outKey, outWitness, i] = await helper.testUnpackRecover(recovery);
+      expect(outHandler).to.equal(handler);
+      expect(outResources).to.equal(resources);
       expect(outKey).to.equal(key);
-      expect(resources).to.equal(55n);
-      expect(outContext).to.equal(context);
+      expect(outWitness).to.equal(witness);
       expect(i).to.equal(BigInt(ethers.getBytes(recovery).length));
     });
 
-    it("unpackRelay consumes chain, resources, and request bytes", async () => {
-      const chain: bigint = await utils.testLocalChainId();
+    it("unpackRelay consumes portal, resources, and request bytes", async () => {
+      const portal: bigint = await utils.testLocalChainId();
       const request = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
-      const relay = encodeRelayBlock(chain, 55n, request);
-      const [outChain, resources, outRequest, i] = await helper.testUnpackRelay(relay);
-      expect(outChain).to.equal(chain);
+      const relay = encodeRelayBlock(portal, 55n, request);
+      const [outPortal, resources, outRequest, i] = await helper.testUnpackRelay(relay);
+      expect(outPortal).to.equal(portal);
       expect(resources).to.equal(55n);
       expect(outRequest).to.equal(request);
       expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
     });
 
-    it("unpackDispatch consumes chain, resources, and payload bytes", async () => {
-      const chain: bigint = await utils.testLocalChainId();
+    it("unpackDispatch consumes portal, resources, and payload bytes", async () => {
+      const portal: bigint = await utils.testLocalChainId();
       const payload = ethers.hexlify(ethers.toUtf8Bytes("ready-to-send"));
-      const dispatch = encodeDispatchBlock(chain, 89n, payload);
-      const [outChain, resources, outPayload, i] = await helper.testUnpackDispatch(dispatch);
-      expect(outChain).to.equal(chain);
+      const dispatch = encodeDispatchBlock(portal, 89n, payload);
+      const [outPortal, resources, outPayload, i] = await helper.testUnpackDispatch(dispatch);
+      expect(outPortal).to.equal(portal);
       expect(resources).to.equal(89n);
       expect(outPayload).to.equal(payload);
       expect(i).to.equal(BigInt(ethers.getBytes(dispatch).length));

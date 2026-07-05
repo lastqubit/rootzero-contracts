@@ -10,7 +10,7 @@ using Cursors for Cur;
 
 /// @title ExecutePayable
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
-/// Each CALL block specifies a target node ID, chain resources, and raw calldata payload.
+/// Each CALL block specifies a target node ID, packed resources, and raw calldata payload.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` remains on this host.
 abstract contract ExecutePayable is AdminBase, Payable {

@@ -9,7 +9,7 @@ import { DebitAccount } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable } from "../commands/Relay.sol";
-import { RecoverContextPayable } from "../commands/Recover.sol";
+import { RecoverPayable } from "../commands/Recover.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { PortSettle } from "../ports/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
@@ -34,7 +34,7 @@ contract TestHost is
     Provision,
     ProvisionPayable,
     RelayPayable,
-    RecoverContextPayable,
+    RecoverPayable,
     Pipeline,
     PortSettle,
     Init,
@@ -51,8 +51,8 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
-    event RelayCalled(uint chain, uint resources, bytes context);
-    event RecoverContextCalled(uint port, bytes32 key, uint resources, bytes context, uint remaining);
+    event RelayCalled(uint portal, uint resources, bytes context);
+    event RecoverCalled(uint handler, bytes32 key, bytes witness, uint128 value);
     event InitCalled(bytes inputData);
     event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset);
@@ -107,19 +107,18 @@ contract TestHost is
         );
     }
 
-    function dispatch(uint chain, uint resources, bytes memory context, Budget memory budget) internal override {
+    function route(uint portal, uint resources, bytes memory context, Budget memory budget) internal override {
         budget;
-        emit RelayCalled(chain, resources, context);
+        emit RelayCalled(portal, resources, context);
     }
 
-    function recoverContext(
-        uint port,
+    function recover(
+        uint handler,
         bytes32 key,
-        uint resources,
-        Cur memory context,
-        Budget memory budget
+        bytes calldata witness,
+        uint128 value
     ) internal override {
-        emit RecoverContextCalled(port, key, resources, context.raw(), budget.remaining);
+        emit RecoverCalled(handler, key, witness, value);
     }
 
     function init(Cur memory input) internal override {
@@ -218,8 +217,8 @@ contract TestHost is
         return relayPayableId;
     }
 
-    function getRecoverContextPayableId() external view returns (uint) {
-        return recoverContextPayableId;
+    function getRecoverPayableId() external view returns (uint) {
+        return recoverPayableId;
     }
 
     function getInitId() external view returns (uint) {

@@ -3,14 +3,14 @@ pragma solidity ^0.8.33;
 
 import {EventEmitter} from "./Emitter.sol";
 
-/// @notice Emitted when a host announces a route to another chain/domain.
+/// @notice Emitted when a host updates a portal route.
 abstract contract RouteEvent is EventEmitter {
-    string private constant ABI = "event Route(uint indexed host, uint chain, uint context)";
+    string private constant ABI = "event Route(uint indexed host, uint portal, uint status)";
 
     /// @param host Host node ID that owns the route.
-    /// @param chain Destination chain/domain node ID.
-    /// @param context Route context identifier.
-    event Route(uint indexed host, uint chain, uint context);
+    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param status Route status. Zero means inactive; nonzero means active.
+    event Route(uint indexed host, uint portal, uint status);
 
     constructor() {
         emit EventAbi(ABI);

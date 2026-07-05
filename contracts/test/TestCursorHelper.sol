@@ -42,8 +42,8 @@ contract TestCursorHelper {
         return Cursors.toBountyBlock(amount, relayer);
     }
 
-    function testToDispatchBlock(uint chain, uint resources, bytes memory payload) external pure returns (bytes memory) {
-        return Cursors.toDispatchBlock(chain, resources, payload);
+    function testToDispatchBlock(uint portal, uint resources, bytes memory payload) external pure returns (bytes memory) {
+        return Cursors.toDispatchBlock(portal, resources, payload);
     }
 
     function testToBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
@@ -323,35 +323,34 @@ contract TestCursorHelper {
         return (account, state, request, cur.i);
     }
 
-    function testUnpackContextRecovery(bytes calldata source)
+    function testUnpackRecover(bytes calldata source)
         external
         pure
-        returns (uint port, bytes32 key, uint resources, bytes calldata context, uint i)
+        returns (uint handler, uint resources, bytes32 key, bytes calldata witness, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        Cur memory out;
-        (port, key, resources, out) = cur.unpackContextRecovery();
-        return (port, key, resources, out.raw(), cur.i);
+        (handler, resources, key, witness) = cur.unpackRecover();
+        return (handler, resources, key, witness, cur.i);
     }
 
     function testUnpackRelay(bytes calldata source)
         external
         pure
-        returns (uint chain, uint resources, bytes calldata request, uint i)
+        returns (uint portal, uint resources, bytes calldata request, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (chain, resources, request) = cur.unpackRelay();
-        return (chain, resources, request, cur.i);
+        (portal, resources, request) = cur.unpackRelay();
+        return (portal, resources, request, cur.i);
     }
 
     function testUnpackDispatch(bytes calldata source)
         external
         pure
-        returns (uint chain, uint resources, bytes calldata payload, uint i)
+        returns (uint portal, uint resources, bytes calldata payload, uint i)
     {
         Cur memory cur = Cursors.open(source);
-        (chain, resources, payload) = cur.unpackDispatch();
-        return (chain, resources, payload, cur.i);
+        (portal, resources, payload) = cur.unpackDispatch();
+        return (portal, resources, payload, cur.i);
     }
 
     function testRequireAmount(

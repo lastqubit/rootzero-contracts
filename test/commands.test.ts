@@ -1,4 +1,4 @@
-﻿import { expect } from "chai";
+import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner } from "./helpers/setup.js";
 import "./helpers/matchers.js";
@@ -7,7 +7,7 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeContextBlock, encodeContextRecoveryBlock, encodeRelayBlock,
+  encodeContextBlock, encodeRecoverBlock, encodeRelayBlock,
   concat
 } from "./helpers/blocks.js";
 
@@ -50,7 +50,7 @@ describe("Commands", () => {
     return promise;
   }
 
-  // â”€â”€ Deposit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Deposit ───────────────────────────────────────────────────────────────
 
   describe("deposit", () => {
     it("emits DepositCalled for a single AMOUNT block and returns BALANCE blocks", async () => {
@@ -134,7 +134,7 @@ describe("Commands", () => {
   });
 
 
-  // â”€â”€ Withdraw â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Withdraw ──────────────────────────────────────────────────────────────
 
   describe("withdraw", () => {
     const asset = ethers.zeroPadValue("0x10", 32);
@@ -226,7 +226,7 @@ describe("Commands", () => {
     });
   });
 
-  // â”€â”€ CreditTo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── CreditTo ──────────────────────────────────────────────────────────────
 
   describe("creditAccount", () => {
     const asset = ethers.zeroPadValue("0x30", 32);
@@ -244,7 +244,7 @@ describe("Commands", () => {
     });
   });
 
-  // â”€â”€ DebitFrom â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── DebitFrom ─────────────────────────────────────────────────────────────
 
   describe("debitAccount", () => {
     const asset = ethers.zeroPadValue("0x40", 32);
@@ -297,9 +297,9 @@ describe("Commands", () => {
     });
   });
 
-  // â”€â”€ Fund â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Fund ──────────────────────────────────────────────────────────────────
 
-  // â”€â”€ Provision â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Provision ─────────────────────────────────────────────────────────────
 
   describe("provision", () => {
     it("emits ProvisionCalled and returns CUSTODY blocks", async () => {
@@ -386,13 +386,13 @@ describe("Commands", () => {
   });
 
 
-  // â”€â”€ Pipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Pipe ──────────────────────────────────────────────────────────────────
 
   describe("relayPayable", () => {
-    const CHAIN_PREFIX = 0x01200201n;
+    const PORTAL_PREFIX = 0x01200201n;
 
-    function chainNode(id: bigint) {
-      return (CHAIN_PREFIX << 224n) | id;
+    function portalNode(id: bigint) {
+      return (PORTAL_PREFIX << 224n) | id;
     }
 
     it("discovers relayPayable as accepting any state", async () => {
@@ -404,7 +404,7 @@ describe("Commands", () => {
           await host.host(),
           await host.getRelayPayableId(),
           ethers.encodeBytes32String("1:0:0"),
-          "#relay { uint chain, uint resources, #bytes as request }",
+          "#relay { uint portal, uint resources, #bytes as request }",
           Keys.Any,
           Keys.Empty,
           true,
@@ -416,10 +416,10 @@ describe("Commands", () => {
     it("passes the RELAY block as an encoded destination context to the hook", async () => {
       const asset = ethers.zeroPadValue("0x80", 32);
       const state = encodeBalanceBlock(asset, 12n);
-      const chain = chainNode(31337n);
+      const portal = portalNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
-      const request = encodeRelayBlock(chain, resources, steps);
+      const request = encodeRelayBlock(portal, resources, steps);
       const context = encodeContextBlock(userAccount, state, steps);
 
       const result: string = await host.relayPayable.staticCall(ctx({ state, request }));
@@ -427,7 +427,7 @@ describe("Commands", () => {
 
       const tx = await callAs(0, "relayPayable", ctx({ state, request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, resources, context);
+        .withArgs(portal, resources, context);
     });
 
     it("reverts ZeroCursor when request has no RELAY block", async () => {
@@ -436,8 +436,8 @@ describe("Commands", () => {
     });
 
     it("reverts AccessDenied for untrusted caller", async () => {
-      const chain = chainNode(31337n);
-      const request = encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"));
+      const portal = portalNode(31337n);
+      const request = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
 
       await expect(callAs(1, "relayPayable", ctx({ request })))
         .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -452,10 +452,10 @@ describe("Commands", () => {
     });
 
     it("reverts BadRatio when request has more than one RELAY block", async () => {
-      const chain = chainNode(31337n);
+      const portal = portalNode(31337n);
       const request = concat(
-        encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x")),
-        encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"))
+        encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x")),
+        encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"))
       );
 
       await expect(callAs(0, "relayPayable", ctx({ request })))
@@ -463,66 +463,66 @@ describe("Commands", () => {
     });
 
     it("passes relay resources through even when it exceeds msg.value", async () => {
-      const chain = chainNode(31337n);
+      const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
-      const request = encodeRelayBlock(chain, 2n, steps);
+      const request = encodeRelayBlock(portal, 2n, steps);
       const context = encodeContextBlock(userAccount, "0x", steps);
 
       const tx = await callAs(0, "relayPayable", ctx({ request }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(chain, 2n, context);
+        .withArgs(portal, 2n, context);
     });
 
     it("settles unspent command value after relay dispatch", async () => {
-      const chain = chainNode(31337n);
-      const request = encodeRelayBlock(chain, 0n, encodeStepBlock(0n, 0n, "0x"));
+      const portal = portalNode(31337n);
+      const request = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
 
       await expect(callAs(0, "relayPayable", ctx({ request }), { value: 1n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
     });
   });
 
-  describe("recoverContextPayable", () => {
-    it("discovers recoverContextPayable as a payable context recovery command", async () => {
+  describe("recoverPayable", () => {
+    it("discovers recoverPayable as a payable recovery command", async () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
       await expect(deployment!).to.emit(host, "Command")
         .withArgs(
           await host.host(),
-          await host.getRecoverContextPayableId(),
+          await host.getRecoverPayableId(),
           ethers.encodeBytes32String("1:0:0"),
-          "#contextRecovery { uint port, bytes32 key, uint resources, #context as witness }",
+          "#recover { uint handler, uint resources, bytes32 key, #bytes as witness }",
           Keys.Empty,
           Keys.Empty,
           true,
         );
       await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await host.getRecoverContextPayableId(), ethers.ZeroHash, "recoverContextPayable");
+        .withArgs(await host.getRecoverPayableId(), ethers.ZeroHash, "recoverPayable");
     });
 
-    it("passes the recovery key, resources, and context cursor to the hook", async () => {
+    it("passes the recovery key, witness, and assigned value to the hook", async () => {
       const key = ethers.zeroPadValue("0xbeef", 32);
-      const port = 99n;
+      const handler = 99n;
       const resources = 13n;
       const step = encodeStepBlock(0n, 0n, "0x1234");
-      const context = encodeContextBlock(userAccount, "0x", step);
-      const request = encodeContextRecoveryBlock(port, key, resources, context);
+      const witness = encodeContextBlock(userAccount, "0x", step);
+      const request = encodeRecoverBlock(handler, resources, key, witness);
 
-      const result: string = await host.recoverContextPayable.staticCall(ctx({ request }));
+      const result: string = await host.recoverPayable.staticCall(ctx({ request }), { value: resources });
       expect(result).to.equal("0x");
 
-      const tx = await callAs(0, "recoverContextPayable", ctx({ request }));
-      await expect(tx).to.emit(host, "RecoverContextCalled")
-        .withArgs(port, key, resources, context, 0n);
+      const tx = await callAs(0, "recoverPayable", ctx({ request }), { value: resources });
+      await expect(tx).to.emit(host, "RecoverCalled")
+        .withArgs(handler, key, witness, resources);
     });
 
     it("settles unspent command value after recovery", async () => {
       const key = ethers.zeroPadValue("0xcafe", 32);
-      const context = encodeContextBlock(userAccount, "0x", "0x");
-      const request = encodeContextRecoveryBlock(0n, key, 0n, context);
+      const witness = encodeContextBlock(userAccount, "0x", "0x");
+      const request = encodeRecoverBlock(0n, 0n, key, witness);
 
-      await expect(callAs(0, "recoverContextPayable", ctx({ request }), { value: 1n }))
+      await expect(callAs(0, "recoverPayable", ctx({ request }), { value: 1n }))
         .to.be.revertedWithCustomError(host, "UnusedValue");
     });
   });
@@ -581,7 +581,7 @@ describe("Commands", () => {
     });
 
 
-    it("tracks ETH value budget â€” reverts InsufficientValue when step requests too much", async () => {
+    it("tracks ETH value budget — reverts InsufficientValue when step requests too much", async () => {
       const largeValue = ethers.parseEther("1000");
       const request = encodeStepBlock(0n, largeValue, "0x");
       await expect(
