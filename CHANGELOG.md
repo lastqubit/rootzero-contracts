@@ -3,7 +3,7 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
-## Unreleased
+## 1.9.0
 
 ### Breaking Changes
 
