@@ -220,7 +220,7 @@ the batch, call the hook, write the output run:
 
 ```solidity
 function deposit(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-    (Cur memory request, uint groups, ) = Cursors.init(c.request, 1);
+    (Cur memory request, uint groups) = Cursors.init(c.request, 1);
     Writer memory writer = Writers.allocBalances(groups);
 
     while (request.i < request.len) {

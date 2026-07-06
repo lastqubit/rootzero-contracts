@@ -76,16 +76,14 @@ library Cursors {
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
     /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
     /// @return groups Number of block groups in the run (`block count / group`).
-    /// @return next Byte offset immediately after the run, relative to `source`.
     function init(
         bytes calldata source,
         uint group
-    ) internal pure returns (Cur memory cur, uint groups, uint next) {
+    ) internal pure returns (Cur memory cur, uint groups) {
         cur = open(source);
         if (cur.i == cur.len) revert ZeroCursor();
         (bytes4 key, ) = cur.peek(cur.i);
         groups = cur.run(key, group);
-        next = cur.len;
     }
 
     /// @notice Create a cursor over `source`, restrict it to its first grouped run, and require an exact group count.
@@ -93,14 +91,13 @@ library Cursors {
     /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
     /// @param expectedGroups Required number of groups in the run.
     /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
-    /// @return next Byte offset immediately after the run, relative to `source`.
     function init(
         bytes calldata source,
         uint group,
         uint expectedGroups
-    ) internal pure returns (Cur memory cur, uint next) {
+    ) internal pure returns (Cur memory cur) {
         uint groups;
-        (cur, groups, next) = init(source, group);
+        (cur, groups) = init(source, group);
         if (groups != expectedGroups) revert BadRatio();
     }
 
@@ -333,13 +330,16 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
-    /// @notice Enter a List block at the current position and return the next offset.
+    /// @notice Enter a LIST block at the expected current position and return its next offset.
+    /// Reverts with `IncompleteCursor` if `cur.i` is not exactly `pos`.
     /// Advances `cur.i` past the list header so the list members can be parsed
     /// directly from the same cursor. The returned `next` is the byte offset
     /// immediately after the list payload, relative to the current cursor region.
-    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
+    /// @param cur Cursor expected to be positioned at a list block; advanced past the 8-byte header.
+    /// @param pos Expected current cursor position, relative to the cursor region.
     /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur) internal pure returns (uint next) {
+    function list(Cur memory cur, uint pos) internal pure returns (uint next) {
+        cur.ensureAt(pos);
         next = enter(cur, Keys.List, 0, 0);
     }
 
@@ -387,13 +387,13 @@ library Cursors {
         return maybeTake(cur, Keys.Data);
     }
 
-    /// @notice Exit a nested region at an exact boundary.
-    /// Reverts with `IncompleteCursor` if `end` exceeds the cursor region length
-    /// or `cur.i != end`.
+    /// @notice Ensure the cursor is at an exact position.
+    /// Reverts with `IncompleteCursor` if `pos` exceeds the cursor region length
+    /// or `cur.i != pos`.
     /// @param cur Cursor to check.
-    /// @param end Relative end offset of the nested region.
-    function exit(Cur memory cur, uint end) internal pure {
-        if (end > cur.len || cur.i != end) revert IncompleteCursor();
+    /// @param pos Relative byte offset the cursor must be positioned at.
+    function ensureAt(Cur memory cur, uint pos) internal pure {
+        if (pos > cur.len || cur.i != pos) revert IncompleteCursor();
     }
 
     /// @notice Assert that the cursor has consumed its entire source region.
@@ -747,7 +747,7 @@ library Cursors {
         id = cur.readUint();
         namespace = cur.read32();
         name = cur.unpackString();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a dynamic block with a single bytes32 payload.
@@ -1107,7 +1107,7 @@ library Cursors {
         target = uint(cur.read32());
         resources = uint(cur.read32());
         req = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a CALL block and return its target invocation fields.
@@ -1121,7 +1121,7 @@ library Cursors {
         target = uint(cur.read32());
         resources = uint(cur.read32());
         data = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a CONTEXT block and return its command context fields.
@@ -1137,7 +1137,7 @@ library Cursors {
         account = cur.read32();
         state = cur.unpackBytes();
         request = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a RELAY block and return its destination portal, resources, and request stream.
@@ -1152,7 +1152,7 @@ library Cursors {
         portal = cur.readUint();
         resources = cur.readUint();
         request = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a DISPATCH block and return its destination portal, resources, and payload.
@@ -1167,7 +1167,7 @@ library Cursors {
         portal = cur.readUint();
         resources = cur.readUint();
         payload = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     /// @notice Consume a RECOVER block and return its handler, resources, key, and witness bytes.
@@ -1184,7 +1184,7 @@ library Cursors {
         resources = cur.readUint();
         key = cur.read32();
         witness = cur.unpackBytes();
-        cur.exit(end);
+        cur.ensureAt(end);
     }
 
     // Type-specific validators

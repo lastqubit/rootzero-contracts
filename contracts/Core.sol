@@ -12,7 +12,8 @@ import { Host, IHostIntroduction } from "./core/Host.sol";
 import { CommandCalls, FailedCall, NodeCalls, PortCalls } from "./core/Calls.sol";
 import { Payable } from "./core/Payable.sol";
 import { Pipeline } from "./core/Pipeline.sol";
-import { Portal, RecoverHook, RoutePayableHook } from "./core/Portal.sol";
+import { Portal } from "./core/Portal.sol";
+import { RecoverHook } from "./commands/Recover.sol";
 import { AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Tx } from "./core/Types.sol";
 import { Validator } from "./core/Validator.sol";
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Budget, Values} from "../utils/Value.sol";
+import {max128} from "../utils/Utils.sol";
 
 /// @title Payable
 /// @notice Abstract mixin for entrypoints that accept native value (`msg.value`).
@@ -14,6 +15,12 @@ abstract contract Payable {
     /// @return Budget initialized with the full `msg.value`.
     function openValue() internal view returns (Budget memory) {
         return Budget({remaining: msg.value});
+    }
+
+    /// @notice Return the current call's native value as a checked uint128.
+    /// @return value Current `msg.value` in wei.
+    function msgValue() internal view returns (uint128 value) {
+        return uint128(max128(msg.value));
     }
 
     /// @notice Deduct the EVM value lane from a packed resource word and return it.

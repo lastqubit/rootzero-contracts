@@ -21,9 +21,9 @@ describe("Portal", () => {
     await host.authorize(await commandCtx(host, encodeNodeBlock(node)));
   }
 
-  async function deployPortal(handler: bigint) {
+  async function deployPortal() {
     const commander = await (await getSigner(0)).getAddress();
-    return deploy("TestPortalRecoverHost", commander, handler);
+    return deploy("TestPortalRecoverHost", commander);
   }
 
   async function deployPortHost() {
@@ -31,10 +31,10 @@ describe("Portal", () => {
     return deploy("TestPortHost", commander);
   }
 
-  it("delivers messages to the configured handler without recording undelivered state", async () => {
+  it("forwards messages to the configured handler without recording undelivered state", async () => {
     const target = await deployPortHost();
     const handler: bigint = await target.getPortDispatchPayableId();
-    const portal = await deployPortal(handler);
+    const portal = await deployPortal();
 
     await authorize(portal, handler);
     await authorize(target, await portal.host());
@@ -42,7 +42,7 @@ describe("Portal", () => {
     const key = ethers.zeroPadValue("0x01", 32);
     const message = encodeDispatchBlock(0n, 2n, "0x1234");
 
-    const tx = await portal.testDeliver(key, message, 7n, { value: 7n });
+    const tx = await portal.testForward(handler, key, message, 7n, { value: 7n });
 
     await expect(tx).to.emit(target, "PortDispatchCalled").withArgs(0n, "0x1234", 2n, 7n);
 
@@ -51,10 +51,10 @@ describe("Portal", () => {
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 
-  it("records undelivered messages when delivery fails", async () => {
+  it("records undelivered messages when forwarding fails", async () => {
     const target = await deployPortHost();
     const handler: bigint = await target.getPortDispatchPayableId();
-    const portal = await deployPortal(handler);
+    const portal = await deployPortal();
 
     await authorize(portal, handler);
 
@@ -62,31 +62,30 @@ describe("Portal", () => {
     const message = encodeDispatchBlock(0n, 3n, "0xabcd");
     const digest = ethers.keccak256(message);
 
-    const tx = await portal.testDeliver(key, message, 0n);
+    const tx = await portal.testForward(handler, key, message, 0n);
 
     await expect(tx).to.emit(portal, "Undelivered").withArgs(await portal.host(), key, digest);
   });
 
   it("recovers a matching witness through the supplied handler and resolves the key", async () => {
     const failingTarget = await deployPortHost();
-    const deliveryHandler: bigint = await failingTarget.getPortDispatchPayableId();
+    const forwardingHandler: bigint = await failingTarget.getPortDispatchPayableId();
     const recoveryTarget = await deployPortHost();
     const recoveryHandler: bigint = await recoveryTarget.getPortDispatchPayableId();
-    const portal = await deployPortal(deliveryHandler);
+    const portal = await deployPortal();
 
-    await authorize(portal, deliveryHandler);
+    await authorize(portal, forwardingHandler);
     await authorize(portal, recoveryHandler);
     await authorize(recoveryTarget, await portal.host());
 
     const key = ethers.zeroPadValue("0x03", 32);
     const witness = encodeDispatchBlock(0n, 9n, "0xcafe");
-    await portal.testDeliver(key, witness, 0n);
+    await portal.testForward(forwardingHandler, key, witness, 0n);
 
     const request = encodeRecoverBlock(recoveryHandler, 5n, key, witness);
     const tx = await portal.recoverPayable(await commandCtx(portal, request), { value: 5n });
 
     await expect(tx).to.emit(recoveryTarget, "PortDispatchCalled").withArgs(0n, "0xcafe", 9n, 5n);
-    await expect(tx).to.emit(portal, "Resolved").withArgs(await portal.host(), key);
 
     const second = encodeRecoverBlock(recoveryHandler, 0n, key, witness);
     await expect(portal.recoverPayable(await commandCtx(portal, second)))
@@ -95,19 +94,19 @@ describe("Portal", () => {
 
   it("rejects recovery when the witness does not match the recorded digest", async () => {
     const failingTarget = await deployPortHost();
-    const deliveryHandler: bigint = await failingTarget.getPortDispatchPayableId();
+    const forwardingHandler: bigint = await failingTarget.getPortDispatchPayableId();
     const recoveryTarget = await deployPortHost();
     const recoveryHandler: bigint = await recoveryTarget.getPortDispatchPayableId();
-    const portal = await deployPortal(deliveryHandler);
+    const portal = await deployPortal();
 
-    await authorize(portal, deliveryHandler);
+    await authorize(portal, forwardingHandler);
     await authorize(portal, recoveryHandler);
     await authorize(recoveryTarget, await portal.host());
 
     const key = ethers.zeroPadValue("0x04", 32);
     const witness = encodeDispatchBlock(0n, 1n, "0xaaaa");
     const badWitness = encodeDispatchBlock(0n, 1n, "0xbbbb");
-    await portal.testDeliver(key, witness, 0n);
+    await portal.testForward(forwardingHandler, key, witness, 0n);
 
     const request = encodeRecoverBlock(recoveryHandler, 0n, key, badWitness);
     await expect(portal.recoverPayable(await commandCtx(portal, request)))

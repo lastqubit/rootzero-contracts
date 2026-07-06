@@ -22,7 +22,7 @@ abstract contract PortCreditAccount is PortBase, CreditAccountHook {
     /// @param data ACCOUNT_AMOUNT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portCreditAccount(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory amounts, , ) = Cursors.init(data, 1);
+        (Cur memory amounts, ) = Cursors.init(data, 1);
 
         while (amounts.i < amounts.len) {
             (bytes32 account, bytes32 asset, uint amount) = amounts.unpackAccountAmount();

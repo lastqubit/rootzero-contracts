@@ -43,7 +43,7 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 1);
 
         // The request can batch multiple DATA blocks. Each one is decoded
         // with the command-local unpack helper above.

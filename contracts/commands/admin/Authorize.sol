@@ -23,7 +23,7 @@ abstract contract Authorize is AdminBase {
     function authorize(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             uint node = request.unpackNode();

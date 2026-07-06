@@ -23,7 +23,7 @@ abstract contract PortSettle is PortBase, DebitAccountHook, CreditAccountHook {
     /// @param data TRANSACTION block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portSettle(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory state, , ) = Cursors.init(data, 1);
+        (Cur memory state, ) = Cursors.init(data, 1);
 
         while (state.i < state.len) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = state.unpackTransaction();

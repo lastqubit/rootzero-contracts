@@ -13,7 +13,7 @@ import { CommandEvent } from "./events/Command.sol";
 import { DispatchEvent } from "./events/Dispatch.sol";
 import { PositionEvent } from "./events/Position.sol";
 import { ReceivedEvent } from "./events/Received.sol";
-import { ResolvedEvent } from "./events/Resolved.sol";
+import { RecoveredEvent } from "./events/Recovered.sol";
 import { EventEmitter } from "./events/Emitter.sol";
 import { GuardEvent } from "./events/Guard.sol";
 import { GuardianEvent } from "./events/Guardian.sol";

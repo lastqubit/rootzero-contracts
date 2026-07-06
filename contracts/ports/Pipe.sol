@@ -25,7 +25,7 @@ abstract contract PortPipePayable is PortBase, Pipeline {
     /// @param data CONTEXT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portPipePayable(bytes calldata data) external payable onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(data, 1);
+        (Cur memory input, ) = Cursors.init(data, 1);
         Budget memory budget = openValue();
 
         while (input.i < input.len) {

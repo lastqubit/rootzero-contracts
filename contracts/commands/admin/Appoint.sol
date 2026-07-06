@@ -23,7 +23,7 @@ abstract contract Appoint is AdminBase {
     function appoint(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             bytes32 account = request.unpackAccount();

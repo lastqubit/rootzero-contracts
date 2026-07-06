@@ -3,6 +3,25 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## Unreleased
+
+## 1.10.0
+
+### Breaking Changes
+
+- Moved `RecoverHook` from `Portal.sol` to `commands/Recover.sol`.
+- Moved `RoutePayableHook` from `Portal.sol` to `commands/Relay.sol`.
+- Renamed Portal helpers to `forward` / `retry`; hosts now explicitly bridge
+  the `RecoverPayable` hook to Portal retry behavior.
+- Renamed the generic `Resolved` event to `Recovered`.
+- Portal no longer emits `Recovered` when retrying an undelivered witness.
+- Renamed `Cursors.exit` to `ensureAt` and renamed its position argument to
+  `pos`.
+- Removed the redundant `next` return value from both `Cursors.init` overloads;
+  callers should use the returned cursor's `len` as the run boundary.
+- Changed `Cursors.list` to require the expected current cursor position as
+  `pos` before entering the LIST block.
+
 ## 1.9.0
 
 ### Breaking Changes
@@ -18,10 +37,10 @@ breaking API changes. Breaking changes are called out explicitly.
   so routes can be removed by emitting zero status.
 - Added `Undelivered(uint indexed host, bytes32 key, bytes32 digest)` for portal
   messages that could not be delivered to their handler port.
-- Added `Resolved(uint indexed host, bytes32 key)` as the
+- Added `Recovered(uint indexed host, bytes32 key)` as the
   matching event for resolved undelivered digests.
 - Removed the generic `Commitments` core mixin and `Commitment` event in favor
-  of domain-specific events such as `Undelivered` and `Resolved`.
+  of domain-specific events such as `Undelivered` and `Recovered`.
 
 ## 1.8.0
 

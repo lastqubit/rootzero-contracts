@@ -23,7 +23,7 @@ abstract contract PortAllowance is PortBase, AllowanceHook {
     /// @param data AMOUNT block stream requested by the trusted peer.
     /// @return Empty response bytes.
     function portAllowance(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory amounts, , ) = Cursors.init(data, 1);
+        (Cur memory amounts, ) = Cursors.init(data, 1);
         uint peer = caller();
 
         while (amounts.i < amounts.len) {

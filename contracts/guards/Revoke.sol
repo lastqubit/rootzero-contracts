@@ -18,7 +18,7 @@ abstract contract Revoke is GuardBase {
     }
 
     function revoke(bytes calldata request) external onlyGuardian {
-        (Cur memory input, , ) = Cursors.init(request, 1);
+        (Cur memory input, ) = Cursors.init(request, 1);
 
         while (input.i < input.len) {
             uint node = input.unpackNode();

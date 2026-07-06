@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { PortBase } from "./Base.sol";
 import { Payable } from "../core/Payable.sol";
-import { RoutePayableHook } from "../core/Portal.sol";
+import { RoutePayableHook } from "../commands/Relay.sol";
 import { Cursors, Cur, Schemas } from "../Cursors.sol";
 import { Budget } from "../utils/Value.sol";
 
@@ -25,7 +25,7 @@ abstract contract PortDispatchPayable is PortBase, Payable, RoutePayableHook {
     /// @param data DISPATCH block stream supplied by the trusted peer.
     /// @return output Empty response bytes.
     function portDispatchPayable(bytes calldata data) external payable onlyPeer returns (bytes memory output) {
-        (Cur memory input, , ) = Cursors.init(data, 1);
+        (Cur memory input, ) = Cursors.init(data, 1);
         Budget memory budget = openValue();
 
         while (input.i < input.len) {

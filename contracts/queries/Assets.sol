@@ -32,7 +32,7 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
     /// @param request Block-stream request consisting of `#asset { bytes32 asset }` blocks.
     /// @return Block-stream response containing one `#status { uint code }` per asset block.
     function assetStatus(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint groups, ) = Cursors.init(request, 1);
+        (Cur memory query, uint groups) = Cursors.init(request, 1);
         Writer memory response = Writers.allocStatuses(groups);
 
         while (query.i < query.len) {

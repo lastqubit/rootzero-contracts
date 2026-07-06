@@ -153,25 +153,24 @@ contract TestCursorHelper {
     function testInit(bytes calldata source, uint group)
         external
         pure
-        returns (uint offset, uint cursorI, uint len, uint groups, uint next)
+        returns (uint offset, uint cursorI, uint len, uint groups)
     {
         uint sourceOffset;
         assembly ("memory-safe") {
             sourceOffset := source.offset
         }
         Cur memory cur;
-        (cur, groups, next) = Cursors.init(source, group);
-        return (cur.offset - sourceOffset, cur.i, cur.len, groups, next);
+        (cur, groups) = Cursors.init(source, group);
+        return (cur.offset - sourceOffset, cur.i, cur.len, groups);
     }
 
     function testInitExpected(bytes calldata source, uint group, uint expectedGroups)
         external
         pure
-        returns (uint i, uint len, uint next)
+        returns (uint i, uint len)
     {
-        Cur memory cur;
-        (cur, next) = Cursors.init(source, group, expectedGroups);
-        return (cur.i, cur.len, next);
+        Cur memory cur = Cursors.init(source, group, expectedGroups);
+        return (cur.i, cur.len);
     }
 
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {
@@ -241,26 +240,35 @@ contract TestCursorHelper {
         return true;
     }
 
-    function testExit(bytes calldata source, uint at) external pure returns (uint i) {
+    function testEnsureAt(bytes calldata source, uint pos) external pure returns (uint i) {
         Cur memory cur = Cursors.open(source);
-        cur.i = at;
-        cur.exit(at);
+        cur.i = pos;
+        cur.ensureAt(pos);
         return cur.i;
     }
 
-    function testExitMismatch(bytes calldata source, uint at) external pure returns (bool) {
+    function testEnsureAtMismatch(bytes calldata source, uint pos) external pure returns (bool) {
         Cur memory cur = Cursors.open(source);
-        if (at < cur.len) {
-            cur.i = at + 1;
+        if (pos < cur.len) {
+            cur.i = pos + 1;
         }
-        cur.exit(at);
+        cur.ensureAt(pos);
         return true;
     }
 
-    function testList(bytes calldata source) external pure returns (uint inputI, uint next) {
+    function testList(bytes calldata source, uint pos) external pure returns (uint inputI, uint next) {
         Cur memory cur = Cursors.open(source);
-        next = cur.list();
+        next = cur.list(pos);
         return (cur.i, next);
+    }
+
+    function testListMismatch(bytes calldata source, uint pos) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        if (pos < cur.len) {
+            cur.i = pos + 1;
+        }
+        cur.list(pos);
+        return true;
     }
 
     function testTake(bytes calldata source, bytes4 key)

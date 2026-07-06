@@ -21,7 +21,7 @@ abstract contract Label is AdminBase {
     /// @param c Admin command context; `c.request` must contain LABEL blocks.
     /// @return Empty output state.
     function label(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, , ) = Cursors.init(c.request, 1);
+        (Cur memory request, ) = Cursors.init(c.request, 1);
 
         while (request.i < request.len) {
             (uint id, bytes32 namespace, string memory name) = request.unpackLabel();

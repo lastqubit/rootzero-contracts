@@ -192,12 +192,11 @@ describe("Cursors", () => {
       const c = encodeBalanceBlock(asset, 3n);
       const source = concat(a, b, c);
       const run = concat(a, b);
-      const [offset, cursorI, len, groups, next] = await helper.testInit(source, 1n);
+      const [offset, cursorI, len, groups] = await helper.testInit(source, 1n);
       expect(offset).to.equal(0n);
       expect(cursorI).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(run).length));
       expect(groups).to.equal(2n);
-      expect(next).to.equal(BigInt(ethers.getBytes(run).length));
     });
 
     it("init expected-groups overload returns the matching run cursor", async () => {
@@ -205,10 +204,9 @@ describe("Cursors", () => {
         encodeAmountBlock(asset, 1n),
         encodeAmountBlock(asset, 2n),
       );
-      const [i, len, next] = await helper.testInitExpected(source, 1n, 2n);
+      const [i, len] = await helper.testInitExpected(source, 1n, 2n);
       expect(i).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(source).length));
-      expect(next).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
     it("init expected-groups overload reverts BadRatio on count mismatch", async () => {
@@ -329,26 +327,33 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("exit succeeds when the cursor is exactly at the requested offset", async () => {
+    it("ensureAt succeeds when the cursor is exactly at the requested position", async () => {
       const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
-      const at = BigInt(ethers.getBytes(source).length);
-      expect(await helper.testExit(source, at)).to.equal(at);
+      const pos = BigInt(ethers.getBytes(source).length);
+      expect(await helper.testEnsureAt(source, pos)).to.equal(pos);
     });
 
-    it("exit reverts IncompleteCursor when the cursor is not exactly at the requested offset", async () => {
+    it("ensureAt reverts IncompleteCursor when the cursor is not exactly at the requested position", async () => {
       const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
-      const at = BigInt(ethers.getBytes(encodeAssetBlock(asset)).length);
-      await expect(helper.testExitMismatch(source, at))
+      const pos = BigInt(ethers.getBytes(encodeAssetBlock(asset)).length);
+      await expect(helper.testEnsureAtMismatch(source, pos))
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("list returns the next offset and advances past the list header", async () => {
+    it("list returns the next offset and advances past the list header at the expected position", async () => {
       const item1 = encodeAssetBlock(asset);
       const item2 = encodeAssetBlock(otherAsset);
       const list = encodeListBlock(item1, item2);
-      const [inputI, next] = await helper.testList(list);
+      const [inputI, next] = await helper.testList(list, 0n);
       expect(inputI).to.equal(8n);
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
+    });
+
+    it("list reverts IncompleteCursor when the cursor is not at the expected position", async () => {
+      const item = encodeAssetBlock(asset);
+      const list = encodeListBlock(item);
+      await expect(helper.testListMismatch(list, 0n))
+        .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("data uses a shared key and carries merged payload fields without child headers", async () => {

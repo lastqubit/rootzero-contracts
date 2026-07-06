@@ -32,7 +32,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     /// The default implementation iterates AMOUNT blocks, calls
     /// `debitAccount`, and emits matching BALANCE blocks.
     function debitAccount(bytes32 account, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, uint groups, ) = Cursors.init(request, 1);
+        (Cur memory input, uint groups) = Cursors.init(request, 1);
         Writer memory writer = Writers.allocBalances(groups);
 
         while (input.i < input.len) {

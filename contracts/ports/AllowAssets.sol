@@ -22,7 +22,7 @@ abstract contract PortAllowAssets is PortBase, AllowAssetsHook {
     /// @param data ASSET block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portAllowAssets(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory assets, , ) = Cursors.init(data, 1);
+        (Cur memory assets, ) = Cursors.init(data, 1);
 
         while (assets.i < assets.len) {
             bytes32 asset = assets.unpackAsset();

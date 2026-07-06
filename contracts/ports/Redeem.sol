@@ -30,7 +30,7 @@ abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
     /// @param data BALANCE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portRedeemBalance(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory input, , ) = Cursors.init(data, 1);
+        (Cur memory input, ) = Cursors.init(data, 1);
         uint peer = caller();
 
         while (input.i < input.len) {

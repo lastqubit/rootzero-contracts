@@ -32,7 +32,7 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
     /// @param request Block-stream request consisting of `accountAsset(account, asset)*`.
     /// @return Block-stream response containing one `accountAmount(account, asset, amount)` block per request block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint groups, ) = Cursors.init(request, 1);
+        (Cur memory query, uint groups) = Cursors.init(request, 1);
         Writer memory response = Writers.allocAccountAmounts(groups);
 
         while (query.i < query.len) {
