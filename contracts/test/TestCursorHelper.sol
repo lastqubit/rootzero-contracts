@@ -256,10 +256,19 @@ contract TestCursorHelper {
         return true;
     }
 
-    function testList(bytes calldata source) external pure returns (uint inputI, uint next) {
+    function testList(bytes calldata source, uint pos) external pure returns (uint inputI, uint next) {
         Cur memory cur = Cursors.open(source);
-        next = cur.list();
+        next = cur.list(pos);
         return (cur.i, next);
+    }
+
+    function testListMismatch(bytes calldata source, uint pos) external pure returns (bool) {
+        Cur memory cur = Cursors.open(source);
+        if (pos < cur.len) {
+            cur.i = pos + 1;
+        }
+        cur.list(pos);
+        return true;
     }
 
     function testTake(bytes calldata source, bytes4 key)

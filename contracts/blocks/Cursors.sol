@@ -330,13 +330,16 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
-    /// @notice Enter a LIST block at the current position and return its next offset.
+    /// @notice Enter a LIST block at the expected current position and return its next offset.
+    /// Reverts with `IncompleteCursor` if `cur.i` is not exactly `pos`.
     /// Advances `cur.i` past the list header so the list members can be parsed
     /// directly from the same cursor. The returned `next` is the byte offset
     /// immediately after the list payload, relative to the current cursor region.
-    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
+    /// @param cur Cursor expected to be positioned at a list block; advanced past the 8-byte header.
+    /// @param pos Expected current cursor position, relative to the cursor region.
     /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur) internal pure returns (uint next) {
+    function list(Cur memory cur, uint pos) internal pure returns (uint next) {
+        cur.ensureAt(pos);
         next = enter(cur, Keys.List, 0, 0);
     }
 
