@@ -340,20 +340,13 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("list returns the next offset and advances past the list header at the expected position", async () => {
+    it("list returns the next offset and advances past the list header", async () => {
       const item1 = encodeAssetBlock(asset);
       const item2 = encodeAssetBlock(otherAsset);
       const list = encodeListBlock(item1, item2);
-      const [inputI, next] = await helper.testList(list, 0n);
+      const [inputI, next] = await helper.testList(list);
       expect(inputI).to.equal(8n);
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
-    });
-
-    it("list reverts IncompleteCursor when the cursor is not at the expected position", async () => {
-      const item = encodeAssetBlock(asset);
-      const list = encodeListBlock(item);
-      await expect(helper.testListMismatch(list, 0n))
-        .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("data uses a shared key and carries merged payload fields without child headers", async () => {

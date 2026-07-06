@@ -19,8 +19,6 @@ breaking API changes. Breaking changes are called out explicitly.
   `pos`.
 - Removed the redundant `next` return value from both `Cursors.init` overloads;
   callers should use the returned cursor's `len` as the run boundary.
-- Changed `Cursors.list` to require the expected current cursor position as
-  `pos` before entering the LIST block.
 
 ## 1.9.0
 
