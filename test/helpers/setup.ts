@@ -44,4 +44,37 @@ export async function deployAs(signerIndex: number, contractName: string, ...arg
   return contract;
 }
 
+const CommandPrefix = 0x01200203n;
+const PortPrefix = 0x01200204n;
+const QueryPrefix = 0x01200205n;
+const GuardPrefix = 0x01200206n;
+
+function selector(signature: string) {
+  if (/^0x[0-9a-fA-F]{8}$/.test(signature)) return BigInt(signature);
+  return BigInt(ethers.dataSlice(ethers.id(signature), 0, 4));
+}
+
+async function nodeId(prefix: bigint, signature: string, target: { getAddress(): Promise<string> } | string) {
+  const addr = typeof target === "string" ? target : await target.getAddress();
+  const provider = await getProvider();
+  const network = await provider.getNetwork();
+  return (prefix << 224n) | (network.chainId << 192n) | (selector(signature) << 160n) | BigInt(addr);
+}
+
+export function commandId(signature: string, target: { getAddress(): Promise<string> } | string) {
+  return nodeId(CommandPrefix, signature, target);
+}
+
+export function portId(signature: string, target: { getAddress(): Promise<string> } | string) {
+  return nodeId(PortPrefix, signature, target);
+}
+
+export function queryId(signature: string, target: { getAddress(): Promise<string> } | string) {
+  return nodeId(QueryPrefix, signature, target);
+}
+
+export function guardId(signature: string, target: { getAddress(): Promise<string> } | string) {
+  return nodeId(GuardPrefix, signature, target);
+}
+
 

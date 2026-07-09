@@ -5,6 +5,72 @@ export function blockKey(name: string): string {
   return ethers.dataSlice(ethers.id(name), 0, 4);
 }
 
+export function localKey(value: number): string {
+  return ethers.toBeHex(value, 4);
+}
+
+export function manyKey(item: string): string {
+  return ethers.hexlify(ethers.concat([Keys.List, item]));
+}
+
+function laneValue(lane: string): bigint {
+  const bytes = ethers.getBytes(lane);
+  if (bytes.length === 4) return BigInt(lane) << 32n;
+  if (bytes.length === 8) return BigInt(lane);
+  if (bytes.length === 9) return BigInt(lane) >> 8n;
+  throw new Error(`invalid endpoint lane length: ${lane}`);
+}
+
+function laneGroup(lane: string, group?: number): number {
+  if (laneValue(lane) === 0n) return 0;
+  if (group !== undefined) return group;
+
+  const bytes = ethers.getBytes(lane);
+  if (bytes.length === 9) {
+    const packed = bytes[8];
+    if (packed !== 0) return packed;
+  }
+
+  return 1;
+}
+
+export function endpointDescriptor({
+  state = Keys.Empty,
+  stateGroup,
+  input = Keys.Empty,
+  inputGroup,
+  output = Keys.Empty,
+  outputGroup,
+  funded = false,
+  admin = false,
+}: {
+  state?: string;
+  stateGroup?: number;
+  input?: string;
+  inputGroup?: number;
+  output?: string;
+  outputGroup?: number;
+  funded?: boolean;
+  admin?: boolean;
+}): string {
+  const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n);
+  const version = 1n;
+  const stateGroups = laneGroup(state, stateGroup);
+  const inputGroups = laneGroup(input, inputGroup);
+  const outputGroups = laneGroup(output, outputGroup);
+  const descriptor =
+    (laneValue(state) << 192n) |
+    (BigInt(stateGroups) << 184n) |
+    (laneValue(input) << 120n) |
+    (BigInt(inputGroups) << 112n) |
+    (laneValue(output) << 48n) |
+    (BigInt(outputGroups) << 40n) |
+    (flags << 32n) |
+    (version << 24n);
+
+  return ethers.zeroPadValue(ethers.toBeHex(descriptor), 32);
+}
+
 // Known block keys
 export const Keys = {
   Empty: "0x00000000",
@@ -33,7 +99,6 @@ export const Keys = {
   Bytes: blockKey("#bytes"),
   String: blockKey("#string"),
   List: blockKey("#list"),
-  Data: blockKey("#data"),
   Evm: blockKey("#evm"),
   Status: blockKey("#status"),
   AssetAmount: blockKey("#assetAmount"),
@@ -65,129 +130,125 @@ function encodeUint32(value: number): string {
 }
 
 // Build a block header + payload
-function block(key: string, payload: string): string {
+export function encodeBlock(key: string, payload: string): string {
   const payloadBytes = ethers.getBytes(payload);
   return ethers.concat([key, encodeUint32(payloadBytes.length), payload]);
 }
 
 export function encodeAmountBlock(asset: string, amount: bigint): string {
-  return block(Keys.Amount, ethers.concat([pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Amount, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
 export function encodeBalanceBlock(asset: string, amount: bigint): string {
-  return block(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
 export function encodeBalanceLimitBlock(asset: string, min: bigint, max: bigint): string {
-  return block(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(min), pad32(max)]));
+  return encodeBlock(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(min), pad32(max)]));
 }
 
 export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string): string {
-  return block(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset)]));
+  return encodeBlock(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset)]));
 }
 
 export function encodeAccountAssetBlock(account: string, asset: string): string {
-  return block(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset)]));
+  return encodeBlock(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset)]));
 }
 
 export function encodeAccountAmountBlock(account: string, asset: string, amount: bigint): string {
-  return block(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.AccountAmount, ethers.concat([pad32(account), pad32(asset), pad32(amount)]));
 }
 
 export function encodeAllocationBlock(host: bigint, asset: string, amount: bigint): string {
-  return block(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Allocation, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
 export function encodeAllowanceBlock(host: bigint, asset: string, amount: bigint): string {
-  return block(Keys.Allowance, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Allowance, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
 export function encodeCustodyBlock(host: bigint, asset: string, amount: bigint): string {
-  return block(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
 export function encodeCustodyLimitBlock(host: bigint, asset: string, min: bigint, max: bigint): string {
-  return block(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(min), pad32(max)]));
+  return encodeBlock(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(min), pad32(max)]));
 }
 
 export function encodeAccountBlock(account: string): string {
-  return block(Keys.Account, pad32(account));
+  return encodeBlock(Keys.Account, pad32(account));
 }
 
 export function encodeNodeBlock(id: bigint): string {
-  return block(Keys.Node, pad32(id));
+  return encodeBlock(Keys.Node, pad32(id));
 }
 
 export function encodeAssetBlock(asset: string): string {
-  return block(Keys.Asset, pad32(asset));
+  return encodeBlock(Keys.Asset, pad32(asset));
 }
 
 export function encodeFeeBlock(amount: bigint): string {
-  return block(Keys.Fee, pad32(amount));
+  return encodeBlock(Keys.Fee, pad32(amount));
 }
 
 export function encodeTxBlock(from: string, to: string, asset: string, amount: bigint): string {
-  return block(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(amount)]));
+  return encodeBlock(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(amount)]));
 }
 
 export function encodeStepBlock(target: bigint, value: bigint, request: string): string {
-  return block(Keys.Step, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(request)]));
+  return encodeBlock(Keys.Step, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(request)]));
 }
 
 export function encodeCallBlock(target: bigint, value: bigint, data: string): string {
-  return block(Keys.Call, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(data)]));
+  return encodeBlock(Keys.Call, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(data)]));
 }
 
 export function encodeContextBlock(account: string, state: string, request: string): string {
-  return block(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
+  return encodeBlock(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
 }
 
 export function encodeRecoverBlock(handler: bigint, resources: bigint, key: string, witness: string): string {
-  return block(Keys.Recover, ethers.concat([pad32(handler), pad32(resources), pad32(key), encodeBytesBlock(witness)]));
+  return encodeBlock(Keys.Recover, ethers.concat([pad32(handler), pad32(resources), pad32(key), encodeBytesBlock(witness)]));
 }
 
 export function encodeRelayBlock(portal: bigint, resources: bigint, request: string): string {
-  return block(Keys.Relay, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(request)]));
+  return encodeBlock(Keys.Relay, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(request)]));
 }
 
 export function encodeDispatchBlock(portal: bigint, resources: bigint, payload: string): string {
-  return block(Keys.Dispatch, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(payload)]));
+  return encodeBlock(Keys.Dispatch, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(payload)]));
 }
 
 export function encodeBytesBlock(data: string): string {
-  return block(Keys.Bytes, data);
+  return encodeBlock(Keys.Bytes, data);
 }
 
 export function encodeStringBlock(data: string): string {
-  return block(Keys.String, ethers.hexlify(ethers.toUtf8Bytes(data)));
+  return encodeBlock(Keys.String, ethers.hexlify(ethers.toUtf8Bytes(data)));
 }
 
 export function encodeLabelBlock(id: bigint, namespace: string, name: string): string {
-  return block(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
-}
-
-export function encodeDataBlock(data: string): string {
-  return block(Keys.Data, data);
+  return encodeBlock(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
 }
 
 export function encodeEvmBlock(data: string): string {
-  return block(Keys.Evm, data);
+  return encodeBlock(Keys.Evm, data);
 }
 
 export function encodeStatusBlock(code: bigint): string {
-  return block(Keys.Status, pad32(code));
+  return encodeBlock(Keys.Status, pad32(code));
 }
 
 export function encodeListBlock(...members: string[]): string {
-  return block(Keys.List, concat(...members));
+  return encodeBlock(Keys.List, concat(...members));
 }
 
 export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
-  return block(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), encodeBytesBlock(proof)]));
+  return encodeBlock(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), encodeBytesBlock(proof)]));
 }
 
 export function encodeBountyBlock(amount: bigint, relayer: string): string {
-  return block(Keys.Bounty, ethers.concat([pad32(amount), pad32(relayer)]));
+  return encodeBlock(Keys.Bounty, ethers.concat([pad32(amount), pad32(relayer)]));
 }
 
 export function concat(...parts: string[]): string {

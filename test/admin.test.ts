@@ -1,9 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner, getProvider } from "./helpers/setup.js";
+import { commandId, deploy, getSigner, getProvider } from "./helpers/setup.js";
+import "./helpers/matchers.js";
 import {
+  Keys,
+  endpointDescriptor,
   encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeDataBlock, encodeCallBlock, encodeLabelBlock, concat
+  encodeCallBlock, encodeLabelBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -38,6 +41,10 @@ describe("Admin Commands", () => {
     const network = await provider.getNetwork();
     const HOST_PREFIX = 0x01200202n;
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
+  }
+
+  async function cmd(method: string) {
+    return commandId(host.interface.getFunction(method)!.selector, host);
   }
 
   // â”€â”€ Authorize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -80,26 +87,6 @@ describe("Admin Commands", () => {
     it("reverts ZeroCursor for empty request", async () => {
       await expect(callAs(0, "authorize", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
-    });
-  });
-
-  describe("init", () => {
-    it("emits InitCalled for a single input block", async () => {
-      const inputData = "0x1234";
-      await expect(callAs(0, "init", adminCtx(encodeDataBlock(inputData))))
-        .to.emit(host, "InitCalled")
-        .withArgs(inputData);
-    });
-
-    it("reverts AccessDenied for non-admin account", async () => {
-      const fakeAdmin = ethers.zeroPadValue("0x11", 32);
-      await expect(callAs(0, "init", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
-        .to.be.revertedWithCustomError(host, "AccessDenied");
-    });
-
-    it("reverts MalformedBlocks for empty request", async () => {
-      await expect(callAs(0, "init", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "MalformedBlocks");
     });
   });
 
@@ -278,37 +265,33 @@ describe("Admin Commands", () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
-      await expect(deployment!).to.emit(host, "Admin")
+      await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await host.getLabelId(),
-          ethers.encodeBytes32String("1:0:0"),
-          "#label { uint id, bytes32 namespace, #string as name }",
-          ethers.ZeroHash.slice(0, 10),
-          ethers.ZeroHash.slice(0, 10),
-          false,
+          await cmd("label"),
+          endpointDescriptor({ input: Keys.Label, admin: true }),
         );
       await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await host.getLabelId(), ethers.ZeroHash, "label");
+        .withArgs(await cmd("label"), ethers.ZeroHash, "label");
     });
 
     it("emits Labeled for each LABEL block", async () => {
       const namespace = ethers.encodeBytes32String("docs");
       const request = concat(
-        encodeLabelBlock(await host.getDepositId(), namespace, "deposit v2"),
-        encodeLabelBlock(await host.getRelayPayableId(), ethers.ZeroHash, "relay")
+        encodeLabelBlock(await cmd("deposit"), namespace, "deposit v2"),
+        encodeLabelBlock(await cmd("relayPayable"), ethers.ZeroHash, "relay")
       );
 
       const tx = await callAs(0, "label", adminCtx(request));
       await expect(tx).to.emit(host, "Labeled")
-        .withArgs(await host.getDepositId(), namespace, "deposit v2");
+        .withArgs(await cmd("deposit"), namespace, "deposit v2");
       await expect(tx).to.emit(host, "Labeled")
-        .withArgs(await host.getRelayPayableId(), ethers.ZeroHash, "relay");
+        .withArgs(await cmd("relayPayable"), ethers.ZeroHash, "relay");
     });
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x06", 32);
-      const request = encodeLabelBlock(await host.getDepositId(), ethers.ZeroHash, "deposit");
+      const request = encodeLabelBlock(await cmd("deposit"), ethers.ZeroHash, "deposit");
 
       await expect(callAs(0, "label", userCtx(fakeAdmin, request)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -344,14 +327,14 @@ describe("Admin Commands", () => {
       const sourceAdminAccount = await source.getAdminAccount();
       const target = await deploy("TestHost", await source.getAddress());
 
-      const inputData = "0x123456";
-      const targetCtx = { account: await target.getAdminAccount(), state: "0x", request: encodeDataBlock(inputData) };
-      const calldata = target.interface.encodeFunctionData("init", [targetCtx]);
+      const asset = ethers.zeroPadValue("0x123456", 32);
+      const targetCtx = { account: await target.getAdminAccount(), state: "0x", request: encodeAssetBlock(asset) };
+      const calldata = target.interface.encodeFunctionData("allowAssets", [targetCtx]);
       const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
       await expect(source.executePayable({ account: sourceAdminAccount, state: "0x", request }))
-        .to.emit(target, "InitCalled")
-        .withArgs(inputData);
+        .to.emit(target, "AllowAssetCalled")
+        .withArgs(asset);
     });
 
     it("processes multiple CALL blocks in one request", async () => {
@@ -359,16 +342,18 @@ describe("Admin Commands", () => {
       const sourceAdminAccount = await source.getAdminAccount();
       const targetA = await deploy("TestHost", await source.getAddress());
       const targetB = await deploy("TestHost", await source.getAddress());
+      const assetA = ethers.zeroPadValue("0xaa", 32);
+      const assetB = ethers.zeroPadValue("0xbb", 32);
 
-      const calldataA = targetA.interface.encodeFunctionData("init", [{
+      const calldataA = targetA.interface.encodeFunctionData("allowAssets", [{
         account: await targetA.getAdminAccount(),
         state: "0x",
-        request: encodeDataBlock("0xaa")
+        request: encodeAssetBlock(assetA)
       }]);
-      const calldataB = targetB.interface.encodeFunctionData("destroy", [{
+      const calldataB = targetB.interface.encodeFunctionData("denyAssets", [{
         account: await targetB.getAdminAccount(),
         state: "0x",
-        request: encodeDataBlock("0xbb")
+        request: encodeAssetBlock(assetB)
       }]);
 
       const tx = await source.executePayable({ account: sourceAdminAccount, state: "0x", request: concat(
@@ -376,8 +361,8 @@ describe("Admin Commands", () => {
         encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
       )});
 
-      await expect(tx).to.emit(targetA, "InitCalled").withArgs("0xaa");
-      await expect(tx).to.emit(targetB, "DestroyCalled").withArgs("0xbb");
+      await expect(tx).to.emit(targetA, "AllowAssetCalled").withArgs(assetA);
+      await expect(tx).to.emit(targetB, "DenyAssetCalled").withArgs(assetB);
     });
 
     it("can forward native value to a target node without prior authorization", async () => {
@@ -441,25 +426,6 @@ describe("Admin Commands", () => {
     });
   });
 
-  describe("destroy", () => {
-    it("emits DestroyCalled for a single input block", async () => {
-      const inputData = "0xdead";
-      await expect(callAs(0, "destroy", adminCtx(encodeDataBlock(inputData))))
-        .to.emit(host, "DestroyCalled")
-        .withArgs(inputData);
-    });
-
-    it("reverts AccessDenied for non-admin account", async () => {
-      const fakeAdmin = ethers.zeroPadValue("0x12", 32);
-      await expect(callAs(0, "destroy", userCtx(fakeAdmin, encodeDataBlock("0x01"))))
-        .to.be.revertedWithCustomError(host, "AccessDenied");
-    });
-
-    it("reverts MalformedBlocks for empty request", async () => {
-      await expect(callAs(0, "destroy", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "MalformedBlocks");
-    });
-  });
 });
 
 

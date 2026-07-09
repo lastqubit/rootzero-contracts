@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner } from "./helpers/setup.js";
+import { deploy, getSigner, portId } from "./helpers/setup.js";
 import {
   encodeDispatchBlock,
   encodeNodeBlock,
@@ -31,9 +31,13 @@ describe("Portal", () => {
     return deploy("TestPortHost", commander);
   }
 
+  async function dispatchPort(host: Awaited<ReturnType<typeof deploy>>) {
+    return portId(host.interface.getFunction("portDispatchPayable(bytes)")!.selector, host);
+  }
+
   it("forwards messages to the configured handler without recording undelivered state", async () => {
     const target = await deployPortHost();
-    const handler: bigint = await target.getPortDispatchPayableId();
+    const handler = await dispatchPort(target);
     const portal = await deployPortal();
 
     await authorize(portal, handler);
@@ -53,7 +57,7 @@ describe("Portal", () => {
 
   it("records undelivered messages when forwarding fails", async () => {
     const target = await deployPortHost();
-    const handler: bigint = await target.getPortDispatchPayableId();
+    const handler = await dispatchPort(target);
     const portal = await deployPortal();
 
     await authorize(portal, handler);
@@ -69,9 +73,9 @@ describe("Portal", () => {
 
   it("recovers a matching witness through the supplied handler and resolves the key", async () => {
     const failingTarget = await deployPortHost();
-    const forwardingHandler: bigint = await failingTarget.getPortDispatchPayableId();
+    const forwardingHandler = await dispatchPort(failingTarget);
     const recoveryTarget = await deployPortHost();
-    const recoveryHandler: bigint = await recoveryTarget.getPortDispatchPayableId();
+    const recoveryHandler = await dispatchPort(recoveryTarget);
     const portal = await deployPortal();
 
     await authorize(portal, forwardingHandler);
@@ -94,9 +98,9 @@ describe("Portal", () => {
 
   it("rejects recovery when the witness does not match the recorded digest", async () => {
     const failingTarget = await deployPortHost();
-    const forwardingHandler: bigint = await failingTarget.getPortDispatchPayableId();
+    const forwardingHandler = await dispatchPort(failingTarget);
     const recoveryTarget = await deployPortHost();
-    const recoveryHandler: bigint = await recoveryTarget.getPortDispatchPayableId();
+    const recoveryHandler = await dispatchPort(recoveryTarget);
     const portal = await deployPortal();
 
     await authorize(portal, forwardingHandler);

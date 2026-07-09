@@ -1,6 +1,8 @@
 import { expect } from "chai";
-import { deploy, getProvider, getSigner } from "./helpers/setup.js";
+import { deploy, getProvider, getSigner, portId } from "./helpers/setup.js";
 import {
+  Keys,
+  endpointDescriptor,
   concat,
   encodeContextBlock,
   encodeAmountBlock,
@@ -27,93 +29,79 @@ describe("Port Entrypoints", () => {
     await host.authorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(trustedPeer) });
   });
 
-  it("emits Port discovery events with id as the second argument", async () => {
+  async function port(method: string) {
+    return portId(host.interface.getFunction(method)!.selector, host);
+  }
+
+  it("emits Endpoint discovery events with port id as the second argument", async () => {
     const tx = host.deploymentTransaction();
     expect(tx).to.not.equal(null);
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortAllowanceId(),
-        ethers.encodeBytes32String("1:0"),
-        "#amount { bytes32 asset, uint amount }",
-        "",
-        false,
+        await port("portAllowance(bytes)"),
+        endpointDescriptor({ input: Keys.Amount }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortAllowanceId(), ethers.ZeroHash, "portAllowance");
+      .withArgs(await port("portAllowance(bytes)"), ethers.ZeroHash, "portAllowance");
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortRedeemBalanceId(),
-        ethers.encodeBytes32String("1:0"),
-        "#balance { bytes32 asset, uint amount }",
-        "",
-        false,
+        await port("portRedeemBalance(bytes)"),
+        endpointDescriptor({ input: Keys.Balance }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortRedeemBalanceId(), ethers.ZeroHash, "portRedeemBalance");
+      .withArgs(await port("portRedeemBalance(bytes)"), ethers.ZeroHash, "portRedeemBalance");
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortCreditAccountId(),
-        ethers.encodeBytes32String("1:0"),
-        "#accountAmount { bytes32 account, bytes32 asset, uint amount }",
-        "",
-        false,
+        await port("portCreditAccount(bytes)"),
+        endpointDescriptor({ input: Keys.AccountAmount }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortCreditAccountId(), ethers.ZeroHash, "portCreditAccount");
+      .withArgs(await port("portCreditAccount(bytes)"), ethers.ZeroHash, "portCreditAccount");
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortDebitAccountId(),
-        ethers.encodeBytes32String("1:0"),
-        "#accountAmount { bytes32 account, bytes32 asset, uint amount }",
-        "",
-        false,
+        await port("portDebitAccount(bytes)"),
+        endpointDescriptor({ input: Keys.AccountAmount }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortDebitAccountId(), ethers.ZeroHash, "portDebitAccount");
+      .withArgs(await port("portDebitAccount(bytes)"), ethers.ZeroHash, "portDebitAccount");
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortPipePayableId(),
-        ethers.encodeBytes32String("1:0"),
-        "#context { bytes32 account, #bytes as state, #bytes as request }",
-        "",
-        true,
+        await port("portPipePayable(bytes)"),
+        endpointDescriptor({ input: Keys.Context, funded: true }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortPipePayableId(), ethers.ZeroHash, "portPipePayable");
+      .withArgs(await port("portPipePayable(bytes)"), ethers.ZeroHash, "portPipePayable");
 
     await expect(tx!)
-      .to.emit(host, "Port")
+      .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await host.getPortDispatchPayableId(),
-        ethers.encodeBytes32String("1:0"),
-        "#dispatch { uint portal, uint resources, #bytes as payload }",
-        "",
-        true,
+        await port("portDispatchPayable(bytes)"),
+        endpointDescriptor({ input: Keys.Dispatch, funded: true }),
       );
     await expect(tx!)
       .to.emit(host, "Labeled")
-      .withArgs(await host.getPortDispatchPayableId(), ethers.ZeroHash, "portDispatchPayable");
+      .withArgs(await port("portDispatchPayable(bytes)"), ethers.ZeroHash, "portDispatchPayable");
 
   });
 
@@ -144,7 +132,7 @@ describe("Port Entrypoints", () => {
   }
 
   async function localPortal() {
-    return await host.getPortDispatchPayableId();
+    return port("portDispatchPayable(bytes)");
   }
 
   describe("portAllowance", () => {

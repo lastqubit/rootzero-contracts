@@ -2,8 +2,8 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
-import { deploy, getProvider, getSigner } from "./helpers/setup.js";
-import { encodeAccountBlock, encodeNodeBlock, Keys, pad32 } from "./helpers/blocks.js";
+import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/setup.js";
+import { encodeAccountBlock, encodeNodeBlock, endpointDescriptor, Keys, pad32 } from "./helpers/blocks.js";
 
 describe("Guard Actions", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
@@ -37,7 +37,15 @@ describe("Guard Actions", () => {
     return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
   }
 
-  it("emits Guard discovery for revoke on deployment", async () => {
+  async function cmd(method: string) {
+    return commandId(host.interface.getFunction(method)!.selector, host);
+  }
+
+  async function guard(method: string, target = host) {
+    return guardId(target.interface.getFunction(method)!.selector, target);
+  }
+
+  it("emits Endpoint discovery for revoke on deployment", async () => {
     const signer = await getSigner(0);
     const artifact = await hre.artifacts.readArtifact("TestHost");
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
@@ -47,11 +55,11 @@ describe("Guard Actions", () => {
     await deployed.waitForDeployment();
 
     await expect(deploymentTx)
-      .to.emit(deployed, "Guard")
-      .withArgs(await deployed.host(), await deployed.getRevokeId(), "#node { uint id }");
+      .to.emit(deployed, "Endpoint")
+      .withArgs(await deployed.host(), await guard("revoke", deployed), endpointDescriptor({ input: Keys.Node }));
     await expect(deploymentTx)
       .to.emit(deployed, "Labeled")
-      .withArgs(await deployed.getRevokeId(), ethers.ZeroHash, "revoke");
+      .withArgs(await guard("revoke", deployed), ethers.ZeroHash, "revoke");
   });
 
   it("guardian can revoke an authorized node directly", async () => {
@@ -131,9 +139,9 @@ describe("Guard Actions", () => {
   });
 
   it("guard IDs are correctly distinguished from other node types", async () => {
-    const revokeId = await host.getRevokeId();
-    const depositId = await host.getDepositId();
-    const appointId = await host.getAppointId();
+    const revokeId = await guard("revoke");
+    const depositId = await cmd("deposit");
+    const appointId = await cmd("appoint");
 
     expect(await utils.testIsGuard(revokeId)).to.be.true;
     expect(await utils.testIsGuard(depositId)).to.be.false;

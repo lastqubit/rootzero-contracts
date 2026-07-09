@@ -1,9 +1,10 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner } from "./helpers/setup.js";
+import { commandId, deploy, getSigner } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
+  endpointDescriptor,
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
@@ -48,6 +49,10 @@ describe("Commands", () => {
     });
     Promise.resolve(promise).catch(() => {});
     return promise;
+  }
+
+  async function cmd(method: string) {
+    return commandId(host.interface.getFunction(method)!.selector, host);
   }
 
   // ── Deposit ───────────────────────────────────────────────────────────────
@@ -399,18 +404,14 @@ describe("Commands", () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
-      await expect(deployment!).to.emit(host, "Command")
+      await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await host.getRelayPayableId(),
-          ethers.encodeBytes32String("1:0:0"),
-          "#relay { uint portal, uint resources, #bytes as request }",
-          Keys.Any,
-          Keys.Empty,
-          true,
+          await cmd("relayPayable"),
+          endpointDescriptor({ state: Keys.Any, input: Keys.Relay, funded: true }),
         );
       await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await host.getRelayPayableId(), ethers.ZeroHash, "relayPayable");
+        .withArgs(await cmd("relayPayable"), ethers.ZeroHash, "relayPayable");
     });
 
     it("passes the RELAY block as an encoded destination context to the hook", async () => {
@@ -451,7 +452,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("reverts BadRatio when request has more than one RELAY block", async () => {
+    it("reverts IncompleteCursor when request has more than one RELAY block", async () => {
       const portal = portalNode(31337n);
       const request = concat(
         encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x")),
@@ -459,7 +460,7 @@ describe("Commands", () => {
       );
 
       await expect(callAs(0, "relayPayable", ctx({ request })))
-        .to.be.revertedWithCustomError(host, "BadRatio");
+        .to.be.revertedWithCustomError(host, "IncompleteCursor");
     });
 
     it("passes relay resources through even when it exceeds msg.value", async () => {
@@ -487,18 +488,14 @@ describe("Commands", () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
-      await expect(deployment!).to.emit(host, "Command")
+      await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await host.getRecoverPayableId(),
-          ethers.encodeBytes32String("1:0:0"),
-          "#recover { uint handler, uint resources, bytes32 key, #bytes as witness }",
-          Keys.Empty,
-          Keys.Empty,
-          true,
+          await cmd("recoverPayable"),
+          endpointDescriptor({ input: Keys.Recover, funded: true }),
         );
       await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await host.getRecoverPayableId(), ethers.ZeroHash, "recoverPayable");
+        .withArgs(await cmd("recoverPayable"), ethers.ZeroHash, "recoverPayable");
     });
 
     it("passes the recovery key, witness, and assigned value to the hook", async () => {

@@ -21,13 +21,14 @@ import {
   encodeContextBlock,
   encodeRecoverBlock,
   encodeHostAccountAssetBlock,
-  encodeDataBlock,
+  encodeBlock,
   encodeLabelBlock,
   encodeStringBlock,
   encodeStepBlock,
   encodeTxBlock,
   encodeUserAccount,
   concat,
+  localKey,
 } from "./helpers/blocks.js";
 
 describe("Cursors", () => {
@@ -199,23 +200,17 @@ describe("Cursors", () => {
       expect(groups).to.equal(2n);
     });
 
-    it("init expected-groups overload returns the matching run cursor", async () => {
-      const source = concat(
-        encodeAmountBlock(asset, 1n),
-        encodeAmountBlock(asset, 2n),
-      );
-      const [i, len] = await helper.testInitExpected(source, 1n, 2n);
-      expect(i).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(source).length));
+    it("init(source, 0) returns an empty cursor for an empty source", async () => {
+      const [offset, cursorI, len, groups] = await helper.testInit("0x", 0n);
+      expect(offset).to.equal(0n);
+      expect(cursorI).to.equal(0n);
+      expect(len).to.equal(0n);
+      expect(groups).to.equal(0n);
     });
 
-    it("init expected-groups overload reverts BadRatio on count mismatch", async () => {
-      const source = concat(
-        encodeAmountBlock(asset, 1n),
-        encodeAmountBlock(asset, 2n),
-      );
-      await expect(helper.testInitExpected(source, 1n, 1n))
-        .to.be.revertedWithCustomError(helper, "BadRatio");
+    it("init(source, 0) reverts IncompleteCursor for a non-empty source", async () => {
+      await expect(helper.testInit(encodeAmountBlock(asset, amount), 0n))
+        .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
     it("peek returns the next key and payload length", async () => {
@@ -340,42 +335,37 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("list returns the next offset and advances past the list header at the expected position", async () => {
+    it("list returns the next offset and advances past the list header", async () => {
       const item1 = encodeAssetBlock(asset);
       const item2 = encodeAssetBlock(otherAsset);
       const list = encodeListBlock(item1, item2);
-      const [inputI, next] = await helper.testList(list, 0n);
+      const [inputI, next] = await helper.testList(list);
       expect(inputI).to.equal(8n);
       expect(next).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
-    it("list reverts IncompleteCursor when the cursor is not at the expected position", async () => {
-      const item = encodeAssetBlock(asset);
-      const list = encodeListBlock(item);
-      await expect(helper.testListMismatch(list, 0n))
-        .to.be.revertedWithCustomError(helper, "IncompleteCursor");
-    });
-
-    it("data uses a shared key and carries merged payload fields without child headers", async () => {
+    it("custom local blocks carry merged payload fields without child headers", async () => {
+      const custom = localKey(1);
       const payload = ethers.concat([
         asset,
         otherAsset,
         ethers.zeroPadValue(ethers.toBeHex(amount), 32),
         ethers.zeroPadValue(ethers.toBeHex(77n), 32),
       ]);
-      const data = encodeDataBlock(payload);
+      const data = encodeBlock(custom, payload);
 
-      expect(data.slice(0, 10)).to.equal(Keys.Data);
-      expect(await helper.testPeek(data, 0n)).to.deep.equal([Keys.Data, 128n]);
+      expect(data.slice(0, 10)).to.equal(custom);
+      expect(await helper.testPeek(data, 0n)).to.deep.equal([custom, 128n]);
       expect(ethers.getBytes(data).length).to.equal(136);
       expect(data).to.not.include(Keys.Amount.slice(2));
       expect(data).to.not.include(Keys.Fee.slice(2));
     });
 
     it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
+      const custom = localKey(1);
       const payload = encodeAccountBlock(encodeUserAccount("0x12"));
-      const data = encodeDataBlock(payload);
-      const [outOffset, outI, outLen, inputI] = await helper.testTake(data, Keys.Data);
+      const data = encodeBlock(custom, payload);
+      const [outOffset, outI, outLen, inputI] = await helper.testTake(data, custom);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
@@ -383,15 +373,17 @@ describe("Cursors", () => {
     });
 
     it("take reverts when the current block key does not match", async () => {
+      const custom = localKey(1);
       const source = encodeBalanceBlock(asset, amount);
-      await expect(helper.testTake(source, Keys.Data))
+      await expect(helper.testTake(source, custom))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("maybeTake returns a sliced cursor and advances when the current block matches", async () => {
+      const custom = localKey(1);
       const payload = encodeAccountBlock(encodeUserAccount("0x34"));
-      const data = encodeDataBlock(payload);
-      const [outOffset, outI, outLen, inputI] = await helper.testMaybeTake(data, Keys.Data);
+      const data = encodeBlock(custom, payload);
+      const [outOffset, outI, outLen, inputI] = await helper.testMaybeTake(data, custom);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
@@ -399,17 +391,9 @@ describe("Cursors", () => {
     });
 
     it("maybeTake returns an empty cursor and does not advance when the current block does not match", async () => {
+      const custom = localKey(1);
       const source = encodeBalanceBlock(asset, amount);
-      const [outOffset, outI, outLen, inputI] = await helper.testMaybeTake(source, Keys.Data);
-      expect(outOffset).to.equal(0n);
-      expect(outI).to.equal(0n);
-      expect(outLen).to.equal(0n);
-      expect(inputI).to.equal(0n);
-    });
-
-    it("maybeData returns an empty cursor and does not advance when the current block is not DATA", async () => {
-      const source = encodeBalanceBlock(asset, amount);
-      const [outOffset, outI, outLen, inputI] = await helper.testMaybeData(source);
+      const [outOffset, outI, outLen, inputI] = await helper.testMaybeTake(source, custom);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(0n);
