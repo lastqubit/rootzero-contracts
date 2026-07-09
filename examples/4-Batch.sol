@@ -11,40 +11,39 @@ pragma solidity ^0.8.33;
 // returning a single pre-encoded block.
 
 import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cur, Cursors, Writer, Writers, Schemas} from "../contracts/Cursors.sol";
+import {Cur, Cursors, Writer, Writers} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 using Writers for Writer;
 
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(this.myCommand.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
-        emit Labeled(myCommandId, bytes32(0), "myCommand");
+        (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     function myCommand(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        // Create the request cursor from CommandContext.request, then size
-        // the writer from the group count returned by the cursor helper.
-        (Cur memory inputs, uint groups) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocBalances(groups);
+        // Open the descriptor input stream, then size the writer from the
+        // expected output block count returned by the endpoint helper.
+        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        Writer memory output = Writers.allocBalances(outputs);
 
         // Walk every AMOUNT block in the current request run.
-        while (inputs.i < inputs.len) {
+        while (input.i < input.len) {
             // Unpack asset and amount from the next AMOUNT block.
-            (bytes32 asset, uint amount) = inputs.unpackAmount();
+            (bytes32 asset, uint amount) = input.unpackAmount();
 
             // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
-            writer.appendBalance(asset, amount);
+            output.appendBalance(asset, amount);
         }
 
         // Finalize by checking the cursor completed its run, then
         // return the encoded BALANCE blocks.
-        inputs.complete();
-        return writer.finish();
+        input.complete();
+        return output.finish();
     }
 }
 

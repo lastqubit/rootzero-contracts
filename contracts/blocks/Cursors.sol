@@ -72,33 +72,20 @@ library Cursors {
 
     /// @notice Create a cursor over `source` and restrict it to its first grouped run.
     /// Equivalent to `open(source)`, reading the current key, then `run(key, group)`.
+    /// When `group` is zero, `source` must be empty and the function returns an empty cursor.
     /// @param source Calldata slice that forms the block stream.
-    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
+    /// @param group Expected block group size (e.g. 1 for single, 2 for paired); 0 means empty.
     /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
     /// @return groups Number of block groups in the run (`block count / group`).
-    function init(
-        bytes calldata source,
-        uint group
-    ) internal pure returns (Cur memory cur, uint groups) {
+    function init(bytes calldata source, uint group) internal pure returns (Cur memory cur, uint groups) {
         cur = open(source);
-        if (cur.i == cur.len) revert ZeroCursor();
+        if (group == 0) {
+            if (cur.len != 0) revert IncompleteCursor();
+            return (cur, 0);
+        }
+        if (cur.len == 0) revert ZeroCursor();
         (bytes4 key, ) = cur.peek(cur.i);
         groups = cur.run(key, group);
-    }
-
-    /// @notice Create a cursor over `source`, restrict it to its first grouped run, and require an exact group count.
-    /// @param source Calldata slice that forms the block stream.
-    /// @param group Expected block group size (e.g. 1 for single, 2 for paired).
-    /// @param expectedGroups Required number of groups in the run.
-    /// @return cur Cursor with `len` truncated to the end of the first run in `source`.
-    function init(
-        bytes calldata source,
-        uint group,
-        uint expectedGroups
-    ) internal pure returns (Cur memory cur) {
-        uint groups;
-        (cur, groups) = init(source, group);
-        if (groups != expectedGroups) revert BadRatio();
     }
 
     /// @notice Move the cursor to an absolute position within the source region.
@@ -330,16 +317,13 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
-    /// @notice Enter a LIST block at the expected current position and return its next offset.
-    /// Reverts with `IncompleteCursor` if `cur.i` is not exactly `pos`.
+    /// @notice Enter a LIST block at the current position and return its next offset.
     /// Advances `cur.i` past the list header so the list members can be parsed
     /// directly from the same cursor. The returned `next` is the byte offset
     /// immediately after the list payload, relative to the current cursor region.
-    /// @param cur Cursor expected to be positioned at a list block; advanced past the 8-byte header.
-    /// @param pos Expected current cursor position, relative to the cursor region.
+    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
     /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur, uint pos) internal pure returns (uint next) {
-        cur.ensureAt(pos);
+    function list(Cur memory cur) internal pure returns (uint next) {
         next = enter(cur, Keys.List, 0, 0);
     }
 
@@ -376,15 +360,6 @@ library Cursors {
     /// @return out Cursor scoped to the full matching block, or empty when no matching block is present.
     function maybeTake(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
         return cur.isAt(key) ? take(cur, key) : cur.slice(cur.i, cur.i);
-    }
-
-    /// @notice Consume an optional DATA block at the current position and return a cursor over the full block slice.
-    /// If the current block is not DATA, returns an empty cursor and leaves `cur.i` unchanged.
-    /// Otherwise behaves like `take(cur, Keys.Data)`.
-    /// @param cur Cursor positioned at an optional DATA block.
-    /// @return out Cursor scoped to the full DATA block, or empty when no DATA block is present.
-    function maybeData(Cur memory cur) internal pure returns (Cur memory out) {
-        return maybeTake(cur, Keys.Data);
     }
 
     /// @notice Ensure the cursor is at an exact position.
@@ -825,10 +800,7 @@ library Cursors {
     /// @param key Expected block key.
     /// @return asset Asset identifier.
     /// @return amount Scalar amount value.
-    function unpackAssetAmount(
-        Cur memory cur,
-        bytes4 key
-    ) internal pure returns (bytes32 asset, uint amount) {
+    function unpackAssetAmount(Cur memory cur, bytes4 key) internal pure returns (bytes32 asset, uint amount) {
         uint abs = consume(cur, 0, key, 64, 64);
         asset = bytes32(msg.data[abs:abs + 32]);
         amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
@@ -992,9 +964,7 @@ library Cursors {
     /// @return host Host node ID.
     /// @return account Account identifier.
     /// @return asset Asset identifier.
-    function unpackHostAccountAsset(
-        Cur memory cur
-    ) internal pure returns (uint host, bytes32 account, bytes32 asset) {
+    function unpackHostAccountAsset(Cur memory cur) internal pure returns (uint host, bytes32 account, bytes32 asset) {
         return unpackHostAccountAsset(cur, Keys.HostAccountAsset);
     }
 
@@ -1010,9 +980,7 @@ library Cursors {
     /// @return account Account identifier.
     /// @return asset Asset identifier.
     /// @return amount Token amount.
-    function unpackAccountAmount(
-        Cur memory cur
-    ) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
+    function unpackAccountAmount(Cur memory cur) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
         return unpackAccountAmount(cur, Keys.AccountAmount);
     }
 
@@ -1028,9 +996,7 @@ library Cursors {
     /// @return host Host node ID.
     /// @return asset Asset identifier.
     /// @return amount Token amount.
-    function unpackAllocation(
-        Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+    function unpackAllocation(Cur memory cur) internal pure returns (uint host, bytes32 asset, uint amount) {
         return unpackHostAmount(cur, Keys.Allocation);
     }
 
@@ -1046,9 +1012,7 @@ library Cursors {
     /// @return host Host node ID.
     /// @return asset Asset identifier.
     /// @return amount Token amount.
-    function unpackAllowance(
-        Cur memory cur
-    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+    function unpackAllowance(Cur memory cur) internal pure returns (uint host, bytes32 asset, uint amount) {
         return unpackHostAmount(cur, Keys.Allowance);
     }
 
@@ -1145,9 +1109,7 @@ library Cursors {
     /// @return portal Destination portal identifier, often the destination host ID.
     /// @return resources Chain-specific resources for the destination context.
     /// @return request Embedded request block stream.
-    function unpackRelay(
-        Cur memory cur
-    ) internal pure returns (uint portal, uint resources, bytes calldata request) {
+    function unpackRelay(Cur memory cur) internal pure returns (uint portal, uint resources, bytes calldata request) {
         uint end = cur.enter(Keys.Relay, 64 + Sizes.Header, 0);
         portal = cur.readUint();
         resources = cur.readUint();
@@ -1214,11 +1176,7 @@ library Cursors {
     /// @param key Expected block type key.
     /// @param asset Expected asset identifier.
     /// @return amount Amount from the block.
-    function requireAssetAmount(
-        Cur memory cur,
-        bytes4 key,
-        bytes32 asset
-    ) internal pure returns (uint amount) {
+    function requireAssetAmount(Cur memory cur, bytes4 key, bytes32 asset) internal pure returns (uint amount) {
         uint abs = consume(cur, 0, key, 64, 64);
         if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
         amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
@@ -1274,12 +1232,7 @@ library Cursors {
     /// @param key Expected block type key.
     /// @param host Expected host node ID.
     /// @param asset Expected asset identifier.
-    function requireUnitHostAmount(
-        Cur memory cur,
-        bytes4 key,
-        uint host,
-        bytes32 asset
-    ) internal pure {
+    function requireUnitHostAmount(Cur memory cur, bytes4 key, uint host, bytes32 asset) internal pure {
         uint abs = consume(cur, 0, key, 96, 96);
         if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
         if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
@@ -1326,10 +1279,7 @@ library Cursors {
     /// @param host Expected host node ID.
     /// @return account Account identifier from the block.
     /// @return asset Asset identifier from the block.
-    function requireHostAccountAsset(
-        Cur memory cur,
-        uint host
-    ) internal pure returns (bytes32 account, bytes32 asset) {
+    function requireHostAccountAsset(Cur memory cur, uint host) internal pure returns (bytes32 account, bytes32 asset) {
         return requireHostAccountAsset(cur, Keys.HostAccountAsset, host);
     }
 

@@ -19,11 +19,16 @@ abstract contract CreditAccountHook {
 /// @notice Command that delivers BALANCE state blocks to an account via a virtual hook.
 /// Use for internally recording credits that have already been settled externally.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
-    uint internal immutable creditAccountId = commandId(this.creditAccount.selector);
+    bytes32 private immutable descriptor;
+    uint private immutable id;
 
     constructor() {
-        emit Command(host, creditAccountId, "0:1:0", "", Keys.Balance, Keys.Empty, false);
-        emit Labeled(creditAccountId, bytes32(0), "creditAccount");
+        (id, descriptor) = command("creditAccount", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
+    }
+
+    /// @notice Return true if `candidate` is this command's credit account ID.
+    function isCreditAccount(uint candidate) internal view returns (bool) {
+        return candidate == id;
     }
 
     /// @notice Credit each BALANCE block from the command state to the command account.
@@ -32,14 +37,12 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     function creditAccount(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory state, ) = Cursors.init(c.state, 1);
+        (Cur memory state, ) = openState(c, descriptor);
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
             creditAccount(c.account, asset, amount);
         }
-
-        state.complete();
         return "";
     }
 }

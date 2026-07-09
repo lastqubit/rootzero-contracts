@@ -14,10 +14,6 @@ contract TestPortalRecoverHost is Host, Portal, RecoverPayable, UndeliveredEvent
         if (miss != bytes32(0)) emit Undelivered(host, key, miss);
     }
 
-    function getRecoverPayableId() external view returns (uint) {
-        return recoverPayableId;
-    }
-
     function getAdminAccount() external view returns (bytes32) {
         return admin;
     }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {AdminBase, CommandContext, Keys} from "./Base.sol";
 import {Payable} from "../../core/Payable.sol";
-import {Cursors, Cur, Schemas} from "../../Cursors.sol";
+import {Cursors, Cur} from "../../Cursors.sol";
 import {Budget} from "../../utils/Value.sol";
 
 using Cursors for Cur;
@@ -14,26 +14,23 @@ using Cursors for Cur;
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` remains on this host.
 abstract contract ExecutePayable is AdminBase, Payable {
-    uint internal immutable executePayableId = commandId(this.executePayable.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Admin(host, executePayableId, "1:0:0", Schemas.Call, Keys.Empty, Keys.Empty, true);
-        emit Labeled(executePayableId, bytes32(0), "executePayable");
+        (, descriptor) = command("executePayable", Keys.Empty, Keys.Call, Keys.Empty, 0, true, true);
     }
 
     /// @notice Execute each CALL block in the admin request.
     /// @param c Admin command context; `c.request` must contain CALL blocks.
     /// @return Empty output state.
     function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
         Budget memory budget = openValue();
 
-        while (request.i < request.len) {
-            (uint target, uint resources, bytes calldata data) = request.unpackCall();
+        while (input.i < input.len) {
+            (uint target, uint resources, bytes calldata data) = input.unpackCall();
             rawCall(target, useValue(budget, resources), data);
         }
-
-        request.complete();
         return "";
     }
 }

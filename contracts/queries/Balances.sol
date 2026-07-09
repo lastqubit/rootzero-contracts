@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cur, Cursors, Forms, Writer, Writers} from "../Cursors.sol";
+import {Cur, Cursors, Keys, Writer, Writers} from "../Cursors.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
@@ -21,27 +21,25 @@ abstract contract GetBalancesHook {
 /// The request is a run of `ACCOUNT_ASSET` form blocks.
 /// The response returns one `ACCOUNT_AMOUNT` form block per requested position, preserving request order.
 abstract contract GetBalances is QueryBase, GetBalancesHook {
-    uint public immutable getBalancesId = queryId(this.getBalances.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Query(host, getBalancesId, "1:1", Forms.AccountAsset, Forms.AccountAmount);
-        emit Labeled(getBalancesId, bytes32(0), "getBalances");
+        (, descriptor) = query("getBalances", Keys.AccountAsset, Keys.AccountAmount, 0);
     }
 
     /// @notice Resolve balances for a run of requested `(account, asset)` tuples.
     /// @param request Block-stream request consisting of `accountAsset(account, asset)*`.
     /// @return Block-stream response containing one `accountAmount(account, asset, amount)` block per request block.
     function getBalances(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint groups) = Cursors.init(request, 1);
-        Writer memory response = Writers.allocAccountAmounts(groups);
+        (Cur memory input, uint outputs) = openInput(request, descriptor);
+        Writer memory response = Writers.allocAccountAmounts(outputs);
 
-        while (query.i < query.len) {
-            (bytes32 account, bytes32 asset) = query.unpackAccountAsset();
+        while (input.i < input.len) {
+            (bytes32 account, bytes32 asset) = input.unpackAccountAsset();
             uint amount = getBalance(account, asset);
             response.appendAccountAmount(account, asset, amount);
         }
 
-        query.complete();
         return response.finish();
     }
 }

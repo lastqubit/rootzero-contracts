@@ -1,59 +1,57 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-// Example 7: Custom Data Shape
+// Example 7: Custom Input Shape
 //
-// A schema that starts with fixed fields is shorthand for one generic DATA
-// block. This keeps custom command shapes short while still using `Keys.Data`
-// at runtime.
+// Discoverable custom input types define a context-local bytes4 key, such as a
+// small literal or selector, and publish it with Schema(host, key, schema, name).
 //
 // For:
 //
-//   bytes32 asset, uint amount, maybe #fee { uint amount }
+//   { bytes32 asset, uint amount, maybe #fee }
 //
 // the encoded request item is:
 //
-//   DATA(asset | amount | FEE(fee))
-//
-// The Command event publishes the schema, while every encoded custom data block
-// uses the same `Keys.Data` runtime key.
+//   PAYMENT(asset | amount | FEE(fee))
 
 import {Host} from "../contracts/Core.sol";
 import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cursors, Cur, Keys, Schemas} from "../contracts/Cursors.sol";
+import {Cursors, Cur} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
-string constant INPUT = string.concat("bytes32 asset, uint amount, maybe ", Schemas.Fee);
-
-function unpackPayment(Cur memory input) pure returns (bytes32 asset, uint amount, Cur memory fee) {
-    uint abs = input.consume(0, Keys.Data, 64, 0);
-    asset = bytes32(msg.data[abs:abs + 32]);
-    amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
-    fee = input.slice(abs + 64 - input.offset, input.i);
-}
-
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(this.myCommand.selector);
+    bytes4 private immutable paymentKey = Keys.local(1);
+    bytes32 private constant paymentName = bytes32("payment");
+    string private constant paymentSchema = "{ bytes32 asset, uint amount, maybe #fee }";
+
+    bytes32 private immutable descriptor;
+
     event PaymentSeen(bytes32 asset, uint amount, uint fee);
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
-        emit Labeled(myCommandId, bytes32(0), "myCommand");
+        (, descriptor) = command("myCommand", Keys.Empty, schema(paymentKey, paymentSchema, paymentName), Keys.Empty, 0, false, false);
+    }
+
+    function unpackPayment(Cur memory input) private view returns (bytes32 asset, uint amount, Cur memory fee) {
+        uint abs = input.consume(0, paymentKey, 64, 0);
+        asset = bytes32(msg.data[abs:abs + 32]);
+        amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
+        fee = input.slice(abs + 64 - input.offset, input.i);
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
 
-        // The request can batch multiple DATA blocks. Each one is decoded
+        // The request can batch multiple payment blocks. Each one is decoded
         // with the command-local unpack helper above.
-        while (request.i < request.len) {
-            (bytes32 asset, uint amount, Cur memory tail) = unpackPayment(request);
+        while (input.i < input.len) {
+            (bytes32 asset, uint amount, Cur memory tail) = unpackPayment(input);
             uint fee = tail.maybeOnly(Keys.Fee) ? tail.unpackFee() : 0;
             emit PaymentSeen(asset, amount, fee);
         }
 
-        request.complete();
+        input.complete();
         return "";
     }
 }

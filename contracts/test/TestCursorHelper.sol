@@ -11,6 +11,8 @@ using Cursors for Cur;
 using Writers for Writer;
 
 contract TestCursorHelper {
+    bytes4 private immutable TestKey = Keys.local(1);
+
     function testWriteBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
         w.appendBalance(asset, amount);
@@ -69,16 +71,16 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testWriterRejectsSecond32Block(bytes32 value) external pure returns (bytes memory) {
+    function testWriterRejectsSecond32Block(bytes32 value) external view returns (bytes memory) {
         Writer memory w = Writers.alloc32s(1);
-        w.appendBlock32(Keys.Data, value, 32);
-        w.appendBlock32(Keys.Data, value, 32);
+        w.appendBlock32(TestKey, value, 32);
+        w.appendBlock32(TestKey, value, 32);
         return w.finish();
     }
 
     function testWriterRejectsOversizedDynamicBlock(bytes memory data) external pure returns (bytes memory) {
         Writer memory w = Writers.allocBytes(1, 32);
-        w.appendBlock(Keys.Data, data);
+        w.appendBlock(Keys.Bytes, data);
         return w.finish();
     }
 
@@ -164,15 +166,6 @@ contract TestCursorHelper {
         return (cur.offset - sourceOffset, cur.i, cur.len, groups);
     }
 
-    function testInitExpected(bytes calldata source, uint group, uint expectedGroups)
-        external
-        pure
-        returns (uint i, uint len)
-    {
-        Cur memory cur = Cursors.init(source, group, expectedGroups);
-        return (cur.i, cur.len);
-    }
-
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {
         Cur memory cur = Cursors.open(source);
         return cur.peek(i);
@@ -256,19 +249,10 @@ contract TestCursorHelper {
         return true;
     }
 
-    function testList(bytes calldata source, uint pos) external pure returns (uint inputI, uint next) {
+    function testList(bytes calldata source) external pure returns (uint inputI, uint next) {
         Cur memory cur = Cursors.open(source);
-        next = cur.list(pos);
+        next = cur.list();
         return (cur.i, next);
-    }
-
-    function testListMismatch(bytes calldata source, uint pos) external pure returns (bool) {
-        Cur memory cur = Cursors.open(source);
-        if (pos < cur.len) {
-            cur.i = pos + 1;
-        }
-        cur.list(pos);
-        return true;
     }
 
     function testTake(bytes calldata source, bytes4 key)
@@ -296,20 +280,6 @@ contract TestCursorHelper {
         }
         Cur memory cur = Cursors.open(source);
         Cur memory out = cur.maybeTake(key);
-        return (out.offset - sourceOffset, out.i, out.len, cur.i);
-    }
-
-    function testMaybeData(bytes calldata source)
-        external
-        pure
-        returns (uint outOffset, uint outI, uint outLen, uint inputI)
-    {
-        uint sourceOffset;
-        assembly ("memory-safe") {
-            sourceOffset := source.offset
-        }
-        Cur memory cur = Cursors.open(source);
-        Cur memory out = cur.maybeData();
         return (out.offset - sourceOffset, out.i, out.len, cur.i);
     }
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Payable } from "../core/Payable.sol";
-import { Cursors, Cur, Schemas, Writer, Writers } from "../Cursors.sol";
+import { Cursors, Cur, Writer, Writers } from "../Cursors.sol";
 import { Budget } from "../utils/Value.sol";
 
 using Cursors for Cur;
@@ -35,11 +35,10 @@ abstract contract DepositPayableHook {
 /// Use `deposit` for assets arriving from outside the protocol (e.g. ERC-20 transfers, ETH).
 /// For internal balance deductions, use `debitAccount` instead.
 abstract contract Deposit is CommandBase, DepositHook {
-    uint internal immutable depositId = commandId(this.deposit.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, depositId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
-        emit Labeled(depositId, bytes32(0), "deposit");
+        (, descriptor) = command("deposit", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
@@ -48,17 +47,16 @@ abstract contract Deposit is CommandBase, DepositHook {
     function deposit(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocBalances(groups);
+        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        Writer memory output = Writers.allocBalances(outputs);
 
-        while (request.i < request.len) {
-            (bytes32 asset, uint amount) = request.unpackAmount();
+        while (input.i < input.len) {
+            (bytes32 asset, uint amount) = input.unpackAmount();
             deposit(c.account, asset, amount);
-            writer.appendBalance(asset, amount);
+            output.appendBalance(asset, amount);
         }
 
-        request.complete();
-        return writer.finish();
+        return output.finish();
     }
 }
 
@@ -66,11 +64,10 @@ abstract contract Deposit is CommandBase, DepositHook {
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
 abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
-    uint internal immutable depositPayableId = commandId(this.depositPayable.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, depositPayableId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, true);
-        emit Labeled(depositPayableId, bytes32(0), "depositPayable");
+        (, descriptor) = command("depositPayable", Keys.Empty, Keys.Amount, Keys.Balance, 0, true, false);
     }
 
     /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
@@ -79,19 +76,18 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
     function depositPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocBalances(groups);
+        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        Writer memory output = Writers.allocBalances(outputs);
         Budget memory budget = openValue();
 
-        while (request.i < request.len) {
-            (bytes32 asset, uint amount) = request.unpackAmount();
+        while (input.i < input.len) {
+            (bytes32 asset, uint amount) = input.unpackAmount();
             deposit(c.account, asset, amount, budget);
-            writer.appendBalance(asset, amount);
+            output.appendBalance(asset, amount);
         }
 
         closeValue(c.account, budget);
-        request.complete();
-        return writer.finish();
+        return output.finish();
     }
 }
 

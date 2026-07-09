@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, Keys} from "./Base.sol";
 import {Payable} from "../core/Payable.sol";
-import {HostAmount, Cursors, Cur, Schemas, Writer, Writers} from "../Cursors.sol";
+import {HostAmount, Cursors, Cur, Writer, Writers} from "../Cursors.sol";
 import {Budget} from "../utils/Value.sol";
 using Cursors for Cur;
 using Writers for Writer;
@@ -33,28 +33,26 @@ abstract contract ProvisionPayableHook {
 /// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
-    uint internal immutable provisionId = commandId(this.provision.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, provisionId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, false);
-        emit Labeled(provisionId, bytes32(0), "provision");
+        (, descriptor) = command("provision", Keys.Empty, Keys.Allocation, Keys.Custody, 0, false, false);
     }
 
     /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
     /// @param c Command context; `c.request` must contain ALLOCATION blocks.
     /// @return CUSTODY block stream matching the provisioned allocations.
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocCustodies(groups);
+        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        Writer memory output = Writers.allocCustodies(outputs);
 
-        while (request.i < request.len) {
-            HostAmount memory allocation = request.unpackAllocationValue();
+        while (input.i < input.len) {
+            HostAmount memory allocation = input.unpackAllocationValue();
             provision(c.account, allocation);
-            writer.appendCustody(allocation);
+            output.appendCustody(allocation);
         }
 
-        request.complete();
-        return writer.finish();
+        return output.finish();
     }
 }
 
@@ -63,11 +61,10 @@ abstract contract Provision is CommandBase, ProvisionHook {
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook {
-    uint internal immutable provisionPayableId = commandId(this.provisionPayable.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, provisionPayableId, "1:0:1", Schemas.Allocation, Keys.Empty, Keys.Custody, true);
-        emit Labeled(provisionPayableId, bytes32(0), "provisionPayable");
+        (, descriptor) = command("provisionPayable", Keys.Empty, Keys.Allocation, Keys.Custody, 0, true, false);
     }
 
     /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.
@@ -76,19 +73,18 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory request, uint groups) = Cursors.init(c.request, 1);
-        Writer memory writer = Writers.allocCustodies(groups);
+        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        Writer memory output = Writers.allocCustodies(outputs);
         Budget memory budget = openValue();
 
-        while (request.i < request.len) {
-            HostAmount memory allocation = request.unpackAllocationValue();
+        while (input.i < input.len) {
+            HostAmount memory allocation = input.unpackAllocationValue();
             provision(c.account, allocation, budget);
-            writer.appendCustody(allocation);
+            output.appendCustody(allocation);
         }
 
         closeValue(c.account, budget);
-        request.complete();
-        return writer.finish();
+        return output.finish();
     }
 }
 

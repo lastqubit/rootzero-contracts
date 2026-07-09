@@ -19,11 +19,10 @@ abstract contract WithdrawHook {
 /// Use `withdraw` for assets being sent outside the protocol (e.g. ERC-20 transfers, ETH sends).
 /// For internal balance credits, use `creditAccount` instead.
 abstract contract Withdraw is CommandBase, WithdrawHook {
-    uint internal immutable withdrawId = commandId(this.withdraw.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, withdrawId, "0:1:0", "", Keys.Balance, Keys.Empty, false);
-        emit Labeled(withdrawId, bytes32(0), "withdraw");
+        (, descriptor) = command("withdraw", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
     }
 
     /// @notice Withdraw each BALANCE block from the command state to the command account.
@@ -32,14 +31,12 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
     function withdraw(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory state, ) = Cursors.init(c.state, 1);
+        (Cur memory state, ) = openState(c, descriptor);
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
             withdraw(c.account, asset, amount);
         }
-
-        state.complete();
         return "";
     }
 }

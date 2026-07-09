@@ -7,6 +7,7 @@ pragma solidity ^0.8.33;
 // Shared helpers
 import { Keys } from "./blocks/Keys.sol";
 import { CommandBase, CommandContext } from "./commands/Base.sol";
+import { EndpointBase } from "./core/Endpoint.sol";
 import { Payable } from "./core/Payable.sol";
 
 // Commands
@@ -26,11 +27,9 @@ import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Allowance, AllowanceHook } from "./commands/admin/Allowance.sol";
 import { Appoint } from "./commands/admin/Appoint.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
-import { Destroy, DestroyHook } from "./commands/admin/Destroy.sol";
 import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
 import { Dismiss } from "./commands/admin/Dismiss.sol";
 import { ExecutePayable } from "./commands/admin/Execute.sol";
-import { Init, InitHook } from "./commands/admin/Init.sol";
 import { Label } from "./commands/admin/Label.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 
@@ -54,4 +53,3 @@ import { Revoke } from "./guards/Revoke.sol";
 import { QueryBase } from "./queries/Base.sol";
 import { AssetStatus, AssetStatusHook } from "./queries/Assets.sol";
 import { GetBalances, GetBalancesHook } from "./queries/Balances.sol";
-import { GetPosition, GetPositionHook } from "./queries/Positions.sol";

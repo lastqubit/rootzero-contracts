@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Cursors, Cur, Schemas} from "../../Cursors.sol";
+import {Cursors, Cur} from "../../Cursors.sol";
 using Cursors for Cur;
 
 abstract contract AllowanceHook {
@@ -20,25 +20,22 @@ abstract contract AllowanceHook {
 /// @notice Admin command that applies cross-host allowance entries via a virtual hook.
 /// Each ALLOWANCE block grants or updates a host-scoped asset cap. Only callable by the admin account.
 abstract contract Allowance is AdminBase, AllowanceHook {
-    uint internal immutable allowanceId = commandId(this.allowance.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Admin(host, allowanceId, "1:0:0", Schemas.Allowance, Keys.Empty, Keys.Empty, false);
-        emit Labeled(allowanceId, bytes32(0), "allowance");
+        (, descriptor) = command("allowance", Keys.Empty, Keys.Allowance, Keys.Empty, 0, false, true);
     }
 
     /// @notice Apply each ALLOWANCE block in the admin request.
     /// @param c Admin command context; `c.request` must contain ALLOWANCE blocks.
     /// @return Empty output state.
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
 
-        while (request.i < request.len) {
-            (uint peer, bytes32 asset, uint amount) = request.unpackAllowance();
+        while (input.i < input.len) {
+            (uint peer, bytes32 asset, uint amount) = input.unpackAllowance();
             allowance(peer, asset, amount);
         }
-
-        request.complete();
         return "";
     }
 }

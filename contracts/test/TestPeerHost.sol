@@ -54,13 +54,6 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         return state;
     }
 
-    function getPortAllowanceId() external view returns (uint) { return portAllowanceId; }
-    function getPortRedeemBalanceId() external view returns (uint) { return portRedeemBalanceId; }
-    function getPortCreditAccountId() external view returns (uint) { return portCreditAccountId; }
-    function getPortDebitAccountId() external view returns (uint) { return portDebitAccountId; }
-    function getPortSettleId() external view returns (uint) { return portSettleId; }
-    function getPortPipePayableId() external view returns (uint) { return portPipePayableId; }
-    function getPortDispatchPayableId() external view returns (uint) { return portDispatchPayableId; }
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 

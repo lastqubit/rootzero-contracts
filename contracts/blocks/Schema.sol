@@ -7,31 +7,36 @@ pragma solidity ^0.8.33;
 // - payload layout is block-specific
 //
 // Schema:
-// - blocks are written as `#name { fields }`
-// - a block without braces has no payload, e.g. `#unit`
+// - block aliases are published separately from payload schemas
+// - payload schemas are written as `{ fields }`
+// - an empty schema string means the block has no structured payload
 // - commas separate siblings at every level
-// - braces define parent-child boundaries
+// - braces define the current block payload body
 // - command requests are a single run when the request schema is non-empty
 // - command state is a single active state run without trailing globals
 // - run items may repeat at top level for batching
-// - `maybe #x { ... }` marks an optional block item
-// - `many #x { ... }` emits one generic list block containing repeated `#x` items
+// - `maybe #x` marks an optional block item
+// - `many #x` emits one generic list block containing repeated `#x` items
+// - endpoint descriptor lanes are `[key bytes4][item bytes4]`; normal keys widen to `[key][0]`
+// - descriptor lanes for `many #x` use `[Keys.List][keyOfX]`; bare `[Keys.List][0]`
+//   is incomplete discovery metadata and should be rejected by tooling
 // - `portal` fields are routing identifiers, often destination host IDs
 // - `resources` fields are chain-specific resource words. A portal adapter
 //   interprets them for the destination runtime. EVM resources use the low
 //   128 bits as native value.
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
-// - a child block without an inline body, e.g. `#context as witness`, may resolve
-//   to a known schema in the active schema context; unresolved aliases are invalid
+// - child blocks resolve by alias in the active schema context; unresolved aliases are invalid
+// - schema strings describe the payload body only; the `Block` event carries the alias
 // - fixed fields are packed in declaration order
 // - blocks have fixed fields followed by a dynamic child-block tail
 // - child block tails are embedded directly, without an extra stream wrapper
 // - `#bytes` is a reserved child block that stores raw bytes and has no body
 // - `#string` is a reserved child block that stores UTF-8 string bytes and has no body
-// - generic `#data` uses the stable key derived from `#data`
 // - generic lists use the stable key derived from `#list`
-// - keys are derived from block names, e.g. bytes4(keccak256("#amount"))
+// - standard keys are derived from block aliases, e.g. bytes4(keccak256("#amount"))
+// - custom keys are opaque bytes4 tags and only need to be unique in their
+//   active context; use `Schema(host, key, schema, name)` to publish their meaning
 // - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
@@ -57,48 +62,48 @@ pragma solidity ^0.8.33;
 /// @title Schemas
 /// @notice Human-readable schema string constants for each block type.
 /// These strings describe payload layout for discovery events and docs; block
-/// keys are derived only from block names.
+/// aliases map to standard keys by convention. Custom blocks may use any unique
+/// bytes4 key in their active context.
 library Schemas {
-    string constant Unit = "#unit";
-    string constant Node = "#node { uint id }";
-    string constant Account = "#account { bytes32 account }";
-    string constant Asset = "#asset { bytes32 asset }";
-    string constant Amount = "#amount { bytes32 asset, uint amount }";
-    string constant Balance = "#balance { bytes32 asset, uint amount }";
-    string constant BalanceLimit = "#balanceLimit { bytes32 asset, uint min, uint max }";
-    string constant Custody = "#custody { uint host, bytes32 asset, uint amount }";
-    string constant CustodyLimit = "#custodyLimit { uint host, bytes32 asset, uint min, uint max }";
-    string constant Allocation = "#allocation { uint host, bytes32 asset, uint amount }";
-    string constant Allowance = "#allowance { uint host, bytes32 asset, uint amount }";
-    string constant Transaction = "#transaction { bytes32 from, bytes32 to, bytes32 asset, uint amount }";
-    string constant Context = "#context { bytes32 account, #bytes as state, #bytes as request }";
-    string constant Recover = "#recover { uint handler, uint resources, bytes32 key, #bytes as witness }";
-    string constant Call = "#call { uint target, uint resources, #bytes as payload }";
-    string constant Step = "#step { uint target, uint resources, #bytes as request }";
-    string constant Relay = "#relay { uint portal, uint resources, #bytes as request }";
-    string constant Dispatch = "#dispatch { uint portal, uint resources, #bytes as payload }";
-    string constant Bounty = "#bounty { uint amount, bytes32 relayer }";
-    string constant Fee = "#fee { uint amount }";
-    string constant Auth = "#auth { uint cid, uint deadline, #bytes as proof }";
-    string constant Label = "#label { uint id, bytes32 namespace, #string as name }";
-    string constant Bytes = "#bytes";
-    string constant String = "#string";
-    string constant Data = "#data";
-    string constant List = "#list";
-    string constant Evm = "#evm";
+    string constant Unit = "";
+    string constant Node = "{ uint id }";
+    string constant Account = "{ bytes32 account }";
+    string constant Asset = "{ bytes32 asset }";
+    string constant Amount = "{ bytes32 asset, uint amount }";
+    string constant Balance = "{ bytes32 asset, uint amount }";
+    string constant BalanceLimit = "{ bytes32 asset, uint min, uint max }";
+    string constant Custody = "{ uint host, bytes32 asset, uint amount }";
+    string constant CustodyLimit = "{ uint host, bytes32 asset, uint min, uint max }";
+    string constant Allocation = "{ uint host, bytes32 asset, uint amount }";
+    string constant Allowance = "{ uint host, bytes32 asset, uint amount }";
+    string constant Transaction = "{ bytes32 from, bytes32 to, bytes32 asset, uint amount }";
+    string constant Context = "{ bytes32 account, #bytes as state, #bytes as request }";
+    string constant Recover = "{ uint handler, uint resources, bytes32 key, #bytes as witness }";
+    string constant Call = "{ uint target, uint resources, #bytes as payload }";
+    string constant Step = "{ uint target, uint resources, #bytes as request }";
+    string constant Relay = "{ uint portal, uint resources, #bytes as request }";
+    string constant Dispatch = "{ uint portal, uint resources, #bytes as payload }";
+    string constant Bounty = "{ uint amount, bytes32 relayer }";
+    string constant Fee = "{ uint amount }";
+    string constant Auth = "{ uint cid, uint deadline, #bytes as proof }";
+    string constant Label = "{ uint id, bytes32 namespace, #string as name }";
+    string constant Bytes = "";
+    string constant String = "";
+    string constant List = "";
+    string constant Evm = "";
 }
 
 /// @title Forms
 /// @notice Reusable structural block schemas for core tuple shapes.
 /// These describe payload form without assigning command or query semantics.
 library Forms {
-    string constant Status = "#status { uint code }";
-    string constant AssetAmount = "#assetAmount { bytes32 asset, uint amount }";
-    string constant AccountAsset = "#accountAsset { bytes32 account, bytes32 asset }";
-    string constant AccountAmount = "#accountAmount { bytes32 account, bytes32 asset, uint amount }";
-    string constant HostAmount = "#hostAmount { uint host, bytes32 asset, uint amount }";
-    string constant HostAccountAsset = "#hostAccountAsset { uint host, bytes32 account, bytes32 asset }";
-    string constant HostAccountAmount = "#hostAccountAmount { uint host, bytes32 account, bytes32 asset, uint amount }";
+    string constant Status = "{ uint code }";
+    string constant AssetAmount = "{ bytes32 asset, uint amount }";
+    string constant AccountAsset = "{ bytes32 account, bytes32 asset }";
+    string constant AccountAmount = "{ bytes32 account, bytes32 asset, uint amount }";
+    string constant HostAmount = "{ uint host, bytes32 asset, uint amount }";
+    string constant HostAccountAsset = "{ uint host, bytes32 account, bytes32 asset }";
+    string constant HostAccountAmount = "{ uint host, bytes32 account, bytes32 asset, uint amount }";
 }
 
 /// @title Sizes

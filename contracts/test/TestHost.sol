@@ -14,14 +14,9 @@ import { Pipeline } from "../core/Pipeline.sol";
 import { PortSettle } from "../ports/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
-import { Destroy } from "../commands/admin/Destroy.sol";
-import { Init } from "../commands/admin/Init.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
 import { HostAmount } from "../core/Types.sol";
-import { Cursors, Cur, Keys } from "../Cursors.sol";
 import { Budget, Values } from "../utils/Value.sol";
-
-using Cursors for Cur;
 
 contract TestHost is
     Host,
@@ -37,8 +32,6 @@ contract TestHost is
     RecoverPayable,
     Pipeline,
     PortSettle,
-    Init,
-    Destroy,
     AllowAssets,
     DenyAssets,
     Allowance
@@ -53,8 +46,6 @@ contract TestHost is
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint portal, uint resources, bytes context);
     event RecoverCalled(uint handler, bytes32 key, bytes witness, uint128 value);
-    event InitCalled(bytes inputData);
-    event DestroyCalled(bytes inputData);
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
@@ -62,7 +53,7 @@ contract TestHost is
 
     uint public stepCount;
 
-    constructor(address rootzero) Host(rootzero) Deposit() Provision() Init("") Destroy("") {}
+    constructor(address rootzero) Host(rootzero) Deposit() Provision() {}
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
         emit DepositCalled(account, asset, amount);
@@ -121,32 +112,6 @@ contract TestHost is
         emit RecoverCalled(handler, key, witness, value);
     }
 
-    function init(Cur memory input) internal override {
-        (bytes4 key, uint len) = input.peek(input.i);
-        bytes calldata inputData;
-        if (key == Keys.Data) {
-            inputData = input.unpackRaw(Keys.Data);
-        } else {
-            uint next = input.i + 8 + len;
-            inputData = msg.data[input.offset + input.i:input.offset + next];
-            input.i = next;
-        }
-        emit InitCalled(inputData);
-    }
-
-    function destroy(Cur memory input) internal override {
-        (bytes4 key, uint len) = input.peek(input.i);
-        bytes calldata inputData;
-        if (key == Keys.Data) {
-            inputData = input.unpackRaw(Keys.Data);
-        } else {
-            uint next = input.i + 8 + len;
-            inputData = msg.data[input.offset + input.i:input.offset + next];
-            input.i = next;
-        }
-        emit DestroyCalled(inputData);
-    }
-
     function allowAsset(bytes32 asset) internal override {
         emit AllowAssetCalled(asset);
     }
@@ -174,99 +139,6 @@ contract TestHost is
         Budget memory budget = openValue();
         pipe(account, state, steps, budget);
         closeValue(account, budget);
-    }
-
-    // Expose internal host/admin IDs for tests
-    function getDepositId() external view returns (uint) {
-        return depositId;
-    }
-
-    function getDepositPayableId() external view returns (uint) {
-        return depositPayableId;
-    }
-
-    function getWithdrawId() external view returns (uint) {
-        return withdrawId;
-    }
-
-    function getCreditAccountId() external view returns (uint) {
-        return creditAccountId;
-    }
-
-    function getDebitAccountId() external view returns (uint) {
-        return debitAccountId;
-    }
-
-    function getPayoutId() external view returns (uint) {
-        return payoutId;
-    }
-
-    function getPortSettleId() external view returns (uint) {
-        return portSettleId;
-    }
-
-    function getProvisionId() external view returns (uint) {
-        return provisionId;
-    }
-
-    function getProvisionPayableId() external view returns (uint) {
-        return provisionPayableId;
-    }
-
-    function getRelayPayableId() external view returns (uint) {
-        return relayPayableId;
-    }
-
-    function getRecoverPayableId() external view returns (uint) {
-        return recoverPayableId;
-    }
-
-    function getInitId() external view returns (uint) {
-        return initId;
-    }
-
-    function getDestroyId() external view returns (uint) {
-        return destroyId;
-    }
-
-    function getAuthorizeId() external view returns (uint) {
-        return authorizeId;
-    }
-
-    function getUnauthorizeId() external view returns (uint) {
-        return unauthorizeId;
-    }
-
-    function getAppointId() external view returns (uint) {
-        return appointId;
-    }
-
-    function getDismissId() external view returns (uint) {
-        return dismissId;
-    }
-
-    function getExecutePayableId() external view returns (uint) {
-        return executePayableId;
-    }
-
-    function getLabelId() external view returns (uint) {
-        return labelId;
-    }
-
-    function getAllowAssetsId() external view returns (uint) {
-        return allowAssetsId;
-    }
-
-    function getDenyAssetsId() external view returns (uint) {
-        return denyAssetsId;
-    }
-
-    function getAllowanceId() external view returns (uint) {
-        return allowanceId;
-    }
-
-    function getRevokeId() external view returns (uint) {
-        return revokeId;
     }
 
     function getAdminAccount() external view returns (bytes32) {

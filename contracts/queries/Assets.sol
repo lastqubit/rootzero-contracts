@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cur, Cursors, Writer, Writers} from "../Cursors.sol";
-import {Forms, Schemas} from "../blocks/Schema.sol";
+import {Cur, Cursors, Keys, Writer, Writers} from "../Cursors.sol";
 import {QueryBase} from "./Base.sol";
 
 using Cursors for Cur;
@@ -21,27 +20,25 @@ abstract contract AssetStatusHook {
 /// The request is a run of `ASSET` blocks.
 /// The response returns one `STATUS` form block per query entry, preserving request order.
 abstract contract AssetStatus is QueryBase, AssetStatusHook {
-    uint public immutable assetStatusId = queryId(this.assetStatus.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Query(host, assetStatusId, "1:1", Schemas.Asset, Forms.Status);
-        emit Labeled(assetStatusId, bytes32(0), "assetStatus");
+        (, descriptor) = query("assetStatus", Keys.Asset, Keys.Status, 0);
     }
 
     /// @notice Resolve asset support status for a run of requested assets.
-    /// @param request Block-stream request consisting of `#asset { bytes32 asset }` blocks.
-    /// @return Block-stream response containing one `#status { uint code }` per asset block.
+    /// @param request Block-stream request consisting of `asset { bytes32 asset }` blocks.
+    /// @return Block-stream response containing one `status { uint code }` form block per asset block.
     function assetStatus(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory query, uint groups) = Cursors.init(request, 1);
-        Writer memory response = Writers.allocStatuses(groups);
+        (Cur memory input, uint outputs) = openInput(request, descriptor);
+        Writer memory response = Writers.allocStatuses(outputs);
 
-        while (query.i < query.len) {
-            bytes32 asset = query.unpackAsset();
+        while (input.i < input.len) {
+            bytes32 asset = input.unpackAsset();
             uint status = assetStatus(asset);
             response.appendStatus(status);
         }
 
-        query.complete();
         return response.finish();
     }
 }

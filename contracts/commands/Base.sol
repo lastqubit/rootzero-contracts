@@ -2,8 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {NodeCalls} from "../core/Calls.sol";
-import {CommandEvent} from "../events/Command.sol";
-import {LabeledEvent} from "../events/Labeled.sol";
+import {EndpointBase} from "../core/Endpoint.sol";
+import {Cursors, Cur} from "../Cursors.sol";
 import {Keys} from "../blocks/Keys.sol";
 import {Nodes} from "../utils/Nodes.sol";
 
@@ -19,9 +19,8 @@ struct CommandContext {
 
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
-/// Provides access control modifiers, event emission, and the `commandId`
-/// helper used to derive stable identifiers for command selectors.
-abstract contract CommandBase is NodeCalls, CommandEvent, LabeledEvent {
+/// Provides access control modifiers and command endpoint metadata helpers.
+abstract contract CommandBase is NodeCalls, EndpointBase {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
 
@@ -45,12 +44,54 @@ abstract contract CommandBase is NodeCalls, CommandEvent, LabeledEvent {
         _;
     }
 
-    /// @notice Derive the deterministic node ID for a command selector on this contract.
-    /// The ID encodes the ABI selector and `address(this)`, making it unique
-    /// per (function selector, contract address) pair.
-    /// @param selector Command entrypoint selector.
-    /// @return Command node ID.
-    function commandId(bytes4 selector) internal view returns (uint) {
-        return Nodes.toCommand(selector, address(this));
+    /// @notice Publish command metadata and a default label.
+    function command(
+        string memory name,
+        bytes9 state,
+        bytes9 input,
+        bytes9 output,
+        bytes4 selector,
+        bool funded,
+        bool admin
+    ) internal returns (uint id, bytes32 descriptor) {
+        if (selector == bytes4(0)) {
+            selector = bytes4(keccak256(bytes(string.concat(name, "((bytes32,bytes,bytes))"))));
+        }
+        id = Nodes.toCommand(selector, address(this));
+        descriptor = endpoint(state, input, output, funded, admin);
+        defineEndpoint(host, id, descriptor, name);
+    }
+
+    /// @notice Open a command state cursor and return the expected output block count.
+    function openState(
+        CommandContext calldata c,
+        bytes32 descriptor
+    ) internal pure returns (Cur memory state, uint outputs) {
+        uint groups;
+        (state, groups) = Cursors.init(c.state, stateGroup(descriptor));
+        outputs = groups * outputGroup(descriptor);
+    }
+
+    /// @notice Open input/state cursors and return the expected output block count.
+    function openCommand(
+        CommandContext calldata c,
+        bytes32 descriptor
+    ) internal pure returns (Cur memory input, Cur memory state, uint outputs) {
+        uint requestGroup = inputGroup(descriptor);
+        uint stateGroup_ = stateGroup(descriptor);
+
+        uint groups;
+        (input, groups) = Cursors.init(c.request, requestGroup);
+
+        uint stateGroups;
+        (state, stateGroups) = Cursors.init(c.state, stateGroup_);
+
+        if (requestGroup == 0) {
+            groups = stateGroups;
+        } else if (stateGroup_ != 0 && stateGroups != groups) {
+            revert Cursors.BadRatio();
+        }
+
+        outputs = groups * outputGroup(descriptor);
     }
 }

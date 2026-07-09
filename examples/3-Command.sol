@@ -7,26 +7,23 @@ pragma solidity ^0.8.33;
 // A command is an abstract contract mixed into a host (not deployed standalone).
 //
 // Three things every custom command needs:
-//   1. A deterministic command ID derived from the command name + address.
-//   2. A Command event emitted in the constructor to announce the command to the protocol.
+//   1. A descriptor for the state/input/output streams.
+//   2. Metadata defined in the constructor to announce the command to the protocol.
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller.
 
 import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
+import {Cursors, Cur} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
 abstract contract MyCommand is CommandBase {
-    // commandId() hashes the selector with the contract address to produce a unique ID.
-    // Immutable so it is computed once at deploy time.
-    uint internal immutable myCommandId = commandId(this.myCommand.selector);
+    // The descriptor announces accepted input, state, output, and flags.
+    bytes32 private immutable descriptor;
 
     constructor() {
         // Announce this command to the rootzero protocol.
-        // Args: host id, command id, request shape, request schema, input channel, output channel.
-        // SETUP = no structured input channel; BALANCES = this command returns BALANCE blocks.
-        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
-        emit Labeled(myCommandId, bytes32(0), "myCommand");
+        // Args: label, state, input, output, selector override, funded.
+        (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     function myCommand(

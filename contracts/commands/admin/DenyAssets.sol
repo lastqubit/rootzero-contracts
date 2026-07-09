@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { AdminBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur, Schemas } from "../../Cursors.sol";
+import { Cursors, Cur } from "../../Cursors.sol";
 using Cursors for Cur;
 
 abstract contract DenyAssetsHook {
@@ -16,11 +16,10 @@ abstract contract DenyAssetsHook {
 /// @notice Admin command that blocks a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
 abstract contract DenyAssets is AdminBase, DenyAssetsHook {
-    uint internal immutable denyAssetsId = commandId(this.denyAssets.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Admin(host, denyAssetsId, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false);
-        emit Labeled(denyAssetsId, bytes32(0), "denyAssets");
+        (, descriptor) = command("denyAssets", Keys.Empty, Keys.Asset, Keys.Empty, 0, false, true);
     }
 
     /// @notice Deny each ASSET block in the admin request.
@@ -29,14 +28,12 @@ abstract contract DenyAssets is AdminBase, DenyAssetsHook {
     function denyAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
 
-        while (request.i < request.len) {
-            bytes32 asset = request.unpackAsset();
+        while (input.i < input.len) {
+            bytes32 asset = input.unpackAsset();
             denyAsset(asset);
         }
-
-        request.complete();
         return "";
     }
 }

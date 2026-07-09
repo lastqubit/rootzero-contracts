@@ -19,25 +19,22 @@ abstract contract BurnHook {
 /// @notice Command that irreversibly destroys each BALANCE state block via a virtual hook.
 /// Produces no output state.
 abstract contract Burn is CommandBase, BurnHook {
-    uint internal immutable burnId = commandId(this.burn.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, burnId, "0:1:0", "", Keys.Balance, Keys.Empty, false);
-        emit Labeled(burnId, bytes32(0), "burn");
+        (, descriptor) = command("burn", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
     }
 
     /// @notice Burn each BALANCE block from the command state.
     /// @param c Command context; `c.state` must contain BALANCE blocks.
     /// @return Empty output state.
     function burn(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory state, ) = Cursors.init(c.state, 1);
+        (Cur memory state, ) = openState(c, descriptor);
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
             burn(c.account, asset, amount);
         }
-
-        state.complete();
         return "";
     }
 }

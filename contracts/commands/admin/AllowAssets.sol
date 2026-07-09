@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { AdminBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur, Schemas } from "../../Cursors.sol";
+import { Cursors, Cur } from "../../Cursors.sol";
 using Cursors for Cur;
 
 abstract contract AllowAssetsHook {
@@ -16,11 +16,10 @@ abstract contract AllowAssetsHook {
 /// @notice Admin command that permits a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `allowAsset`. Only callable by the admin account.
 abstract contract AllowAssets is AdminBase, AllowAssetsHook {
-    uint internal immutable allowAssetsId = commandId(this.allowAssets.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Admin(host, allowAssetsId, "1:0:0", Schemas.Asset, Keys.Empty, Keys.Empty, false);
-        emit Labeled(allowAssetsId, bytes32(0), "allowAssets");
+        (, descriptor) = command("allowAssets", Keys.Empty, Keys.Asset, Keys.Empty, 0, false, true);
     }
 
     /// @notice Allow each ASSET block in the admin request.
@@ -29,14 +28,12 @@ abstract contract AllowAssets is AdminBase, AllowAssetsHook {
     function allowAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
 
-        while (request.i < request.len) {
-            bytes32 asset = request.unpackAsset();
+        while (input.i < input.len) {
+            bytes32 asset = input.unpackAsset();
             allowAsset(asset);
         }
-
-        request.complete();
         return "";
     }
 }

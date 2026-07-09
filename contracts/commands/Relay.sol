@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {CommandBase, CommandContext, Keys} from "./Base.sol";
 import {Payable} from "../core/Payable.sol";
-import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Cursors, Cur} from "../Cursors.sol";
 import {Budget} from "../utils/Value.sol";
 
 using Cursors for Cur;
@@ -25,25 +25,24 @@ abstract contract RoutePayableHook {
 /// the same state from being duplicated across multiple relays.
 /// Produces no output state.
 abstract contract RelayPayable is CommandBase, Payable, RoutePayableHook {
-    uint internal immutable relayPayableId = commandId(this.relayPayable.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, relayPayableId, "1:0:0", Schemas.Relay, Keys.Any, Keys.Empty, true);
-        emit Labeled(relayPayableId, bytes32(0), "relayPayable");
+        (, descriptor) = command("relayPayable", Keys.Any, Keys.Relay, Keys.Empty, 0, true, false);
     }
 
     /// @notice Relay one RELAY request block with the command account and current state.
     /// @param c Command context; `c.request` must contain exactly one RELAY block.
-    /// @return output Empty output state.
-    function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory output) {
-        Cur memory request = Cursors.init(c.request, 1, 1);
-        Budget memory budget = openValue();
+    /// @return Empty output state.
+    function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory) {
+        (Cur memory input, ) = openInput(c.request, descriptor);
+        (uint portal, uint resources, bytes memory context) = input.relayToContext(c.account, c.state);
+        input.complete();
 
-        (uint portal, uint resources, bytes memory context) = request.relayToContext(c.account, c.state);
+        Budget memory budget = openValue();
         route(portal, resources, context, budget);
 
         closeValue(c.account, budget);
-        request.complete();
         return "";
     }
 }

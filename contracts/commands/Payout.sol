@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {CommandContext, CommandBase, Keys} from "./Base.sol";
-import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Cursors, Cur} from "../Cursors.sol";
 
 using Cursors for Cur;
 
@@ -20,26 +20,22 @@ abstract contract PayoutHook {
 /// @notice Command that sinks BALANCE state blocks to matching ACCOUNT request blocks.
 /// Each BALANCE block is paired with one ACCOUNT block at the same position.
 abstract contract Payout is CommandBase, PayoutHook {
-    uint internal immutable payoutId = commandId(this.payout.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, payoutId, "1:1:0", Schemas.Account, Keys.Balance, Keys.Empty, false);
-        emit Labeled(payoutId, bytes32(0), "payout");
+        (, descriptor) = command("payout", Keys.Balance, Keys.Account, Keys.Empty, 0, false, false);
     }
 
     /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
     /// @param c Command context; `c.state` must contain BALANCE blocks and `c.request` matching ACCOUNT blocks.
     /// @return Empty output state.
     function payout(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory state, uint groups) = Cursors.init(c.state, 1);
-        Cur memory request = Cursors.init(c.request, 1, groups);
+        (Cur memory input, Cur memory state, ) = openCommand(c, descriptor);
 
         while (state.i < state.len) {
             (bytes32 asset, uint amount) = state.unpackBalance();
-            payout(c.account, request.unpackAccount(), asset, amount);
+            payout(c.account, input.unpackAccount(), asset, amount);
         }
-
-        state.complete();
         return "";
     }
 }

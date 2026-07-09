@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {GuardBase} from "./Base.sol";
-import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Cursors, Cur, Keys} from "../Cursors.sol";
 using Cursors for Cur;
 
 /// @title Revoke
@@ -10,21 +10,19 @@ using Cursors for Cur;
 /// Each NODE block in the request is deauthorized on the host.
 /// Only callable by active guardian addresses.
 abstract contract Revoke is GuardBase {
-    uint internal immutable revokeId = guardId(this.revoke.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Guard(host, revokeId, Schemas.Node);
-        emit Labeled(revokeId, bytes32(0), "revoke");
+        (, descriptor) = guard("revoke", Keys.Node, 0);
     }
 
     function revoke(bytes calldata request) external onlyGuardian {
-        (Cur memory input, ) = Cursors.init(request, 1);
+        (Cur memory input, ) = openInput(request, descriptor);
 
         while (input.i < input.len) {
             uint node = input.unpackNode();
             setNode(node, false);
         }
 
-        input.complete();
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { AdminBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur, Schemas } from "../../Cursors.sol";
+import { Cursors, Cur } from "../../Cursors.sol";
 using Cursors for Cur;
 
 /// @title Dismiss
@@ -10,11 +10,10 @@ using Cursors for Cur;
 /// Each ACCOUNT block in the request is disabled as a guardian on the host.
 /// Only callable by the admin account.
 abstract contract Dismiss is AdminBase {
-    uint internal immutable dismissId = commandId(this.dismiss.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Admin(host, dismissId, "1:0:0", Schemas.Account, Keys.Empty, Keys.Empty, false);
-        emit Labeled(dismissId, bytes32(0), "dismiss");
+        (, descriptor) = command("dismiss", Keys.Empty, Keys.Account, Keys.Empty, 0, false, true);
     }
 
     /// @notice Dismiss each ACCOUNT block in the admin request from guardian status.
@@ -23,14 +22,12 @@ abstract contract Dismiss is AdminBase {
     function dismiss(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory request, ) = Cursors.init(c.request, 1);
+        (Cur memory input, ) = openInput(c.request, descriptor);
 
-        while (request.i < request.len) {
-            bytes32 account = request.unpackAccount();
+        while (input.i < input.len) {
+            bytes32 account = input.unpackAccount();
             setGuardian(account, false);
         }
-
-        request.complete();
         return "";
     }
 }

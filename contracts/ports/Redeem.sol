@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Cursors, Cur, Schemas} from "../Cursors.sol";
+import {Cursors, Cur, Keys} from "../Cursors.sol";
 
 using Cursors for Cur;
 
@@ -19,26 +19,23 @@ abstract contract RedeemBalanceHook {
 /// Each BALANCE block in the request calls `redeemBalance(peer, asset, amount)`.
 /// Restricted to trusted peers.
 abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
-    uint internal immutable portRedeemBalanceId = portId(this.portRedeemBalance.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Port(host, portRedeemBalanceId, "1:0", Schemas.Balance, "", false);
-        emit Labeled(portRedeemBalanceId, bytes32(0), "portRedeemBalance");
+        (, descriptor) = port("portRedeemBalance", Keys.Balance, Keys.Empty, 0, false);
     }
 
     /// @notice Execute the balance redemption port call.
     /// @param data BALANCE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portRedeemBalance(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory input, ) = Cursors.init(data, 1);
+        (Cur memory input, ) = openInput(data, descriptor);
         uint peer = caller();
 
         while (input.i < input.len) {
             (bytes32 asset, uint amount) = input.unpackBalance();
             redeemBalance(peer, asset, amount);
         }
-
-        input.complete();
         return "";
     }
 }

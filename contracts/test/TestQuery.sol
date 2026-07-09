@@ -7,27 +7,27 @@ import {QueryBase} from "../queries/Base.sol";
 using Cursors for Cur;
 using Writers for Writer;
 
-string constant INPUT = "uint foo";
-string constant OUTPUT = "uint bar";
-
 contract TestQuery is QueryBase {
-    uint public immutable incrementQueryId = queryId(this.incrementQuery.selector);
+    bytes4 private immutable Value = Keys.local(1);
+    bytes32 private constant ValueName = bytes32("value");
+    string private constant ValueSchema = "{ uint value }";
+
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Query(host, incrementQueryId, "1:1", INPUT, OUTPUT);
-        emit Labeled(incrementQueryId, bytes32(0), "incrementQuery");
+        (, descriptor) = query("incrementQuery", schema(Value, ValueSchema, ValueName), Value, 0);
     }
 
-    function incrementQuery(bytes calldata request) external pure returns (bytes memory out) {
-        (Cur memory input, uint groups) = Cursors.init(request, 1);
-        Writer memory writer = Writers.alloc32s(groups);
+    function incrementQuery(bytes calldata request) external view returns (bytes memory out) {
+        (Cur memory input, uint outputs) = openInput(request, descriptor);
+        Writer memory output = Writers.alloc32s(outputs);
 
         while (input.i < input.len) {
-            uint foo = uint(input.unpack32(Keys.Data));
-            writer.appendBlock32(Keys.Data, bytes32(foo + 1), 32);
+            uint foo = uint(input.unpack32(Value));
+            output.appendBlock32(Value, bytes32(foo + 1), 32);
         }
 
         input.complete();
-        out = writer.finish();
+        out = output.finish();
     }
 }

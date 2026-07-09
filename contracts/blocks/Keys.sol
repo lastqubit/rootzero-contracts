@@ -2,9 +2,19 @@
 pragma solidity ^0.8.33;
 
 /// @title Keys
-/// @notice Block type selectors for the rootzero block stream protocol.
-/// Each key is the first 4 bytes of the keccak256 hash of its block name.
+/// @notice Standard block type selectors for the rootzero block stream protocol.
+/// Standard keys use the first 4 bytes of `keccak256("#name")` by convention.
+/// Custom block keys only need to be unique in the context where they are used;
+/// hosts may publish custom key meanings with the `Block` event.
 library Keys {
+    /// @notice Create a context-local block key.
+    /// @dev Local keys are opaque tags for host- or endpoint-specific schemas.
+    /// The caller is responsible for choosing values that are unique in the
+    /// context where they are used and publishing their meaning with `Block`.
+    function local(uint32 value) internal pure returns (bytes4) {
+        return bytes4(value);
+    }
+
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
     /// @dev Wildcard key used in discovery when any block stream is accepted.
@@ -27,8 +37,6 @@ library Keys {
     bytes4 constant Fee = bytes4(keccak256("#fee"));
     /// @dev List wrapper; payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256("#list"));
-    /// @dev Extensible data field; layout is schema-defined
-    bytes4 constant Data = bytes4(keccak256("#data"));
     /// @dev EVM-encoded payload field; layout follows standard ABI tuple encoding
     bytes4 constant Evm = bytes4(keccak256("#evm"));
     /// @dev Reserved raw bytes child block.

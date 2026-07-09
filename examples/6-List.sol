@@ -3,9 +3,9 @@ pragma solidity ^0.8.33;
 
 // Example 6: List Blocks
 //
-// `many #asset { ... }` means: one LIST block whose payload is a stream of ASSET blocks.
+// `many #asset` means: one LIST block whose payload is a stream of ASSET blocks.
 // That does not change the top-level request model: requests are still batches of
-// top-level blocks. So a command with INPUT = `many #asset { ... }` accepts:
+// top-level blocks. So a command with INPUT = `many #asset` accepts:
 //
 //   LIST(asset, asset, ...)
 //   LIST(asset, ...)
@@ -20,40 +20,35 @@ pragma solidity ^0.8.33;
 
 import {Host} from "../contracts/Core.sol";
 import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cursors, Cur, Schemas} from "../contracts/Cursors.sol";
+import {Cursors, Cur} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
-// Lists are declared with the `many` prefix.
-// Here the item shape is `#asset { bytes32 asset }`, so:
+// Off-chain schema metadata may describe this list as:
 //
-//   many #asset { bytes32 asset }
+//   many #asset
 //
 // means "one LIST block whose payload is a repeated stream of ASSET blocks".
 // The request can still batch multiple such LIST blocks at the top level.
-string constant INPUT = string.concat("many ", Schemas.Asset);
 
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(this.myCommand.selector);
+    bytes32 private immutable descriptor;
     event AssetSeen(uint indexed listIndex, bytes32 asset);
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:0", INPUT, Keys.Empty, Keys.Empty, false);
-        emit Labeled(myCommandId, bytes32(0), "myCommand");
+        (, descriptor) = command("myCommand", Keys.Empty, many(Keys.Asset), Keys.Empty, 0, false, false);
     }
 
     // consumeAssetList parses one top-level LIST block in place.
-    // `input.list(pos)` first verifies that the batch cursor is still at the
-    // expected top-level LIST position, then consumes the LIST header and returns
-    // the byte offset immediately after that list payload. The same cursor then
-    // walks the ASSET members inside the list until it reaches that boundary.
+    // `input.list()` consumes the LIST header and returns the byte offset
+    // immediately after that list payload. The same cursor then walks the
+    // ASSET members inside the list until it reaches that boundary.
     //
     // When this hook returns, `input.i` is positioned exactly at the next
     // top-level block in the request, so the outer loop can keep batching
     // over additional LIST blocks.
     function consumeAssetList(Cur memory input, uint listIndex) internal {
-        uint pos = input.i;
-        uint next = input.list(pos);
+        uint next = input.list();
 
         while (input.i < next) {
             bytes32 asset = input.unpackAsset();
@@ -64,21 +59,21 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        Cur memory request = Cursors.open(c.request);
+        Cur memory input = Cursors.open(c.request);
         uint listIndex;
 
-        // INPUT publishes one list item shape, but the request is still a
+        // INPUT publishes one list item descriptor, but the request is still a
         // top-level batch. Each iteration here consumes one LIST block and
         // emits one event for every ASSET block inside that list.
-        while (request.i < request.len) {
-            consumeAssetList(request, listIndex);
+        while (input.i < input.len) {
+            consumeAssetList(input, listIndex);
 
             unchecked {
                 ++listIndex;
             }
         }
 
-        request.complete();
+        input.complete();
         return "";
     }
 }
