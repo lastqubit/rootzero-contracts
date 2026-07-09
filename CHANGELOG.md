@@ -5,6 +5,21 @@ breaking API changes. Breaking changes are called out explicitly.
 
 ## Unreleased
 
+### Breaking Changes
+
+- Replaced the separate command, port, query, guard, and admin discovery events
+  with the shared `Endpoint` event and a packed endpoint descriptor. Admin
+  commands are now identified by the descriptor admin flag.
+- Renamed the block discovery event to `Schema` and added a `name` field for
+  alias-style schema references.
+- Removed the generic `DATA` block type. Custom input blocks should define
+  their own local keys and publish schemas explicitly when they need discovery.
+- Removed the built-in admin `init` and `destroy` commands.
+- Removed the built-in `Positions` query; custom position output should be
+  modeled as a custom query.
+- Restored `Cursors.list` to enter the LIST block at the current cursor
+  position without requiring a separate `pos` argument.
+
 ## 1.10.0
 
 ### Breaking Changes

@@ -74,11 +74,12 @@ payload:
 [bytes4 key][uint32 payloadLen][payload]
 ```
 
-The key is `bytes4(keccak256("#name"))`, and the payload layout is described by
-a schema string. For example, the block that requests a deposit:
+The key is usually `bytes4(keccak256("#name"))`, and the payload layout is
+described by a schema body published under an alias. For example, the standard
+`amount` block that requests a deposit:
 
 ```txt
-#amount { bytes32 asset, uint amount }
+amount { bytes32 asset, uint amount }
 ```
 
 is 72 bytes on the wire: an 8-byte header followed by two big-endian 32-byte
@@ -102,8 +103,11 @@ on the wire. The full schema language is specified in
 A request is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
-The first item of a schema (the *prime item*) is the one that may repeat;
-later top-level items, if any, apply to the whole batch.
+The descriptor lane key is the prime item: it is the block type that may repeat
+for batching. Plain lanes are encoded as `[key][0]` and default to group size 1;
+generic list lanes such as `many #asset` are encoded as
+`[Keys.List][Keys.Asset]`, so indexers can see both the top-level LIST container
+and the item type inside it.
 
 Off-chain, building a batch is concatenation. Using the reference encoders from
 [`test/helpers/blocks.ts`](test/helpers/blocks.ts):
@@ -215,37 +219,34 @@ The request carries instructions; the state carries live value. While a
 sequence of commands executes, `#balance` and `#custody` blocks in the state
 are the funds being moved — produced by one command, consumed by the next.
 
-The standard `Deposit` mixin shows the canonical shape — init a cursor, loop
-the batch, call the hook, write the output run:
+The standard `Deposit` mixin shows the canonical shape — open the input,
+loop the batch, call the hook, write the output run:
 
 ```solidity
 function deposit(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-    (Cur memory request, uint groups) = Cursors.init(c.request, 1);
-    Writer memory writer = Writers.allocBalances(groups);
+    (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+    Writer memory output = Writers.allocBalances(outputs);
 
-    while (request.i < request.len) {
-        (bytes32 asset, uint amount) = request.unpackAmount();
+    while (input.i < input.len) {
+        (bytes32 asset, uint amount) = input.unpackAmount();
         deposit(c.account, asset, amount); // host policy hook
-        writer.appendBalance(asset, amount);
+        output.appendBalance(asset, amount);
     }
 
-    request.complete();
-    return writer.finish();
+    return output.finish();
 }
 ```
 
 A command announces itself when the host is deployed. Its constructor emits a
-discovery event carrying the request schema, the expected and produced state
-block keys, and a shape string (`"1:0:1"` = one request block per operation, no
-input state, one output block per operation), plus a human-readable label:
+discovery event carrying a packed descriptor with the input, state, and output
+lanes, derived group sizes, and flags, plus a human-readable label:
 
 ```solidity
 abstract contract MyCommand is CommandBase {
-    uint internal immutable myCommandId = commandId(this.myCommand.selector);
+    bytes32 private immutable descriptor;
 
     constructor() {
-        emit Command(host, myCommandId, "1:0:1", Schemas.Amount, Keys.Empty, Keys.Balance, false);
-        emit Labeled(myCommandId, bytes32(0), "myCommand");
+        (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
@@ -266,7 +267,7 @@ A single command is rarely the whole story. A pipeline is a run of `#step`
 blocks executed in order within one transaction:
 
 ```txt
-#step { uint target, uint resources, #bytes as request }
+step { uint target, uint resources, #bytes as request }
 ```
 
 Each step names a target command, the resources it may spend, and its request.
@@ -297,22 +298,22 @@ standard `getBalances` query takes a run of positions and answers each one in
 order:
 
 ```txt
-request:  #accountAsset { bytes32 account, bytes32 asset }
-response: #accountAmount { bytes32 account, bytes32 asset, uint amount }
+request:  accountAsset { bytes32 account, bytes32 asset }
+response: accountAmount { bytes32 account, bytes32 asset, uint amount }
 ```
 
-Like commands, every query announces its request and response schemas at
-deployment, so tooling knows how to call it without artifacts.
+Like commands, every query announces a descriptor at deployment; tooling resolves
+the descriptor's lanes through the published block schemas.
 
 ## Ports
 
 Ports are the host-to-host surfaces, callable only by trusted peer hosts. The two
 central ones are batches all the way down:
 
-- `portSettle` consumes `#transaction { bytes32 from, bytes32 to, bytes32 asset,
+- `portSettle` consumes `transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
   block — how two hosts record settlement between their ledgers.
-- `portPipePayable` consumes `#context` blocks, each carrying an account, an
+- `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
 
@@ -339,8 +340,8 @@ drop a trusted node immediately.
 ## Events and Discovery
 
 Hosts are self-describing. At deployment a host emits the ABI of every event it
-uses (`EventAbi`), a discovery event per endpoint with its full schemas, and
-labels for human-readable names. State changes then follow evented
+uses (`EventAbi`), block schema events, endpoint descriptors, and labels for
+human-readable names. State changes then follow evented
 conventions: `Balance` for every ledger change and flow events (`Received`,
 `Spent`, `Locked`, `Unlocked`) for value movement, each tagged with the endpoint that
 caused it. An indexer can reconstruct the entire repository — endpoints,

@@ -349,7 +349,7 @@ The bridge adapter is the only component that cares about remote chain identity.
 The destination payload is:
 
 ```text
-#context {
+context {
   bytes32 account,
   #bytes state,
   #bytes request     // STEP block stream for pipe execution

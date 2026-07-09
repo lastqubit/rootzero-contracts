@@ -30,20 +30,19 @@ discovery event from its constructor, so a host's deployment transaction
 contains its full endpoint catalog:
 
 ```txt
-event Command(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool funded)
-event Admin(uint indexed host, uint id, bytes32 shape, string request, bytes4 state, bytes4 output, bool funded)
-event Query(uint indexed host, uint id, bytes32 shape, string request, string response)
-event Port(uint indexed host, uint id, bytes32 shape, string request, string response, bool funded)
-event Guard(uint indexed host, uint id, string request)
+event Endpoint(uint indexed host, uint indexed id, bytes32 descriptor)
 ```
 
-- `shape` packs per-operation block counts as ASCII (`request:state:output` for
-  commands, `request:response` for queries and ports).
-- `request`, `response` are schema DSL strings per Schema.md, including dotted
-  field paths and aliases for off-chain projection.
-- `state`, `output` are the block keys for pipeline state in and out
-  (`Keys.Empty`, `Keys.Any`, or a concrete key such as `Keys.Balance`).
-- `funded` marks payable entrypoints.
+- `descriptor` packs state, input, and output lanes, each lane's group size,
+  endpoint flags such as funded and admin, and a descriptor version. Each packed
+  lane key is `[key bytes4][item bytes4]`: plain block lanes use `[key][0]`,
+  while generic containers such as `many #asset` use
+  `[Keys.List][Keys.Asset]`. Solidity endpoint helpers default non-empty lanes
+  to group size 1 unless `group(lane, size)` supplies an explicit size.
+- Command, port, query, and guard endpoints all share `Endpoint`; admin commands
+  are marked by the descriptor's admin flag.
+- block schema strings are published separately with
+  `event Schema(uint indexed host, bytes4 key, string schema, bytes32 name)`.
 
 Names arrive separately. Each standard mixin emits a canonical label at
 construction, and the admin `label` command publishes mutable namespaced labels

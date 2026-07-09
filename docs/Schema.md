@@ -1,8 +1,10 @@
 # Schema
 
 Rootzero request and response data is encoded as a stream of typed blocks. A
-schema string describes payload layout for discovery events and tooling; the
-runtime block key is derived only from the block name.
+schema string describes the payload body for discovery events and tooling; the
+runtime block key is the compact type tag that identifies that payload layout in
+the active schema context. The block alias is published separately from the
+payload schema.
 
 ## Wire Format
 
@@ -15,39 +17,50 @@ Every block uses the same header:
 `payloadLen` is big-endian and counts only payload bytes. Child blocks and list
 items use the same header format.
 
-The block key is:
+Standard built-in block keys use:
 
 ```txt
 bytes4(keccak256("#name"))
 ```
 
-For example, `#amount { bytes32 asset, uint amount }` uses the key
-derived from `#amount`. Blocks must not be overloaded: one block name should have
-one protocol meaning.
+For example, the standard `amount` alias uses the key derived from `#amount`
+and the schema body `{ bytes32 asset, uint amount }`. Custom block keys do not
+have to be keccak-derived. They
+are opaque `bytes4` tags and only need to be unique in the context where they are
+used. A host can publish the meaning of a custom key with:
+
+```solidity
+event Schema(uint indexed host, bytes4 key, string schema, bytes32 name);
+```
+
+For example, a host-specific payment block can use `Keys.local(1)`, the command
+selector, or any other chosen `bytes4` value as long as that key is not
+overloaded in the relevant host/schema context.
 
 ## Block Syntax
 
-A block starts with `#`. Fixed fields are written in braces:
+A block definition has an event alias and a schema body. Fixed fields are
+written in braces:
 
 ```txt
-#amount { bytes32 asset, uint amount }
-#account { bytes32 account }
+alias:  amount
+schema: { bytes32 asset, uint amount }
 ```
 
-A block without braces has no payload:
+A block body can reference another block alias as a child item with `#`:
 
 ```txt
-#unit
-#bytes
+{ bytes32 account, #bytes as state, #bytes as request }
 ```
 
-Empty braces are invalid. A zero-payload block must omit braces.
+The empty schema string `""` means the block has no structured payload. This is
+used for zero-payload blocks such as `#unit` and raw dynamic blocks such as
+`#bytes`.
 
-A schema is a comma-separated list of items. Order is significant.
+A schema body is a comma-separated list of items. Order is significant.
 
 ```txt
-#amount { bytes32 asset, uint amount },
-maybe #account { bytes32 account }
+{ #amount, maybe #account as recipient }
 ```
 
 ## Payload Layout
@@ -56,8 +69,8 @@ A block payload has fixed fields first, followed by an optional child-block tail
 Once a child block appears, no more fixed fields may follow.
 
 ```txt
-#call { uint target, uint resources, #bytes as payload }
-#context { bytes32 account, #bytes as state, #bytes as request }
+{ uint target, uint resources, #bytes as payload }
+{ bytes32 account, #bytes as state, #bytes as request }
 ```
 
 The tail is embedded directly as child block bytes. There is no wrapper around a
@@ -75,59 +88,85 @@ alias to give those bytes a presentation name:
 Cardinality is expressed with prefix keywords:
 
 ```txt
-#balance { bytes32 asset, uint amount }
-maybe #balance { bytes32 asset, uint amount }
-many #balance { bytes32 asset, uint amount }
-maybe many #balance { bytes32 asset, uint amount }
+#balance
+maybe #balance
+many #balance
+maybe many #balance
 ```
 
 - no prefix: one required item
 - `maybe`: optional item
-- `many`: one `#list` block whose payload contains repeated items
+- `many`: one generic `#list` block whose payload contains repeated items
 - `maybe many`: optional `#list` block
 
 `maybe` emits no placeholder when absent. `many` wraps repeated items in one
 generic list block; it does not repeat the item in place.
 
-## Prime Items
+## Endpoint Lanes
 
-The empty string `""` means no schema. Whitespace-only schemas are invalid.
+Endpoint descriptors identify each lane with a block key and group size. In
+Solidity, `endpoint(state, input, output, funded)` accepts `bytes9` lane values:
+a plain `bytes4` block key defaults to group size 1, while `bytes9(0)` or
+`Keys.Empty` means the endpoint has no blocks in that lane. Use
+`group(lane, size)` when a lane needs an explicit group size other than 1.
 
-For a non-empty schema, the first top-level item is the prime item. Prime items
-may repeat at the top level for batching. Later top-level items are globals for
-the whole batch and are not counted as per-operation prime blocks.
-
-The prime item cannot be optional. If a command needs a per-operation marker with
-no payload, use a zero-payload block such as `#unit`.
-
-Command request and state streams currently use a narrower convention than the
-full block grammar: each is a single run of blocks, without additional global
-items. Future protocol surfaces may use the more flexible top-level structure,
-but command discovery metadata should describe only that one-run shape.
-
-## Aliases
-
-Aliases are presentation metadata for tooling. They do not change payload layout
-or runtime keys.
+The packed descriptor stores each lane key as an 8-byte value:
 
 ```txt
-maybe #account { bytes32 account } as recipient
-#call { uint target, uint resources, #bytes as payload }
+[key bytes4][item bytes4]
 ```
 
-Aliases may be used on any block item, including child blocks and prime items.
+A plain block key is widened into `[key][0]`, so normal endpoint declarations can
+pass standard `bytes4` keys directly. A lane with a nonzero `item` describes a
+generic container block: `key` is the top-level wire key and `item` is the
+contained item key. The built-in `many(item)` helper creates `[Keys.List][item]`
+with the default group size 1, matching the DSL form `many #item`.
 
-A child block without an inline body may also be used as a schema reference:
+Any non-empty lane resolves its key to a block alias and schema body through the
+active schema context. If the item slot is nonzero, tooling also resolves that
+item key in the same context. A bare list lane, `[Keys.List][0]`, is incomplete
+discovery metadata because it does not say what the list contains; indexers
+should reject it for self-describing endpoints.
+
+The lane key is the prime item. Prime items may repeat at the top level for
+batching. When the lane is `many #item`, the repeated prime item is the generic
+LIST block and each LIST payload contains repeated `item` blocks. Later
+top-level items are globals for the whole batch and are not counted as
+per-operation prime blocks.
+
+The prime item cannot be optional. If an endpoint needs a per-operation marker
+with no payload, use a zero-payload block such as `#unit`.
+
+Endpoint descriptors currently use a narrower convention than the full block
+grammar: each state, input, or output lane is a single run of blocks, without
+additional global items. Future protocol surfaces may use the more flexible
+top-level structure.
+
+## Field Aliases
+
+Block aliases are published in `Block` events. Field aliases are presentation
+metadata for tooling. They do not change payload layout or runtime keys.
 
 ```txt
-#recover { uint handler, uint resources, bytes32 key, #bytes as witness }
+maybe #account as recipient
+{ uint target, uint resources, #bytes as payload }
 ```
 
-Alias resolution is context-dependent. A consumer may resolve `#context` from the
-standard `Schemas` table, from app-specific schemas, or from another active
-schema context. Consumers should reject schemas with unresolved aliases. The
-runtime encoding is still an embedded child block with the referenced key and
-layout.
+Field aliases may be used on any block item, including child blocks and prime
+items.
+
+Child blocks are schema references:
+
+```txt
+{ uint handler, uint resources, bytes32 key, #bytes as witness }
+```
+
+Alias resolution is context-dependent. A consumer may resolve `#context` from
+standard block events, from app-specific block events, or from another active
+schema context. Custom parents should define nested custom blocks from the
+bottom up and reference them by alias. Consumers should reject schemas with
+unresolved aliases. The runtime encoding is still an embedded child block with
+the referenced key and layout.
 
 ## Field Paths
 
@@ -136,13 +175,13 @@ path does not change the block key, payload bytes, payload length, cursor
 behavior, or any onchain validation. It is metadata only.
 
 ```txt
-#dispatch { uint dst.portal, uint dst.resources, #bytes as dst.payload }
+{ uint dst.portal, uint dst.resources, #bytes as dst.payload }
 ```
 
 This has the same runtime layout as:
 
 ```txt
-#dispatch { uint portal, uint resources, #bytes as payload }
+{ uint portal, uint resources, #bytes as payload }
 ```
 
 Offchain tooling may decode the dotted form into a nested object:
@@ -169,11 +208,11 @@ uint dst.portal, uint dst.portal    // duplicate path
 uint dst, uint dst.portal           // prefix/value collision
 ```
 
-The same rule applies to block aliases:
+The same rule applies to field aliases:
 
 ```txt
-#call { uint target, uint resources, #bytes as calldata.payload }
-maybe #account { bytes32 account } as recipient.account
+{ uint target, uint resources, #bytes as calldata.payload }
+maybe #account as recipient.account
 ```
 
 ## Field Types
@@ -226,8 +265,8 @@ the layout of an ID only apply to structured IDs.
 
 ## Identifiers
 
-Block names use lower camelCase ASCII identifiers. Field names and aliases use
-one or more lower camelCase path segments separated by dots:
+Block aliases use lower camelCase ASCII identifiers. Field names and aliases
+use one or more lower camelCase path segments separated by dots:
 
 ```txt
 [a-z][a-zA-Z0-9]*
@@ -246,48 +285,39 @@ asset.
 ```
 
 Reserved words include `maybe`, `many`, `as`, all field type names, and the
-reserved block names `bytes`, `data`, and `list`. For dotted paths, reserved
-words are invalid in any path segment.
+reserved block aliases `bytes` and `list`. For dotted paths, reserved words are
+invalid in any path segment.
 
 ## Reserved Blocks
 
 - `#bytes`: raw dynamic bytes, written without a body
-- `#data`: generic/custom payload block
 - `#list`: generic list wrapper emitted by `many`
 
-Use `#data` when a local schema needs a stable generic key:
+Custom input shapes should define their own context-local block key and publish
+that key with a `Block` event:
 
-```txt
-#data { uint foo, bytes32 tag }
-#data { #bytes as payload }
+```solidity
+bytes4 constant Input = Keys.local(1);
+emit Schema(host, Input, "{ bytes32 asset, uint amount }", bytes32("payment"));
 ```
 
-If a schema string starts with a fixed field type, it is shorthand for one
-top-level `#data` block:
-
-```txt
-uint foo, bytes32 tag
-```
-
-expands to:
-
-```txt
-#data { uint foo, bytes32 tag }
-```
+The key can be a small literal, a selector, or any other `bytes4` value that is
+unique in the context where it is used. The alias names the block; the schema
+string describes only the payload body.
 
 ## Standard Blocks
 
 Common protocol schemas live in `contracts/blocks/Schema.sol`:
 
 ```txt
-#amount { bytes32 asset, uint amount }
-#balance { bytes32 asset, uint amount }
-#custody { uint host, bytes32 asset, uint amount }
-#call { uint target, uint resources, #bytes as payload }
-#step { uint target, uint resources, #bytes as request }
-#context { bytes32 account, #bytes as state, #bytes as request }
-#recover { uint handler, uint resources, bytes32 key, #bytes as witness }
-#auth { uint cid, uint deadline, #bytes as proof }
+amount   { bytes32 asset, uint amount }
+balance  { bytes32 asset, uint amount }
+custody  { uint host, bytes32 asset, uint amount }
+call     { uint target, uint resources, #bytes as payload }
+step     { uint target, uint resources, #bytes as request }
+context  { bytes32 account, #bytes as state, #bytes as request }
+recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
+auth     { uint cid, uint deadline, #bytes as proof }
 ```
 
-`Keys.sol` contains the corresponding runtime keys.
+`Keys.sol` contains the corresponding standard runtime keys.
