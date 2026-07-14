@@ -3,7 +3,7 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
-## Unreleased
+## 1.11.0
 
 ### Breaking Changes
 
@@ -21,6 +21,8 @@ breaking API changes. Breaking changes are called out explicitly.
   modeled as a custom query.
 - Changed `Cursors.list` to consume the LIST block and return a cursor scoped
   to its payload instead of returning the list's end offset.
+- Renamed the `CommandContext.request` field to `input`. The tuple layout and
+  command selectors are unchanged.
 
 ## 1.10.0
 
