@@ -105,9 +105,11 @@ generic list block; it does not repeat the item in place.
 ## Endpoint Lanes
 
 Endpoint descriptors identify each lane with a block key and group size. In
-Solidity, `endpoint(state, input, output, funded)` accepts `bytes9` lane values:
-a plain `bytes4` block key defaults to group size 1, while `bytes9(0)` or
-`Keys.Empty` means the endpoint has no blocks in that lane. Use
+Solidity, endpoint definition helpers accept `bytes9` lane values, with plain
+`bytes4` keys and the `bytes8` values returned by `many(item)` widening
+implicitly. A plain key or `many(item)` stores a zero group byte that readers
+interpret as group size 1, while `bytes9(0)` or `Keys.Empty` means the endpoint
+has no blocks in that lane. Use
 `group(lane, size)` when a lane needs an explicit group size other than 1.
 
 The packed descriptor stores each lane key as an 8-byte value:

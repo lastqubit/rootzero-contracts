@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import { NodeCalls } from "../core/Calls.sol";
 import { EndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
+import { Selectors } from "../utils/Selectors.sol";
 
 /// @title PortBase
 /// @notice Abstract base for peer-facing rootzero ports.
@@ -29,10 +30,9 @@ abstract contract PortBase is NodeCalls, EndpointBase {
         bool funded
     ) internal returns (uint id, bytes32 descriptor) {
         if (selector == bytes4(0)) {
-            selector = bytes4(keccak256(bytes(string.concat(name, "(bytes)"))));
+            selector = Selectors.port(name);
         }
         id = Nodes.toPort(selector, address(this));
-        descriptor = endpoint(bytes9(0), input, output, funded, false);
-        defineEndpoint(host, id, descriptor, name);
+        descriptor = endpoint(id, name, bytes9(0), input, output, funded, false);
     }
 }

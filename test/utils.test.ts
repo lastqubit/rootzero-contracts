@@ -67,6 +67,19 @@ describe("Utils", () => {
     });
   });
 
+  describe("Selectors", () => {
+    it("derives canonical selectors for every endpoint type", async () => {
+      const direct = ethers.dataSlice(ethers.id("example(bytes)"), 0, 4);
+
+      expect(await utils.testCommandSelector("example")).to.equal(
+        ethers.dataSlice(ethers.id("example((bytes32,bytes,bytes))"), 0, 4),
+      );
+      expect(await utils.testPortSelector("example")).to.equal(direct);
+      expect(await utils.testQuerySelector("example")).to.equal(direct);
+      expect(await utils.testGuardSelector("example")).to.equal(direct);
+    });
+  });
+
   // ── Accounts ──────────────────────────────────────────────────────────────
 
   describe("Accounts", () => {

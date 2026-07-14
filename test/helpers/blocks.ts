@@ -22,16 +22,10 @@ function laneValue(lane: string): bigint {
 }
 
 function laneGroup(lane: string, group?: number): number {
-  if (laneValue(lane) === 0n) return 0;
   if (group !== undefined) return group;
 
   const bytes = ethers.getBytes(lane);
-  if (bytes.length === 9) {
-    const packed = bytes[8];
-    if (packed !== 0) return packed;
-  }
-
-  return 1;
+  return bytes.length === 9 ? bytes[8] : 0;
 }
 
 export function endpointDescriptor({
@@ -54,7 +48,6 @@ export function endpointDescriptor({
   admin?: boolean;
 }): string {
   const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n);
-  const version = 1n;
   const stateGroups = laneGroup(state, stateGroup);
   const inputGroups = laneGroup(input, inputGroup);
   const outputGroups = laneGroup(output, outputGroup);
@@ -65,8 +58,7 @@ export function endpointDescriptor({
     (BigInt(inputGroups) << 112n) |
     (laneValue(output) << 48n) |
     (BigInt(outputGroups) << 40n) |
-    (flags << 32n) |
-    (version << 24n);
+    (flags << 32n);
 
   return ethers.zeroPadValue(ethers.toBeHex(descriptor), 32);
 }

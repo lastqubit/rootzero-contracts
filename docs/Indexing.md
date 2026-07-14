@@ -34,11 +34,11 @@ event Endpoint(uint indexed host, uint indexed id, bytes32 descriptor)
 ```
 
 - `descriptor` packs state, input, and output lanes, each lane's group size,
-  endpoint flags such as funded and admin, and a descriptor version. Each packed
+  endpoint flags such as funded and admin, and four reserved bytes. Each packed
   lane key is `[key bytes4][item bytes4]`: plain block lanes use `[key][0]`,
   while generic containers such as `many #asset` use
-  `[Keys.List][Keys.Asset]`. Solidity endpoint helpers default non-empty lanes
-  to group size 1 unless `group(lane, size)` supplies an explicit size.
+  `[Keys.List][Keys.Asset]`. A zero group byte means group size 1 for a non-empty
+  lane; `group(lane, size)` supplies an explicit size.
 - Command, port, query, and guard endpoints all share `Endpoint`; admin commands
   are marked by the descriptor's admin flag.
 - block schema strings are published separately with

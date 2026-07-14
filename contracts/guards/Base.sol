@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import {AccessControl} from "../core/Access.sol";
 import {EndpointBase} from "../core/Endpoint.sol";
 import {Nodes} from "../utils/Nodes.sol";
+import {Selectors} from "../utils/Selectors.sol";
 
 /// @title GuardBase
 /// @notice Abstract base for guardian-only direct host actions.
@@ -22,10 +23,9 @@ abstract contract GuardBase is AccessControl, EndpointBase {
         bytes4 selector
     ) internal returns (uint id, bytes32 descriptor) {
         if (selector == bytes4(0)) {
-            selector = bytes4(keccak256(bytes(string.concat(name, "(bytes)"))));
+            selector = Selectors.guard(name);
         }
         id = Nodes.toGuard(selector, address(this));
-        descriptor = endpoint(bytes9(0), input, bytes9(0), false, false);
-        defineEndpoint(host, id, descriptor, name);
+        descriptor = endpoint(id, name, bytes9(0), input, bytes9(0), false, false);
     }
 }

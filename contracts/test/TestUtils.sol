@@ -5,6 +5,7 @@ import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
+import { Selectors } from "../utils/Selectors.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { Budget, Values } from "../utils/Value.sol";
 import { Payable } from "../core/Payable.sol";
@@ -28,6 +29,22 @@ contract TestUtils is Payable {
 
     function testMatchKeccak(bytes32 id, bytes memory preimage) external pure returns (bytes32) {
         return Ids.matchKeccak(id, preimage);
+    }
+
+    function testCommandSelector(string memory name) external pure returns (bytes4) {
+        return Selectors.command(name);
+    }
+
+    function testPortSelector(string memory name) external pure returns (bytes4) {
+        return Selectors.port(name);
+    }
+
+    function testQuerySelector(string memory name) external pure returns (bytes4) {
+        return Selectors.query(name);
+    }
+
+    function testGuardSelector(string memory name) external pure returns (bytes4) {
+        return Selectors.guard(name);
     }
 
     function testToAdminAccount(address addr) external view returns (bytes32) {

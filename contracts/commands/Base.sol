@@ -6,6 +6,7 @@ import {EndpointBase} from "../core/Endpoint.sol";
 import {Cursors, Cur} from "../Cursors.sol";
 import {Keys} from "../blocks/Keys.sol";
 import {Nodes} from "../utils/Nodes.sol";
+import {Selectors} from "../utils/Selectors.sol";
 
 /// @notice Execution context passed to every command invocation.
 struct CommandContext {
@@ -55,21 +56,10 @@ abstract contract CommandBase is NodeCalls, EndpointBase {
         bool admin
     ) internal returns (uint id, bytes32 descriptor) {
         if (selector == bytes4(0)) {
-            selector = bytes4(keccak256(bytes(string.concat(name, "((bytes32,bytes,bytes))"))));
+            selector = Selectors.command(name);
         }
         id = Nodes.toCommand(selector, address(this));
-        descriptor = endpoint(state, input, output, funded, admin);
-        defineEndpoint(host, id, descriptor, name);
-    }
-
-    /// @notice Open a command state cursor and return the expected output block count.
-    function openState(
-        CommandContext calldata c,
-        bytes32 descriptor
-    ) internal pure returns (Cur memory state, uint outputs) {
-        uint groups;
-        (state, groups) = Cursors.init(c.state, stateGroup(descriptor));
-        outputs = groups * outputGroup(descriptor);
+        descriptor = endpoint(id, name, state, input, output, funded, admin);
     }
 
     /// @notice Open input/state cursors and return the expected output block count.
@@ -77,21 +67,17 @@ abstract contract CommandBase is NodeCalls, EndpointBase {
         CommandContext calldata c,
         bytes32 descriptor
     ) internal pure returns (Cur memory input, Cur memory state, uint outputs) {
-        uint requestGroup = inputGroup(descriptor);
-        uint stateGroup_ = stateGroup(descriptor);
-
-        uint groups;
-        (input, groups) = Cursors.init(c.request, requestGroup);
+        uint inputGroups;
+        (input, inputGroups) = Cursors.init(c.request, inputGroup(descriptor));
 
         uint stateGroups;
-        (state, stateGroups) = Cursors.init(c.state, stateGroup_);
+        (state, stateGroups) = Cursors.init(c.state, stateGroup(descriptor));
 
-        if (requestGroup == 0) {
-            groups = stateGroups;
-        } else if (stateGroup_ != 0 && stateGroups != groups) {
+        if (inputGroups != 0 && stateGroups != 0 && inputGroups != stateGroups) {
             revert Cursors.BadRatio();
         }
 
+        uint groups = inputGroups == 0 ? stateGroups : inputGroups;
         outputs = groups * outputGroup(descriptor);
     }
 }

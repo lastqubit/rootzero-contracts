@@ -104,8 +104,9 @@ A request is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
 The descriptor lane key is the prime item: it is the block type that may repeat
-for batching. Plain lanes are encoded as `[key][0]` and default to group size 1;
-generic list lanes such as `many #asset` are encoded as
+for batching. Plain lanes are encoded as `[key][0]`; readers interpret the zero
+group byte as group size 1 when the lane is non-empty. Generic list lanes such
+as `many #asset` are encoded as
 `[Keys.List][Keys.Asset]`, so indexers can see both the top-level LIST container
 and the item type inside it.
 
