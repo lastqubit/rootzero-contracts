@@ -39,23 +39,20 @@ abstract contract MyCommand is CommandBase {
         (, descriptor) = command("myCommand", Keys.Empty, many(Keys.Asset), Keys.Empty, 0, false, false);
     }
 
-    // consumeAssetList parses one top-level LIST block in place.
-    // `input.list()` consumes the LIST header and returns the byte offset
-    // immediately after that list payload. The same cursor then walks the
-    // ASSET members inside the list until it reaches that boundary.
+    // consumeAssetList consumes one top-level LIST block and parses its payload
+    // through a cursor scoped to that list's ASSET members.
     //
-    // When this hook returns, `input.i` is positioned exactly at the next
-    // top-level block in the request, so the outer loop can keep batching
-    // over additional LIST blocks.
+    // `input` advances to the next top-level block as soon as `list()` returns,
+    // while `items` cannot read beyond the current list payload.
     function consumeAssetList(Cur memory input, uint listIndex) internal {
-        uint next = input.list();
+        Cur memory items = input.list();
 
-        while (input.i < next) {
-            bytes32 asset = input.unpackAsset();
+        while (items.i < items.len) {
+            bytes32 asset = items.unpackAsset();
             emit AssetSeen(listIndex, asset);
         }
 
-        input.ensureAt(next);
+        items.complete();
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {

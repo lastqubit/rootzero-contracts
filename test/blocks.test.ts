@@ -335,13 +335,15 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "IncompleteCursor");
     });
 
-    it("list returns the next offset and advances past the list header", async () => {
+    it("list consumes the list and returns a cursor scoped to its payload", async () => {
       const item1 = encodeAssetBlock(asset);
       const item2 = encodeAssetBlock(otherAsset);
       const list = encodeListBlock(item1, item2);
-      const [inputI, next] = await helper.testList(list);
-      expect(inputI).to.equal(8n);
-      expect(next).to.equal(BigInt(ethers.getBytes(list).length));
+      const [itemsOffset, itemsI, itemsLen, inputI] = await helper.testList(list);
+      expect(itemsOffset).to.equal(8n);
+      expect(itemsI).to.equal(0n);
+      expect(itemsLen).to.equal(BigInt(ethers.getBytes(item1).length + ethers.getBytes(item2).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
     it("custom local blocks carry merged payload fields without child headers", async () => {

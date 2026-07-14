@@ -317,14 +317,15 @@ library Cursors {
         return find(cur, cur.i, key);
     }
 
-    /// @notice Enter a LIST block at the current position and return its next offset.
-    /// Advances `cur.i` past the list header so the list members can be parsed
-    /// directly from the same cursor. The returned `next` is the byte offset
-    /// immediately after the list payload, relative to the current cursor region.
-    /// @param cur Cursor positioned at a list block; advanced past the 8-byte header.
-    /// @return next Byte offset immediately after the list payload.
-    function list(Cur memory cur) internal pure returns (uint next) {
-        next = enter(cur, Keys.List, 0, 0);
+    /// @notice Consume a LIST block and return a cursor over its payload.
+    /// Advances `cur.i` past the full list while the returned cursor is scoped to
+    /// the list members as a fresh zero-based region.
+    /// @param cur Cursor positioned at a list block; advanced past the full list.
+    /// @return items Cursor scoped to the list payload.
+    function list(Cur memory cur) internal pure returns (Cur memory items) {
+        uint next = enter(cur, Keys.List, 0, 0);
+        items = cur.slice(cur.i, next);
+        cur.i = next;
     }
 
     /// @notice Consume a block with the given key at the current position and return a cursor over the full block slice.

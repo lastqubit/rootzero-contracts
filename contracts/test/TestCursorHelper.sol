@@ -249,10 +249,18 @@ contract TestCursorHelper {
         return true;
     }
 
-    function testList(bytes calldata source) external pure returns (uint inputI, uint next) {
+    function testList(bytes calldata source)
+        external
+        pure
+        returns (uint itemsOffset, uint itemsI, uint itemsLen, uint inputI)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
         Cur memory cur = Cursors.open(source);
-        next = cur.list();
-        return (cur.i, next);
+        Cur memory items = cur.list();
+        return (items.offset - sourceOffset, items.i, items.len, cur.i);
     }
 
     function testTake(bytes calldata source, bytes4 key)
