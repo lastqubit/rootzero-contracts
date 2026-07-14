@@ -418,7 +418,7 @@ Command inputs and outputs remain Rootzero block streams.
 pub struct CommandContext {
     pub account: [u8; 32],
     pub state: Vec<u8>,
-    pub request: Vec<u8>,
+    pub input: Vec<u8>,
 }
 ```
 

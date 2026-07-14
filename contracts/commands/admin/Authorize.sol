@@ -17,12 +17,12 @@ abstract contract Authorize is AdminBase {
     }
 
     /// @notice Authorize each NODE block in the admin request.
-    /// @param c Admin command context; `c.request` must contain NODE blocks.
+    /// @param c Admin command context; `c.input` must contain NODE blocks.
     /// @return Empty output state.
     function authorize(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory input, ) = openInput(c.request, descriptor);
+        (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             uint node = input.unpackNode();

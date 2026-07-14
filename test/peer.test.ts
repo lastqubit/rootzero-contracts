@@ -26,7 +26,7 @@ describe("Port Entrypoints", () => {
     host = await deploy("TestPortHost", commander);
     const trustedPeer = await callerHost(1);
     const adminAccount: string = await host.getAdminAccount();
-    await host.authorize({ account: adminAccount, state: "0x", request: encodeNodeBlock(trustedPeer) });
+    await host.authorize({ account: adminAccount, state: "0x", input: encodeNodeBlock(trustedPeer) });
   });
 
   async function port(method: string) {

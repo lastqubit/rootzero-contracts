@@ -58,7 +58,7 @@ const host = await ethers.deployContract("ExampleHost", [deployer.address]);
 
 const account = encodeUserAccount(user.address); // receiving account
 const request = encodeAmountBlock(asset, 100n); // what to deposit
-await host.deposit({ account, state: "0x", request }); // emits Balance
+await host.deposit({ account, state: "0x", input: request }); // emits Balance
 ```
 
 The rest of this guide explains the ideas this example leans on — blocks, IDs,
@@ -212,11 +212,11 @@ Commands are the write endpoints. Every command receives the same context:
 struct CommandContext {
     bytes32 account; // acting account
     bytes state;     // block stream produced by the previous command
-    bytes request;   // block stream for this invocation
+    bytes input;     // block stream for this invocation
 }
 ```
 
-The request carries instructions; the state carries live value. While a
+The input carries instructions; the state carries live value. While a
 sequence of commands executes, `#balance` and `#custody` blocks in the state
 are the funds being moved — produced by one command, consumed by the next.
 
@@ -225,7 +225,7 @@ loop the batch, call the hook, write the output run:
 
 ```solidity
 function deposit(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-    (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+    (Cur memory input, uint outputs) = openInput(c.input, descriptor);
     Writer memory output = Writers.allocBalances(outputs);
 
     while (input.i < input.len) {
@@ -251,7 +251,7 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        // parse c.request, loop, return the output state run
+        // parse c.input, loop, return the output state run
     }
 }
 ```

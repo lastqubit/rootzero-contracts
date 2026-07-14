@@ -13,7 +13,7 @@ describe("Portal", () => {
     return {
       account: await host.getAdminAccount(),
       state: "0x",
-      request,
+      input: request,
     };
   }
 

@@ -5,12 +5,14 @@ pragma solidity ^0.8.33;
 /// @notice Standard block type selectors for the rootzero block stream protocol.
 /// Standard keys use the first 4 bytes of `keccak256("#name")` by convention.
 /// Custom block keys only need to be unique in the context where they are used;
-/// hosts may publish custom key meanings with the `Block` event.
+/// hosts may publish custom key meanings with the `Schema` event.
 library Keys {
     /// @notice Create a context-local block key.
     /// @dev Local keys are opaque tags for host- or endpoint-specific schemas.
     /// The caller is responsible for choosing values that are unique in the
-    /// context where they are used and publishing their meaning with `Block`.
+    /// context where they are used and publishing their meaning with `Schema`.
+    /// @param value Opaque local key value.
+    /// @return Context-local block key.
     function local(uint32 value) internal pure returns (bytes4) {
         return bytes4(value);
     }

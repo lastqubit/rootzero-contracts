@@ -511,10 +511,10 @@ Each command has:
 
 - a deterministic local ID
 - an announcement/registration record using the same logical event shape where the chain supports events
-- input: `CommandContext { account, state, request }`
+- input: `CommandContext { account, state, input }`
 - output: `bytes` containing the next Rootzero block stream state
 
-The `request` and `state` fields are always Rootzero block streams.
+The `input` and `state` fields are always Rootzero block streams.
 
 Chain-specific dispatch:
 

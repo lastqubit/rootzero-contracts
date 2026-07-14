@@ -33,10 +33,10 @@ abstract contract MyCommand is CommandBase {
         // The command function selector already identifies this entrypoint, so no
         // additional target field is needed in CommandContext.
 
-        // CommandContext now carries just account, state, and request.
-        // Create a request cursor using the shared command helper and decode
-        // the first AMOUNT block from the request stream.
-        Cur memory input = Cursors.open(c.request);
+        // CommandContext now carries just account, state, and input.
+        // Create an input cursor and decode the first AMOUNT block from the
+        // input stream.
+        Cur memory input = Cursors.open(c.input);
         (bytes32 asset, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.

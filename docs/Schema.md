@@ -146,7 +146,7 @@ top-level structure.
 
 ## Field Aliases
 
-Block aliases are published in `Block` events. Field aliases are presentation
+Block aliases are published in `Schema` events. Field aliases are presentation
 metadata for tooling. They do not change payload layout or runtime keys.
 
 ```txt
@@ -296,7 +296,7 @@ invalid in any path segment.
 - `#list`: generic list wrapper emitted by `many`
 
 Custom input shapes should define their own context-local block key and publish
-that key with a `Block` event:
+that key with a `Schema` event:
 
 ```solidity
 bytes4 constant Input = Keys.local(1);

@@ -40,10 +40,10 @@ abstract contract Provision is CommandBase, ProvisionHook {
     }
 
     /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
-    /// @param c Command context; `c.request` must contain ALLOCATION blocks.
+    /// @param c Command context; `c.input` must contain ALLOCATION blocks.
     /// @return CUSTODY block stream matching the provisioned allocations.
     function provision(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocCustodies(outputs);
 
         while (input.i < input.len) {
@@ -68,12 +68,12 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
     }
 
     /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.
-    /// @param c Command context; `c.request` must contain ALLOCATION blocks.
+    /// @param c Command context; `c.input` must contain ALLOCATION blocks.
     /// @return CUSTODY block stream matching the provisioned allocations.
     function provisionPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocCustodies(outputs);
         Budget memory budget = openValue();
 

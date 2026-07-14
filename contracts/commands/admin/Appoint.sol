@@ -17,12 +17,12 @@ abstract contract Appoint is AdminBase {
     }
 
     /// @notice Appoint each ACCOUNT block in the admin request as a guardian.
-    /// @param c Admin command context; `c.request` must contain ACCOUNT blocks.
+    /// @param c Admin command context; `c.input` must contain ACCOUNT blocks.
     /// @return Empty output state.
     function appoint(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory input, ) = openInput(c.request, descriptor);
+        (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             bytes32 account = input.unpackAccount();

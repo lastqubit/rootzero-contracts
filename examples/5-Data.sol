@@ -41,7 +41,7 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        Cur memory input = Cursors.open(c.request);
+        Cur memory input = Cursors.open(c.input);
 
         (uint targetHost, bytes32 asset, uint amount) = unpackInput(input);
 

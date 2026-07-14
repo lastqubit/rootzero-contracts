@@ -21,11 +21,11 @@ describe("Burn", () => {
     );
   });
 
-  function ctx(overrides: Partial<{ account: string; state: string; request: string }> = {}) {
+  function ctx(overrides: Partial<{ account: string; state: string; input: string }> = {}) {
     return {
       account: overrides.account ?? userAccount,
       state:   overrides.state   ?? "0x",
-      request: overrides.request ?? "0x",
+      input:   overrides.input   ?? "0x",
     };
   }
 

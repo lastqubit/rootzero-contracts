@@ -27,10 +27,10 @@ abstract contract Allowance is AdminBase, AllowanceHook {
     }
 
     /// @notice Apply each ALLOWANCE block in the admin request.
-    /// @param c Admin command context; `c.request` must contain ALLOWANCE blocks.
+    /// @param c Admin command context; `c.input` must contain ALLOWANCE blocks.
     /// @return Empty output state.
     function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory input, ) = openInput(c.request, descriptor);
+        (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             (uint peer, bytes32 asset, uint amount) = input.unpackAllowance();

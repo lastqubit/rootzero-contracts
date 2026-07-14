@@ -22,11 +22,10 @@ abstract contract DebitAccountHook {
 /// AMOUNT block; the default batch implementation handles the full request loop.
 abstract contract DebitAccount is CommandBase, DebitAccountHook {
     bytes32 private immutable descriptor;
-    bytes4 private constant selector = this.debitAccount.selector;
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("debitAccount", Keys.Empty, Keys.Amount, Keys.Balance, selector, false, false);
+        (id, descriptor) = command("debitAccount", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     /// @notice Return true if `candidate` is this command's debit account ID.
@@ -51,12 +50,12 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     }
 
     /// @notice Debit AMOUNT request blocks from the command account and output matching BALANCE blocks.
-    /// @param c Command context; `c.request` must contain AMOUNT blocks.
+    /// @param c Command context; `c.input` must contain AMOUNT blocks.
     /// @return BALANCE block stream matching the debited amounts.
     function debitAccount(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        return debitAccount(c.account, c.request);
+        return debitAccount(c.account, c.input);
     }
 }
 

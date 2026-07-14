@@ -30,7 +30,7 @@ discovery event from its constructor, so a host's deployment transaction
 contains its full endpoint catalog:
 
 ```txt
-event Endpoint(uint indexed host, uint indexed id, bytes32 descriptor)
+event Endpoint(uint indexed host, uint id, bytes32 descriptor)
 ```
 
 - `descriptor` packs state, input, and output lanes, each lane's group size,

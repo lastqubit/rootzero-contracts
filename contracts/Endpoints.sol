@@ -7,7 +7,7 @@ pragma solidity ^0.8.33;
 // Shared helpers
 import { Keys } from "./blocks/Keys.sol";
 import { CommandBase, CommandContext } from "./commands/Base.sol";
-import { EndpointBase } from "./core/Endpoint.sol";
+import { EndpointBase, Lane } from "./core/Endpoint.sol";
 import { Payable } from "./core/Payable.sol";
 
 // Commands

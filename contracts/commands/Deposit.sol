@@ -42,12 +42,12 @@ abstract contract Deposit is CommandBase, DepositHook {
     }
 
     /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
-    /// @param c Command context; `c.request` must contain AMOUNT blocks.
+    /// @param c Command context; `c.input` must contain AMOUNT blocks.
     /// @return BALANCE block stream matching the deposited amounts.
     function deposit(
         CommandContext calldata c
     ) external onlyCommand returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocBalances(outputs);
 
         while (input.i < input.len) {
@@ -71,12 +71,12 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
     }
 
     /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
-    /// @param c Command context; `c.request` must contain AMOUNT blocks.
+    /// @param c Command context; `c.input` must contain AMOUNT blocks.
     /// @return BALANCE block stream matching the deposited amounts.
     function depositPayable(
         CommandContext calldata c
     ) external payable onlyCommand returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocBalances(outputs);
         Budget memory budget = openValue();
 

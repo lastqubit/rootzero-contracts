@@ -17,14 +17,17 @@ abstract contract GuardBase is AccessControl, EndpointBase {
     }
 
     /// @notice Publish guard metadata and a default label.
+    /// @param name Default human-readable guard label and selector name.
+    /// @param input Packed input lane plus optional group byte.
+    /// @param selector Guard ABI selector, or zero to derive it from `name`.
+    /// @return id Guard action node ID.
+    /// @return descriptor Packed endpoint lane metadata and flags.
     function guard(
         string memory name,
         bytes9 input,
         bytes4 selector
     ) internal returns (uint id, bytes32 descriptor) {
-        if (selector == bytes4(0)) {
-            selector = Selectors.guard(name);
-        }
+        selector = selector == bytes4(0) ? Selectors.guard(name) : selector;
         id = Nodes.toGuard(selector, address(this));
         descriptor = endpoint(id, name, bytes9(0), input, bytes9(0), false, false);
     }

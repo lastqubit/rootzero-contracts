@@ -27,7 +27,7 @@ describe("Guard Actions", () => {
   });
 
   function adminCtx(request: string) {
-    return { account: adminAccount, state: "0x", request };
+    return { account: adminAccount, state: "0x", input: request };
   }
 
   async function hostIdFor(addr: string) {

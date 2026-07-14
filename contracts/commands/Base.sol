@@ -2,8 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {NodeCalls} from "../core/Calls.sol";
-import {EndpointBase} from "../core/Endpoint.sol";
-import {Cursors, Cur} from "../Cursors.sol";
+import {EndpointBase, Lane} from "../core/Endpoint.sol";
+import {Cur} from "../Cursors.sol";
 import {Keys} from "../blocks/Keys.sol";
 import {Nodes} from "../utils/Nodes.sol";
 import {Selectors} from "../utils/Selectors.sol";
@@ -15,7 +15,7 @@ struct CommandContext {
     /// @dev Current state block stream (previous command output or initial state).
     bytes state;
     /// @dev Input block stream for this invocation.
-    bytes request;
+    bytes input;
 }
 
 /// @title CommandBase
@@ -46,6 +46,15 @@ abstract contract CommandBase is NodeCalls, EndpointBase {
     }
 
     /// @notice Publish command metadata and a default label.
+    /// @param name Default human-readable command label and selector name.
+    /// @param state Packed state lane plus optional group byte.
+    /// @param input Packed input lane plus optional group byte.
+    /// @param output Packed output lane plus optional group byte.
+    /// @param selector Command ABI selector, or zero to derive it from `name`.
+    /// @param funded Whether the command accepts nonzero native value.
+    /// @param admin Whether the command is restricted to the admin account.
+    /// @return id Command node ID.
+    /// @return descriptor Packed endpoint lane metadata and flags.
     function command(
         string memory name,
         bytes9 state,
@@ -55,29 +64,23 @@ abstract contract CommandBase is NodeCalls, EndpointBase {
         bool funded,
         bool admin
     ) internal returns (uint id, bytes32 descriptor) {
-        if (selector == bytes4(0)) {
-            selector = Selectors.command(name);
-        }
+        selector = selector == bytes4(0) ? Selectors.command(name) : selector;
         id = Nodes.toCommand(selector, address(this));
         descriptor = endpoint(id, name, state, input, output, funded, admin);
     }
 
     /// @notice Open input/state cursors and return the expected output block count.
+    /// @param c Command invocation context.
+    /// @param descriptor Packed command endpoint descriptor.
+    /// @return input Cursor scoped to the command input lane.
+    /// @return state Cursor scoped to the command state lane.
+    /// @return outputs Number of output blocks implied by the matched group count.
     function openCommand(
         CommandContext calldata c,
         bytes32 descriptor
     ) internal pure returns (Cur memory input, Cur memory state, uint outputs) {
-        uint inputGroups;
-        (input, inputGroups) = Cursors.init(c.request, inputGroup(descriptor));
-
-        uint stateGroups;
-        (state, stateGroups) = Cursors.init(c.state, stateGroup(descriptor));
-
-        if (inputGroups != 0 && stateGroups != 0 && inputGroups != stateGroups) {
-            revert Cursors.BadRatio();
-        }
-
-        uint groups = inputGroups == 0 ? stateGroups : inputGroups;
-        outputs = groups * outputGroup(descriptor);
+        uint groups;
+        (input, groups, ) = openLane(c.input, descriptor, Lane.Input, 0);
+        (state, , outputs) = openLane(c.state, descriptor, Lane.State, groups);
     }
 }

@@ -28,7 +28,7 @@ abstract contract MyCommand is CommandBase {
     ) external onlyCommand returns (bytes memory) {
         // Open the descriptor input stream, then size the writer from the
         // expected output block count returned by the endpoint helper.
-        (Cur memory input, uint outputs) = openInput(c.request, descriptor);
+        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocBalances(outputs);
 
         // Walk every AMOUNT block in the current request run.

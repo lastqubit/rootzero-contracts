@@ -23,12 +23,12 @@ describe("Admin Commands", () => {
     adminAccount = await host.getAdminAccount();
   });
 
-  function adminCtx(request: string) {
-    return { account: adminAccount, state: "0x", request };
+  function adminCtx(input: string) {
+    return { account: adminAccount, state: "0x", input };
   }
 
-  function userCtx(userAcc: string, request: string) {
-    return { account: userAcc, state: "0x", request };
+  function userCtx(userAcc: string, input: string) {
+    return { account: userAcc, state: "0x", input };
   }
 
   async function callAs(signerIndex: number, method: string, ...args: unknown[]) {
@@ -328,11 +328,11 @@ describe("Admin Commands", () => {
       const target = await deploy("TestHost", await source.getAddress());
 
       const asset = ethers.zeroPadValue("0x123456", 32);
-      const targetCtx = { account: await target.getAdminAccount(), state: "0x", request: encodeAssetBlock(asset) };
+      const targetCtx = { account: await target.getAdminAccount(), state: "0x", input: encodeAssetBlock(asset) };
       const calldata = target.interface.encodeFunctionData("allowAssets", [targetCtx]);
       const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
-      await expect(source.executePayable({ account: sourceAdminAccount, state: "0x", request }))
+      await expect(source.executePayable({ account: sourceAdminAccount, state: "0x", input: request }))
         .to.emit(target, "AllowAssetCalled")
         .withArgs(asset);
     });
@@ -348,15 +348,15 @@ describe("Admin Commands", () => {
       const calldataA = targetA.interface.encodeFunctionData("allowAssets", [{
         account: await targetA.getAdminAccount(),
         state: "0x",
-        request: encodeAssetBlock(assetA)
+        input: encodeAssetBlock(assetA)
       }]);
       const calldataB = targetB.interface.encodeFunctionData("denyAssets", [{
         account: await targetB.getAdminAccount(),
         state: "0x",
-        request: encodeAssetBlock(assetB)
+        input: encodeAssetBlock(assetB)
       }]);
 
-      const tx = await source.executePayable({ account: sourceAdminAccount, state: "0x", request: concat(
+      const tx = await source.executePayable({ account: sourceAdminAccount, state: "0x", input: concat(
         encodeCallBlock(await hostIdFor(await targetA.getAddress()), 0n, calldataA),
         encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
       )});

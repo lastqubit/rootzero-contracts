@@ -56,7 +56,7 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        Cur memory input = Cursors.open(c.request);
+        Cur memory input = Cursors.open(c.input);
         uint listIndex;
 
         // INPUT publishes one list item descriptor, but the request is still a

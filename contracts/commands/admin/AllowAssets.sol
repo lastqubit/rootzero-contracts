@@ -23,12 +23,12 @@ abstract contract AllowAssets is AdminBase, AllowAssetsHook {
     }
 
     /// @notice Allow each ASSET block in the admin request.
-    /// @param c Admin command context; `c.request` must contain ASSET blocks.
+    /// @param c Admin command context; `c.input` must contain ASSET blocks.
     /// @return Empty output state.
     function allowAssets(
         CommandContext calldata c
     ) external onlyAdmin(c.account) returns (bytes memory) {
-        (Cur memory input, ) = openInput(c.request, descriptor);
+        (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             bytes32 asset = input.unpackAsset();
