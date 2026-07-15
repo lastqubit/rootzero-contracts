@@ -33,7 +33,7 @@ used. A host can publish the meaning of a custom key with:
 event Schema(uint indexed host, bytes4 key, string schema, bytes32 name);
 ```
 
-For example, a host-specific payment block can use `Keys.local(1)`, the command
+For example, a host-specific payment block can use `Keys.Local`, the command
 selector, or any other chosen `bytes4` value as long as that key is not
 overloaded in the relevant host/schema context.
 
@@ -65,16 +65,19 @@ A schema body is a comma-separated list of items. Order is significant.
 
 ## Payload Layout
 
-A block payload has fixed fields first, followed by an optional child-block tail.
-Once a child block appears, no more fixed fields may follow.
+A block payload encodes schema items in declaration order. Fixed fields are
+packed inline, and zero or more child blocks are embedded directly at their
+declared positions. Because every child block carries its own header and payload
+length, fixed fields may appear before, after, or between child blocks.
 
 ```txt
 { uint target, uint resources, #bytes as payload }
 { bytes32 account, #bytes as state, #bytes as request }
+{ bytes4 key, #string as body, bytes32 name }
+{ #bytes as left, uint op, #bytes as right }
 ```
 
-The tail is embedded directly as child block bytes. There is no wrapper around a
-child-block tail.
+There is no wrapper around embedded child blocks.
 
 Raw dynamic bytes are represented with the reserved `#bytes` child block. Use an
 alias to give those bytes a presentation name:
@@ -293,19 +296,21 @@ invalid in any path segment.
 ## Reserved Blocks
 
 - `#bytes`: raw dynamic bytes, written without a body
+- `#string`: UTF-8 string bytes, written without a body
 - `#list`: generic list wrapper emitted by `many`
 
 Custom input shapes should define their own context-local block key and publish
 that key with a `Schema` event:
 
 ```solidity
-bytes4 constant Input = Keys.local(1);
+bytes4 constant Input = Keys.Local;
 emit Schema(host, Input, "{ bytes32 asset, uint amount }", bytes32("payment"));
 ```
 
-The key can be a small literal, a selector, or any other `bytes4` value that is
-unique in the context where it is used. The alias names the block; the schema
-string describes only the payload body.
+Use `Keys.local(n)` when a host needs more than one local block key. The key can
+also be a small literal, a selector, or any other `bytes4` value that is unique
+in the context where it is used. The alias names the block; the schema string
+describes only the payload body.
 
 ## Standard Blocks
 
@@ -320,6 +325,7 @@ step     { uint target, uint resources, #bytes as request }
 context  { bytes32 account, #bytes as state, #bytes as request }
 recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
 auth     { uint cid, uint deadline, #bytes as proof }
+schema   { bytes4 key, #string as body, bytes32 name }
 ```
 
 `Keys.sol` contains the corresponding standard runtime keys.

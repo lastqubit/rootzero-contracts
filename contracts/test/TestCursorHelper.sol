@@ -11,7 +11,7 @@ using Cursors for Cur;
 using Writers for Writer;
 
 contract TestCursorHelper {
-    bytes4 private immutable TestKey = Keys.local(1);
+    bytes4 private constant TestKey = Keys.Local;
 
     function testWriteBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);

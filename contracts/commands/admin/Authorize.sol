@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur } from "../../Cursors.sol";
+import {AdminBase, CommandContext, Keys} from "./Base.sol";
+import {Cursors, Cur} from "../../Cursors.sol";
 using Cursors for Cur;
 
 /// @title Authorize
@@ -11,17 +11,16 @@ using Cursors for Cur;
 /// Only callable by the admin account.
 abstract contract Authorize is AdminBase {
     bytes32 private immutable descriptor;
+    uint internal immutable authorizeId;
 
     constructor() {
-        (, descriptor) = command("authorize", Keys.Empty, Keys.Node, Keys.Empty, 0, false, true);
+        (authorizeId, descriptor) = command("authorize", Keys.Empty, Keys.Node, Keys.Empty, 0, false, true);
     }
 
     /// @notice Authorize each NODE block in the admin request.
     /// @param c Admin command context; `c.input` must contain NODE blocks.
     /// @return Empty output state.
-    function authorize(
-        CommandContext calldata c
-    ) external onlyAdmin(c.account) returns (bytes memory) {
+    function authorize(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
@@ -31,8 +30,3 @@ abstract contract Authorize is AdminBase {
         return "";
     }
 }
-
-
-
-
-

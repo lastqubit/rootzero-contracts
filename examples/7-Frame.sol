@@ -21,20 +21,18 @@ import {Cursors, Cur} from "../contracts/Cursors.sol";
 using Cursors for Cur;
 
 abstract contract MyCommand is CommandBase {
-    bytes4 private immutable paymentKey = Keys.local(1);
-    bytes32 private constant paymentName = bytes32("payment");
-    string private constant paymentSchema = "{ bytes32 asset, uint amount, maybe #fee }";
+    string private constant INPUT = "{ bytes32 asset, uint amount, maybe #fee }";
 
     bytes32 private immutable descriptor;
 
     event PaymentSeen(bytes32 asset, uint amount, uint fee);
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, schema(paymentKey, paymentSchema, paymentName), Keys.Empty, 0, false, false);
+        (, descriptor) = command("myCommand", Keys.Empty, localSchema(INPUT), Keys.Empty, 0, false, false);
     }
 
-    function unpackPayment(Cur memory input) private view returns (bytes32 asset, uint amount, Cur memory fee) {
-        uint abs = input.consume(0, paymentKey, 64, 0);
+    function unpackPayment(Cur memory input) private pure returns (bytes32 asset, uint amount, Cur memory fee) {
+        uint abs = input.consume(0, Keys.Local, 64, 0);
         asset = bytes32(msg.data[abs:abs + 32]);
         amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
         fee = input.slice(abs + 64 - input.offset, input.i);

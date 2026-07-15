@@ -3,6 +3,32 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.12.0
+
+### Breaking Changes
+
+- Removed the generic `EndpointBase.schema(...)` helper. Use
+  `localSchema(...)` for context-local endpoint schemas or emit `Schema`
+  directly for custom/named keys.
+- Replaced `isDebitAccount`, `isCreditAccount`, `isAuthorize`, and
+  `isUnauthorize` helper predicates with internal command ID fields:
+  `debitAccountId`, `creditAccountId`, `authorizeId`, and `unauthorizeId`.
+
+### Added
+
+- Added `Keys.Local` as the default context-local block key and added
+  `EndpointBase.localSchema(...)` helpers for publishing local endpoint
+  schemas.
+- Added the standard `#schema` block, `unpackSchema`, and an opt-in
+  `publishSchema` admin command for emitting schema claims from `#schema`
+  blocks.
+
+### Changed
+
+- Updated the schema DSL documentation to allow any number of child blocks in
+  declaration order, including fixed fields before, after, or between child
+  blocks.
+
 ## 1.11.0
 
 ### Breaking Changes

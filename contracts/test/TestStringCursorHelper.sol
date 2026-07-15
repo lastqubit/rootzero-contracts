@@ -31,4 +31,12 @@ contract TestStringCursorHelper {
         (id, namespace, name) = cur.unpackLabel();
         i = cur.i;
     }
+
+    function testUnpackSchema(
+        bytes calldata source
+    ) external pure returns (bytes4 key, string memory body, bytes32 name, uint i) {
+        Cur memory cur = Cursors.open(source);
+        (key, body, name) = cur.unpackSchema();
+        i = cur.i;
+    }
 }

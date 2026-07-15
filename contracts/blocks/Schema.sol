@@ -28,9 +28,9 @@ pragma solidity ^0.8.33;
 //   are offchain projection metadata only and do not change runtime encoding
 // - child blocks resolve by alias in the active schema context; unresolved aliases are invalid
 // - schema strings describe the payload body only; the `Block` event carries the alias
-// - fixed fields are packed in declaration order
-// - blocks have fixed fields followed by a dynamic child-block tail
-// - child block tails are embedded directly, without an extra stream wrapper
+// - items are encoded in declaration order
+// - fixed fields are packed inline and any number of child blocks are embedded directly
+// - child blocks may appear between fixed fields because each block carries its own length
 // - `#bytes` is a reserved child block that stores raw bytes and has no body
 // - `#string` is a reserved child block that stores UTF-8 string bytes and has no body
 // - generic lists use the stable key derived from `#list`
@@ -87,6 +87,7 @@ library Schemas {
     string constant Fee = "{ uint amount }";
     string constant Auth = "{ uint cid, uint deadline, #bytes as proof }";
     string constant Label = "{ uint id, bytes32 namespace, #string as name }";
+    string constant Schema = "{ bytes4 key, #string as body, bytes32 name }";
     string constant Bytes = "";
     string constant String = "";
     string constant List = "";

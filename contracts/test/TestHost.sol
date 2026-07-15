@@ -15,6 +15,7 @@ import { PortSettle } from "../ports/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
+import { PublishSchema } from "../commands/admin/Schemas.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Budget, Values } from "../utils/Value.sol";
 
@@ -34,7 +35,8 @@ contract TestHost is
     PortSettle,
     AllowAssets,
     DenyAssets,
-    Allowance
+    Allowance,
+    PublishSchema
 {
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
@@ -151,6 +153,14 @@ contract TestHost is
 
     function isAuthorized(uint node) external view returns (bool) {
         return nodes[node];
+    }
+
+    function testAuthorizeId() external view returns (uint) {
+        return authorizeId;
+    }
+
+    function testUnauthorizeId() external view returns (uint) {
+        return unauthorizeId;
     }
 
     function setGuardianAccount(bytes32 account, bool active) external {

@@ -11,12 +11,15 @@ import {
 } from "./helpers/blocks.js";
 
 const Value = localKey(1);
+const KeyedValue = localKey(2);
 
 describe("Queries", () => {
   let query: Awaited<ReturnType<typeof deploy>>;
+  let keyedQuery: Awaited<ReturnType<typeof deploy>>;
 
   before(async () => {
     query = await deploy("TestQuery");
+    keyedQuery = await deploy("TestKeyedLocalQuery");
   });
 
   async function qry(method: string) {
@@ -34,6 +37,9 @@ describe("Queries", () => {
         await qry("incrementQuery"),
         endpointDescriptor({ input: Value, output: Value }),
       );
+    await expect(tx!)
+      .to.emit(query, "Schema")
+      .withArgs(await query.host(), Value, "{ uint value }", ethers.ZeroHash);
     await expect(tx!)
       .to.emit(query, "Labeled")
       .withArgs(await qry("incrementQuery"), ethers.ZeroHash, "incrementQuery");
@@ -60,6 +66,36 @@ describe("Queries", () => {
         encodeBlock(Value, pad32(12n)),
         encodeBlock(Value, pad32(23n)),
       ));
+    });
+  });
+
+  describe("keyedLocalQuery", () => {
+    async function keyedQry(method: string) {
+      return queryId(keyedQuery.interface.getFunction(method)!.selector, keyedQuery);
+    }
+
+    it("emits Schema discovery for a keyed local schema", async () => {
+      const tx = keyedQuery.deploymentTransaction();
+      expect(tx).to.not.equal(null);
+
+      await expect(tx!)
+        .to.emit(keyedQuery, "Endpoint")
+        .withArgs(
+          await keyedQuery.host(),
+          await keyedQry("keyedLocalQuery"),
+          endpointDescriptor({ input: KeyedValue, output: KeyedValue }),
+        );
+      await expect(tx!)
+        .to.emit(keyedQuery, "Schema")
+        .withArgs(await keyedQuery.host(), KeyedValue, "{ uint value }", ethers.ZeroHash);
+    });
+
+    it("accepts the keyed local value block", async () => {
+      const request = encodeBlock(KeyedValue, pad32(7n));
+
+      const result: string = await keyedQuery.keyedLocalQuery.staticCall(request);
+
+      expect(result).to.equal(encodeBlock(KeyedValue, pad32(9n)));
     });
   });
 });

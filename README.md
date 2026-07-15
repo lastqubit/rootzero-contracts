@@ -89,8 +89,8 @@ request built for an EVM host is byte-for-byte the request a CosmWasm or Solana
 port would parse; what differs per chain is how a host *resolves* the
 identifiers inside, never how the bytes are laid out.
 
-Schemas can express more than flat fields: a block may end in nested child
-blocks (`#bytes as payload` names a run of raw dynamic bytes), items can be
+Schemas can express more than flat fields: a block may contain any number of
+nested child blocks (`#bytes as payload` names raw dynamic bytes), items can be
 marked `maybe` (optional) or `many` (a list), and aliases and dotted field
 paths give off-chain tooling presentation names without changing a single byte
 on the wire. The full schema language is specified in
@@ -332,7 +332,7 @@ bytes and produce the same output bytes for every endpoint.
 
 Admin commands use the regular command shape but are gated to the host's admin
 account: trust management (`authorize`, `unauthorize`), guardian management
-(`appoint`, `dismiss`), naming (`label`), asset gating (`allowAssets`,
+(`appoint`, `dismiss`), metadata (`label`, `publishSchema`), asset gating (`allowAssets`,
 `denyAssets`, `allowance`), lifecycle (`init`, `destroy`), and raw calls
 (`executePayable`). Guards go the other way: direct actions guardians can take
 without any command context — the default is `revoke`, which lets a guardian

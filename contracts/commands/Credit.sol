@@ -20,15 +20,10 @@ abstract contract CreditAccountHook {
 /// Use for internally recording credits that have already been settled externally.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     bytes32 private immutable descriptor;
-    uint private immutable id;
+    uint internal immutable creditAccountId;
 
     constructor() {
-        (id, descriptor) = command("creditAccount", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
-    }
-
-    /// @notice Return true if `candidate` is this command's credit account ID.
-    function isCreditAccount(uint candidate) internal view returns (bool) {
-        return candidate == id;
+        (creditAccountId, descriptor) = command("creditAccount", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
     }
 
     /// @notice Credit each BALANCE block from the command state to the command account.

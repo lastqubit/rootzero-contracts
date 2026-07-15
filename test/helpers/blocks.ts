@@ -67,6 +67,7 @@ export function endpointDescriptor({
 export const Keys = {
   Empty: "0x00000000",
   Any: "0xffffffff",
+  Local: localKey(1),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
   BalanceLimit: blockKey("#balanceLimit"),
@@ -88,6 +89,7 @@ export const Keys = {
   Auth: blockKey("#auth"),
   Bounty: blockKey("#bounty"),
   Label: blockKey("#label"),
+  Schema: blockKey("#schema"),
   Bytes: blockKey("#bytes"),
   String: blockKey("#string"),
   List: blockKey("#list"),
@@ -221,6 +223,10 @@ export function encodeStringBlock(data: string): string {
 
 export function encodeLabelBlock(id: bigint, namespace: string, name: string): string {
   return encodeBlock(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
+}
+
+export function encodeSchemaBlock(key: string, body: string, name: string): string {
+  return encodeBlock(Keys.Schema, ethers.concat([key, encodeStringBlock(body), pad32(name)]));
 }
 
 export function encodeEvmBlock(data: string): string {

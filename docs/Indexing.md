@@ -43,6 +43,8 @@ event Endpoint(uint indexed host, uint id, bytes32 descriptor)
   are marked by the descriptor's admin flag.
 - block schema strings are published separately with
   `event Schema(uint indexed host, bytes4 key, string schema, bytes32 name)`.
+  Hosts that opt into the admin `publishSchema` command may publish additional schema
+  claims later.
 
 Names arrive separately. Each standard mixin emits a canonical label at
 construction, and the admin `label` command publishes mutable namespaced labels

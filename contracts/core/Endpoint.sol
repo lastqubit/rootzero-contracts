@@ -118,14 +118,21 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
         (input, , outputs) = openLane(source, descriptor, Lane.Input, 0);
     }
 
-    /// @notice Publish a block schema and return its key for descriptor construction.
-    /// @param key Block key being defined.
+    /// @notice Publish the default local block schema and return `Keys.Local`.
     /// @param body Schema DSL string describing the block payload body.
-    /// @param name Optional block alias used by descriptor tooling and nested schemas.
-    /// @return The same block key, for inline descriptor construction.
-    function schema(bytes4 key, string memory body, bytes32 name) internal returns (bytes4) {
-        emit Schema(host, key, body, name);
-        return key;
+    /// @return The default context-local block key.
+    function localSchema(string memory body) internal returns (bytes4) {
+        return localSchema(1, body);
+    }
+
+    /// @notice Publish a context-local block schema and return its key.
+    /// @param key Context-local key value.
+    /// @param body Schema DSL string describing the block payload body.
+    /// @return The context-local block key.
+    function localSchema(uint32 key, string memory body) internal returns (bytes4) {
+        bytes4 k = Keys.local(key);
+        emit Schema(host, k, body, bytes32(0));
+        return k;
     }
 
     /// @notice Create and publish endpoint metadata with a default label.

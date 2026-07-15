@@ -23,7 +23,7 @@ interface IHostIntroduction {
 
 /// @title Host
 /// @notice Abstract base contract for rootzero host implementations.
-/// Inherits admin command support (authorize, unauthorize, executePayable),
+/// Inherits admin command support (authorize, unauthorize, label, executePayable),
 /// guardian management, the default guardian revoke action, and
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.

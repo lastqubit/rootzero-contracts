@@ -23,6 +23,7 @@ import {
   encodeHostAccountAssetBlock,
   encodeBlock,
   encodeLabelBlock,
+  encodeSchemaBlock,
   encodeStringBlock,
   encodeStepBlock,
   encodeTxBlock,
@@ -479,6 +480,18 @@ describe("Cursors", () => {
       const [outId, outNamespace, outName, i] = await stringHelper.testUnpackLabel(source);
       expect(outId).to.equal(id);
       expect(outNamespace).to.equal(namespace);
+      expect(outName).to.equal(name);
+      expect(i).to.equal(BigInt(ethers.getBytes(source).length));
+    });
+
+    it("unpackSchema consumes a SCHEMA block and returns its fields", async () => {
+      const key = Keys.Amount;
+      const name = ethers.encodeBytes32String("amount");
+      const body = "{ bytes32 asset, uint amount }";
+      const source = encodeSchemaBlock(key, body, name);
+      const [outKey, outBody, outName, i] = await stringHelper.testUnpackSchema(source);
+      expect(outKey).to.equal(key);
+      expect(outBody).to.equal(body);
       expect(outName).to.equal(name);
       expect(i).to.equal(BigInt(ethers.getBytes(source).length));
     });

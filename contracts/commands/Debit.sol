@@ -22,15 +22,10 @@ abstract contract DebitAccountHook {
 /// AMOUNT block; the default batch implementation handles the full request loop.
 abstract contract DebitAccount is CommandBase, DebitAccountHook {
     bytes32 private immutable descriptor;
-    uint private immutable id;
+    uint internal immutable debitAccountId;
 
     constructor() {
-        (id, descriptor) = command("debitAccount", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
-    }
-
-    /// @notice Return true if `candidate` is this command's debit account ID.
-    function isDebitAccount(uint candidate) internal view returns (bool) {
-        return candidate == id;
+        (debitAccountId, descriptor) = command("debitAccount", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
     /// @notice Override to customize request parsing or batching for debits.

@@ -21,6 +21,8 @@ library Keys {
     bytes4 constant Empty = bytes4(0);
     /// @dev Wildcard key used in discovery when any block stream is accepted.
     bytes4 constant Any = 0xffffffff;
+    /// @dev Default context-local block key for hosts/endpoints that need one custom schema.
+    bytes4 constant Local = bytes4(uint32(1));
     /// @dev Input amount - (bytes32 asset, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)
@@ -71,6 +73,8 @@ library Keys {
     bytes4 constant Bounty = bytes4(keccak256("#bounty"));
     /// @dev Mutable node label - (uint id, bytes32 namespace, #string as name)
     bytes4 constant Label = bytes4(keccak256("#label"));
+    /// @dev Block schema publication - (bytes4 key, #string as body, bytes32 name)
+    bytes4 constant Schema = bytes4(keccak256("#schema"));
 
     /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));

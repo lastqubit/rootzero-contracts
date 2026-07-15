@@ -6,7 +6,7 @@ import {
   Keys,
   endpointDescriptor,
   encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeCallBlock, encodeLabelBlock, concat
+  encodeCallBlock, encodeLabelBlock, encodeSchemaBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -50,6 +50,10 @@ describe("Admin Commands", () => {
   // â”€â”€ Authorize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("authorize", () => {
+    it("exposes its command id internally", async () => {
+      expect(await host.testAuthorizeId()).to.equal(await cmd("authorize"));
+    });
+
     it("authorizes a node and emits Node event", async () => {
       const nodeId = 0xaaa000n;
       const request = encodeNodeBlock(nodeId);
@@ -93,6 +97,10 @@ describe("Admin Commands", () => {
   // â”€â”€ Unauthorize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("unauthorize", () => {
+    it("exposes its command id internally", async () => {
+      expect(await host.testUnauthorizeId()).to.equal(await cmd("unauthorize"));
+    });
+
     it("revokes node and emits Node event with false", async () => {
       const nodeId = 0xccc001n;
       // authorize first
@@ -299,6 +307,53 @@ describe("Admin Commands", () => {
 
     it("reverts ZeroCursor for empty request", async () => {
       await expect(callAs(0, "label", adminCtx("0x")))
+        .to.be.revertedWithCustomError(host, "ZeroCursor");
+    });
+  });
+
+  describe("publishSchema", () => {
+    it("discovers publishSchema and publishes its default label", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("publishSchema"),
+          endpointDescriptor({ input: Keys.Schema, admin: true }),
+        );
+      await expect(deployment!).to.emit(host, "Labeled")
+        .withArgs(await cmd("publishSchema"), ethers.ZeroHash, "publishSchema");
+    });
+
+    it("emits Schema for each SCHEMA block", async () => {
+      const amountName = ethers.encodeBytes32String("amount");
+      const localName = ethers.encodeBytes32String("payment");
+      const amountSchema = "{ bytes32 asset, uint amount }";
+      const localSchema = "{ #bytes as left, uint op, #bytes as right }";
+      const localKey = "0x00000001";
+      const request = concat(
+        encodeSchemaBlock(Keys.Amount, amountSchema, amountName),
+        encodeSchemaBlock(localKey, localSchema, localName),
+      );
+
+      const tx = await callAs(0, "publishSchema", adminCtx(request));
+      await expect(tx).to.emit(host, "Schema")
+        .withArgs(await host.host(), Keys.Amount, amountSchema, amountName);
+      await expect(tx).to.emit(host, "Schema")
+        .withArgs(await host.host(), localKey, localSchema, localName);
+    });
+
+    it("reverts AccessDenied for non-admin account", async () => {
+      const fakeAdmin = ethers.zeroPadValue("0x16", 32);
+      const request = encodeSchemaBlock(Keys.Amount, "{ bytes32 asset, uint amount }", ethers.encodeBytes32String("amount"));
+
+      await expect(callAs(0, "publishSchema", userCtx(fakeAdmin, request)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts ZeroCursor for empty request", async () => {
+      await expect(callAs(0, "publishSchema", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "ZeroCursor");
     });
   });

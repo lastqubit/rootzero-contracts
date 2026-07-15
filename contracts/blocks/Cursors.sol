@@ -726,6 +726,19 @@ library Cursors {
         cur.ensureAt(end);
     }
 
+    /// @notice Consume a SCHEMA block and return its fields.
+    /// @param cur Cursor; advanced past the SCHEMA block.
+    /// @return key Block key being defined.
+    /// @return body Schema DSL string describing the block payload body.
+    /// @return name Optional block alias.
+    function unpackSchema(Cur memory cur) internal pure returns (bytes4 key, string memory body, bytes32 name) {
+        uint end = cur.enter(Keys.Schema, 36 + Sizes.Header, 0);
+        key = cur.read4();
+        body = cur.unpackString();
+        name = cur.read32();
+        cur.ensureAt(end);
+    }
+
     /// @notice Consume a dynamic block with a single bytes32 payload.
     /// @param cur Cursor; advanced past the block.
     /// @param key Expected dynamic block key.
