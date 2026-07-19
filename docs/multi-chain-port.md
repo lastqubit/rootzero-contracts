@@ -64,7 +64,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Cursor parsing | `blocks/Cursors.sol` | Zero-copy byte stream reader. Re-implement per language. |
 | Writer helpers | `blocks/Writers.sol` | Block stream builder. Re-implement per language. |
 | Block key constants | `blocks/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
-| Pipeline state model | `core/Pipeline.sol` | STEP stream plus threaded `bytes` state. Only dispatch is chain-specific. |
+| Pipeline state model | `core/Pipeline.sol` | STEP stream, threaded `bytes` state, and separately settled TRANSACTION output. Only dispatch and settlement are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
@@ -512,9 +512,11 @@ Each command has:
 - a deterministic local ID
 - an announcement/registration record using the same logical event shape where the chain supports events
 - input: `CommandContext { account, state, input }`
-- output: `bytes` containing the next Rootzero block stream state
+- output: two byte streams: the next Rootzero block stream state and a stream of TRANSACTION blocks to settle
 
-The `input` and `state` fields are always Rootzero block streams.
+The `input`, `state`, and transaction output are always Rootzero block streams.
+The two outputs are separate lanes: only state is threaded into the next
+command, while the pipeline host settles each non-empty transaction output.
 
 Chain-specific dispatch:
 
@@ -532,9 +534,12 @@ The `pipe()` loop is pure protocol logic:
 1. Iterate STEP blocks.
 2. Decode `(target, value, request)`.
 3. Dispatch `target` locally.
-4. Thread the returned bytes as the next state.
+4. Thread the returned state bytes into the next step and settle any returned transaction bytes.
 5. Require the final state to be empty.
-6. Settle any remaining native value according to local rules.
+
+After `pipe()` returns, its caller still owns the remaining native-value
+budget. If the entrypoint refunds that value, it encodes the refund as a
+TRANSACTION block and passes it through the same settlement path.
 
 Dispatch should not extract a target chain ID. It should only validate that `target` is a trusted local node and resolve it through the local chain's dispatch table.
 
@@ -701,6 +706,11 @@ The TypeScript SDK may know about many chains because it is off-chain orchestrat
 ### Dispatcher
 
 ```rust
+struct CommandOutput {
+    state: Vec<u8>,
+    transactions: Vec<u8>,
+}
+
 trait Dispatcher {
     fn dispatch(
         &mut self,
@@ -709,7 +719,7 @@ trait Dispatcher {
         state: Vec<u8>,
         request: &[u8],
         value: u64,
-    ) -> Result<Vec<u8>>;
+    ) -> Result<CommandOutput>;
 }
 ```
 

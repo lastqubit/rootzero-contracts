@@ -352,12 +352,17 @@ fn pipe(
     budget: NativeBudget,
 ) -> Result<(), ContractError> {
     // iterate STEP blocks
-    // dispatch each local target
-    // thread returned state
+    // dispatch each local target and receive (state, transactions)
+    // thread returned state into the next step
+    // settle each non-empty returned TRANSACTION stream before the next step
     // require final state is empty
-    // settle remaining native value
 }
 ```
+
+After `pipe` returns, the entrypoint still owns the remaining native budget. If
+that value should be refunded, encode it as a TRANSACTION block and pass it
+through the same settlement path; do not add a separate per-command refund
+hook.
 
 Do not parse a target chain ID from a STEP target. The target is already local to this CosmWasm host.
 
@@ -410,7 +415,9 @@ withdraw
 payout
 ```
 
-Command inputs and outputs remain Rootzero block streams.
+Command inputs and outputs remain Rootzero block streams. Every command returns
+two byte streams: `state` for the next pipeline step and `transactions` for the
+pipeline host to settle outside the state lane.
 
 `CommandContext`:
 
@@ -419,6 +426,11 @@ pub struct CommandContext {
     pub account: [u8; 32],
     pub state: Vec<u8>,
     pub input: Vec<u8>,
+}
+
+pub struct CommandOutput {
+    pub state: Vec<u8>,
+    pub transactions: Vec<u8>,
 }
 ```
 

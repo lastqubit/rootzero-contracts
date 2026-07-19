@@ -7,17 +7,18 @@ breaking API changes. Breaking changes are called out explicitly.
 
 ### Breaking Changes
 
-- Removed the generic `EndpointBase.schema(...)` helper. Use
-  `localSchema(...)` for context-local endpoint schemas or emit `Schema`
-  directly for custom/named keys.
+- Removed `Keys.Local` and replaced `EndpointBase.localSchema(...)` with the
+  explicit `EndpointBase.schema(uint32 key, string body)` helper for
+  context-local endpoint schemas.
+- Changed `Introduction` to emit the receiving `host` and introduced `peer`:
+  `Introduction(uint indexed host, uint peer, uint blocknum)`.
 - Replaced `isDebitAccount`, `isCreditAccount`, `isAuthorize`, and
   `isUnauthorize` helper predicates with internal command ID fields:
   `debitAccountId`, `creditAccountId`, `authorizeId`, and `unauthorizeId`.
 
 ### Added
 
-- Added `Keys.Local` as the default context-local block key and added
-  `EndpointBase.localSchema(...)` helpers for publishing local endpoint
+- Added the `EndpointBase.schema(...)` helper for publishing local endpoint
   schemas.
 - Added the standard `#schema` block, `unpackSchema`, and an opt-in
   `publishSchema` admin command for emitting schema claims from `#schema`

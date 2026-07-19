@@ -121,7 +121,8 @@ const request = concat([
   encodeAmountBlock(usdc, 250_000_000n),
   encodeAmountBlock(dai, 250n * 10n ** 18n),
 ]);
-// deposit(request) returns two #balance blocks, one per #amount
+// deposit(request) returns two #balance blocks in its state output and an
+// empty transaction output
 ```
 
 Everything downstream keeps this shape: commands loop over request blocks,
@@ -216,6 +217,11 @@ struct CommandContext {
 }
 ```
 
+Every command returns two block streams: `state`, which is threaded into the
+next pipeline step, and `transactions`, which contains `#transaction` blocks
+for the pipeline host to settle outside the state lane. Either stream may be
+empty.
+
 The input carries instructions; the state carries live value. While a
 sequence of commands executes, `#balance` and `#custody` blocks in the state
 are the funds being moved — produced by one command, consumed by the next.
@@ -224,7 +230,9 @@ The standard `Deposit` mixin shows the canonical shape — open the input,
 loop the batch, call the hook, write the output run:
 
 ```solidity
-function deposit(CommandContext calldata c) external onlyCommand returns (bytes memory) {
+function deposit(
+    CommandContext calldata c
+) external onlyCommand returns (bytes memory state, bytes memory transactions) {
     (Cur memory input, uint outputs) = openInput(c.input, descriptor);
     Writer memory output = Writers.allocBalances(outputs);
 
@@ -234,7 +242,7 @@ function deposit(CommandContext calldata c) external onlyCommand returns (bytes 
         output.appendBalance(asset, amount);
     }
 
-    return output.finish();
+    return (output.finish(), "");
 }
 ```
 
@@ -250,8 +258,10 @@ abstract contract MyCommand is CommandBase {
         (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        // parse c.input, loop, return the output state run
+    function myCommand(
+        CommandContext calldata c
+    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+        // parse c.input, loop, return the output state run and any transactions
     }
 }
 ```
@@ -259,8 +269,9 @@ abstract contract MyCommand is CommandBase {
 The standard commands cover the common ledger movements: `deposit` and
 `depositPayable` (external funds in), `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
-state to other accounts), `provision` (allocate custody on another host), and
-`relayPayable` (hand a pipeline to another portal).
+state to other accounts), `allocate` (turn balance state into custody),
+`provision` (provision custody from an external allocation), and `relayPayable`
+(hand a pipeline to another portal).
 
 ## Pipelines
 
@@ -272,14 +283,23 @@ step { uint target, uint resources, #bytes as request }
 ```
 
 Each step names a target command, the resources it may spend, and its request.
-The state threads through: whatever one command returns becomes the input
-state of the next, and the final state must be empty. This is the core of
-`Pipeline.pipe`:
+The returned state threads into the next command and the final state must be
+empty. Returned transactions do not enter the state lane; the pipeline passes
+each non-empty transaction stream to its settlement hook before running the
+next step. This is the core of `Pipeline.pipe`:
 
 ```solidity
 while (input.i < input.len) {
     (uint target, uint resources, bytes calldata request) = input.unpackStep();
-    state = dispatch(target, account, state, request, useValue(budget, resources));
+    bytes memory transactions;
+    (state, transactions) = dispatch(
+        target,
+        account,
+        state,
+        request,
+        useValue(budget, resources)
+    );
+    if (transactions.length != 0) settle(transactions);
 }
 if (state.length != 0) revert UnexpectedState();
 ```
