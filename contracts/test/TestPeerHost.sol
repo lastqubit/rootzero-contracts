@@ -49,10 +49,12 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         bytes memory state,
         bytes calldata,
         uint128 value
-    ) internal override returns (bytes memory) {
+    ) internal override returns (bytes memory nextState, bytes memory transactions) {
         emit StepDispatched(cid, stepCount++, value);
-        return state;
+        return (state, "");
     }
+
+    function settle(bytes memory) internal pure override {}
 
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }

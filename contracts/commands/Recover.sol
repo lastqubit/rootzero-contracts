@@ -31,8 +31,9 @@ abstract contract RecoverPayable is CommandBase, Payable, RecoverHook {
 
     /// @notice Recover each recover block in the command request.
     /// @param c Command context; `c.input` must contain Recover blocks.
-    /// @return Empty output state.
-    function recoverPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Remaining native value as a refund transaction stream.
+    function recoverPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
         Budget memory budget = openValue();
 
@@ -41,7 +42,6 @@ abstract contract RecoverPayable is CommandBase, Payable, RecoverHook {
             recover(handler, key, witness, useValue(budget, resources));
         }
 
-        closeValue(c.account, budget);
-        return "";
+        return ("", closeValue(budget, c.account));
     }
 }

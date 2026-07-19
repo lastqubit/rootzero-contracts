@@ -18,14 +18,15 @@ abstract contract Label is AdminBase {
 
     /// @notice Publish each LABEL block in the admin request.
     /// @param c Admin command context; `c.input` must contain LABEL blocks.
-    /// @return Empty output state.
-    function label(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function label(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             (uint node, bytes32 namespace, string memory name) = input.unpackLabel();
             emit Labeled(node, namespace, name);
         }
-        return "";
+        return ("", "");
     }
 }

@@ -28,7 +28,7 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
         // The command function selector already identifies this entrypoint, so no
         // additional target field is needed in CommandContext.
@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
         (bytes32 asset, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.
-        return Cursors.toBalanceBlock(asset, amount);
+        return (Cursors.toBalanceBlock(asset, amount), "");
     }
 }
 

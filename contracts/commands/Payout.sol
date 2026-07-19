@@ -28,14 +28,15 @@ abstract contract Payout is CommandBase, PayoutHook {
 
     /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
     /// @param c Command context; `c.state` must contain BALANCE blocks and `c.input` matching ACCOUNT blocks.
-    /// @return Empty output state.
-    function payout(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory input, Cur memory state, ) = openCommand(c, descriptor);
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function payout(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+        (Cur memory input, Cur memory stateCur, ) = openCommand(c, descriptor);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
+        while (stateCur.i < stateCur.len) {
+            (bytes32 asset, uint amount) = stateCur.unpackBalance();
             payout(c.account, input.unpackAccount(), asset, amount);
         }
-        return "";
+        return ("", "");
     }
 }

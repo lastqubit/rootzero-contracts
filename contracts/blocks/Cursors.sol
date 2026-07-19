@@ -493,6 +493,21 @@ library Cursors {
         return createBlock96(Keys.Custody, bytes32(host), asset, bytes32(amount));
     }
 
+    /// @notice Encode a TRANSACTION block.
+    /// @param from Source account identifier.
+    /// @param to Destination account identifier.
+    /// @param asset Asset identifier.
+    /// @param amount Transfer amount.
+    /// @return Encoded TRANSACTION block bytes.
+    function toTransactionBlock(
+        bytes32 from,
+        bytes32 to,
+        bytes32 asset,
+        uint amount
+    ) internal pure returns (bytes memory) {
+        return createBlock128(Keys.Transaction, from, to, asset, bytes32(amount));
+    }
+
     /// @notice Encode a STEP block.
     /// @param target Command target identifier.
     /// @param resources Packed resources assigned to the step.
@@ -1338,6 +1353,18 @@ library Cursors {
     // -------------------------------------------------------------------------
     // Transform helpers
     // -------------------------------------------------------------------------
+
+    /// @notice Consume a BALANCE block and scope its amount to a host.
+    /// @param cur Cursor; advanced past the BALANCE block.
+    /// @param host Host node ID to attach to the decoded balance.
+    /// @return value Host-scoped balance amount.
+    function unpackBalanceForHost(
+        Cur memory cur,
+        uint host
+    ) internal pure returns (HostAmount memory value) {
+        value.host = host;
+        (value.asset, value.amount) = cur.unpackBalance();
+    }
 
     /// @notice Consume a RELAY block and encode its destination context payload.
     /// @param cur Cursor; advanced past the RELAY block.

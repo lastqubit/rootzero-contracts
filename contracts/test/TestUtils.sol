@@ -306,6 +306,15 @@ contract TestUtils is Payable {
         remainingAfter = budget.remaining;
     }
 
+    function testValueTransaction(
+        uint remaining,
+        bytes32 account
+    ) external returns (bytes memory transaction, uint remainingAfter) {
+        Budget memory budget = Budget({remaining: remaining});
+        transaction = closeValue(budget, account);
+        remainingAfter = budget.remaining;
+    }
+
     function testBytes32ToString(bytes32 value) external pure returns (string memory) {
         return bytes32ToString(value);
     }

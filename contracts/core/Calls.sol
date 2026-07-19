@@ -90,17 +90,18 @@ abstract contract CommandCalls is NodeCalls {
     /// @param account Command account identifier.
     /// @param state Current command state block stream.
     /// @param request Command input block stream.
-    /// @return Decoded command output block stream.
+    /// @return nextState Decoded command output state block stream.
+    /// @return transactions Decoded command transaction block stream.
     function callCommand(
         uint command,
         uint128 value,
         bytes32 account,
         bytes memory state,
         bytes calldata request
-    ) internal returns (bytes memory) {
+    ) internal returns (bytes memory nextState, bytes memory transactions) {
         bytes4 selector = Nodes.commandSelector(command);
         bytes memory data = abi.encodeWithSelector(selector, CommandContext(account, state, request));
-        return abi.decode(trustedCall(command, value, data), (bytes));
+        return abi.decode(trustedCall(command, value, data), (bytes, bytes));
     }
 }
 

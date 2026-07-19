@@ -55,7 +55,7 @@ abstract contract MyCommand is CommandBase {
         items.complete();
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
         Cur memory input = Cursors.open(c.input);
         uint listIndex;
 
@@ -71,7 +71,7 @@ abstract contract MyCommand is CommandBase {
         }
 
         input.complete();
-        return "";
+        return ("", "");
     }
 }
 

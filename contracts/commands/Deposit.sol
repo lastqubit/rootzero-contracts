@@ -43,10 +43,11 @@ abstract contract Deposit is CommandBase, DepositHook {
 
     /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
     /// @param c Command context; `c.input` must contain AMOUNT blocks.
-    /// @return BALANCE block stream matching the deposited amounts.
+    /// @return state BALANCE block stream matching the deposited amounts.
+    /// @return transactions Empty transaction stream.
     function deposit(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory) {
+    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocBalances(outputs);
 
@@ -56,7 +57,7 @@ abstract contract Deposit is CommandBase, DepositHook {
             output.appendBalance(asset, amount);
         }
 
-        return output.finish();
+        return (output.finish(), "");
     }
 }
 
@@ -72,10 +73,11 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
 
     /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
     /// @param c Command context; `c.input` must contain AMOUNT blocks.
-    /// @return BALANCE block stream matching the deposited amounts.
+    /// @return state BALANCE block stream matching the deposited amounts.
+    /// @return transactions Remaining native value as a refund transaction stream.
     function depositPayable(
         CommandContext calldata c
-    ) external payable onlyCommand returns (bytes memory) {
+    ) external payable onlyCommand returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, uint outputs) = openInput(c.input, descriptor);
         Writer memory output = Writers.allocBalances(outputs);
         Budget memory budget = openValue();
@@ -86,8 +88,7 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
             output.appendBalance(asset, amount);
         }
 
-        closeValue(c.account, budget);
-        return output.finish();
+        return (output.finish(), closeValue(budget, c.account));
     }
 }
 

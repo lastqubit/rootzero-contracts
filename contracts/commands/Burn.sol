@@ -27,15 +27,16 @@ abstract contract Burn is CommandBase, BurnHook {
 
     /// @notice Burn each BALANCE block from the command state.
     /// @param c Command context; `c.state` must contain BALANCE blocks.
-    /// @return Empty output state.
-    function burn(CommandContext calldata c) external onlyCommand returns (bytes memory) {
-        (Cur memory state, ) = openState(c.state, descriptor);
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function burn(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+        (Cur memory stateCur, ) = openState(c.state, descriptor);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
+        while (stateCur.i < stateCur.len) {
+            (bytes32 asset, uint amount) = stateCur.unpackBalance();
             burn(c.account, asset, amount);
         }
-        return "";
+        return ("", "");
     }
 }
 

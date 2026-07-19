@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
-import { commandSelector, guardSelector, portSelector } from "./helpers/blocks.js";
+import { commandSelector, encodeTxBlock, encodeUserAccount, guardSelector, portSelector } from "./helpers/blocks.js";
 
 async function expectCustomError(promise: Promise<unknown>, name: string) {
   try {
@@ -568,6 +568,32 @@ describe("Utils", () => {
       expect(drained).to.equal(100n);
       expect(remaining).to.equal(0n);
     });
+
+    it("converts remaining native value into a transaction block", async () => {
+      const account = encodeUserAccount("0x03");
+      const nativeAsset = await utils.testToNativeAsset();
+      const [transaction, remaining] = await utils.testValueTransaction.staticCall(100n, account);
+
+      expect(transaction).to.equal(encodeTxBlock(ethers.ZeroHash, account, nativeAsset, 100n));
+      expect(remaining).to.equal(0n);
+      const receipt = await (await utils.testValueTransaction(100n, account)).wait();
+      const receivedEvent = utils.interface.getEvent("Received")!;
+      const receivedLog = receipt!.logs.find((log) => log.topics[0] === receivedEvent.topicHash)!;
+      const received = utils.interface.decodeEventLog(receivedEvent, receivedLog.data, receivedLog.topics);
+      expect([...received]).to.deep.equal([account, nativeAsset, 100n, 13n, 0n]);
+    });
+
+    it("returns empty bytes for an empty native-value budget", async () => {
+      const account = encodeUserAccount("0x03");
+      const [transaction, remaining] = await utils.testValueTransaction.staticCall(0n, account);
+
+      expect(transaction).to.equal("0x");
+      expect(remaining).to.equal(0n);
+      const receipt = await (await utils.testValueTransaction(0n, account)).wait();
+      const receivedTopic = utils.interface.getEvent("Received")!.topicHash;
+      expect(receipt!.logs.some((log) => log.topics[0] === receivedTopic)).to.be.false;
+    });
+
   });
 
   // ── Strings ───────────────────────────────────────────────────────────────

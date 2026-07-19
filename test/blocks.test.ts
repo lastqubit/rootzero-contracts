@@ -89,6 +89,14 @@ describe("Cursors", () => {
       expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, amount]);
     });
 
+    it("transaction struct overload matches separate fields", async () => {
+      const from_ = encodeUserAccount("0x03");
+      const to_ = encodeUserAccount("0x04");
+      const fields: string = await helper.testWriteTxBlock(from_, to_, asset, amount);
+      const value: string = await helper.testWriteTxStructBlock(from_, to_, asset, amount);
+      expect(value).to.equal(fields);
+    });
+
     it("writeStringBlock round-trips UTF-8 payloads", async () => {
       const label = "credit account";
       const data: string = await stringHelper.testWriteStringBlock(label);
@@ -109,6 +117,15 @@ describe("Cursors", () => {
       const data: string = await helper.testToCustodyBlock(1234n, asset, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
       expect(data.slice(0, 10)).to.equal(Keys.Custody);
+    });
+
+    it("toTransactionBlock returns a valid encoded TRANSACTION block", async () => {
+      const from_ = encodeUserAccount("0x03");
+      const to_ = encodeUserAccount("0x04");
+      const data: string = await helper.testToTransactionBlock(from_, to_, asset, amount);
+      expect(ethers.getBytes(data).length).to.equal(136);
+      expect(data.slice(0, 10)).to.equal(Keys.Transaction);
+      expect(await helper.testToTxValue(data)).to.deep.equal([from_, to_, asset, amount]);
     });
 
     it("toBountyBlock returns a valid encoded BOUNTY block", async () => {
@@ -152,6 +169,16 @@ describe("Cursors", () => {
     const asset = ethers.zeroPadValue("0xaa", 32);
     const otherAsset = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
+
+    it("unpackBalanceForHost scopes a consumed BALANCE to the supplied host", async () => {
+      const host = 1234n;
+      const source = encodeBalanceBlock(asset, amount);
+      const [outHost, outAsset, outAmount, i] = await helper.testUnpackBalanceForHost(source, host);
+      expect(outHost).to.equal(host);
+      expect(outAsset).to.equal(asset);
+      expect(outAmount).to.equal(amount);
+      expect(i).to.equal(BigInt(ethers.getBytes(source).length));
+    });
 
     it("run returns key and groups, and truncates len to the matching run", async () => {
       const a = encodeAmountBlock(asset, 1n);

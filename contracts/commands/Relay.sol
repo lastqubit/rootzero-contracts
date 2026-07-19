@@ -34,15 +34,15 @@ abstract contract RelayPayable is CommandBase, Payable, RoutePayableHook {
 
     /// @notice Relay one RELAY request block with the command account and current state.
     /// @param c Command context; `c.input` must contain exactly one RELAY block.
-    /// @return Empty output state.
-    function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Remaining native value as a refund transaction stream.
+    function relayPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, , ) = openLane(c.input, descriptor, Lane.Input, 1);
         (uint portal, uint resources, bytes memory context) = input.relayToContext(c.account, c.state);
 
         Budget memory budget = openValue();
         route(portal, resources, context, budget);
 
-        closeValue(c.account, budget);
-        return "";
+        return ("", closeValue(budget, c.account));
     }
 }

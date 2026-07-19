@@ -19,14 +19,15 @@ abstract contract Unauthorize is AdminBase {
 
     /// @notice Unauthorize each NODE block in the admin request.
     /// @param c Admin command context; `c.input` must contain NODE blocks.
-    /// @return Empty output state.
-    function unauthorize(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function unauthorize(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             uint node = input.unpackNode();
             setNode(node, false);
         }
-        return "";
+        return ("", "");
     }
 }

@@ -18,14 +18,15 @@ abstract contract PublishSchema is AdminBase {
 
     /// @notice Publish each SCHEMA block in the admin request.
     /// @param c Admin command context; `c.input` must contain SCHEMA blocks.
-    /// @return Empty output state.
-    function publishSchema(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function publishSchema(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             (bytes4 key, string memory body, bytes32 name) = input.unpackSchema();
             emit Schema(host, key, body, name);
         }
-        return "";
+        return ("", "");
     }
 }

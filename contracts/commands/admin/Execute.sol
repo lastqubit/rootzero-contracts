@@ -22,8 +22,9 @@ abstract contract ExecutePayable is AdminBase, Payable {
 
     /// @notice Execute each CALL block in the admin request.
     /// @param c Admin command context; `c.input` must contain CALL blocks.
-    /// @return Empty output state.
-    function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory) {
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
+    function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
         Budget memory budget = openValue();
 
@@ -31,6 +32,6 @@ abstract contract ExecutePayable is AdminBase, Payable {
             (uint target, uint resources, bytes calldata data) = input.unpackCall();
             rawCall(target, useValue(budget, resources), data);
         }
-        return "";
+        return ("", "");
     }
 }

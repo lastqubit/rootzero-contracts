@@ -57,8 +57,9 @@ describe("Burn", () => {
 
   it("returns empty bytes after processing BALANCE blocks", async () => {
     const state = encodeBalanceBlock(ethers.zeroPadValue("0xc1", 32), 50n);
-    const result: string = await (host as any)[burnMethod].staticCall(ctx({ state }));
+    const [result, transactions] = await (host as any)[burnMethod].staticCall(ctx({ state }));
     expect(result).to.equal("0x");
+    expect(transactions).to.equal("0x");
   });
 
   it("stops at the first non-BALANCE block and succeeds if at least one was processed", async () => {

@@ -73,8 +73,9 @@ describe("Commands", () => {
       const amount = 50n;
       const request = encodeAmountBlock(asset, amount);
 
-      const result: string = await host.deposit.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.deposit.staticCall(ctx({ input: request }));
       expect(result).to.equal(encodeBalanceBlock(asset, amount));
+      expect(transactions).to.equal("0x");
     });
 
     it("processes multiple AMOUNT blocks", async () => {
@@ -85,11 +86,12 @@ describe("Commands", () => {
         encodeAmountBlock(asset2, 20n)
       );
 
-      const result: string = await host.deposit.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.deposit.staticCall(ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeBalanceBlock(asset1, 10n),
         encodeBalanceBlock(asset2, 20n)
       ));
+      expect(transactions).to.equal("0x");
     });
 
     it("reverts AccessDenied for untrusted caller", async () => {
@@ -132,8 +134,9 @@ describe("Commands", () => {
       const asset = ethers.zeroPadValue("0x05", 32);
       const request = encodeAmountBlock(asset, 8n);
 
-      const result: string = await host.depositPayable.staticCall(ctx({ input: request }), { value: 8n });
+      const [result, transactions] = await host.depositPayable.staticCall(ctx({ input: request }), { value: 8n });
       expect(result).to.equal(encodeBalanceBlock(asset, 8n));
+      expect(transactions).to.equal("0x");
     });
 
   });
@@ -263,8 +266,9 @@ describe("Commands", () => {
 
     it("returns one BALANCE block per AMOUNT block", async () => {
       const request = encodeAmountBlock(asset, 100n);
-      const result: string = await host.debitAccount.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.debitAccount.staticCall(ctx({ input: request }));
       expect(result).to.equal(encodeBalanceBlock(asset, 100n));
+      expect(transactions).to.equal("0x");
     });
 
     it("reverts ZeroCursor when request has no AMOUNT blocks", async () => {
@@ -294,17 +298,85 @@ describe("Commands", () => {
         encodeAmountBlock(asset1, 100n),
         encodeAmountBlock(asset2, 200n),
       );
-      const result: string = await host.debitAccount.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.debitAccount.staticCall(ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeBalanceBlock(asset1, 100n),
         encodeBalanceBlock(asset2, 200n),
       ));
+      expect(transactions).to.equal("0x");
     });
   });
 
   // ── Fund ──────────────────────────────────────────────────────────────────
 
-  // ── Provision ─────────────────────────────────────────────────────────────
+  // ── Allocate / Provision ──────────────────────────────────────────────────
+
+  describe("allocate", () => {
+    it("discovers BALANCE state, NODE input, and CUSTODY output lanes", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("allocate"),
+          endpointDescriptor({ state: Keys.Balance, input: Keys.Node, output: Keys.Custody }),
+        );
+    });
+
+    it("calls the hook and returns CUSTODY state", async () => {
+      const asset = ethers.zeroPadValue("0x60", 32);
+      const hostId = 123456n;
+      const state = encodeBalanceBlock(asset, 600n);
+      const input = encodeNodeBlock(hostId);
+
+      const tx = await callAs(0, "allocate", ctx({ state, input }));
+      await expect(tx).to.emit(host, "AllocateCalled")
+        .withArgs(hostId, userAccount, asset, 600n);
+
+      const [result, transactions] = await host.allocate.staticCall(ctx({ state, input }));
+      expect(result).to.equal(encodeCustodyBlock(hostId, asset, 600n));
+      expect(transactions).to.equal("0x");
+    });
+
+    it("pairs each BALANCE with the NODE at the same position", async () => {
+      const asset1 = ethers.zeroPadValue("0x61", 32);
+      const asset2 = ethers.zeroPadValue("0x62", 32);
+      const state = concat(
+        encodeBalanceBlock(asset1, 100n),
+        encodeBalanceBlock(asset2, 200n),
+      );
+      const input = concat(encodeNodeBlock(111n), encodeNodeBlock(222n));
+
+      const [result, transactions] = await host.allocate.staticCall(ctx({ state, input }));
+      expect(result).to.equal(concat(
+        encodeCustodyBlock(111n, asset1, 100n),
+        encodeCustodyBlock(222n, asset2, 200n),
+      ));
+      expect(transactions).to.equal("0x");
+    });
+
+    it("reverts BadRatio when NODE and BALANCE counts differ", async () => {
+      const asset = ethers.zeroPadValue("0x63", 32);
+      const state = concat(
+        encodeBalanceBlock(asset, 100n),
+        encodeBalanceBlock(asset, 200n),
+      );
+      const input = encodeNodeBlock(111n);
+
+      await expect(callAs(0, "allocate", ctx({ state, input })))
+        .to.be.revertedWithCustomError(host, "BadRatio");
+    });
+
+    it("reverts InvalidBlock for non-NODE input", async () => {
+      const asset = ethers.zeroPadValue("0x64", 32);
+      const state = encodeBalanceBlock(asset, 100n);
+      const input = encodeAmountBlock(asset, 100n);
+
+      await expect(callAs(0, "allocate", ctx({ state, input })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+  });
 
   describe("provision", () => {
     it("emits ProvisionCalled and returns CUSTODY blocks", async () => {
@@ -320,8 +392,9 @@ describe("Commands", () => {
       const asset = ethers.zeroPadValue("0x70", 32);
       const hostId = 654321n;
       const request = encodeAllocationBlock(hostId, asset, 700n);
-      const result: string = await host.provision.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.provision.staticCall(ctx({ input: request }));
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 700n));
+      expect(transactions).to.equal("0x");
     });
 
     it("reverts InvalidBlock when request is not an ALLOCATION block", async () => {
@@ -354,11 +427,12 @@ describe("Commands", () => {
         encodeAllocationBlock(host1, asset1, 100n),
         encodeAllocationBlock(host2, asset2, 200n),
       );
-      const result: string = await host.provision.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.provision.staticCall(ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeCustodyBlock(host1, asset1, 100n),
         encodeCustodyBlock(host2, asset2, 200n),
       ));
+      expect(transactions).to.equal("0x");
     });
   });
   describe("provisionPayable", () => {
@@ -384,8 +458,9 @@ describe("Commands", () => {
       const hostId = 777n;
       const request = encodeAllocationBlock(hostId, asset, 8n);
 
-      const result: string = await host.provisionPayable.staticCall(ctx({ input: request }), { value: 8n });
+      const [result, transactions] = await host.provisionPayable.staticCall(ctx({ input: request }), { value: 8n });
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 8n));
+      expect(transactions).to.equal("0x");
     });
 
   });
@@ -423,8 +498,9 @@ describe("Commands", () => {
       const request = encodeRelayBlock(portal, resources, steps);
       const context = encodeContextBlock(userAccount, state, steps);
 
-      const result: string = await host.relayPayable.staticCall(ctx({ state, input: request }));
+      const [result, transactions] = await host.relayPayable.staticCall(ctx({ state, input: request }));
       expect(result).to.equal("0x");
+      expect(transactions).to.equal("0x");
 
       const tx = await callAs(0, "relayPayable", ctx({ state, input: request }));
       await expect(tx).to.emit(host, "RelayCalled")
@@ -474,12 +550,13 @@ describe("Commands", () => {
         .withArgs(portal, 2n, context);
     });
 
-    it("settles unspent command value after relay dispatch", async () => {
+    it("returns unspent command value after relay dispatch as a transaction", async () => {
       const portal = portalNode(31337n);
       const request = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
 
-      await expect(callAs(0, "relayPayable", ctx({ input: request }), { value: 1n }))
-        .to.be.revertedWithCustomError(host, "UnusedValue");
+      const [state, transactions] = await host.relayPayable.staticCall(ctx({ input: request }), { value: 1n });
+      expect(state).to.equal("0x");
+      expect(ethers.getBytes(transactions).length).to.equal(136);
     });
   });
 
@@ -506,21 +583,23 @@ describe("Commands", () => {
       const witness = encodeContextBlock(userAccount, "0x", step);
       const request = encodeRecoverBlock(handler, resources, key, witness);
 
-      const result: string = await host.recoverPayable.staticCall(ctx({ input: request }), { value: resources });
+      const [result, transactions] = await host.recoverPayable.staticCall(ctx({ input: request }), { value: resources });
       expect(result).to.equal("0x");
+      expect(transactions).to.equal("0x");
 
       const tx = await callAs(0, "recoverPayable", ctx({ input: request }), { value: resources });
       await expect(tx).to.emit(host, "RecoverCalled")
         .withArgs(handler, key, witness, resources);
     });
 
-    it("settles unspent command value after recovery", async () => {
+    it("returns unspent command value after recovery as a transaction", async () => {
       const key = ethers.zeroPadValue("0xcafe", 32);
       const witness = encodeContextBlock(userAccount, "0x", "0x");
       const request = encodeRecoverBlock(0n, 0n, key, witness);
 
-      await expect(callAs(0, "recoverPayable", ctx({ input: request }), { value: 1n }))
-        .to.be.revertedWithCustomError(host, "UnusedValue");
+      const [state, transactions] = await host.recoverPayable.staticCall(ctx({ input: request }), { value: 1n });
+      expect(state).to.equal("0x");
+      expect(ethers.getBytes(transactions).length).to.equal(136);
     });
   });
 
@@ -560,6 +639,15 @@ describe("Commands", () => {
       const tx = await callAs(0, "testPipe", userAccount, "0x", request, { value: 7n });
 
       await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
+    });
+
+    it("settles non-empty transaction streams returned by dispatch", async () => {
+      const transactions = "0x1234";
+      const request = encodeStepBlock(ethers.MaxUint256, 0n, transactions);
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request);
+
+      await expect(tx).to.emit(host, "TransactionsSettled").withArgs(transactions);
     });
 
     it("reverts UnexpectedState when final threaded state is non-empty", async () => {

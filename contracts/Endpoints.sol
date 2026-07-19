@@ -11,6 +11,7 @@ import { EndpointBase, Lane } from "./core/Endpoint.sol";
 import { Payable } from "./core/Payable.sol";
 
 // Commands
+import { Allocate, AllocateHook } from "./commands/Allocate.sol";
 import { Burn, BurnHook } from "./commands/Burn.sol";
 import { CreditAccount, CreditAccountHook } from "./commands/Credit.sol";
 import { DebitAccount, DebitAccountHook } from "./commands/Debit.sol";

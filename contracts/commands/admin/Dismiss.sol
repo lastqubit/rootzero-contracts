@@ -18,16 +18,17 @@ abstract contract Dismiss is AdminBase {
 
     /// @notice Dismiss each ACCOUNT block in the admin request from guardian status.
     /// @param c Admin command context; `c.input` must contain ACCOUNT blocks.
-    /// @return Empty output state.
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
     function dismiss(
         CommandContext calldata c
-    ) external onlyAdmin(c.account) returns (bytes memory) {
+    ) external onlyAdmin(c.account) returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         while (input.i < input.len) {
             bytes32 account = input.unpackAccount();
             setGuardian(account, false);
         }
-        return "";
+        return ("", "");
     }
 }

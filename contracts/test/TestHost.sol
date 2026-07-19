@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
+import { Allocate } from "../commands/Allocate.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
 import { CreditAccount } from "../commands/Credit.sol";
@@ -21,6 +22,7 @@ import { Budget, Values } from "../utils/Value.sol";
 
 contract TestHost is
     Host,
+    Allocate,
     Deposit,
     DepositPayable,
     Withdraw,
@@ -38,6 +40,7 @@ contract TestHost is
     Allowance,
     PublishSchema
 {
+    event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
     event WithdrawCalled(bytes32 account, bytes32 asset, uint amount);
@@ -52,10 +55,15 @@ contract TestHost is
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
+    event TransactionsSettled(bytes transactions);
 
     uint public stepCount;
 
-    constructor(address rootzero) Host(rootzero) Deposit() Provision() {}
+    constructor(address rootzero) Host(rootzero) Allocate() Deposit() Provision() {}
+
+    function allocate(bytes32 account, HostAmount memory custody) internal override {
+        emit AllocateCalled(custody.host, account, custody.asset, custody.amount);
+    }
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
         emit DepositCalled(account, asset, amount);
@@ -130,17 +138,23 @@ contract TestHost is
         uint cid,
         bytes32,
         bytes memory state,
-        bytes calldata,
+        bytes calldata request,
         uint128 value
-    ) internal override returns (bytes memory) {
+    ) internal override returns (bytes memory nextState, bytes memory transactions) {
         emit StepDispatched(cid, stepCount++, value);
-        return state;
+        if (cid == type(uint).max) return (state, request);
+        return (state, "");
+    }
+
+    function settle(bytes memory transactions) internal override {
+        emit TransactionsSettled(transactions);
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
         Budget memory budget = openValue();
         pipe(account, state, steps, budget);
-        closeValue(account, budget);
+        bytes memory transactions = closeValue(budget, account);
+        if (transactions.length != 0) settle(transactions);
     }
 
     function getAdminAccount() external view returns (bytes32) {

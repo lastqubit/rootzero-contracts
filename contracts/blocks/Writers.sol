@@ -993,19 +993,27 @@ library Writers {
         appendCustody(writer, value.host, value.asset, value.amount);
     }
 
+    /// @notice Append a TRANSACTION block using separate field values.
+    /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
+    /// @param from Source account identifier.
+    /// @param to Destination account identifier.
+    /// @param asset Asset identifier.
+    /// @param amount Transfer amount.
+    function appendTransaction(
+        Writer memory writer,
+        bytes32 from,
+        bytes32 to,
+        bytes32 asset,
+        uint amount
+    ) internal pure {
+        appendBlock128(writer, Keys.Transaction, from, to, asset, bytes32(amount), 32);
+    }
+
     /// @notice Append a TRANSACTION block from a struct.
     /// @param writer Destination writer; `i` is advanced by `Sizes.Transaction`.
     /// @param value Transfer record fields to encode.
     function appendTransaction(Writer memory writer, Tx memory value) internal pure {
-        appendBlock128(
-            writer,
-            Keys.Transaction,
-            bytes32(value.from),
-            bytes32(value.to),
-            value.asset,
-            bytes32(value.amount),
-            32
-        );
+        appendTransaction(writer, value.from, value.to, value.asset, value.amount);
     }
 
     // -------------------------------------------------------------------------

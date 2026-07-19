@@ -28,17 +28,18 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
 
     /// @notice Credit each BALANCE block from the command state to the command account.
     /// @param c Command context; `c.state` must contain BALANCE blocks.
-    /// @return Empty output state.
+    /// @return state Empty output state.
+    /// @return transactions Empty transaction stream.
     function creditAccount(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory) {
-        (Cur memory state, ) = openState(c.state, descriptor);
+    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+        (Cur memory stateCur, ) = openState(c.state, descriptor);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
+        while (stateCur.i < stateCur.len) {
+            (bytes32 asset, uint amount) = stateCur.unpackBalance();
             creditAccount(c.account, asset, amount);
         }
-        return "";
+        return ("", "");
     }
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Tx } from "../core/Types.sol";
+import { HostAmount, Tx } from "../core/Types.sol";
 import { Sizes } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
 import { Cur, Cursors, Writer } from "../Cursors.sol";
@@ -11,7 +11,7 @@ using Cursors for Cur;
 using Writers for Writer;
 
 contract TestCursorHelper {
-    bytes4 private constant TestKey = Keys.Local;
+    bytes4 private constant TestKey = bytes4(uint32(1));
 
     function testWriteBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
@@ -30,6 +30,17 @@ contract TestCursorHelper {
     }
 
     function testWriteTxBlock(
+        bytes32 from_,
+        bytes32 to_,
+        bytes32 asset,
+        uint amount
+    ) external pure returns (bytes memory) {
+        Writer memory w = Writers.alloc(Sizes.Transaction);
+        w.appendTransaction(from_, to_, asset, amount);
+        return w.finish();
+    }
+
+    function testWriteTxStructBlock(
         bytes32 from_,
         bytes32 to_,
         bytes32 asset,
@@ -60,6 +71,15 @@ contract TestCursorHelper {
         return Cursors.toCustodyBlock(host_, asset, amount);
     }
 
+    function testToTransactionBlock(
+        bytes32 from_,
+        bytes32 to_,
+        bytes32 asset,
+        uint amount
+    ) external pure returns (bytes memory) {
+        return Cursors.toTransactionBlock(from_, to_, asset, amount);
+    }
+
     function testWriterFinishIncomplete() external pure returns (bytes memory) {
         Writer memory w = Writers.alloc(Sizes.Balance);
         return w.finish();
@@ -87,6 +107,15 @@ contract TestCursorHelper {
     function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, uint amount) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackBalance();
+    }
+
+    function testUnpackBalanceForHost(
+        bytes calldata source,
+        uint host_
+    ) external pure returns (uint host, bytes32 asset, uint amount, uint i) {
+        Cur memory cur = Cursors.open(source);
+        HostAmount memory value = cur.unpackBalanceForHost(host_);
+        return (value.host, value.asset, value.amount, cur.i);
     }
 
     function testUnpackHostAccountAsset(
