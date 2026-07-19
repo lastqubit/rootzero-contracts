@@ -8,13 +8,15 @@ using Cursors for Cur;
 using Writers for Writer;
 
 contract TestQuery is QueryBase {
-    bytes4 private constant Value = Keys.Local;
+    bytes4 private immutable Value;
     string private constant INPUT = "{ uint value }";
 
     bytes32 private immutable descriptor;
 
     constructor() {
-        (, descriptor) = query("incrementQuery", localSchema(INPUT), Value, 0);
+        bytes4 value = schema(1, INPUT);
+        Value = value;
+        (, descriptor) = query("incrementQuery", value, value, 0);
     }
 
     function incrementQuery(bytes calldata request) external view returns (bytes memory out) {
@@ -32,13 +34,15 @@ contract TestQuery is QueryBase {
 }
 
 contract TestKeyedLocalQuery is QueryBase {
-    bytes4 private immutable Value = Keys.local(2);
+    bytes4 private immutable Value;
     string private constant INPUT = "{ uint value }";
 
     bytes32 private immutable descriptor;
 
     constructor() {
-        (, descriptor) = query("keyedLocalQuery", localSchema(2, INPUT), Value, 0);
+        bytes4 value = schema(2, INPUT);
+        Value = value;
+        (, descriptor) = query("keyedLocalQuery", value, value, 0);
     }
 
     function keyedLocalQuery(bytes calldata request) external view returns (bytes memory out) {

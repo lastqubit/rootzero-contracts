@@ -33,7 +33,7 @@ used. A host can publish the meaning of a custom key with:
 event Schema(uint indexed host, bytes4 key, string schema, bytes32 name);
 ```
 
-For example, a host-specific payment block can use `Keys.Local`, the command
+For example, a host-specific payment block can use a small literal, the command
 selector, or any other chosen `bytes4` value as long as that key is not
 overloaded in the relevant host/schema context.
 
@@ -300,17 +300,17 @@ invalid in any path segment.
 - `#list`: generic list wrapper emitted by `many`
 
 Custom input shapes should define their own context-local block key and publish
-that key with a `Schema` event:
+that key with a `Schema` event. Endpoint contracts can use `schema(...)` for
+that publication:
 
 ```solidity
-bytes4 constant Input = Keys.Local;
-emit Schema(host, Input, "{ bytes32 asset, uint amount }", bytes32("payment"));
+bytes4 input = schema(1, "{ bytes32 asset, uint amount }");
 ```
 
-Use `Keys.local(n)` when a host needs more than one local block key. The key can
-also be a small literal, a selector, or any other `bytes4` value that is unique
-in the context where it is used. The alias names the block; the schema string
-describes only the payload body.
+Use different numeric keys when a host needs more than one local block key. The
+key can also be a selector or any other `bytes4` value that is unique in the
+context where it is used. The alias names the block; the schema string describes
+only the payload body.
 
 ## Standard Blocks
 

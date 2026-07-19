@@ -7,22 +7,10 @@ pragma solidity ^0.8.33;
 /// Custom block keys only need to be unique in the context where they are used;
 /// hosts may publish custom key meanings with the `Schema` event.
 library Keys {
-    /// @notice Create a context-local block key.
-    /// @dev Local keys are opaque tags for host- or endpoint-specific schemas.
-    /// The caller is responsible for choosing values that are unique in the
-    /// context where they are used and publishing their meaning with `Schema`.
-    /// @param value Opaque local key value.
-    /// @return Context-local block key.
-    function local(uint32 value) internal pure returns (bytes4) {
-        return bytes4(value);
-    }
-
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
     /// @dev Wildcard key used in discovery when any block stream is accepted.
     bytes4 constant Any = 0xffffffff;
-    /// @dev Default context-local block key for hosts/endpoints that need one custom schema.
-    bytes4 constant Local = bytes4(uint32(1));
     /// @dev Input amount - (bytes32 asset, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)

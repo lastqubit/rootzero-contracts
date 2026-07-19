@@ -58,21 +58,6 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
         if (size == 0) size = 1;
     }
 
-    /// @notice Return an 8-byte lane value for a generic LIST containing `item`.
-    /// @param item Block key expected inside each LIST payload.
-    /// @return Packed lane key `[Keys.List][item]`.
-    function many(bytes4 item) internal pure returns (bytes8) {
-        return bytes8(bytes.concat(Keys.List, item));
-    }
-
-    /// @notice Append an explicit group size to an 8-byte lane value.
-    /// @param value Packed lane key `[key][item]`.
-    /// @param size Explicit per-operation group size for the lane.
-    /// @return Packed lane key plus group byte.
-    function group(bytes8 value, uint8 size) internal pure returns (bytes9) {
-        return bytes9(bytes.concat(value, bytes1(size)));
-    }
-
     /// @dev Open a descriptor lane and return its effective group and output counts.
     /// An absent lane inherits `expected`; a present lane must match it when nonzero.
     /// @param source Block stream to open for the requested lane.
@@ -118,20 +103,37 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
         (input, , outputs) = openLane(source, descriptor, Lane.Input, 0);
     }
 
-    /// @notice Publish the default local block schema and return `Keys.Local`.
-    /// @param body Schema DSL string describing the block payload body.
-    /// @return The default context-local block key.
-    function localSchema(string memory body) internal returns (bytes4) {
-        return localSchema(1, body);
+    /// @notice Return an 8-byte lane value for a generic LIST containing `item`.
+    /// @param item Block key expected inside each LIST payload.
+    /// @return Packed lane key `[Keys.List][item]`.
+    function many(bytes4 item) internal pure returns (bytes8) {
+        return bytes8(bytes.concat(Keys.List, item));
+    }
+
+    /// @notice Append an explicit group size to an 8-byte lane value.
+    /// @param value Packed lane key `[key][item]`.
+    /// @param size Explicit per-operation group size for the lane.
+    /// @return Packed lane key plus group byte.
+    function group(bytes8 value, uint8 size) internal pure returns (bytes9) {
+        return bytes9(bytes.concat(value, bytes1(size)));
     }
 
     /// @notice Publish a context-local block schema and return its key.
     /// @param key Context-local key value.
     /// @param body Schema DSL string describing the block payload body.
     /// @return The context-local block key.
-    function localSchema(uint32 key, string memory body) internal returns (bytes4) {
-        bytes4 k = Keys.local(key);
-        emit Schema(host, k, body, bytes32(0));
+    function schema(uint32 key, string memory body) internal returns (bytes4) {
+        return schema(key, body, bytes32(0));
+    }
+
+    /// @notice Publish a named context-local block schema and return its key.
+    /// @param key Context-local key value.
+    /// @param body Schema DSL string describing the block payload body.
+    /// @param name Schema alias name, or zero for unnamed schemas.
+    /// @return The context-local block key.
+    function schema(uint32 key, string memory body, bytes32 name) internal returns (bytes4) {
+        bytes4 k = bytes4(key);
+        emit Schema(host, k, body, name);
         return k;
     }
 

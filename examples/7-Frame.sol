@@ -23,22 +23,24 @@ using Cursors for Cur;
 abstract contract MyCommand is CommandBase {
     string private constant INPUT = "{ bytes32 asset, uint amount, maybe #fee }";
 
+    bytes4 private immutable inputKey = schema(1, INPUT);
     bytes32 private immutable descriptor;
 
     event PaymentSeen(bytes32 asset, uint amount, uint fee);
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, localSchema(INPUT), Keys.Empty, 0, false, false);
+        (, descriptor) = command("myCommand", Keys.Empty, inputKey, Keys.Empty, 0, false, false);
     }
 
-    function unpackPayment(Cur memory input) private pure returns (bytes32 asset, uint amount, Cur memory fee) {
-        uint abs = input.consume(0, Keys.Local, 64, 0);
-        asset = bytes32(msg.data[abs:abs + 32]);
-        amount = uint(bytes32(msg.data[abs + 32:abs + 64]));
-        fee = input.slice(abs + 64 - input.offset, input.i);
+    function unpackPayment(Cur memory input) private view returns (bytes32 asset, uint amount, Cur memory fee) {
+        uint end = input.enter(inputKey, 64, 0);
+        asset = input.read32();
+        amount = input.readUint();
+        fee = input.slice(input.i, end);
+        input.i = end;
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         // The request can batch multiple payment blocks. Each one is decoded
@@ -50,7 +52,7 @@ abstract contract MyCommand is CommandBase {
         }
 
         input.complete();
-        return "";
+        return ("", "");
     }
 }
 
