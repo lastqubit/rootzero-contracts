@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
         input.i = end;
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
         (Cur memory input, ) = openInput(c.input, descriptor);
 
         // The request can batch multiple payment blocks. Each one is decoded

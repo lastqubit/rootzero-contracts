@@ -28,7 +28,7 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+    ) external onlyCommand returns (bytes memory, bytes memory) {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
         // The command function selector already identifies this entrypoint, so no
         // additional target field is needed in CommandContext.

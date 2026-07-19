@@ -32,14 +32,14 @@ abstract contract Allocate is CommandBase, AllocateHook {
     /// @notice Allocate BALANCE state blocks to matching NODE request blocks.
     /// @param c Command context; `c.state` must contain BALANCE blocks and
     /// `c.input` must contain the same number of NODE blocks.
-    /// @return state CUSTODY block stream matching the allocated balances.
-    /// @return transactions Empty transaction stream.
-    function allocate(CommandContext calldata c) external onlyCommand returns (bytes memory state, bytes memory transactions) {
-        (Cur memory input, Cur memory stateCur, uint outputs) = openCommand(c, descriptor);
+    /// @return CUSTODY block stream matching the allocated balances.
+    /// @return Empty transaction stream.
+    function allocate(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
+        (Cur memory input, Cur memory state, uint outputs) = openCommand(c, descriptor);
         Writer memory output = Writers.allocCustodies(outputs);
 
-        while (stateCur.i < stateCur.len) {
-            HostAmount memory custody = stateCur.unpackBalanceForHost(input.unpackNode());
+        while (state.i < state.len) {
+            HostAmount memory custody = state.unpackBalanceForHost(input.unpackNode());
             allocate(c.account, custody);
             output.appendCustody(custody);
         }

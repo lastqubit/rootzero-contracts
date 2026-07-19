@@ -25,7 +25,7 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+    ) external onlyCommand returns (bytes memory, bytes memory) {
         // Open the descriptor input stream, then size the writer from the
         // expected output block count returned by the endpoint helper.
         (Cur memory input, uint outputs) = openInput(c.input, descriptor);

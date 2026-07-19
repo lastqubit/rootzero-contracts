@@ -232,7 +232,7 @@ loop the batch, call the hook, write the output run:
 ```solidity
 function deposit(
     CommandContext calldata c
-) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+) external onlyCommand returns (bytes memory, bytes memory) {
     (Cur memory input, uint outputs) = openInput(c.input, descriptor);
     Writer memory output = Writers.allocBalances(outputs);
 
@@ -260,7 +260,7 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+    ) external onlyCommand returns (bytes memory, bytes memory) {
         // parse c.input, loop, return the output state run and any transactions
     }
 }

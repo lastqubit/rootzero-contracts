@@ -46,11 +46,11 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
 
     /// @notice Debit AMOUNT request blocks from the command account and output matching BALANCE blocks.
     /// @param c Command context; `c.input` must contain AMOUNT blocks.
-    /// @return state BALANCE block stream matching the debited amounts.
-    /// @return transactions Empty transaction stream.
+    /// @return BALANCE block stream matching the debited amounts.
+    /// @return Empty transaction stream.
     function debitAccount(
         CommandContext calldata c
-    ) external onlyCommand returns (bytes memory state, bytes memory transactions) {
+    ) external onlyCommand returns (bytes memory, bytes memory) {
         return (debitAccount(c.account, c.input), "");
     }
 }
