@@ -28,7 +28,8 @@ describe("Host Introduction", () => {
     });
     expect(hostIntroducedLog).to.not.be.undefined;
     const parsed = rootzeroIface.parseLog(hostIntroducedLog!);
-    expect(parsed!.args.host).to.not.equal(0n);
+    expect(parsed!.args.host).to.equal(await rootzero.host());
+    expect(parsed!.args.peer).to.not.equal(0n);
     expect(parsed!.args.blocknum).to.be.greaterThan(0n);
   });
 
@@ -57,10 +58,10 @@ describe("Host Introduction", () => {
     await expect(
       rootzero.connect(signer).introduce(correctHostId, 1n)
     ).to.emit(rootzero, "Introduction")
-      .withArgs(correctHostId, 1n);
+      .withArgs(await rootzero.host(), correctHostId, 1n);
   });
 
-  it("Introduction event contains correct host and blocknum", async () => {
+  it("Introduction event contains correct host, peer, and blocknum", async () => {
     const signer = await getSigner(0);
     const callerAddr = await signer.getAddress();
     const CHAIN_ID = 31337n;
@@ -72,6 +73,6 @@ describe("Host Introduction", () => {
     const tx = await rootzero.connect(signer).introduce(hostId, BigInt(blockNum));
     await expect(tx)
       .to.emit(rootzero, "Introduction")
-      .withArgs(hostId, BigInt(blockNum));
+      .withArgs(await rootzero.host(), hostId, BigInt(blockNum));
   });
 });

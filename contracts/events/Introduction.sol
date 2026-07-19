@@ -5,11 +5,12 @@ import { EventEmitter } from "./Emitter.sol";
 
 /// @notice Emitted when a host introduces itself to another host.
 abstract contract IntroductionEvent is EventEmitter {
-    string private constant ABI = "event Introduction(uint indexed host, uint blocknum)";
+    string private constant ABI = "event Introduction(uint indexed host, uint peer, uint blocknum)";
 
-    /// @param host Host node ID of the introducing contract.
+    /// @param host Host node ID receiving the introduction.
+    /// @param peer Host node ID of the introducing contract.
     /// @param blocknum Block number at which the host was deployed.
-    event Introduction(uint indexed host, uint blocknum);
+    event Introduction(uint indexed host, uint peer, uint blocknum);
 
     constructor() {
         emit EventAbi(ABI);

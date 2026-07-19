@@ -43,7 +43,15 @@ abstract contract Host is
     ///        on it during construction.
     constructor(address cmdr) AccessControl(cmdr) {
         if (cmdr == address(0) || cmdr == address(this) || cmdr.code.length == 0) return;
-        IHostIntroduction(cmdr).introduce(host, block.number);
+        introduceTo(Nodes.toHost(cmdr));
+    }
+
+    /// @notice Introduce this host to the contract address embedded in a local EVM node ID.
+    /// @dev Accepts host and endpoint IDs such as commands, ports, queries, and guards.
+    /// Reverts when `node` is not local or embeds the zero address.
+    /// @param node Local EVM node ID whose underlying contract receives the introduction.
+    function introduceTo(uint node) internal {
+        IHostIntroduction(Nodes.addr(node)).introduce(host, block.number);
     }
 
     /// @notice Record a host introduction claim.
@@ -51,7 +59,7 @@ abstract contract Host is
     /// @param peer Host node ID being introduced.
     /// @param blocknum Block number at which the host was deployed.
     function introduce(uint peer, uint blocknum) external {
-        emit Introduction(Nodes.matchHost(peer, msg.sender), blocknum);
+        emit Introduction(host, Nodes.matchHost(peer, msg.sender), blocknum);
     }
 
     /// @notice Accept native ETH transfers (e.g. from command value flows).
