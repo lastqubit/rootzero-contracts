@@ -534,7 +534,7 @@ The `pipe()` loop is pure protocol logic:
 1. Iterate STEP blocks.
 2. Decode `(target, value, request)`.
 3. Dispatch `target` locally.
-4. Thread the returned state bytes into the next step and settle any returned transaction bytes.
+4. Thread the returned state bytes into the next step, decode each returned transaction, and settle it before dispatching the next step.
 5. Require the final state to be empty.
 
 After `pipe()` returns, its caller still owns the remaining native-value

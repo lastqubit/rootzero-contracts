@@ -3,6 +3,31 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.13.0
+
+### Breaking Changes
+
+- Replaced the virtual `Pipeline.settle(bytes transactions)` stream hook with
+  decoded settlement through `Settlement`. Pipeline implementations now provide
+  `debitAccount` and `creditAccount` hooks, while the pipeline decodes each
+  returned TRANSACTION block and settles it before dispatching the next step.
+- Moved `DebitAccountHook` and `CreditAccountHook` from their command modules to
+  `core/Settlement.sol`. They remain available from the `Core.sol` and
+  `Endpoints.sol` package entry points.
+
+### Added
+
+- Added the memory-backed `Reader` and `Readers` block-stream API with balance
+  and transaction unpackers, bounds and block validation, and positive
+  iteration through `more()`.
+- Added the shared `Settlement` core mixin used by pipelines and `PortSettle` to
+  debit transaction sources and credit destinations.
+
+### Changed
+
+- Unified pipeline and port transaction handling through `Settlement`,
+  including zero-account handling and zero-amount no-op settlement.
+
 ## 1.12.0
 
 ### Breaking Changes

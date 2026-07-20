@@ -285,21 +285,24 @@ step { uint target, uint resources, #bytes as request }
 Each step names a target command, the resources it may spend, and its request.
 The returned state threads into the next command and the final state must be
 empty. Returned transactions do not enter the state lane; the pipeline passes
-each non-empty transaction stream to its settlement hook before running the
-next step. This is the core of `Pipeline.pipe`:
+each decoded transaction to the shared settlement implementation before
+running the next step. This is the core of `Pipeline.pipe`:
 
 ```solidity
 while (input.i < input.len) {
     (uint target, uint resources, bytes calldata request) = input.unpackStep();
-    bytes memory transactions;
-    (state, transactions) = dispatch(
+    Reader memory transactions;
+    (state, transactions.source) = dispatch(
         target,
         account,
         state,
         request,
         useValue(budget, resources)
     );
-    if (transactions.length != 0) settle(transactions);
+    while (transactions.more()) {
+        (bytes32 from, bytes32 to, bytes32 asset, uint amount) = transactions.unpackTransaction();
+        settle(from, to, asset, amount);
+    }
 }
 if (state.length != 0) revert UnexpectedState();
 ```
@@ -373,11 +376,11 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Pipeline`, `Portal`, validator
+  `Settlement`, `Pipeline`, `Portal`, validator
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
   mixins and their hooks
-- `@rootzero/contracts/Cursors.sol` — `Cur` cursor reader, `Writers`, `Schemas`,
-  `Keys`
+- `@rootzero/contracts/Cursors.sol` — calldata `Cur`/`Cursors`, memory
+  `Reader`/`Readers`, `Writers`, `Schemas`, `Keys`
 - `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
   layout and value helpers
 - `@rootzero/contracts/Events.sol` — protocol event contracts
