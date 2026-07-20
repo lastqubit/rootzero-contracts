@@ -397,6 +397,21 @@ describe("Port Entrypoints", () => {
       expect(names).to.not.include("PortCreditAccountCalled");
     });
 
+    it("skips both hooks when the TX amount is zero", async () => {
+      const tx = await callAs(1, method, encodeTxBlock(from_, to_, asset, 0n));
+      const receipt = await tx.wait();
+      const names = receipt?.logs.map((log) => {
+        try {
+          return host.interface.parseLog({ topics: log.topics as string[], data: log.data })?.name;
+        } catch {
+          return null;
+        }
+      });
+
+      expect(names).to.not.include("PortDebitAccountCalled");
+      expect(names).to.not.include("PortCreditAccountCalled");
+    });
+
     it("returns empty bytes after processing tx blocks", async () => {
       const signer = await getSigner(1);
       const result: string = await (host.connect(signer) as any)[method].staticCall(encodeTxBlock(from_, to_, asset, 123n));

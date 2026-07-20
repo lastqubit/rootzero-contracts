@@ -4,10 +4,11 @@ pragma solidity ^0.8.33;
 import { HostAmount, Tx } from "../core/Types.sol";
 import { Sizes } from "../blocks/Schema.sol";
 import { Keys } from "../blocks/Keys.sol";
-import { Cur, Cursors, Writer } from "../Cursors.sol";
+import { Cur, Cursors, Reader, Readers, Writer } from "../Cursors.sol";
 import { Writers } from "../blocks/Writers.sol";
 
 using Cursors for Cur;
+using Readers for Reader;
 using Writers for Writer;
 
 contract TestCursorHelper {
@@ -107,6 +108,35 @@ contract TestCursorHelper {
     function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, uint amount) {
         Cur memory cur = Cursors.open(source);
         return cur.unpackBalance();
+    }
+
+    function testReaderUnpackBalance(
+        bytes calldata source
+    ) external pure returns (bytes32 asset, uint amount, uint i, bool done) {
+        Reader memory cur = Readers.open(bytes(source));
+        (asset, amount) = cur.unpackBalance();
+        return (asset, amount, cur.i, cur.done());
+    }
+
+    function testReaderUnpackTwoBalances(
+        bytes calldata source
+    )
+        external
+        pure
+        returns (bytes32 firstAsset, uint firstAmount, bytes32 secondAsset, uint secondAmount, uint i, bool done)
+    {
+        Reader memory cur = Readers.open(bytes(source));
+        (firstAsset, firstAmount) = cur.unpackBalance();
+        (secondAsset, secondAmount) = cur.unpackBalance();
+        return (firstAsset, firstAmount, secondAsset, secondAmount, cur.i, cur.done());
+    }
+
+    function testReaderUnpackTransaction(
+        bytes calldata source
+    ) external pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount, uint i, bool done) {
+        Reader memory cur = Readers.open(bytes(source));
+        (from, to, asset, amount) = cur.unpackTransaction();
+        return (from, to, asset, amount, cur.i, cur.done());
     }
 
     function testUnpackBalanceForHost(

@@ -8,12 +8,13 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeContextBlock, encodeRecoverBlock, encodeRelayBlock,
+  encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeTxBlock,
   concat
 } from "./helpers/blocks.js";
 
 describe("Commands", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
+  let utils: Awaited<ReturnType<typeof deploy>>;
   let commander: string;
   let userAccount: string;
   let adminAccount: string;
@@ -22,6 +23,7 @@ describe("Commands", () => {
     const signer = await getSigner(0);
     commander = await signer.getAddress();
     host = await deploy("TestHost", commander);
+    utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
 
     // Build a user account (unspecified prefix + address)
@@ -641,13 +643,134 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
     });
 
-    it("settles non-empty transaction streams returned by dispatch", async () => {
-      const transactions = "0x1234";
+    it("settles each decoded transaction returned by dispatch", async () => {
+      const first = {
+        from: encodeUserAccount("0x11"),
+        to: encodeUserAccount("0x12"),
+        asset: ethers.zeroPadValue("0x13", 32),
+        amount: 14n,
+      };
+      const second = {
+        from: encodeUserAccount("0x21"),
+        to: encodeUserAccount("0x22"),
+        asset: ethers.zeroPadValue("0x23", 32),
+        amount: 24n,
+      };
+      const transactions = concat(
+        encodeTxBlock(first.from, first.to, first.asset, first.amount),
+        encodeTxBlock(second.from, second.to, second.asset, second.amount),
+      );
       const request = encodeStepBlock(ethers.MaxUint256, 0n, transactions);
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", request);
 
-      await expect(tx).to.emit(host, "TransactionsSettled").withArgs(transactions);
+      await expect(tx)
+        .to.emit(host, "DebitFromCalled")
+        .withArgs(first.from, first.asset, first.amount, first.amount);
+      await expect(tx)
+        .to.emit(host, "CreditToCalled")
+        .withArgs(first.to, first.asset, first.amount, first.amount);
+      await expect(tx)
+        .to.emit(host, "DebitFromCalled")
+        .withArgs(second.from, second.asset, second.amount, second.amount);
+      await expect(tx)
+        .to.emit(host, "CreditToCalled")
+        .withArgs(second.to, second.asset, second.amount, second.amount);
+    });
+
+    it("settles transactions from consecutive steps before dispatching the next step", async () => {
+      const first = {
+        from: encodeUserAccount("0x31"),
+        to: encodeUserAccount("0x32"),
+        asset: ethers.zeroPadValue("0x33", 32),
+        amount: 34n,
+      };
+      const second = {
+        from: encodeUserAccount("0x41"),
+        to: encodeUserAccount("0x42"),
+        asset: ethers.zeroPadValue("0x43", 32),
+        amount: 44n,
+      };
+      const request = concat(
+        encodeStepBlock(
+          ethers.MaxUint256,
+          0n,
+          encodeTxBlock(first.from, first.to, first.asset, first.amount),
+        ),
+        encodeStepBlock(
+          ethers.MaxUint256,
+          0n,
+          encodeTxBlock(second.from, second.to, second.asset, second.amount),
+        ),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request);
+      const receipt = await tx.wait();
+      const events = receipt!.logs
+        .map((log) => {
+          try {
+            return host.interface.parseLog(log);
+          } catch {
+            return null;
+          }
+        })
+        .filter(
+          (event) =>
+            event?.name === "StepDispatched" ||
+            event?.name === "DebitFromCalled" ||
+            event?.name === "CreditToCalled",
+        );
+
+      expect(events.map((event) => event!.name)).to.deep.equal([
+        "StepDispatched",
+        "DebitFromCalled",
+        "CreditToCalled",
+        "StepDispatched",
+        "DebitFromCalled",
+        "CreditToCalled",
+      ]);
+      expect(Array.from(events[1]!.args)).to.deep.equal([
+        first.from,
+        first.asset,
+        first.amount,
+        first.amount,
+      ]);
+      expect(Array.from(events[2]!.args)).to.deep.equal([
+        first.to,
+        first.asset,
+        first.amount,
+        first.amount,
+      ]);
+      expect(Array.from(events[4]!.args)).to.deep.equal([
+        second.from,
+        second.asset,
+        second.amount,
+        second.amount,
+      ]);
+      expect(Array.from(events[5]!.args)).to.deep.equal([
+        second.to,
+        second.asset,
+        second.amount,
+        second.amount,
+      ]);
+    });
+
+    it("rejects a malformed transaction stream returned by dispatch", async () => {
+      const request = encodeStepBlock(ethers.MaxUint256, 0n, "0x1234");
+
+      await expect(callAs(0, "testPipe", userAccount, "0x", request))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("settles decoded unspent value after the pipeline closes", async () => {
+      const request = encodeStepBlock(11n, 0n, "0x");
+      const nativeAsset = await utils.testToNativeAsset();
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", request, { value: 5n });
+
+      await expect(tx)
+        .to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, nativeAsset, 5n, 5n);
     });
 
     it("reverts UnexpectedState when final threaded state is non-empty", async () => {

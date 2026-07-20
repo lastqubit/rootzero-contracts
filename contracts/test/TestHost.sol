@@ -19,6 +19,9 @@ import { Allowance } from "../commands/admin/Allowance.sol";
 import { PublishSchema } from "../commands/admin/Schemas.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Budget, Values } from "../utils/Value.sol";
+import { Reader, Readers } from "../Cursors.sol";
+
+using Readers for Reader;
 
 contract TestHost is
     Host,
@@ -55,7 +58,6 @@ contract TestHost is
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
-    event TransactionsSettled(bytes transactions);
 
     uint public stepCount;
 
@@ -146,15 +148,15 @@ contract TestHost is
         return (state, "");
     }
 
-    function settle(bytes memory transactions) internal override {
-        emit TransactionsSettled(transactions);
-    }
-
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
         Budget memory budget = openValue();
         pipe(account, state, steps, budget);
-        bytes memory transactions = closeValue(budget, account);
-        if (transactions.length != 0) settle(transactions);
+        Reader memory txs;
+        txs.source = closeValue(budget, account);
+        while (txs.more()) {
+            (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
+            settle(from, to, asset, amount);
+        }
     }
 
     function getAdminAccount() external view returns (bytes32) {

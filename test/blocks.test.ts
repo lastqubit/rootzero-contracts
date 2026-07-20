@@ -165,6 +165,80 @@ describe("Cursors", () => {
     });
   });
 
+  describe("Readers", () => {
+    const asset = ethers.zeroPadValue("0xaa", 32);
+    const otherAsset = ethers.zeroPadValue("0xbb", 32);
+    const from = encodeUserAccount("0x01");
+    const to = encodeUserAccount("0x02");
+
+    it("unpacks a balance and advances to the end", async () => {
+      const source = encodeBalanceBlock(asset, 123n);
+      expect(await helper.testReaderUnpackBalance(source)).to.deep.equal([
+        asset,
+        123n,
+        72n,
+        true,
+      ]);
+    });
+
+    it("unpacks a transaction and advances to the end", async () => {
+      const source = encodeTxBlock(from, to, asset, 456n);
+      expect(await helper.testReaderUnpackTransaction(source)).to.deep.equal([
+        from,
+        to,
+        asset,
+        456n,
+        136n,
+        true,
+      ]);
+    });
+
+    it("unpacks sequential blocks and reports completion", async () => {
+      const source = concat(
+        encodeBalanceBlock(asset, 123n),
+        encodeBalanceBlock(otherAsset, 456n),
+      );
+      expect(await helper.testReaderUnpackTwoBalances(source)).to.deep.equal([
+        asset,
+        123n,
+        otherAsset,
+        456n,
+        144n,
+        true,
+      ]);
+    });
+
+    it("rejects a block with the wrong key", async () => {
+      await expect(helper.testReaderUnpackBalance(encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("rejects a payload below the minimum length", async () => {
+      const source = encodeBlock(Keys.Balance, asset);
+      await expect(helper.testReaderUnpackBalance(source))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("rejects a payload above the maximum length", async () => {
+      const source = encodeBlock(Keys.Balance, ethers.concat([asset, asset, asset]));
+      await expect(helper.testReaderUnpackBalance(source))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("rejects a truncated header", async () => {
+      const source = ethers.dataSlice(encodeBalanceBlock(asset, 123n), 0, 7);
+      await expect(helper.testReaderUnpackBalance(source))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("rejects a truncated payload", async () => {
+      const complete = ethers.getBytes(encodeBalanceBlock(asset, 123n));
+      const source = ethers.hexlify(complete.slice(0, -1));
+      await expect(helper.testReaderUnpackBalance(source))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+  });
+
   describe("Cursor helpers", () => {
     const asset = ethers.zeroPadValue("0xaa", 32);
     const otherAsset = ethers.zeroPadValue("0xbb", 32);

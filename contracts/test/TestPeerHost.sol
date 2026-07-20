@@ -54,8 +54,6 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         return (state, "");
     }
 
-    function settle(bytes memory) internal pure override {}
-
     function getAdminAccount() external view returns (bytes32) { return admin; }
 }
 
