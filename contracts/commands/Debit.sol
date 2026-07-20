@@ -3,18 +3,10 @@ pragma solidity ^0.8.33;
 
 import { CommandContext, CommandBase, Keys } from "./Base.sol";
 import { Cursors, Cur, Writer, Writers } from "../Cursors.sol";
+import { DebitAccountHook } from "../core/Settlement.sol";
 
 using Cursors for Cur;
 using Writers for Writer;
-
-abstract contract DebitAccountHook {
-    /// @notice Override to debit externally managed funds from `account`.
-    /// Called once per AMOUNT block before a matching BALANCE is emitted.
-    /// @param account Source account identifier.
-    /// @param asset Asset identifier.
-    /// @param amount Amount to debit.
-    function debitAccount(bytes32 account, bytes32 asset, uint amount) internal virtual;
-}
 
 /// @title DebitAccount
 /// @notice Command that deducts AMOUNT blocks from an account and emits matching BALANCE state.

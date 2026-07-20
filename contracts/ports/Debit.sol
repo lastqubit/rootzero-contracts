@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { PortBase } from "./Base.sol";
-import { DebitAccountHook } from "../commands/Debit.sol";
+import { DebitAccountHook } from "../core/Settlement.sol";
 import { Cursors, Cur, Keys } from "../Cursors.sol";
 
 using Cursors for Cur;

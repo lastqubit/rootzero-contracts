@@ -3,17 +3,9 @@ pragma solidity ^0.8.33;
 
 import { CommandBase, CommandContext, Keys } from "./Base.sol";
 import { Cursors, Cur } from "../Cursors.sol";
+import { CreditAccountHook } from "../core/Settlement.sol";
 
 using Cursors for Cur;
-
-abstract contract CreditAccountHook {
-    /// @notice Override to credit externally managed funds to `account`.
-    /// Called once per BALANCE block in state.
-    /// @param account Destination account identifier.
-    /// @param asset Asset identifier.
-    /// @param amount Amount to credit.
-    function creditAccount(bytes32 account, bytes32 asset, uint amount) internal virtual;
-}
 
 /// @title CreditAccount
 /// @notice Command that delivers BALANCE state blocks to an account via a virtual hook.

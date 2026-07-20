@@ -9,12 +9,13 @@ import { Keys } from "./blocks/Keys.sol";
 import { CommandBase, CommandContext } from "./commands/Base.sol";
 import { EndpointBase, Lane } from "./core/Endpoint.sol";
 import { Payable } from "./core/Payable.sol";
+import { CreditAccountHook, DebitAccountHook } from "./core/Settlement.sol";
 
 // Commands
 import { Allocate, AllocateHook } from "./commands/Allocate.sol";
 import { Burn, BurnHook } from "./commands/Burn.sol";
-import { CreditAccount, CreditAccountHook } from "./commands/Credit.sol";
-import { DebitAccount, DebitAccountHook } from "./commands/Debit.sol";
+import { CreditAccount } from "./commands/Credit.sol";
+import { DebitAccount } from "./commands/Debit.sol";
 import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./commands/Deposit.sol";
 import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
