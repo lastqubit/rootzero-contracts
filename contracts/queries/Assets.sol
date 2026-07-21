@@ -39,6 +39,6 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
             response.appendStatus(status);
         }
 
-        return response.finish();
+        return end(response);
     }
 }

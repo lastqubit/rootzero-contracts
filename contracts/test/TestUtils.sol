@@ -311,7 +311,7 @@ contract TestUtils is Payable {
         bytes32 account
     ) external returns (bytes memory transaction, uint remainingAfter) {
         Budget memory budget = Budget({remaining: remaining});
-        transaction = closeValue(budget, account);
+        transaction = end(budget, account);
         remainingAfter = budget.remaining;
     }
 

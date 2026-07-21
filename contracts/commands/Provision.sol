@@ -53,7 +53,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
             output.appendCustody(allocation);
         }
 
-        return (output.finish(), "");
+        return (end(output), "");
     }
 }
 
@@ -85,7 +85,7 @@ abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook
             output.appendCustody(allocation);
         }
 
-        return (output.finish(), closeValue(budget, c.account));
+        return (end(output), end(budget, c.account));
     }
 }
 

@@ -152,7 +152,7 @@ contract TestHost is
         Budget memory budget = openValue();
         pipe(account, state, steps, budget);
         Reader memory txs;
-        txs.source = closeValue(budget, account);
+        txs.source = end(budget, account);
         while (txs.more()) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
             settle(from, to, asset, amount);

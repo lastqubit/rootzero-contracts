@@ -242,7 +242,7 @@ function deposit(
         output.appendBalance(asset, amount);
     }
 
-    return (output.finish(), "");
+    return (end(output), "");
 }
 ```
 

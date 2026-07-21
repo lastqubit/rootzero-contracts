@@ -57,7 +57,7 @@ abstract contract Deposit is CommandBase, DepositHook {
             output.appendBalance(asset, amount);
         }
 
-        return (output.finish(), "");
+        return (end(output), "");
     }
 }
 
@@ -88,7 +88,7 @@ abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
             output.appendBalance(asset, amount);
         }
 
-        return (output.finish(), closeValue(budget, c.account));
+        return (end(output), end(budget, c.account));
     }
 }
 

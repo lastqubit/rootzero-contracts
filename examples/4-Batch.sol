@@ -43,7 +43,7 @@ abstract contract MyCommand is CommandBase {
         // Finalize by checking the cursor completed its run, then
         // return the encoded BALANCE blocks.
         input.complete();
-        return (output.finish(), "");
+        return (end(output), "");
     }
 }
 

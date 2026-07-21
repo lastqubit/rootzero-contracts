@@ -39,7 +39,7 @@ abstract contract Payable is NativeAsset, ReceivedEvent {
     /// @param budget Mutable budget whose remaining value is drained.
     /// @param account Destination account to credit with the remaining native value.
     /// @return transaction Encoded TRANSACTION block, or empty bytes when the budget is empty.
-    function closeValue(
+    function end(
         Budget memory budget,
         bytes32 account
     ) internal returns (bytes memory transaction) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cursors, Cur} from "../Cursors.sol";
+import {Cursors, Cur, Writer, Writers} from "../Cursors.sol";
 import {Keys} from "../blocks/Keys.sol";
 import {EndpointEvent} from "../events/Endpoint.sol";
 import {LabeledEvent} from "../events/Labeled.sol";
@@ -22,6 +22,13 @@ library Lane {
 /// @title EndpointBase
 /// @notice Shared endpoint metadata helpers.
 abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEvent {
+    /// @notice Finalize an endpoint output writer and return its encoded block stream.
+    /// @param output Completed endpoint output writer.
+    /// @return Encoded output block stream.
+    function end(Writer memory output) internal pure returns (bytes memory) {
+        return Writers.finish(output);
+    }
+
     /// @dev Pack endpoint lanes and flags into a descriptor.
     /// A non-empty lane with group 0 defaults to group 1; a zero lane is absent.
     /// Layout: `[state:8][group:1][input:8][group:1][output:8][group:1]`

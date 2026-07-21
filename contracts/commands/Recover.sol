@@ -42,6 +42,6 @@ abstract contract RecoverPayable is CommandBase, Payable, RecoverHook {
             recover(handler, key, witness, useValue(budget, resources));
         }
 
-        return ("", closeValue(budget, c.account));
+        return ("", end(budget, c.account));
     }
 }

@@ -29,7 +29,7 @@ contract TestQuery is QueryBase {
         }
 
         input.complete();
-        out = output.finish();
+        out = end(output);
     }
 }
 
@@ -55,6 +55,6 @@ contract TestKeyedLocalQuery is QueryBase {
         }
 
         input.complete();
-        out = output.finish();
+        out = end(output);
     }
 }

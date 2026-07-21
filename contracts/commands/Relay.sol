@@ -43,6 +43,6 @@ abstract contract RelayPayable is CommandBase, Payable, RoutePayableHook {
         Budget memory budget = openValue();
         route(portal, resources, context, budget);
 
-        return ("", closeValue(budget, c.account));
+        return ("", end(budget, c.account));
     }
 }

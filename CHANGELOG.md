@@ -163,7 +163,7 @@ breaking API changes. Breaking changes are called out explicitly.
   as the discovery/event surface for dispatch tracking.
 - Added `ContextRecovery` schema/cursor support and context schema aliases for
   reusable nested block schemas.
-- Added `Values.drain`, `Payable.openValue`, and `Payable.closeValue` to make
+- Added `Values.drain`, `Payable.openValue`, and `Payable.end` to make
   payable command budget lifecycles explicit.
 
 ## 1.6.0

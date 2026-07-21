@@ -33,7 +33,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
             output.appendBalance(asset, amount);
         }
 
-        return output.finish();
+        return end(output);
     }
 
     /// @notice Debit AMOUNT request blocks from the command account and output matching BALANCE blocks.

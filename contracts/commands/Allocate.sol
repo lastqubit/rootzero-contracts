@@ -44,6 +44,6 @@ abstract contract Allocate is CommandBase, AllocateHook {
             output.appendCustody(custody);
         }
 
-        return (output.finish(), "");
+        return (end(output), "");
     }
 }
