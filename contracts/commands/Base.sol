@@ -50,7 +50,7 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
         bytes32 account
     ) internal returns (bytes memory output, bytes memory transactions) {
         if (exec.budget == 0 && Spans.initial(exec.writers)) return ("", "");
-        output = end(exec);
+        output = closeExecution(exec);
         transactions = endValue(exec, account);
     }
 

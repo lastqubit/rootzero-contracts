@@ -39,6 +39,6 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
             exec.outputAccountAmount(account, asset, amount);
         }
 
-        return end(exec);
+        return closeExecution(exec);
     }
 }

@@ -38,6 +38,6 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
             exec.outputStatus(status);
         }
 
-        return end(exec);
+        return closeExecution(exec);
     }
 }

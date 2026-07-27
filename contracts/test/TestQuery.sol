@@ -30,7 +30,7 @@ contract TestQuery is QueryBase {
         }
 
         exec.complete(Lanes.Input);
-        out = end(exec);
+        out = closeExecution(exec);
     }
 }
 
@@ -57,6 +57,6 @@ contract TestKeyedLocalQuery is QueryBase {
         }
 
         exec.complete(Lanes.Input);
-        out = end(exec);
+        out = closeExecution(exec);
     }
 }

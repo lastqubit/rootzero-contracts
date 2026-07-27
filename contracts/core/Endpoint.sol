@@ -12,19 +12,10 @@ import {Runtime} from "./Runtime.sol";
 /// @title EndpointBase
 /// @notice Shared endpoint metadata helpers.
 abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEvent {
-    /// @notice Close a generic endpoint execution while retaining unspent value.
-    /// @dev INCOMPLETE: finalization behavior will be implemented later.
-    /// @param exec Endpoint execution to close.
-    /// @return output Final encoded output block stream.
-    /// @return transactions Final encoded transaction block stream.
-    function closeExecution(
-        Execution memory exec
-    ) internal pure returns (bytes memory output, bytes memory transactions) {}
-
     /// @notice Finalize an execution output and return its encoded block stream.
     /// @param exec Completed endpoint execution.
     /// @return Encoded output block stream.
-    function end(Execution memory exec) internal pure returns (bytes memory) {
+    function closeExecution(Execution memory exec) internal pure returns (bytes memory) {
         return Executions.finish(exec);
     }
 

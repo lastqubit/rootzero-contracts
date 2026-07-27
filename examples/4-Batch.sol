@@ -40,7 +40,7 @@ abstract contract MyCommand is CommandBase {
         // Finalize by checking the cursor completed its run, then
         // return the encoded BALANCE blocks.
         exec.complete(Lanes.Input);
-        return (end(exec), "");
+        return (closeExecution(exec), "");
     }
 }
 
