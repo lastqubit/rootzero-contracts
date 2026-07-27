@@ -10,15 +10,11 @@ import "./helpers/matchers.js";
 
 describe("Portal", () => {
   async function commandCtx(host: any, request: string) {
-    return {
-      account: await host.getAdminAccount(),
-      state: "0x",
-      input: request,
-    };
+    return [await host.getAdminAccount(), "0x", request] as const;
   }
 
   async function authorize(host: any, node: bigint) {
-    await host.authorize(await commandCtx(host, encodeNodeBlock(node)));
+    await host.authorize(...await commandCtx(host, encodeNodeBlock(node)));
   }
 
   async function deployPortal() {
@@ -51,7 +47,7 @@ describe("Portal", () => {
     await expect(tx).to.emit(target, "PortDispatchCalled").withArgs(0n, "0x1234", 2n, 7n);
 
     const request = encodeRecoverBlock(handler, 0n, key, message);
-    await expect(portal.recoverPayable(await commandCtx(portal, request)))
+    await expect(portal.recoverPayable(...await commandCtx(portal, request)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 
@@ -87,12 +83,12 @@ describe("Portal", () => {
     await portal.testForward(forwardingHandler, key, witness, 0n);
 
     const request = encodeRecoverBlock(recoveryHandler, 5n, key, witness);
-    const tx = await portal.recoverPayable(await commandCtx(portal, request), { value: 5n });
+    const tx = await portal.recoverPayable(...await commandCtx(portal, request), { value: 5n });
 
     await expect(tx).to.emit(recoveryTarget, "PortDispatchCalled").withArgs(0n, "0xcafe", 9n, 5n);
 
     const second = encodeRecoverBlock(recoveryHandler, 0n, key, witness);
-    await expect(portal.recoverPayable(await commandCtx(portal, second)))
+    await expect(portal.recoverPayable(...await commandCtx(portal, second)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 
@@ -113,7 +109,7 @@ describe("Portal", () => {
     await portal.testForward(forwardingHandler, key, witness, 0n);
 
     const request = encodeRecoverBlock(recoveryHandler, 0n, key, badWitness);
-    await expect(portal.recoverPayable(await commandCtx(portal, request)))
+    await expect(portal.recoverPayable(...await commandCtx(portal, request)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 });

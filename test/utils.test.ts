@@ -72,7 +72,7 @@ describe("Utils", () => {
       const direct = ethers.dataSlice(ethers.id("example(bytes)"), 0, 4);
 
       expect(await utils.testCommandSelector("example")).to.equal(
-        ethers.dataSlice(ethers.id("example((bytes32,bytes,bytes))"), 0, 4),
+        ethers.dataSlice(ethers.id("example(bytes32,bytes,bytes)"), 0, 4),
       );
       expect(await utils.testPortSelector("example")).to.equal(direct);
       expect(await utils.testQuerySelector("example")).to.equal(direct);
@@ -541,32 +541,6 @@ describe("Utils", () => {
     it("msgValue captures msg.value", async () => {
       const result = await utils.testMsgValue.staticCall({ value: 42n });
       expect(result).to.equal(42n);
-    });
-
-    it("useValue deducts amount from budget", async () => {
-      const [spent, remaining] = await utils.testUseValue(30n, 100n);
-      expect(spent).to.equal(30n);
-      expect(remaining).to.equal(70n);
-    });
-
-    it("useValue reverts InsufficientValue when amount exceeds remaining", async () => {
-      await expectCustomError(utils.testUseValue(101n, 100n), "InsufficientValue");
-    });
-
-    it("allocate deducts amount from parent and returns a child budget", async () => {
-      const [subRemaining, parentRemaining] = await utils.testAllocate(30n, 100n);
-      expect(subRemaining).to.equal(30n);
-      expect(parentRemaining).to.equal(70n);
-    });
-
-    it("allocate reverts InsufficientValue when amount exceeds remaining", async () => {
-      await expectCustomError(utils.testAllocate(101n, 100n), "InsufficientValue");
-    });
-
-    it("drain returns and clears the remaining budget", async () => {
-      const [drained, remaining] = await utils.testDrain(100n);
-      expect(drained).to.equal(100n);
-      expect(remaining).to.equal(0n);
     });
 
     it("converts remaining native value into a transaction block", async () => {

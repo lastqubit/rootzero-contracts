@@ -7,7 +7,7 @@ import "./helpers/matchers.js";
 describe("Burn", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const burnMethod = "burn((bytes32,bytes,bytes))";
+  const burnMethod = "burn(bytes32,bytes,bytes)";
 
   before(async () => {
     const signer = await getSigner(0);
@@ -22,16 +22,17 @@ describe("Burn", () => {
   });
 
   function ctx(overrides: Partial<{ account: string; state: string; input: string }> = {}) {
-    return {
-      account: overrides.account ?? userAccount,
-      state:   overrides.state   ?? "0x",
-      input:   overrides.input   ?? "0x",
-    };
+    return [
+      overrides.account ?? userAccount,
+      overrides.state ?? "0x",
+      overrides.input ?? "0x",
+    ] as const;
   }
 
   async function callAs(signerIndex: number, ...args: unknown[]) {
     const signer = await getSigner(signerIndex);
-    return (host.connect(signer) as any)[burnMethod](...args);
+    const callArgs = Array.isArray(args[0]) ? [...args[0], ...args.slice(1)] : args;
+    return (host.connect(signer) as any)[burnMethod](...callArgs);
   }
 
   // â”€â”€ Happy path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -57,7 +58,7 @@ describe("Burn", () => {
 
   it("returns empty bytes after processing BALANCE blocks", async () => {
     const state = encodeBalanceBlock(ethers.zeroPadValue("0xc1", 32), 50n);
-    const [result, transactions] = await (host as any)[burnMethod].staticCall(ctx({ state }));
+    const [result, transactions] = await (host as any)[burnMethod].staticCall(...ctx({ state }));
     expect(result).to.equal("0x");
     expect(transactions).to.equal("0x");
   });

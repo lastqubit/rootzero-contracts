@@ -23,11 +23,11 @@ describe("Guard Actions", () => {
     adminAccount = await host.getAdminAccount();
 
     const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
-    await host.appoint(adminCtx(encodeAccountBlock(guardianAccount)));
+    await host.appoint(...adminCtx(encodeAccountBlock(guardianAccount)));
   });
 
   function adminCtx(request: string) {
-    return { account: adminAccount, state: "0x", input: request };
+    return [adminAccount, "0x", request] as const;
   }
 
   async function hostIdFor(addr: string) {
@@ -65,7 +65,7 @@ describe("Guard Actions", () => {
   it("guardian can revoke an authorized node directly", async () => {
     const node = await hostIdFor(await (await getSigner(2)).getAddress());
 
-    await host.authorize(adminCtx(encodeNodeBlock(node)));
+    await host.authorize(...adminCtx(encodeNodeBlock(node)));
     expect(await host.isAuthorized(node)).to.be.true;
 
     await expect(host.connect(guardianSigner).revoke(encodeNodeBlock(node)))
@@ -79,7 +79,7 @@ describe("Guard Actions", () => {
     const node1 = await hostIdFor(await (await getSigner(2)).getAddress());
     const node2 = await hostIdFor(await (await getSigner(3)).getAddress());
 
-    await host.authorize(adminCtx(ethers.concat([encodeNodeBlock(node1), encodeNodeBlock(node2)])));
+    await host.authorize(...adminCtx(ethers.concat([encodeNodeBlock(node1), encodeNodeBlock(node2)])));
 
     await host.connect(guardianSigner).revoke(ethers.concat([encodeNodeBlock(node1), encodeNodeBlock(node2)]));
 
@@ -119,10 +119,10 @@ describe("Guard Actions", () => {
 
   it("dismissed guardian cannot revoke nodes", async () => {
     const node = await hostIdFor(await (await getSigner(2)).getAddress());
-    await host.authorize(adminCtx(encodeNodeBlock(node)));
+    await host.authorize(...adminCtx(encodeNodeBlock(node)));
 
     const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
-    await host.dismiss(adminCtx(encodeAccountBlock(guardianAccount)));
+    await host.dismiss(...adminCtx(encodeAccountBlock(guardianAccount)));
 
     await expect(host.connect(guardianSigner).revoke(encodeNodeBlock(node)))
       .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -131,7 +131,7 @@ describe("Guard Actions", () => {
   it("appointing the same guardian twice is idempotent", async () => {
     const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
 
-    await expect(host.appoint(adminCtx(encodeAccountBlock(guardianAccount))))
+    await expect(host.appoint(...adminCtx(encodeAccountBlock(guardianAccount))))
       .to.emit(host, "Guardian")
       .withArgs(await host.host(), guardianAccount, true);
 

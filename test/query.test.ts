@@ -6,12 +6,15 @@ import {
   concat,
   encodeBlock,
   endpointDescriptor,
+  exactSpec,
   localKey,
   pad32,
 } from "./helpers/blocks.js";
 
 const Value = localKey(1);
 const KeyedValue = localKey(2);
+const ValueSpec = exactSpec(Value, 32);
+const KeyedValueSpec = exactSpec(KeyedValue, 32);
 
 describe("Queries", () => {
   let query: Awaited<ReturnType<typeof deploy>>;
@@ -35,11 +38,11 @@ describe("Queries", () => {
       .withArgs(
         await query.host(),
         await qry("incrementQuery"),
-        endpointDescriptor({ input: Value, output: Value }),
+        endpointDescriptor({ input: Value, output: ValueSpec }),
       );
     await expect(tx!)
       .to.emit(query, "Schema")
-      .withArgs(await query.host(), Value, "{ uint value }", ethers.ZeroHash);
+      .withArgs(await query.host(), ValueSpec, "{ uint value }", ethers.ZeroHash);
     await expect(tx!)
       .to.emit(query, "Labeled")
       .withArgs(await qry("incrementQuery"), ethers.ZeroHash, "incrementQuery");
@@ -83,11 +86,11 @@ describe("Queries", () => {
         .withArgs(
           await keyedQuery.host(),
           await keyedQry("keyedLocalQuery"),
-          endpointDescriptor({ input: KeyedValue, output: KeyedValue }),
+          endpointDescriptor({ input: KeyedValue, output: KeyedValueSpec }),
         );
       await expect(tx!)
         .to.emit(keyedQuery, "Schema")
-        .withArgs(await keyedQuery.host(), KeyedValue, "{ uint value }", ethers.ZeroHash);
+        .withArgs(await keyedQuery.host(), KeyedValueSpec, "{ uint value }", ethers.ZeroHash);
     });
 
     it("accepts the keyed local value block", async () => {

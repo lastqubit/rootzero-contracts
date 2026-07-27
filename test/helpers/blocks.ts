@@ -9,6 +9,18 @@ export function localKey(value: number): string {
   return ethers.toBeHex(value, 4);
 }
 
+export function exactSpec(key: string, size: number): bigint {
+  const value = BigInt(size);
+  return (BigInt(key) << 224n) | (value << 192n) | (value << 160n) | (value << 128n);
+}
+
+export function rangedSpec(key: string, min: number, max: number, hint: number): bigint {
+  return (BigInt(key) << 224n)
+    | (BigInt(min) << 192n)
+    | (BigInt(max) << 160n)
+    | (BigInt(hint) << 128n);
+}
+
 export function manyKey(item: string): string {
   return ethers.hexlify(ethers.concat([Keys.List, item]));
 }
@@ -42,25 +54,31 @@ export function endpointDescriptor({
   stateGroup?: number;
   input?: string;
   inputGroup?: number;
-  output?: string;
+  output?: string | bigint;
   outputGroup?: number;
   funded?: boolean;
   admin?: boolean;
-}): string {
+}): bigint {
   const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n);
   const stateGroups = laneGroup(state, stateGroup);
   const inputGroups = laneGroup(input, inputGroup);
-  const outputGroups = laneGroup(output, outputGroup);
+  const outputSpec = typeof output === "bigint"
+    ? output
+    : output === Keys.Empty
+      ? 0n
+      : (() => { throw new Error("non-empty output lanes require a spec"); })();
+  const outputGroups = outputGroup
+    ?? (typeof output === "bigint" ? Number((output >> 120n) & 0xffn) : 0);
+  const stateLane = (BigInt(state) << 8n) | BigInt(stateGroups);
+  const inputLane = (laneValue(input) << 8n) | BigInt(inputGroups);
+  const outputLane = ((outputSpec >> 120n) & ~0xffn) | BigInt(outputGroups);
   const descriptor =
-    (laneValue(state) << 192n) |
-    (BigInt(stateGroups) << 184n) |
-    (laneValue(input) << 120n) |
-    (BigInt(inputGroups) << 112n) |
-    (laneValue(output) << 48n) |
-    (BigInt(outputGroups) << 40n) |
-    (flags << 32n);
+    (stateLane << 216n) |
+    (inputLane << 144n) |
+    (outputLane << 8n) |
+    flags;
 
-  return ethers.zeroPadValue(ethers.toBeHex(descriptor), 32);
+  return descriptor;
 }
 
 // Known block keys
@@ -225,8 +243,8 @@ export function encodeLabelBlock(id: bigint, namespace: string, name: string): s
   return encodeBlock(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
 }
 
-export function encodeSchemaBlock(key: string, body: string, name: string): string {
-  return encodeBlock(Keys.Schema, ethers.concat([key, encodeStringBlock(body), pad32(name)]));
+export function encodeSchemaBlock(spec: bigint, body: string, name: string): string {
+  return encodeBlock(Keys.Schema, ethers.concat([pad32(spec), encodeStringBlock(body), pad32(name)]));
 }
 
 export function encodeEvmBlock(data: string): string {
@@ -254,7 +272,7 @@ export function concat(...parts: string[]): string {
 }
 
 // Command args suffix appended when computing command selectors
-const COMMAND_ARGS = "((bytes32,bytes,bytes))";
+const COMMAND_ARGS = "(bytes32,bytes,bytes)";
 const PORT_ARGS = "(bytes)";
 const GUARD_ARGS = "(bytes)";
 

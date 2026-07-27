@@ -5,6 +5,7 @@ import "./helpers/matchers.js";
 import {
   Keys,
   endpointDescriptor,
+  exactSpec,
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
@@ -36,16 +37,17 @@ describe("Commands", () => {
   });
 
   function ctx(overrides: Partial<{ account: string; state: string; input: string }> = {}) {
-    return {
-      account: overrides.account ?? userAccount,
-      state: overrides.state ?? "0x",
-      input: overrides.input ?? "0x",
-    };
+    return [
+      overrides.account ?? userAccount,
+      overrides.state ?? "0x",
+      overrides.input ?? "0x",
+    ] as const;
   }
 
   function callAs(signerIndex: number, method: string, ...args: unknown[]) {
     const promise = getSigner(signerIndex).then((signer) => {
-      const txPromise = (host.connect(signer) as any)[method](...args);
+      const callArgs = Array.isArray(args[0]) ? [...args[0], ...args.slice(1)] : args;
+      const txPromise = (host.connect(signer) as any)[method](...callArgs);
       Promise.resolve(txPromise).catch(() => {});
       return txPromise;
     });
@@ -75,7 +77,7 @@ describe("Commands", () => {
       const amount = 50n;
       const request = encodeAmountBlock(asset, amount);
 
-      const [result, transactions] = await host.deposit.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.deposit.staticCall(...ctx({ input: request }));
       expect(result).to.equal(encodeBalanceBlock(asset, amount));
       expect(transactions).to.equal("0x");
     });
@@ -88,7 +90,7 @@ describe("Commands", () => {
         encodeAmountBlock(asset2, 20n)
       );
 
-      const [result, transactions] = await host.deposit.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.deposit.staticCall(...ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeBalanceBlock(asset1, 10n),
         encodeBalanceBlock(asset2, 20n)
@@ -136,7 +138,7 @@ describe("Commands", () => {
       const asset = ethers.zeroPadValue("0x05", 32);
       const request = encodeAmountBlock(asset, 8n);
 
-      const [result, transactions] = await host.depositPayable.staticCall(ctx({ input: request }), { value: 8n });
+      const [result, transactions] = await host.depositPayable.staticCall(...ctx({ input: request }), { value: 8n });
       expect(result).to.equal(encodeBalanceBlock(asset, 8n));
       expect(transactions).to.equal("0x");
     });
@@ -268,7 +270,7 @@ describe("Commands", () => {
 
     it("returns one BALANCE block per AMOUNT block", async () => {
       const request = encodeAmountBlock(asset, 100n);
-      const [result, transactions] = await host.debitAccount.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.debitAccount.staticCall(...ctx({ input: request }));
       expect(result).to.equal(encodeBalanceBlock(asset, 100n));
       expect(transactions).to.equal("0x");
     });
@@ -300,7 +302,7 @@ describe("Commands", () => {
         encodeAmountBlock(asset1, 100n),
         encodeAmountBlock(asset2, 200n),
       );
-      const [result, transactions] = await host.debitAccount.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.debitAccount.staticCall(...ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeBalanceBlock(asset1, 100n),
         encodeBalanceBlock(asset2, 200n),
@@ -322,7 +324,7 @@ describe("Commands", () => {
         .withArgs(
           await host.host(),
           await cmd("allocate"),
-          endpointDescriptor({ state: Keys.Balance, input: Keys.Node, output: Keys.Custody }),
+          endpointDescriptor({ state: Keys.Balance, input: Keys.Node, output: exactSpec(Keys.Custody, 96) }),
         );
     });
 
@@ -336,7 +338,7 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "AllocateCalled")
         .withArgs(hostId, userAccount, asset, 600n);
 
-      const [result, transactions] = await host.allocate.staticCall(ctx({ state, input }));
+      const [result, transactions] = await host.allocate.staticCall(...ctx({ state, input }));
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 600n));
       expect(transactions).to.equal("0x");
     });
@@ -350,7 +352,7 @@ describe("Commands", () => {
       );
       const input = concat(encodeNodeBlock(111n), encodeNodeBlock(222n));
 
-      const [result, transactions] = await host.allocate.staticCall(ctx({ state, input }));
+      const [result, transactions] = await host.allocate.staticCall(...ctx({ state, input }));
       expect(result).to.equal(concat(
         encodeCustodyBlock(111n, asset1, 100n),
         encodeCustodyBlock(222n, asset2, 200n),
@@ -394,7 +396,7 @@ describe("Commands", () => {
       const asset = ethers.zeroPadValue("0x70", 32);
       const hostId = 654321n;
       const request = encodeAllocationBlock(hostId, asset, 700n);
-      const [result, transactions] = await host.provision.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.provision.staticCall(...ctx({ input: request }));
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 700n));
       expect(transactions).to.equal("0x");
     });
@@ -429,7 +431,7 @@ describe("Commands", () => {
         encodeAllocationBlock(host1, asset1, 100n),
         encodeAllocationBlock(host2, asset2, 200n),
       );
-      const [result, transactions] = await host.provision.staticCall(ctx({ input: request }));
+      const [result, transactions] = await host.provision.staticCall(...ctx({ input: request }));
       expect(result).to.equal(concat(
         encodeCustodyBlock(host1, asset1, 100n),
         encodeCustodyBlock(host2, asset2, 200n),
@@ -460,7 +462,7 @@ describe("Commands", () => {
       const hostId = 777n;
       const request = encodeAllocationBlock(hostId, asset, 8n);
 
-      const [result, transactions] = await host.provisionPayable.staticCall(ctx({ input: request }), { value: 8n });
+      const [result, transactions] = await host.provisionPayable.staticCall(...ctx({ input: request }), { value: 8n });
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 8n));
       expect(transactions).to.equal("0x");
     });
@@ -500,7 +502,7 @@ describe("Commands", () => {
       const request = encodeRelayBlock(portal, resources, steps);
       const context = encodeContextBlock(userAccount, state, steps);
 
-      const [result, transactions] = await host.relayPayable.staticCall(ctx({ state, input: request }));
+      const [result, transactions] = await host.relayPayable.staticCall(...ctx({ state, input: request }));
       expect(result).to.equal("0x");
       expect(transactions).to.equal("0x");
 
@@ -556,7 +558,7 @@ describe("Commands", () => {
       const portal = portalNode(31337n);
       const request = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
 
-      const [state, transactions] = await host.relayPayable.staticCall(ctx({ input: request }), { value: 1n });
+      const [state, transactions] = await host.relayPayable.staticCall(...ctx({ input: request }), { value: 1n });
       expect(state).to.equal("0x");
       expect(ethers.getBytes(transactions).length).to.equal(136);
     });
@@ -585,7 +587,7 @@ describe("Commands", () => {
       const witness = encodeContextBlock(userAccount, "0x", step);
       const request = encodeRecoverBlock(handler, resources, key, witness);
 
-      const [result, transactions] = await host.recoverPayable.staticCall(ctx({ input: request }), { value: resources });
+      const [result, transactions] = await host.recoverPayable.staticCall(...ctx({ input: request }), { value: resources });
       expect(result).to.equal("0x");
       expect(transactions).to.equal("0x");
 
@@ -599,7 +601,7 @@ describe("Commands", () => {
       const witness = encodeContextBlock(userAccount, "0x", "0x");
       const request = encodeRecoverBlock(0n, 0n, key, witness);
 
-      const [state, transactions] = await host.recoverPayable.staticCall(ctx({ input: request }), { value: 1n });
+      const [state, transactions] = await host.recoverPayable.staticCall(...ctx({ input: request }), { value: 1n });
       expect(state).to.equal("0x");
       expect(ethers.getBytes(transactions).length).to.equal(136);
     });
