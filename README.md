@@ -252,16 +252,18 @@ lanes, derived group sizes, and flags, plus a human-readable label:
 
 ```solidity
 abstract contract MyCommand is CommandBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
     }
 
     function myCommand(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        // parse c.input, loop, return the output state run and any transactions
+        // parse input, loop, return the output state run and any transactions
     }
 }
 ```

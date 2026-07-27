@@ -60,15 +60,15 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 
 | Component | Files | Porting note |
 |-----------|-------|--------------|
-| Block wire format | `blocks/Schema.sol`, `blocks/Keys.sol` | Pure binary TLV. Re-implement exactly per language. |
-| Cursor parsing | `blocks/Cursors.sol` | Zero-copy byte stream reader. Re-implement per language. |
-| Writer helpers | `blocks/Writers.sol` | Block stream builder. Re-implement per language. |
-| Block key constants | `blocks/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
+| Block wire format | `codec/Schema.sol`, `codec/Keys.sol` | Pure binary TLV. Re-implement exactly per language. |
+| Cursor parsing | `codec/Cursors.sol` | Zero-copy byte stream reader. Re-implement per language. |
+| Writer helpers | `codec/Writers.sol` | Block stream builder. Re-implement per language. |
+| Block key constants | `codec/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
 | Pipeline state model | `core/Pipeline.sol` | STEP stream, threaded `bytes` state, and separately settled TRANSACTION output. Only dispatch and settlement are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
-| Port pipe request shape | `ports/Pipe.sol`, `blocks/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
+| Port pipe request shape | `ports/Pipe.sol`, `codec/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
 
 ### Chain-Specific

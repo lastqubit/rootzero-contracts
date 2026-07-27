@@ -30,19 +30,24 @@ discovery event from its constructor, so a host's deployment transaction
 contains its full endpoint catalog:
 
 ```txt
-event Endpoint(uint indexed host, uint id, bytes32 descriptor)
+event Endpoint(uint indexed host, uint id, uint descriptor)
 ```
 
-- `descriptor` packs state, input, and output lanes, each lane's group size,
-  endpoint flags such as funded and admin, and four reserved bytes. Each packed
-  lane key is `[key bytes4][item bytes4]`: plain block lanes use `[key][0]`,
-  while generic containers such as `many #asset` use
-  `[Keys.List][Keys.Asset]`. A zero group byte means group size 1 for a non-empty
-  lane; `group(lane, size)` supplies an explicit size.
+- `descriptor` packs `[state key:4][group:1]`,
+  `[input key:4][item:4][group:1]`,
+  `[output key:4][min:4][max:4][hint:4][group:1]`, and one flags byte.
+  Input containers such as `many #asset` use `[Keys.List][Keys.Asset]`;
+  state and output lanes cannot be containers. A zero group byte means group
+  size 1 for a non-empty lane; `group(lane, size)` supplies an explicit size.
+  The output bounds and hint allow a writer to be initialized directly from
+  the descriptor. The Solidity output decoder returns a left-aligned spec with
+  its encoded group retained and its container and reserved fields cleared.
+  `Specs.group` returns the effective group, including the zero-to-one default
+  for non-empty specs.
 - Command, port, query, and guard endpoints all share `Endpoint`; admin commands
   are marked by the descriptor's admin flag.
 - block schema strings are published separately with
-  `event Schema(uint indexed host, bytes4 key, string schema, bytes32 name)`.
+  `event Schema(uint indexed host, uint spec, string body, bytes32 name)`.
   Hosts that opt into the admin `publishSchema` command may publish additional schema
   claims later.
 

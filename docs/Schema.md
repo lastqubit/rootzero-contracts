@@ -30,7 +30,7 @@ are opaque `bytes4` tags and only need to be unique in the context where they ar
 used. A host can publish the meaning of a custom key with:
 
 ```solidity
-event Schema(uint indexed host, bytes4 key, string schema, bytes32 name);
+event Schema(uint indexed host, uint spec, string body, bytes32 name);
 ```
 
 For example, a host-specific payment block can use a small literal, the command
@@ -73,7 +73,7 @@ length, fixed fields may appear before, after, or between child blocks.
 ```txt
 { uint target, uint resources, #bytes as payload }
 { bytes32 account, #bytes as state, #bytes as request }
-{ bytes4 key, #string as body, bytes32 name }
+{ uint spec, #string as body, bytes32 name }
 { #bytes as left, uint op, #bytes as right }
 ```
 
@@ -108,24 +108,30 @@ generic list block; it does not repeat the item in place.
 ## Endpoint Lanes
 
 Endpoint descriptors identify each lane with a block key and group size. In
-Solidity, endpoint definition helpers accept `bytes9` lane values, with plain
-`bytes4` keys and the `bytes8` values returned by `many(item)` widening
-implicitly. A plain key or `many(item)` stores a zero group byte that readers
-interpret as group size 1, while `bytes9(0)` or `Keys.Empty` means the endpoint
-has no blocks in that lane. Use
-`group(lane, size)` when a lane needs an explicit group size other than 1.
+Solidity, endpoint definition helpers accept block specs such as `Specs.Amount`.
+A zero group is interpreted as group size 1, while `Specs.Empty` means the
+endpoint has no blocks in that lane. Use `group(spec, size)` when a lane needs
+an explicit group size other than 1.
 
-The packed descriptor stores each lane key as an 8-byte value:
+The packed descriptor uses these lane layouts:
 
 ```txt
-[key bytes4][item bytes4]
+state   [key:4][group:1]
+input   [key:4][item:4][group:1]
+output  [key:4][min:4][max:4][hint:4][group:1]
 ```
 
-A plain block key is widened into `[key][0]`, so normal endpoint declarations can
-pass standard `bytes4` keys directly. A lane with a nonzero `item` describes a
-generic container block: `key` is the top-level wire key and `item` is the
-contained item key. The built-in `many(item)` helper creates `[Keys.List][item]`
-with the default group size 1, matching the DSL form `many #item`.
+Containers are exclusive to input. A plain input spec is compressed into
+`[spec.key][0]`. A spec with a nonzero container is compressed into
+`[spec.container][spec.key]`: the container is the top-level wire key and the
+item is its contained block key. The built-in `many(spec)` helper annotates the
+spec with `Specs.List` as its container, matching the DSL form `many #item`.
+Output lanes retain their size bounds and allocation hint so execution can
+reconstruct the output spec and initialize its writer directly. The Solidity
+output decoder returns this as a left-aligned, writer-ready spec that retains
+its encoded group. Its container and reserved fields are cleared. `Specs.group`
+returns the effective group, interpreting an encoded zero as one for a
+non-empty spec.
 
 Any non-empty lane resolves its key to a block alias and schema body through the
 active schema context. If the item slot is nonzero, tooling also resolves that
@@ -299,22 +305,23 @@ invalid in any path segment.
 - `#string`: UTF-8 string bytes, written without a body
 - `#list`: generic list wrapper emitted by `many`
 
-Custom input shapes should define their own context-local block key and publish
-that key with a `Schema` event. Endpoint contracts can use `schema(...)` for
-that publication:
+Custom input shapes should define their own context-local block spec and publish
+it with a `Schema` event. Endpoint contracts can use `schema(...)` to construct
+and publish that spec:
 
 ```solidity
-bytes4 input = schema(1, "{ bytes32 asset, uint amount }");
+uint input = schema(1, 64, 64, 64, "{ bytes32 asset, uint amount }", bytes32(0));
 ```
 
 Use different numeric keys when a host needs more than one local block key. The
 key can also be a selector or any other `bytes4` value that is unique in the
-context where it is used. The alias names the block; the schema string describes
-only the payload body.
+context where it is used. The numeric arguments after the key are the minimum,
+maximum, and allocation hint payload sizes. The alias names the block; the
+schema string describes only the payload body.
 
 ## Standard Blocks
 
-Common protocol schemas live in `contracts/blocks/Schema.sol`:
+Common protocol schemas live in `contracts/codec/Schema.sol`:
 
 ```txt
 amount   { bytes32 asset, uint amount }
@@ -325,7 +332,7 @@ step     { uint target, uint resources, #bytes as request }
 context  { bytes32 account, #bytes as state, #bytes as request }
 recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
 auth     { uint cid, uint deadline, #bytes as proof }
-schema   { bytes4 key, #string as body, bytes32 name }
+schema   { uint spec, #string as body, bytes32 name }
 ```
 
 `Keys.sol` contains the corresponding standard runtime keys.
