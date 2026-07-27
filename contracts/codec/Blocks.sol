@@ -2,12 +2,31 @@
 pragma solidity ^0.8.33;
 
 import {Keys} from "./Keys.sol";
-import {Buffers} from "./Buffers.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {max32} from "../utils/Utils.sol";
 
 /// @title Blocks
 /// @notice Stateless helpers for inspecting and encoding protocol blocks.
+/// @dev Blocks use `[key:4][payload length:4][payload]`. Relative inspection
+/// helpers take a calldata region as `offset`, `end`, and relative `i`; they
+/// validate that the complete block lies within that region. Absolute helpers
+/// take a direct calldata position `abs` and intentionally omit logical-region
+/// bounds checks. Their caller must validate the consumed position through a
+/// surrounding cursor, execution, or equivalent boundary.
+///
+/// Fixed-width unpackers return decoded fields only because their following
+/// position is statically `abs + Sizes.X`. Dynamic leaf and composite unpackers
+/// return absolute `next` last because their encoded size is known only while
+/// decoding. Built-in composites use optimized assembly for fixed fields and
+/// semantic unpackers for child blocks. Custom schema decoders should favor
+/// `expect`, readable calldata slices, semantic child unpackers, and a final
+/// equality check proving that the children consume the complete payload.
+///
+/// Specialized fixed and dynamic writers are unchecked: callers must reserve
+/// the complete destination region before calling them. Generic memory writers
+/// perform their own capacity checks. Helpers are ordered as inspection,
+/// specialized writes, decoding, checked memory writes, and block factories;
+/// fixed layouts within a section are ordered from smaller to larger payloads.
 library Blocks {
     /// @dev A block header or declared payload exceeds the source region.
     error MalformedBlocks();
@@ -29,6 +48,30 @@ library Blocks {
         key = bytes4(msg.data[abs:abs + 4]);
         len = uint32(bytes4(msg.data[abs + 4:abs + 8]));
         if (i + Sizes.Header + len > end) revert MalformedBlocks();
+    }
+
+    /// @notice Decode a block header at an absolute calldata position.
+    /// @dev DANGER: This performs an unchecked calldata read and does not ensure the
+    /// complete header or payload lies within a logical calldata region.
+    function header(uint abs) internal pure returns (bytes4 key, uint len) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        key = bytes4(uint32(head >> 224));
+        len = uint32(head >> 192);
+    }
+
+    /// @notice Decode a block header and validate its key at an absolute calldata position.
+    /// @dev DANGER: This performs an unchecked calldata read and does not ensure the
+    /// complete header or payload lies within a logical calldata region.
+    function header(uint abs, bytes4 expected) internal pure returns (uint len) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (uint32(head >> 224) != uint32(expected)) revert InvalidBlock();
+        len = uint32(head >> 192);
     }
 
     /// @notice Return whether `i` identifies a header with `key` in a calldata region.
@@ -53,13 +96,22 @@ library Blocks {
         next = i + Sizes.Header + len;
     }
 
+    /// @notice Validate a block header at an absolute calldata position.
+    /// @dev DANGER: This performs an unchecked calldata read and does not ensure `end`
+    /// lies within the caller's logical calldata region. Only the key, minimum,
+    /// and maximum fields of `spec` are used.
+    /// @return i Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function expect(uint abs, uint spec) internal pure returns (uint i, uint end) {
+        uint len = header(abs, Specs.key(spec));
+        if (!Specs.accepts(spec, len)) revert InvalidBlock();
+
+        i = abs + Sizes.Header;
+        end = i + len;
+    }
+
     /// @notice Count consecutive blocks with `key` from `i`.
-    function run(
-        uint offset,
-        uint end,
-        uint i,
-        bytes4 key
-    ) internal pure returns (uint total, uint next) {
+    function run(uint offset, uint end, uint i, bytes4 key) internal pure returns (uint total, uint next) {
         next = i;
         while (next < end) {
             (bytes4 current, uint len) = header(offset, end, next);
@@ -80,6 +132,916 @@ library Blocks {
             i += Sizes.Header + len;
         }
         return end;
+    }
+
+    // Fixed-width block writes
+
+    // One-word payloads
+
+    /// @notice Write an ACCOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
+    function writeAccount(bytes memory dst, uint i, bytes32 account) internal pure {
+        uint spec = Specs.Account;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), account)
+        }
+    }
+
+    /// @notice Write an ASSET block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
+    function writeAsset(bytes memory dst, uint i, bytes32 asset) internal pure {
+        uint spec = Specs.Asset;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+        }
+    }
+
+    /// @notice Write a NODE block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
+    function writeNode(bytes memory dst, uint i, uint node) internal pure {
+        uint spec = Specs.Node;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), node)
+        }
+    }
+
+    /// @notice Write a FEE block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
+    function writeFee(bytes memory dst, uint i, uint amount) internal pure {
+        uint spec = Specs.Fee;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), amount)
+        }
+    }
+
+    /// @notice Write a STATUS block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
+    function writeStatus(bytes memory dst, uint i, uint code) internal pure {
+        uint spec = Specs.Status;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), code)
+        }
+    }
+
+    // Two-word payloads
+
+    /// @notice Write an AMOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    function writeAmount(bytes memory dst, uint i, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.Amount;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+        }
+    }
+
+    /// @notice Write a BALANCE block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    function writeBalance(bytes memory dst, uint i, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.Balance;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+        }
+    }
+
+    /// @notice Write a BOUNTY block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    function writeBounty(bytes memory dst, uint i, uint amount, bytes32 relayer) internal pure {
+        uint spec = Specs.Bounty;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), amount)
+            mstore(add(p, 0x28), relayer)
+        }
+    }
+
+    /// @notice Write an ASSET_AMOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    function writeAssetAmount(bytes memory dst, uint i, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.AssetAmount;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+        }
+    }
+
+    /// @notice Write an ACCOUNT_ASSET block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    function writeAccountAsset(bytes memory dst, uint i, bytes32 account, bytes32 asset) internal pure {
+        uint spec = Specs.AccountAsset;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), account)
+            mstore(add(p, 0x28), asset)
+        }
+    }
+
+    // Three-word payloads
+
+    /// @notice Write a BALANCE_LIMIT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeBalanceLimit(bytes memory dst, uint i, bytes32 asset, uint min, uint max) internal pure {
+        uint spec = Specs.BalanceLimit;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), min)
+            mstore(add(p, 0x48), max)
+        }
+    }
+
+    /// @notice Write an ALLOCATION block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeAllocation(bytes memory dst, uint i, uint host, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.Allocation;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), amount)
+        }
+    }
+
+    /// @notice Write an ALLOWANCE block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeAllowance(bytes memory dst, uint i, uint host, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.Allowance;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), amount)
+        }
+    }
+
+    /// @notice Write a CUSTODY block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeCustody(bytes memory dst, uint i, uint host, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.Custody;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), amount)
+        }
+    }
+
+    /// @notice Write an ACCOUNT_AMOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeAccountAmount(bytes memory dst, uint i, bytes32 account, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.AccountAmount;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), account)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), amount)
+        }
+    }
+
+    /// @notice Write a HOST_AMOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeHostAmount(bytes memory dst, uint i, uint host, bytes32 asset, uint amount) internal pure {
+        uint spec = Specs.HostAmount;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), amount)
+        }
+    }
+
+    /// @notice Write a HOST_ACCOUNT_ASSET block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    function writeHostAccountAsset(bytes memory dst, uint i, uint host, bytes32 account, bytes32 asset) internal pure {
+        uint spec = Specs.HostAccountAsset;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), account)
+            mstore(add(p, 0x48), asset)
+        }
+    }
+
+    // Four-word payloads
+
+    /// @notice Write a CUSTODY_LIMIT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
+    function writeCustodyLimit(bytes memory dst, uint i, uint host, bytes32 asset, uint min, uint max) internal pure {
+        uint spec = Specs.CustodyLimit;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+            mstore(add(p, 0x48), min)
+            mstore(add(p, 0x68), max)
+        }
+    }
+
+    /// @notice Write a TRANSACTION block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
+    function writeTransaction(
+        bytes memory dst,
+        uint i,
+        bytes32 from,
+        bytes32 to,
+        bytes32 asset,
+        uint amount
+    ) internal pure {
+        uint spec = Specs.Transaction;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), from)
+            mstore(add(p, 0x28), to)
+            mstore(add(p, 0x48), asset)
+            mstore(add(p, 0x68), amount)
+        }
+    }
+
+    /// @notice Write a HOST_ACCOUNT_AMOUNT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
+    function writeHostAccountAmount(
+        bytes memory dst,
+        uint i,
+        uint host,
+        bytes32 account,
+        bytes32 asset,
+        uint amount
+    ) internal pure {
+        uint spec = Specs.HostAccountAmount;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), account)
+            mstore(add(p, 0x48), asset)
+            mstore(add(p, 0x68), amount)
+        }
+    }
+
+    // Dynamic payloads
+
+    /// @notice Write a LIST block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the payload length fits in uint32.
+    function writeList(bytes memory dst, uint i, bytes memory value) internal pure {
+        uint len = value.length;
+        uint key = uint32(Keys.List);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mcopy(add(p, 0x08), add(value, 0x20), len)
+        }
+    }
+
+    /// @notice Write an EVM block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the payload length fits in uint32.
+    function writeEvm(bytes memory dst, uint i, bytes memory value) internal pure {
+        uint len = value.length;
+        uint key = uint32(Keys.Evm);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mcopy(add(p, 0x08), add(value, 0x20), len)
+        }
+    }
+
+    /// @notice Write a BYTES block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the payload length fits in uint32.
+    function writeBytes(bytes memory dst, uint i, bytes memory value) internal pure {
+        uint len = value.length;
+        uint key = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mcopy(add(p, 0x08), add(value, 0x20), len)
+        }
+    }
+
+    /// @notice Write a STRING block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the payload length fits in uint32.
+    function writeString(bytes memory dst, uint i, string memory value) internal pure {
+        uint len = bytes(value).length;
+        uint key = uint32(Keys.String);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mcopy(add(p, 0x08), add(value, 0x20), len)
+        }
+    }
+
+    /// @notice Write a STEP block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeStep(bytes memory dst, uint i, uint target, uint resources, bytes memory request) internal pure {
+        uint len = 64 + Sizes.Header + request.length;
+        uint key = uint32(Keys.Step);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), target)
+            mstore(add(p, 0x28), resources)
+
+            let q := add(p, 0x48)
+            let requestlen := mload(request)
+            mstore(q, or(shl(224, byteskey), shl(192, requestlen)))
+            mcopy(add(q, 0x08), add(request, 0x20), requestlen)
+        }
+    }
+
+    /// @notice Write a CALL block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeCall(bytes memory dst, uint i, uint target, uint resources, bytes memory payload) internal pure {
+        uint len = 64 + Sizes.Header + payload.length;
+        uint key = uint32(Keys.Call);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), target)
+            mstore(add(p, 0x28), resources)
+
+            let q := add(p, 0x48)
+            let payloadlen := mload(payload)
+            mstore(q, or(shl(224, byteskey), shl(192, payloadlen)))
+            mcopy(add(q, 0x08), add(payload, 0x20), payloadlen)
+        }
+    }
+
+    /// @notice Write a RELAY block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeRelay(bytes memory dst, uint i, uint portal, uint resources, bytes memory request) internal pure {
+        uint len = 64 + Sizes.Header + request.length;
+        uint key = uint32(Keys.Relay);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), portal)
+            mstore(add(p, 0x28), resources)
+
+            let q := add(p, 0x48)
+            let requestlen := mload(request)
+            mstore(q, or(shl(224, byteskey), shl(192, requestlen)))
+            mcopy(add(q, 0x08), add(request, 0x20), requestlen)
+        }
+    }
+
+    /// @notice Write a DISPATCH block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeDispatch(bytes memory dst, uint i, uint portal, uint resources, bytes memory payload) internal pure {
+        uint len = 64 + Sizes.Header + payload.length;
+        uint key = uint32(Keys.Dispatch);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), portal)
+            mstore(add(p, 0x28), resources)
+
+            let q := add(p, 0x48)
+            let payloadlen := mload(payload)
+            mstore(q, or(shl(224, byteskey), shl(192, payloadlen)))
+            mcopy(add(q, 0x08), add(payload, 0x20), payloadlen)
+        }
+    }
+
+    /// @notice Write a CONTEXT block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeContext(
+        bytes memory dst,
+        uint i,
+        bytes32 account,
+        bytes memory state,
+        bytes memory request
+    ) internal pure {
+        uint len = 32 + 2 * Sizes.Header + state.length + request.length;
+        uint key = uint32(Keys.Context);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), account)
+
+            let q := add(p, 0x28)
+            let statelen := mload(state)
+            mstore(q, or(shl(224, byteskey), shl(192, statelen)))
+            mcopy(add(q, 0x08), add(state, 0x20), statelen)
+
+            let r := add(add(q, 0x08), statelen)
+            let requestlen := mload(request)
+            mstore(r, or(shl(224, byteskey), shl(192, requestlen)))
+            mcopy(add(r, 0x08), add(request, 0x20), requestlen)
+        }
+    }
+
+    /// @notice Write a RECOVER block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeRecover(
+        bytes memory dst,
+        uint i,
+        uint handler,
+        uint resources,
+        bytes32 recoverykey,
+        bytes memory witness
+    ) internal pure {
+        uint len = 96 + Sizes.Header + witness.length;
+        uint key = uint32(Keys.Recover);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), handler)
+            mstore(add(p, 0x28), resources)
+            mstore(add(p, 0x48), recoverykey)
+
+            let q := add(p, 0x68)
+            let witnesslen := mload(witness)
+            mstore(q, or(shl(224, byteskey), shl(192, witnesslen)))
+            mcopy(add(q, 0x08), add(witness, 0x20), witnesslen)
+        }
+    }
+
+    /// @notice Write a LABEL block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeLabel(bytes memory dst, uint i, uint id, bytes32 namespace, string memory name) internal pure {
+        uint len = 64 + Sizes.Header + bytes(name).length;
+        uint key = uint32(Keys.Label);
+        uint stringkey = uint32(Keys.String);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), id)
+            mstore(add(p, 0x28), namespace)
+
+            let q := add(p, 0x48)
+            let namelen := mload(name)
+            mstore(q, or(shl(224, stringkey), shl(192, namelen)))
+            mcopy(add(q, 0x08), add(name, 0x20), namelen)
+        }
+    }
+
+    /// @notice Write a SCHEMA block at `i`.
+    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
+    /// block size and ensure the encoded payload length fits in uint32.
+    function writeSchema(bytes memory dst, uint i, uint spec, string memory body, bytes32 name) internal pure {
+        uint len = 64 + Sizes.Header + bytes(body).length;
+        uint key = uint32(Keys.Schema);
+        uint stringkey = uint32(Keys.String);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), spec)
+
+            let q := add(p, 0x28)
+            let bodylen := mload(body)
+            mstore(q, or(shl(224, stringkey), shl(192, bodylen)))
+            mcopy(add(q, 0x08), add(body, 0x20), bodylen)
+            mstore(add(add(q, 0x08), bodylen), name)
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Calldata decoding
+    // -------------------------------------------------------------------------
+
+    /// @dev The fixed-width decoders below validate only the block key and
+    /// payload length. Callers must ensure the complete block lies within
+    /// their logical calldata region.
+
+    // One-word payloads
+
+    function unpackAccount(uint abs) internal pure returns (bytes32 account) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Account >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            account := calldataload(add(abs, 0x08))
+        }
+    }
+
+    function unpackAsset(uint abs) internal pure returns (bytes32 asset) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Asset >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+        }
+    }
+
+    function unpackNode(uint abs) internal pure returns (uint node) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Node >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            node := calldataload(add(abs, 0x08))
+        }
+    }
+
+    function unpackFee(uint abs) internal pure returns (uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Fee >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            amount := calldataload(add(abs, 0x08))
+        }
+    }
+
+    function unpackStatus(uint abs) internal pure returns (uint code) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Status >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            code := calldataload(add(abs, 0x08))
+        }
+    }
+
+    // Two-word payloads
+
+    function unpackAmount(uint abs) internal pure returns (bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Amount >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+        }
+    }
+
+    function unpackBalance(uint abs) internal pure returns (bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Balance >> 192) revert InvalidBlock();
+
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+        }
+    }
+
+    function unpackBounty(uint abs) internal pure returns (uint amount, bytes32 relayer) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Bounty >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            amount := calldataload(add(abs, 0x08))
+            relayer := calldataload(add(abs, 0x28))
+        }
+    }
+
+    function unpackAssetAmount(uint abs) internal pure returns (bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.AssetAmount >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+        }
+    }
+
+    function unpackAccountAsset(uint abs) internal pure returns (bytes32 account, bytes32 asset) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.AccountAsset >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            account := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+        }
+    }
+
+    // Three-word payloads
+
+    function unpackBalanceLimit(uint abs) internal pure returns (bytes32 asset, uint min, uint max) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.BalanceLimit >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+            min := calldataload(add(abs, 0x28))
+            max := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackAllocation(uint abs) internal pure returns (uint host, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Allocation >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            amount := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackAllowance(uint abs) internal pure returns (uint host, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Allowance >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            amount := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackCustody(uint abs) internal pure returns (uint host, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Custody >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            amount := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackAccountAmount(uint abs) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.AccountAmount >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            account := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            amount := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackHostAmount(uint abs) internal pure returns (uint host, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.HostAmount >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            amount := calldataload(add(abs, 0x48))
+        }
+    }
+
+    function unpackHostAccountAsset(uint abs) internal pure returns (uint host, bytes32 account, bytes32 asset) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.HostAccountAsset >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            account := calldataload(add(abs, 0x28))
+            asset := calldataload(add(abs, 0x48))
+        }
+    }
+
+    // Four-word payloads
+
+    function unpackCustodyLimit(uint abs) internal pure returns (uint host, bytes32 asset, uint min, uint max) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.CustodyLimit >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
+            min := calldataload(add(abs, 0x48))
+            max := calldataload(add(abs, 0x68))
+        }
+    }
+
+    function unpackTransaction(uint abs) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Transaction >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            from := calldataload(add(abs, 0x08))
+            to := calldataload(add(abs, 0x28))
+            asset := calldataload(add(abs, 0x48))
+            amount := calldataload(add(abs, 0x68))
+        }
+    }
+
+    function unpackHostAccountAmount(
+        uint abs
+    ) internal pure returns (uint host, bytes32 account, bytes32 asset, uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.HostAccountAmount >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            account := calldataload(add(abs, 0x28))
+            asset := calldataload(add(abs, 0x48))
+            amount := calldataload(add(abs, 0x68))
+        }
+    }
+
+    // Dynamic leaf blocks
+
+    function unpackList(uint abs) internal pure returns (bytes calldata value, uint next) {
+        return unpackRaw(abs, Keys.List);
+    }
+
+    function unpackEvm(uint abs) internal pure returns (bytes calldata value, uint next) {
+        return unpackRaw(abs, Keys.Evm);
+    }
+
+    function unpackBytes(uint abs) internal pure returns (bytes calldata value, uint next) {
+        return unpackRaw(abs, Keys.Bytes);
+    }
+
+    function unpackString(uint abs) internal pure returns (bytes calldata value, uint next) {
+        return unpackRaw(abs, Keys.String);
+    }
+
+    function unpackRaw(uint abs, bytes4 expected) private pure returns (bytes calldata value, uint next) {
+        uint len = header(abs, expected);
+        assembly ("memory-safe") {
+            value.offset := add(abs, 0x08)
+            value.length := len
+        }
+        next = abs + Sizes.Header + len;
+    }
+
+    // Composite blocks
+
+    // One fixed word
+
+    function unpackContext(
+        uint abs
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Context);
+        assembly ("memory-safe") {
+            account := calldataload(i)
+        }
+        (state, next) = unpackBytes(i + 32);
+        (request, next) = unpackBytes(next);
+        if (next != end) revert InvalidBlock();
+    }
+
+    // Two fixed words
+
+    function unpackStep(
+        uint abs
+    ) internal pure returns (uint target, uint resources, bytes calldata request, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Step);
+        assembly ("memory-safe") {
+            target := calldataload(i)
+            resources := calldataload(add(i, 0x20))
+        }
+        (request, next) = unpackBytes(i + 64);
+        if (next != end) revert InvalidBlock();
+    }
+
+    function unpackCall(
+        uint abs
+    ) internal pure returns (uint target, uint resources, bytes calldata payload, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Call);
+        assembly ("memory-safe") {
+            target := calldataload(i)
+            resources := calldataload(add(i, 0x20))
+        }
+        (payload, next) = unpackBytes(i + 64);
+        if (next != end) revert InvalidBlock();
+    }
+
+    function unpackRelay(
+        uint abs
+    ) internal pure returns (uint portal, uint resources, bytes calldata request, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Relay);
+        assembly ("memory-safe") {
+            portal := calldataload(i)
+            resources := calldataload(add(i, 0x20))
+        }
+        (request, next) = unpackBytes(i + 64);
+        if (next != end) revert InvalidBlock();
+    }
+
+    function unpackDispatch(
+        uint abs
+    ) internal pure returns (uint portal, uint resources, bytes calldata payload, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Dispatch);
+        assembly ("memory-safe") {
+            portal := calldataload(i)
+            resources := calldataload(add(i, 0x20))
+        }
+        (payload, next) = unpackBytes(i + 64);
+        if (next != end) revert InvalidBlock();
+    }
+
+    function unpackLabel(
+        uint abs
+    ) internal pure returns (uint id, bytes32 namespace, string memory name, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Label);
+        assembly ("memory-safe") {
+            id := calldataload(i)
+            namespace := calldataload(add(i, 0x20))
+        }
+        bytes calldata value;
+        (value, next) = unpackString(i + 64);
+        if (next != end) revert InvalidBlock();
+        name = string(value);
+    }
+
+    function unpackSchema(
+        uint abs
+    ) internal pure returns (uint spec, string memory body, bytes32 name, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Schema);
+        assembly ("memory-safe") {
+            spec := calldataload(i)
+        }
+        bytes calldata value;
+        (value, next) = unpackString(i + 32);
+        if (next + 32 != end) revert InvalidBlock();
+        assembly ("memory-safe") {
+            name := calldataload(next)
+        }
+        next = end;
+        body = string(value);
+    }
+
+    // Three fixed words
+
+    function unpackRecover(
+        uint abs
+    ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness, uint next) {
+        (uint i, uint end) = expect(abs, Specs.Recover);
+        assembly ("memory-safe") {
+            handler := calldataload(i)
+            resources := calldataload(add(i, 0x20))
+            key := calldataload(add(i, 0x40))
+        }
+        (witness, next) = unpackBytes(i + 96);
+        if (next != end) revert InvalidBlock();
     }
 
     // -------------------------------------------------------------------------
@@ -106,13 +1068,7 @@ library Blocks {
     }
 
     /// @notice Write a block with one payload word, keeping `keep` bytes from that word.
-    function write32(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        uint keep
-    ) internal pure returns (uint next) {
+    function write32(bytes memory dst, uint i, bytes4 key, bytes32 a, uint keep) internal pure returns (uint next) {
         if (keep == 0 || keep > 32) revert InvalidKeep();
         if (i + Sizes.B32 > dst.length) revert WriterOverflow();
         next = i + Sizes.Header + keep;
@@ -120,596 +1076,6 @@ library Blocks {
         assembly ("memory-safe") {
             mstore(add(p, 0x08), a)
         }
-    }
-
-    /// @notice Write a block with two payload words, keeping `keep` bytes from the final word.
-    function write64(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        uint keep
-    ) internal pure returns (uint next) {
-        if (keep == 0 || keep > 32) revert InvalidKeep();
-        if (i + Sizes.B64 > dst.length) revert WriterOverflow();
-        uint len = 32 + keep;
-        next = i + Sizes.Header + len;
-        uint p = writeHeader(dst, i, key, uint32(len));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
-            mstore(add(p, 0x28), b)
-        }
-    }
-
-    /// @notice Write a fixed-width BALANCE block at byte offset `i`.
-    /// @return next Byte offset immediately after the encoded block.
-    function writeBalance(
-        bytes memory dst,
-        uint i,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint next) {
-        next = i + Sizes.Balance;
-        if (next > dst.length) revert WriterOverflow();
-
-        uint spec = Specs.Balance;
-        assembly ("memory-safe") {
-            let p := add(add(dst, 0x20), i)
-            mstore(p, spec)
-            mstore(add(p, 0x08), asset)
-            mstore(add(p, 0x28), amount)
-        }
-    }
-
-    /// @notice Write a block with three payload words, keeping `keep` bytes from the final word.
-    function write96(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        uint keep
-    ) internal pure returns (uint next) {
-        if (keep == 0 || keep > 32) revert InvalidKeep();
-        if (i + Sizes.B96 > dst.length) revert WriterOverflow();
-        uint len = 64 + keep;
-        next = i + Sizes.Header + len;
-        uint p = writeHeader(dst, i, key, uint32(len));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
-            mstore(add(p, 0x28), b)
-            mstore(add(p, 0x48), c)
-        }
-    }
-
-    /// @notice Write a block with four payload words, keeping `keep` bytes from the final word.
-    function write128(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d,
-        uint keep
-    ) internal pure returns (uint next) {
-        if (keep == 0 || keep > 32) revert InvalidKeep();
-        if (i + Sizes.B128 > dst.length) revert WriterOverflow();
-        uint len = 96 + keep;
-        next = i + Sizes.Header + len;
-        uint p = writeHeader(dst, i, key, uint32(len));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
-            mstore(add(p, 0x28), b)
-            mstore(add(p, 0x48), c)
-            mstore(add(p, 0x68), d)
-        }
-    }
-
-    /// @notice Write a fixed-width TRANSACTION block at byte offset `i`.
-    /// @return next Byte offset immediately after the encoded block.
-    function writeTransaction(
-        bytes memory dst,
-        uint i,
-        bytes32 from,
-        bytes32 to,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint next) {
-        next = i + Sizes.Transaction;
-        if (next > dst.length) revert WriterOverflow();
-
-        uint spec = Specs.Transaction;
-        assembly ("memory-safe") {
-            let p := add(add(dst, 0x20), i)
-            mstore(p, spec)
-            mstore(add(p, 0x08), from)
-            mstore(add(p, 0x28), to)
-            mstore(add(p, 0x48), asset)
-            mstore(add(p, 0x68), amount)
-        }
-    }
-
-    /// @notice Write a block with five payload words, keeping `keep` bytes from the final word.
-    function write160(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d,
-        bytes32 e,
-        uint keep
-    ) internal pure returns (uint next) {
-        if (keep == 0 || keep > 32) revert InvalidKeep();
-        if (i + Sizes.B160 > dst.length) revert WriterOverflow();
-        uint len = 128 + keep;
-        next = i + Sizes.Header + len;
-        uint p = writeHeader(dst, i, key, uint32(len));
-        assembly ("memory-safe") {
-            mstore(add(p, 0x08), a)
-            mstore(add(p, 0x28), b)
-            mstore(add(p, 0x48), c)
-            mstore(add(p, 0x68), d)
-            mstore(add(p, 0x88), e)
-        }
-    }
-
-    /// @notice Write a block with a 32-byte head and two nested BYTES payloads.
-    function write32BytesBytes(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes memory b,
-        bytes memory c
-    ) internal pure returns (uint next) {
-        uint bLen = b.length;
-        uint len = 32 + 2 * Sizes.Header + bLen + c.length;
-        next = i + Sizes.Header + len;
-        if (next > dst.length) revert WriterOverflow();
-
-        {
-            uint p = writeHeader(dst, i, key, uint32(max32(len)));
-            assembly ("memory-safe") {
-                mstore(add(p, 0x08), a)
-            }
-        }
-        {
-            uint q = writeHeader(dst, i + Sizes.Header + 32, Keys.Bytes, uint32(max32(bLen)));
-            assembly ("memory-safe") {
-                mcopy(add(q, 0x08), add(b, 0x20), mload(b))
-            }
-        }
-        {
-            uint r = writeHeader(dst, i + Sizes.Header + 32 + Sizes.Header + bLen, Keys.Bytes, uint32(max32(c.length)));
-            assembly ("memory-safe") {
-                mcopy(add(r, 0x08), add(c, 0x20), mload(c))
-            }
-        }
-    }
-
-    /// @notice Write a block with a 64-byte head and two nested BYTES payloads.
-    function write64BytesBytes(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c,
-        bytes memory d
-    ) internal pure returns (uint next) {
-        uint cLen = c.length;
-        uint len = 64 + 2 * Sizes.Header + cLen + d.length;
-        next = i + Sizes.Header + len;
-        if (next > dst.length) revert WriterOverflow();
-
-        {
-            uint p = writeHeader(dst, i, key, uint32(max32(len)));
-            assembly ("memory-safe") {
-                mstore(add(p, 0x08), a)
-                mstore(add(p, 0x28), b)
-            }
-        }
-        {
-            uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
-            assembly ("memory-safe") {
-                mcopy(add(q, 0x08), add(c, 0x20), mload(c))
-            }
-        }
-        {
-            uint r = writeHeader(dst, i + Sizes.Header + 64 + Sizes.Header + cLen, Keys.Bytes, uint32(max32(d.length)));
-            assembly ("memory-safe") {
-                mcopy(add(r, 0x08), add(d, 0x20), mload(d))
-            }
-        }
-    }
-
-    /// @notice Write a block with a 64-byte head and one nested BYTES payload.
-    function write64Bytes(
-        bytes memory dst,
-        uint i,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c
-    ) internal pure returns (uint next) {
-        uint cLen = c.length;
-        uint len = 64 + Sizes.Header + cLen;
-        next = i + Sizes.Header + len;
-        if (next > dst.length) revert WriterOverflow();
-
-        {
-            uint p = writeHeader(dst, i, key, uint32(max32(len)));
-            assembly ("memory-safe") {
-                mstore(add(p, 0x08), a)
-                mstore(add(p, 0x28), b)
-            }
-        }
-        {
-            uint q = writeHeader(dst, i + Sizes.Header + 64, Keys.Bytes, uint32(max32(cLen)));
-            assembly ("memory-safe") {
-                mcopy(add(q, 0x08), add(c, 0x20), mload(c))
-            }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Block append helpers
-    // -------------------------------------------------------------------------
-
-    /// @notice Reserve and append a dynamic block.
-    function append(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes memory payload
-    ) internal pure returns (uint updated, bytes memory out) {
-        Specs.validate(spec, payload.length);
-        return appendKey(meta, dst, Specs.key(spec), payload);
-    }
-
-    function appendKey(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes memory payload
-    ) private pure returns (uint updated, bytes memory out) {
-        uint size = Sizes.Header + payload.length;
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, size, size);
-        write(out, i, key, payload);
-    }
-
-    /// @notice Reserve and append a fixed-width block with up to one payload word.
-    function append32(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint keep = Specs.exact(spec, 1, 32);
-        return append32Key(meta, dst, Specs.key(spec), a, keep);
-    }
-
-    function append32Key(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        uint keep
-    ) private pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Header + keep, Sizes.B32);
-        write32(out, i, key, a, keep);
-    }
-
-    /// @notice Reserve and append a fixed-width block with up to two payload words.
-    function append64(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint keep = Specs.exact(spec, 33, 64) - 32;
-        return append64Key(meta, dst, Specs.key(spec), a, b, keep);
-    }
-
-    function append64Key(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        uint keep
-    ) private pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Header + 32 + keep, Sizes.B64);
-        write64(out, i, key, a, b, keep);
-    }
-
-    /// @notice Reserve and append a fixed-width block with up to three payload words.
-    function append96(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint keep = Specs.exact(spec, 65, 96) - 64;
-        return append96Key(meta, dst, Specs.key(spec), a, b, c, keep);
-    }
-
-    function append96Key(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        uint keep
-    ) private pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Header + 64 + keep, Sizes.B96);
-        write96(out, i, key, a, b, c, keep);
-    }
-
-    /// @notice Reserve and append a fixed-width block with up to four payload words.
-    function append128(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint keep = Specs.exact(spec, 97, 128) - 96;
-        return append128Key(meta, dst, Specs.key(spec), a, b, c, d, keep);
-    }
-
-    function append128Key(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d,
-        uint keep
-    ) private pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Header + 96 + keep, Sizes.B128);
-        write128(out, i, key, a, b, c, d, keep);
-    }
-
-    /// @notice Reserve and append a fixed-width block with up to five payload words.
-    function append160(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d,
-        bytes32 e
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint keep = Specs.exact(spec, 129, 160) - 128;
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Header + 128 + keep, Sizes.B160);
-        write160(out, i, Specs.key(spec), a, b, c, d, e, keep);
-    }
-
-    /// @notice Reserve and append a block with a 32-byte head and two nested BYTES payloads.
-    function append32BytesBytes(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes memory b,
-        bytes memory c
-    ) internal pure returns (uint updated, bytes memory out) {
-        Specs.validate(spec, 32 + 2 * Sizes.Header + b.length + c.length);
-        return append32BytesBytesKey(meta, dst, Specs.key(spec), a, b, c);
-    }
-
-    function append32BytesBytesKey(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes memory b,
-        bytes memory c
-    ) private pure returns (uint updated, bytes memory out) {
-        uint size = Sizes.B32 + 2 * Sizes.Header + b.length + c.length;
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, size, size);
-        write32BytesBytes(out, i, key, a, b, c);
-    }
-
-    /// @notice Reserve and append a block with a 64-byte head and two nested BYTES payloads.
-    function append64BytesBytes(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c,
-        bytes memory d
-    ) internal pure returns (uint updated, bytes memory out) {
-        Specs.validate(spec, 64 + 2 * Sizes.Header + c.length + d.length);
-        return append64BytesBytesKey(meta, dst, Specs.key(spec), a, b, c, d);
-    }
-
-    function append64BytesBytesKey(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c,
-        bytes memory d
-    ) private pure returns (uint updated, bytes memory out) {
-        uint size = Sizes.B64 + 2 * Sizes.Header + c.length + d.length;
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, size, size);
-        write64BytesBytes(out, i, key, a, b, c, d);
-    }
-
-    /// @notice Reserve and append a block with a 64-byte head and one nested BYTES payload.
-    function append64Bytes(
-        uint meta,
-        bytes memory dst,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c
-    ) internal pure returns (uint updated, bytes memory out) {
-        Specs.validate(spec, 64 + Sizes.Header + c.length);
-        return append64BytesKey(meta, dst, Specs.key(spec), a, b, c);
-    }
-
-    function append64BytesKey(
-        uint meta,
-        bytes memory dst,
-        bytes4 key,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c
-    ) private pure returns (uint updated, bytes memory out) {
-        uint size = Sizes.B64 + Sizes.Header + c.length;
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, size, size);
-        write64Bytes(out, i, key, a, b, c);
-    }
-
-    function appendBytes(
-        uint meta,
-        bytes memory dst,
-        bytes memory value
-    ) internal pure returns (uint updated, bytes memory out) {
-        return appendKey(meta, dst, Keys.Bytes, value);
-    }
-
-    function appendString(
-        uint meta,
-        bytes memory dst,
-        string memory value
-    ) internal pure returns (uint updated, bytes memory out) {
-        return appendKey(meta, dst, Keys.String, bytes(value));
-    }
-
-    function appendStep(
-        uint meta,
-        bytes memory dst,
-        uint target,
-        uint resources,
-        bytes memory request
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append64BytesKey(meta, dst, Keys.Step, bytes32(target), bytes32(resources), request);
-    }
-
-    function appendCall(
-        uint meta,
-        bytes memory dst,
-        uint target,
-        uint resources,
-        bytes memory payload
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append64BytesKey(meta, dst, Keys.Call, bytes32(target), bytes32(resources), payload);
-    }
-
-    function appendContext(
-        uint meta,
-        bytes memory dst,
-        bytes32 account,
-        bytes memory state,
-        bytes memory request
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append32BytesBytesKey(meta, dst, Keys.Context, account, state, request);
-    }
-
-    function appendStatus(
-        uint meta,
-        bytes memory dst,
-        uint code
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append32Key(meta, dst, Keys.Status, bytes32(code), 32);
-    }
-
-    function appendBalance(
-        uint meta,
-        bytes memory dst,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Balance, Sizes.B64);
-        writeBalance(out, i, asset, amount);
-    }
-
-    function appendAmount(
-        uint meta,
-        bytes memory dst,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append64Key(meta, dst, Keys.Amount, asset, bytes32(amount), 32);
-    }
-
-    function appendAccountAmount(
-        uint meta,
-        bytes memory dst,
-        bytes32 account,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append96Key(meta, dst, Keys.AccountAmount, account, asset, bytes32(amount), 32);
-    }
-
-    function appendAsset(
-        uint meta,
-        bytes memory dst,
-        bytes32 asset
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append32Key(meta, dst, Keys.Asset, asset, 32);
-    }
-
-    function appendBounty(
-        uint meta,
-        bytes memory dst,
-        uint amount,
-        bytes32 relayer
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append64Key(meta, dst, Keys.Bounty, bytes32(amount), relayer, 32);
-    }
-
-    function appendCustody(
-        uint meta,
-        bytes memory dst,
-        uint host,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint updated, bytes memory out) {
-        return append96Key(meta, dst, Keys.Custody, bytes32(host), asset, bytes32(amount), 32);
-    }
-
-    function appendTransaction(
-        uint meta,
-        bytes memory dst,
-        bytes32 from,
-        bytes32 to,
-        bytes32 asset,
-        uint amount
-    ) internal pure returns (uint updated, bytes memory out) {
-        uint i;
-        (updated, out, i) = Buffers.reserve(meta, dst, Sizes.Transaction, Sizes.B128);
-        writeTransaction(out, i, from, to, asset, amount);
     }
 
     // -------------------------------------------------------------------------
@@ -722,44 +1088,6 @@ library Blocks {
     /// @return Encoded block bytes.
     function create(bytes4 key, bytes memory payload) internal pure returns (bytes memory) {
         return bytes.concat(key, bytes4(uint32(payload.length)), payload);
-    }
-
-    /// @notice Encode a block with a single 32-byte payload word.
-    /// @param key Block type key.
-    /// @param value 32-byte payload.
-    /// @return Encoded block bytes.
-    function create32(bytes4 key, bytes32 value) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x20)), value);
-    }
-
-    /// @notice Encode a block with two 32-byte payload words (64-byte payload).
-    /// @param key Block type key.
-    /// @param a First payload word.
-    /// @param b Second payload word.
-    /// @return Encoded block bytes.
-    function create64(bytes4 key, bytes32 a, bytes32 b) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x40)), a, b);
-    }
-
-    /// @notice Encode a block with three 32-byte payload words (96-byte payload).
-    /// @param key Block type key.
-    /// @param a First payload word.
-    /// @param b Second payload word.
-    /// @param c Third payload word.
-    /// @return Encoded block bytes.
-    function create96(bytes4 key, bytes32 a, bytes32 b, bytes32 c) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x60)), a, b, c);
-    }
-
-    /// @notice Encode a block with four 32-byte payload words (128-byte payload).
-    /// @param key Block type key.
-    /// @param a First payload word.
-    /// @param b Second payload word.
-    /// @param c Third payload word.
-    /// @param d Fourth payload word.
-    /// @return Encoded block bytes.
-    function create128(bytes4 key, bytes32 a, bytes32 b, bytes32 c, bytes32 d) internal pure returns (bytes memory) {
-        return bytes.concat(key, bytes4(uint32(0x80)), a, b, c, d);
     }
 
     /// @notice Encode a BYTES block with a raw payload.
@@ -781,7 +1109,7 @@ library Blocks {
     /// @param relayer Relayer account identifier.
     /// @return Encoded BOUNTY block bytes.
     function bounty(uint amount, bytes32 relayer) internal pure returns (bytes memory) {
-        return create64(Keys.Bounty, bytes32(amount), relayer);
+        return bytes.concat(Keys.Bounty, bytes4(uint32(64)), bytes32(amount), relayer);
     }
 
     /// @notice Encode a BALANCE block.
@@ -789,7 +1117,7 @@ library Blocks {
     /// @param amount Token amount.
     /// @return Encoded BALANCE block bytes.
     function balance(bytes32 asset, uint amount) internal pure returns (bytes memory) {
-        return create64(Keys.Balance, asset, bytes32(amount));
+        return bytes.concat(Keys.Balance, bytes4(uint32(64)), asset, bytes32(amount));
     }
 
     /// @notice Encode a CUSTODY block.
@@ -798,7 +1126,7 @@ library Blocks {
     /// @param amount Token amount.
     /// @return Encoded CUSTODY block bytes.
     function custody(uint host, bytes32 asset, uint amount) internal pure returns (bytes memory) {
-        return create96(Keys.Custody, bytes32(host), asset, bytes32(amount));
+        return bytes.concat(Keys.Custody, bytes4(uint32(96)), bytes32(host), asset, bytes32(amount));
     }
 
     /// @notice Encode a TRANSACTION block.
@@ -808,7 +1136,7 @@ library Blocks {
     /// @param amount Transfer amount.
     /// @return Encoded TRANSACTION block bytes.
     function transaction(bytes32 from, bytes32 to, bytes32 asset, uint amount) internal pure returns (bytes memory) {
-        return create128(Keys.Transaction, from, to, asset, bytes32(amount));
+        return bytes.concat(Keys.Transaction, bytes4(uint32(128)), from, to, asset, bytes32(amount));
     }
 
     /// @notice Encode a STEP block.

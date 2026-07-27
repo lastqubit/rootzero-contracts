@@ -4,14 +4,20 @@ import { deploy } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
+  encodeAccountAmountBlock,
+  encodeAllocationBlock,
+  encodeAllowanceBlock,
   encodeAmountBlock,
   encodeAuthBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
   encodeBalanceLimitBlock,
   encodeBountyBlock,
+  encodeBytesBlock,
+  encodeCallBlock,
   encodeRelayBlock,
   encodeDispatchBlock,
+  encodeEvmBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeCustodyLimitBlock,
@@ -23,7 +29,9 @@ import {
   encodeHostAccountAssetBlock,
   encodeBlock,
   encodeLabelBlock,
+  encodeNodeBlock,
   encodeSchemaBlock,
+  encodeStatusBlock,
   encodeStringBlock,
   encodeStepBlock,
   encodeTxBlock,
@@ -31,6 +39,7 @@ import {
   exactSpec,
   concat,
   localKey,
+  pad32,
 } from "./helpers/blocks.js";
 
 describe("Cursors", () => {
@@ -118,9 +127,67 @@ describe("Cursors", () => {
 
     it("writeBalance writes the specialized encoding at the requested offset", async () => {
       const offset = 5n;
-      const [data, next] = await blocksHelper.writeBalance(offset, asset, amount);
+      const data = await blocksHelper.writeBalance(offset, asset, amount);
       expect(data).to.equal(ethers.concat([new Uint8Array(Number(offset)), encodeBalanceBlock(asset, amount)]));
-      expect(next).to.equal(offset + 72n);
+    });
+
+    it("unpackBalance decodes a block from an absolute calldata position", async () => {
+      expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount)))
+        .to.deep.equal([asset, amount]);
+    });
+
+    it("unpackBalance rejects the wrong key or payload length", async () => {
+      await expect(blocksHelper.unpackBalance(encodeAmountBlock(asset, amount)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper.unpackBalance(encodeBlock(Keys.Balance, asset)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("decodes every fixed-width block through its semantic helper", async () => {
+      const account = encodeUserAccount("0x03");
+      const other = encodeUserAccount("0x04");
+      const host = 1234n;
+      const min = 10n;
+      const max = 20n;
+
+      expect(await blocksHelper.unpackAccount(encodeAccountBlock(account))).to.equal(account);
+      expect(await blocksHelper.unpackAsset(encodeAssetBlock(asset))).to.equal(asset);
+      expect(await blocksHelper.unpackNode(encodeNodeBlock(host))).to.equal(host);
+      expect(await blocksHelper.unpackFee(encodeFeeBlock(amount))).to.equal(amount);
+      expect(await blocksHelper.unpackStatus(encodeStatusBlock(7n))).to.equal(7n);
+
+      expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
+      expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
+      expect(await blocksHelper.unpackBounty(encodeBountyBlock(amount, account))).to.deep.equal([amount, account]);
+      expect(await blocksHelper.unpackAssetAmount(
+        encodeBlock(Keys.AssetAmount, concat(pad32(asset), pad32(amount)))
+      )).to.deep.equal([asset, amount]);
+      expect(await blocksHelper.unpackAccountAsset(encodeAccountAssetBlock(account, asset)))
+        .to.deep.equal([account, asset]);
+
+      expect(await blocksHelper.unpackBalanceLimit(encodeBalanceLimitBlock(asset, min, max)))
+        .to.deep.equal([asset, min, max]);
+      expect(await blocksHelper.unpackAllocation(encodeAllocationBlock(host, asset, amount)))
+        .to.deep.equal([host, asset, amount]);
+      expect(await blocksHelper.unpackAllowance(encodeAllowanceBlock(host, asset, amount)))
+        .to.deep.equal([host, asset, amount]);
+      expect(await blocksHelper.unpackCustody(encodeCustodyBlock(host, asset, amount)))
+        .to.deep.equal([host, asset, amount]);
+      expect(await blocksHelper.unpackAccountAmount(encodeAccountAmountBlock(account, asset, amount)))
+        .to.deep.equal([account, asset, amount]);
+      expect(await blocksHelper.unpackHostAmount(
+        encodeBlock(Keys.HostAmount, concat(pad32(host), pad32(asset), pad32(amount)))
+      )).to.deep.equal([host, asset, amount]);
+      expect(await blocksHelper.unpackHostAccountAsset(encodeHostAccountAssetBlock(host, account, asset)))
+        .to.deep.equal([host, account, asset]);
+
+      expect(await blocksHelper.unpackCustodyLimit(encodeCustodyLimitBlock(host, asset, min, max)))
+        .to.deep.equal([host, asset, min, max]);
+      expect(await blocksHelper.unpackTransaction(encodeTxBlock(account, other, asset, amount)))
+        .to.deep.equal([account, other, asset, amount]);
+      expect(await blocksHelper.unpackHostAccountAmount(
+        encodeBlock(Keys.HostAccountAmount, concat(pad32(host), pad32(account), pad32(asset), pad32(amount)))
+      )).to.deep.equal([host, account, asset, amount]);
     });
 
     it("custody returns a valid encoded CUSTODY block", async () => {
@@ -142,9 +209,98 @@ describe("Cursors", () => {
       const from_ = encodeUserAccount("0x03");
       const to_ = encodeUserAccount("0x04");
       const offset = 5n;
-      const [data, next] = await blocksHelper.writeTransaction(offset, from_, to_, asset, amount);
+      const data = await blocksHelper.writeTransaction(offset, from_, to_, asset, amount);
       expect(data).to.equal(ethers.concat([new Uint8Array(Number(offset)), encodeTxBlock(from_, to_, asset, amount)]));
-      expect(next).to.equal(offset + 136n);
+    });
+
+    it("writes every dynamic block at the requested offset", async () => {
+      const offset = 5n;
+      const raw = "0x0102030405";
+      const target = 7n;
+      const resources = 11n;
+      const account = encodeUserAccount("0x03");
+      const state = encodeAssetBlock(asset);
+      const request = "0xaabbcc";
+      const namespace = pad32("0x99");
+      const recoveryKey = pad32("0x77");
+      const spec = exactSpec(Keys.Asset, 32);
+      const name = pad32("0x55");
+      const expected = (block: string) =>
+        ethers.concat([new Uint8Array(Number(offset)), block]);
+
+      expect(await blocksHelper.writeList(offset, raw))
+        .to.equal(expected(encodeListBlock(raw)));
+      expect(await blocksHelper.writeEvm(offset, raw))
+        .to.equal(expected(encodeEvmBlock(raw)));
+      expect(await blocksHelper.writeBytes(offset, raw))
+        .to.equal(expected(encodeBytesBlock(raw)));
+      expect(await blocksHelper.writeString(offset, "rootzero"))
+        .to.equal(expected(encodeStringBlock("rootzero")));
+      expect(await blocksHelper.writeStep(offset, target, resources, request))
+        .to.equal(expected(encodeStepBlock(target, resources, request)));
+      expect(await blocksHelper.writeCall(offset, target, resources, raw))
+        .to.equal(expected(encodeCallBlock(target, resources, raw)));
+      expect(await blocksHelper.writeRelay(offset, target, resources, request))
+        .to.equal(expected(encodeRelayBlock(target, resources, request)));
+      expect(await blocksHelper.writeDispatch(offset, target, resources, raw))
+        .to.equal(expected(encodeDispatchBlock(target, resources, raw)));
+      expect(await blocksHelper.writeContext(offset, account, state, request))
+        .to.equal(expected(encodeContextBlock(account, state, request)));
+      expect(await blocksHelper.writeRecover(offset, target, resources, recoveryKey, raw))
+        .to.equal(expected(encodeRecoverBlock(target, resources, recoveryKey, raw)));
+      expect(await blocksHelper.writeLabel(offset, target, namespace, "rootzero"))
+        .to.equal(expected(encodeLabelBlock(target, namespace, "rootzero")));
+      expect(await blocksHelper.writeSchema(offset, spec, "bytes32 asset", name))
+        .to.equal(expected(encodeSchemaBlock(spec, "bytes32 asset", name)));
+    });
+
+    it("unpacks dynamic leaf blocks using their absolute next positions", async () => {
+      const raw = "0x0102030405";
+      const text = "rootzero";
+      const stringdata = ethers.hexlify(ethers.toUtf8Bytes(text));
+      const list = encodeListBlock(raw);
+      const evm = encodeEvmBlock(raw);
+      const data = encodeBytesBlock(raw);
+      const string = encodeStringBlock(text);
+
+      expect(await blocksHelper.unpackList(list))
+        .to.deep.equal([raw, BigInt(ethers.getBytes(list).length)]);
+      expect(await blocksHelper.unpackEvm(evm))
+        .to.deep.equal([raw, BigInt(ethers.getBytes(evm).length)]);
+      expect(await blocksHelper.unpackBytes(data))
+        .to.deep.equal([raw, BigInt(ethers.getBytes(data).length)]);
+      expect(await blocksHelper.unpackString(string))
+        .to.deep.equal([stringdata, BigInt(ethers.getBytes(string).length)]);
+    });
+
+    it("rejects the wrong dynamic leaf key", async () => {
+      await expect(blocksHelper.unpackBytes(encodeStringBlock("rootzero")))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("expects a spec at an absolute calldata position", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+      const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
+
+      expect(await blocksHelper.headerAbsolute(block))
+        .to.deep.equal([Keys.Bytes, BigInt(ethers.getBytes(raw).length)]);
+      expect(await blocksHelper["headerAbsolute(bytes,bytes4)"](block, Keys.Bytes))
+        .to.equal(BigInt(ethers.getBytes(raw).length));
+      expect(await blocksHelper.expectAbsolute(block, spec))
+        .to.deep.equal([8n, BigInt(ethers.getBytes(block).length)]);
+    });
+
+    it("rejects absolute blocks outside the expected spec shape", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+
+      await expect(blocksHelper.expectAbsolute(block, exactSpec(Keys.String, 5)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper.expectAbsolute(block, exactSpec(Keys.Bytes, 4)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper["headerAbsolute(bytes,bytes4)"](block, Keys.String))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
     it("stores the transaction header at the start of its word-aligned spec", async () => {

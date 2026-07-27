@@ -58,8 +58,17 @@ library Executions {
         (input, groups) = Cursors.initMeta(source, group, expected, Lanes.Input);
     }
 
-    function select(Execution memory exec, uint8 tag_) private pure {
-        exec.cursors = Spans.select(exec.cursors, tag_);
+    function select(Execution memory exec, uint8 tag) private pure returns (uint cursors) {
+        cursors = Spans.select(exec.cursors, tag);
+        exec.cursors = cursors;
+    }
+
+    function position(Execution memory exec, uint8 tag) private pure returns (uint) {
+        return Spans.abs(select(exec, tag));
+    }
+
+    function advance(Execution memory exec, uint size) private pure {
+        exec.cursors = Spans.advance(exec.cursors, size);
     }
 
     function openState(
@@ -106,168 +115,195 @@ library Executions {
         return Spans.any(exec.cursors);
     }
 
-    function complete(Execution memory exec, uint8 tag_) internal pure {
-        Cursors.complete(Spans.select(exec.cursors, tag_));
+    function complete(Execution memory exec, uint8 tag) internal pure {
+        Cursors.complete(Spans.select(exec.cursors, tag));
     }
 
-    function unpack32(Execution memory exec, uint8 tag_, uint spec) internal pure returns (bytes32 value) {
-        select(exec, tag_);
-        (exec.cursors, value) = Cursors.unpack32(exec.cursors, spec);
+    function unpack32(Execution memory exec, uint8 tag, uint spec) internal pure returns (bytes32 value) {
+        uint abs = position(exec, tag);
+        if (Blocks.header(abs, Specs.key(spec)) != 32) revert Blocks.InvalidBlock();
+        assembly ("memory-safe") {
+            value := calldataload(add(abs, 0x08))
+        }
+        advance(exec, Sizes.B32);
     }
 
-    function unpackAccount(Execution memory exec, uint8 tag_) internal pure returns (bytes32 account) {
-        select(exec, tag_);
-        (exec.cursors, account) = Cursors.unpackAccount(exec.cursors);
+    // Fixed-width block decoders
+
+    function unpackAccount(Execution memory exec, uint8 tag) internal pure returns (bytes32 account) {
+        uint abs = position(exec, tag);
+        account = Blocks.unpackAccount(abs);
+        advance(exec, Sizes.B32);
     }
 
-    function unpackNode(Execution memory exec, uint8 tag_) internal pure returns (uint node) {
-        select(exec, tag_);
-        (exec.cursors, node) = Cursors.unpackNode(exec.cursors);
+    function unpackNode(Execution memory exec, uint8 tag) internal pure returns (uint node) {
+        uint abs = position(exec, tag);
+        node = Blocks.unpackNode(abs);
+        advance(exec, Sizes.B32);
     }
 
-    function unpackAsset(Execution memory exec, uint8 tag_) internal pure returns (bytes32 asset) {
-        select(exec, tag_);
-        (exec.cursors, asset) = Cursors.unpackAsset(exec.cursors);
+    function unpackAsset(Execution memory exec, uint8 tag) internal pure returns (bytes32 asset) {
+        uint abs = position(exec, tag);
+        asset = Blocks.unpackAsset(abs);
+        advance(exec, Sizes.B32);
     }
 
     function unpackAccountAsset(
         Execution memory exec,
-        uint8 tag_
+        uint8 tag
     ) internal pure returns (bytes32 account, bytes32 asset) {
-        select(exec, tag_);
-        (exec.cursors, account, asset) = Cursors.unpackAccountAsset(exec.cursors);
+        uint abs = position(exec, tag);
+        (account, asset) = Blocks.unpackAccountAsset(abs);
+        advance(exec, Sizes.B64);
     }
 
     function unpackAccountAmount(
         Execution memory exec,
-        uint8 tag_
+        uint8 tag
     ) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
-        select(exec, tag_);
-        (exec.cursors, account, asset, amount) = Cursors.unpackAccountAmount(exec.cursors);
+        uint abs = position(exec, tag);
+        (account, asset, amount) = Blocks.unpackAccountAmount(abs);
+        advance(exec, Sizes.B96);
     }
 
-    function unpackAmount(Execution memory exec, uint8 tag_) internal pure returns (bytes32 asset, uint amount) {
-        select(exec, tag_);
-        (exec.cursors, asset, amount) = Cursors.unpackAmount(exec.cursors);
+    function unpackAmount(Execution memory exec, uint8 tag) internal pure returns (bytes32 asset, uint amount) {
+        uint abs = position(exec, tag);
+        (asset, amount) = Blocks.unpackAmount(abs);
+        advance(exec, Sizes.Amount);
     }
 
-    function unpackBalance(Execution memory exec, uint8 tag_) internal pure returns (bytes32 asset, uint amount) {
-        select(exec, tag_);
-        (exec.cursors, asset, amount) = Cursors.unpackBalance(exec.cursors);
+    function unpackBalance(Execution memory exec, uint8 tag) internal pure returns (bytes32 asset, uint amount) {
+        uint abs = position(exec, tag);
+        (asset, amount) = Blocks.unpackBalance(abs);
+        advance(exec, Sizes.Balance);
     }
 
     function unpackBalanceForHost(
         Execution memory exec,
-        uint8 tag_,
+        uint8 tag,
         uint host
     ) internal pure returns (HostAmount memory value) {
-        select(exec, tag_);
-        (exec.cursors, value) = Cursors.unpackBalanceForHost(exec.cursors, host);
+        uint abs = position(exec, tag);
+        value.host = host;
+        (value.asset, value.amount) = Blocks.unpackBalance(abs);
+        advance(exec, Sizes.Balance);
     }
 
-    function unpackAllocationValue(Execution memory exec, uint8 tag_) internal pure returns (HostAmount memory value) {
-        select(exec, tag_);
-        (exec.cursors, value) = Cursors.unpackAllocationValue(exec.cursors);
+    function unpackAllocationValue(Execution memory exec, uint8 tag) internal pure returns (HostAmount memory value) {
+        uint abs = position(exec, tag);
+        (value.host, value.asset, value.amount) = Blocks.unpackAllocation(abs);
+        advance(exec, Sizes.B96);
     }
 
     function unpackAllowance(
         Execution memory exec,
-        uint8 tag_
+        uint8 tag
     ) internal pure returns (uint host, bytes32 asset, uint amount) {
-        select(exec, tag_);
-        (exec.cursors, host, asset, amount) = Cursors.unpackAllowance(exec.cursors);
-    }
-
-    function unpackCall(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (uint target, uint resources, bytes calldata data) {
-        select(exec, tag_);
-        (exec.cursors, target, resources, data) = Cursors.unpackCall(exec.cursors);
-    }
-
-    function unpackContext(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
-        select(exec, tag_);
-        (exec.cursors, account, state, request) = Cursors.unpackContext(exec.cursors);
-    }
-
-    function unpackDispatch(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
-        select(exec, tag_);
-        (exec.cursors, portal, resources, payload) = Cursors.unpackDispatch(exec.cursors);
-    }
-
-    function unpackLabel(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (uint id, bytes32 namespace, string memory name) {
-        select(exec, tag_);
-        (exec.cursors, id, namespace, name) = Cursors.unpackLabel(exec.cursors);
-    }
-
-    function unpackSchema(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (uint spec, string memory body, bytes32 name) {
-        select(exec, tag_);
-        (exec.cursors, spec, body, name) = Cursors.unpackSchema(exec.cursors);
-    }
-
-    function unpackRecover(
-        Execution memory exec,
-        uint8 tag_
-    ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
-        select(exec, tag_);
-        (exec.cursors, handler, resources, key, witness) = Cursors.unpackRecover(exec.cursors);
+        uint abs = position(exec, tag);
+        (host, asset, amount) = Blocks.unpackAllowance(abs);
+        advance(exec, Sizes.B96);
     }
 
     function unpackTransaction(
         Execution memory exec,
-        uint8 tag_
+        uint8 tag
     ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
-        select(exec, tag_);
-        (exec.cursors, from, to, asset, amount) = Cursors.unpackTransaction(exec.cursors);
+        uint abs = position(exec, tag);
+        (from, to, asset, amount) = Blocks.unpackTransaction(abs);
+        advance(exec, Sizes.Transaction);
+    }
+
+    // Dynamic block decoders
+
+    function unpackCall(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (uint target, uint resources, bytes calldata data) {
+        uint next;
+        (target, resources, data, next) = Blocks.unpackCall(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+    }
+
+    function unpackContext(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
+        uint next;
+        (account, state, request, next) = Blocks.unpackContext(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+    }
+
+    function unpackDispatch(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
+        uint next;
+        (portal, resources, payload, next) = Blocks.unpackDispatch(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+    }
+
+    function unpackLabel(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (uint id, bytes32 namespace, string memory name) {
+        uint next;
+        (id, namespace, name, next) = Blocks.unpackLabel(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+    }
+
+    function unpackSchema(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (uint spec, string memory body, bytes32 name) {
+        uint next;
+        (spec, body, name, next) = Blocks.unpackSchema(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+    }
+
+    function unpackRecover(
+        Execution memory exec,
+        uint8 tag
+    ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
+        uint next;
+        (handler, resources, key, witness, next) = Blocks.unpackRecover(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
     }
 
     function relayToContext(
         Execution memory exec,
-        uint8 tag_,
+        uint8 tag,
         bytes32 account,
         bytes calldata state
     ) internal pure returns (uint portal, uint resources, bytes memory context) {
-        select(exec, tag_);
-        (exec.cursors, portal, resources, context) = Cursors.relayToContext(exec.cursors, account, state);
+        bytes calldata request;
+        uint next;
+        (portal, resources, request, next) = Blocks.unpackRelay(position(exec, tag));
+        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        context = Blocks.context(account, bytes(state), bytes(request));
     }
 
-    function outputBlock32(Execution memory exec, uint spec, bytes32 value) internal pure {
-        (exec.writers, exec.output) = Blocks.append32(exec.writers, exec.output, spec, value);
+    function reserve(Execution memory exec, uint size) private pure returns (uint i) {
+        (exec.writers, exec.output, i) = Buffers.reserve(exec.writers, exec.output, size, size);
     }
 
     function outputStatus(Execution memory exec, uint code) internal pure {
-        (exec.writers, exec.output) = Blocks.appendStatus(exec.writers, exec.output, code);
+        uint i = reserve(exec, Sizes.Status);
+        Blocks.writeStatus(exec.output, i, code);
     }
 
     function outputBalance(Execution memory exec, bytes32 asset, uint amount) internal pure {
-        (exec.writers, exec.output) = Blocks.appendBalance(exec.writers, exec.output, asset, amount);
+        uint i = reserve(exec, Sizes.Balance);
+        Blocks.writeBalance(exec.output, i, asset, amount);
     }
 
     function outputAccountAmount(Execution memory exec, bytes32 account, bytes32 asset, uint amount) internal pure {
-        (exec.writers, exec.output) = Blocks.appendAccountAmount(exec.writers, exec.output, account, asset, amount);
+        uint i = reserve(exec, Sizes.B96);
+        Blocks.writeAccountAmount(exec.output, i, account, asset, amount);
     }
 
     function outputCustody(Execution memory exec, HostAmount memory value) internal pure {
-        (exec.writers, exec.output) = Blocks.appendCustody(
-            exec.writers,
-            exec.output,
-            value.host,
-            value.asset,
-            value.amount
-        );
+        uint i = reserve(exec, Sizes.B96);
+        Blocks.writeCustody(exec.output, i, value.host, value.asset, value.amount);
     }
 
     function finish(Execution memory exec) internal pure returns (bytes memory out) {

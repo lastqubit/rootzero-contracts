@@ -103,101 +103,56 @@ library Writers {
 
     /// @notice Append a dynamic protocol block.
     function appendBlock(Writer memory writer, uint spec, bytes memory data) internal pure {
-        (writer.packed, writer.dst) = Blocks.append(writer.packed, writer.dst, spec, data);
+        Specs.validate(spec, data.length);
+        uint size = Sizes.Header + data.length;
+        uint i = reserve(writer, size, size);
+        Blocks.write(writer.dst, i, Specs.key(spec), data);
     }
 
     function appendBlock32(Writer memory writer, uint spec, bytes32 a) internal pure {
-        (writer.packed, writer.dst) = Blocks.append32(writer.packed, writer.dst, spec, a);
-    }
-
-    function appendBlock64(Writer memory writer, uint spec, bytes32 a, bytes32 b) internal pure {
-        (writer.packed, writer.dst) = Blocks.append64(writer.packed, writer.dst, spec, a, b);
-    }
-
-    function appendBlock96(Writer memory writer, uint spec, bytes32 a, bytes32 b, bytes32 c) internal pure {
-        (writer.packed, writer.dst) = Blocks.append96(writer.packed, writer.dst, spec, a, b, c);
-    }
-
-    function appendBlock128(
-        Writer memory writer,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d
-    ) internal pure {
-        (writer.packed, writer.dst) = Blocks.append128(writer.packed, writer.dst, spec, a, b, c, d);
-    }
-
-    function appendBlock160(
-        Writer memory writer,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c,
-        bytes32 d,
-        bytes32 e
-    ) internal pure {
-        (writer.packed, writer.dst) = Blocks.append160(writer.packed, writer.dst, spec, a, b, c, d, e);
-    }
-
-    function appendBlock32BytesBytes(
-        Writer memory writer,
-        uint spec,
-        bytes32 a,
-        bytes memory b,
-        bytes memory c
-    ) internal pure {
-        (writer.packed, writer.dst) = Blocks.append32BytesBytes(writer.packed, writer.dst, spec, a, b, c);
-    }
-
-    function appendBlock64BytesBytes(
-        Writer memory writer,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c,
-        bytes memory d
-    ) internal pure {
-        (writer.packed, writer.dst) = Blocks.append64BytesBytes(writer.packed, writer.dst, spec, a, b, c, d);
-    }
-
-    function appendBlock64Bytes(
-        Writer memory writer,
-        uint spec,
-        bytes32 a,
-        bytes32 b,
-        bytes memory c
-    ) internal pure {
-        (writer.packed, writer.dst) = Blocks.append64Bytes(writer.packed, writer.dst, spec, a, b, c);
+        uint keep = Specs.exact(spec, 1, 32);
+        uint i = reserve(writer, Sizes.Header + keep, Sizes.B32);
+        Blocks.write32(writer.dst, i, Specs.key(spec), a, keep);
     }
 
     function appendBytes(Writer memory writer, bytes memory data) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendBytes(writer.packed, writer.dst, data);
+        uint size = Sizes.Header + data.length;
+        uint i = reserve(writer, size, size);
+        Blocks.writeBytes(writer.dst, i, data);
     }
 
     function appendString(Writer memory writer, string memory data) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendString(writer.packed, writer.dst, data);
+        uint size = Sizes.Header + bytes(data).length;
+        uint i = reserve(writer, size, size);
+        Blocks.writeString(writer.dst, i, data);
     }
 
     function appendStep(Writer memory writer, uint target, uint resources, bytes memory request) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendStep(writer.packed, writer.dst, target, resources, request);
+        uint size = Sizes.B64 + Sizes.Header + request.length;
+        uint i = reserve(writer, size, size);
+        Blocks.writeStep(writer.dst, i, target, resources, request);
     }
 
     function appendCall(Writer memory writer, uint target, uint resources, bytes memory data) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendCall(writer.packed, writer.dst, target, resources, data);
+        uint size = Sizes.B64 + Sizes.Header + data.length;
+        uint i = reserve(writer, size, size);
+        Blocks.writeCall(writer.dst, i, target, resources, data);
     }
 
     function appendContext(Writer memory writer, bytes32 account, bytes memory state, bytes memory request) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendContext(writer.packed, writer.dst, account, state, request);
+        uint size = Sizes.B32 + 2 * Sizes.Header + state.length + request.length;
+        uint i = reserve(writer, size, size);
+        Blocks.writeContext(writer.dst, i, account, state, request);
     }
 
     function appendStatus(Writer memory writer, uint code) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendStatus(writer.packed, writer.dst, code);
+        uint i = reserve(writer, Sizes.Status, Sizes.Status);
+        Blocks.writeStatus(writer.dst, i, code);
     }
 
     function appendBalance(Writer memory writer, bytes32 asset, uint amount) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendBalance(writer.packed, writer.dst, asset, amount);
+        uint i = reserve(writer, Sizes.Balance, Sizes.Balance);
+        Blocks.writeBalance(writer.dst, i, asset, amount);
     }
 
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
@@ -205,7 +160,8 @@ library Writers {
     }
 
     function appendAmount(Writer memory writer, bytes32 asset, uint amount) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendAmount(writer.packed, writer.dst, asset, amount);
+        uint i = reserve(writer, Sizes.Amount, Sizes.Amount);
+        Blocks.writeAmount(writer.dst, i, asset, amount);
     }
 
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
@@ -218,7 +174,8 @@ library Writers {
         bytes32 asset,
         uint amount
     ) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendAccountAmount(writer.packed, writer.dst, account, asset, amount);
+        uint i = reserve(writer, Sizes.B96, Sizes.B96);
+        Blocks.writeAccountAmount(writer.dst, i, account, asset, amount);
     }
 
     function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
@@ -226,15 +183,18 @@ library Writers {
     }
 
     function appendAsset(Writer memory writer, bytes32 asset) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendAsset(writer.packed, writer.dst, asset);
+        uint i = reserve(writer, Sizes.B32, Sizes.B32);
+        Blocks.writeAsset(writer.dst, i, asset);
     }
 
     function appendBounty(Writer memory writer, uint amount, bytes32 relayer) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendBounty(writer.packed, writer.dst, amount, relayer);
+        uint i = reserve(writer, Sizes.Bounty, Sizes.Bounty);
+        Blocks.writeBounty(writer.dst, i, amount, relayer);
     }
 
     function appendCustody(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendCustody(writer.packed, writer.dst, host, asset, amount);
+        uint i = reserve(writer, Sizes.B96, Sizes.B96);
+        Blocks.writeCustody(writer.dst, i, host, asset, amount);
     }
 
     function appendCustody(Writer memory writer, uint host, AssetAmount memory value) internal pure {
@@ -252,7 +212,8 @@ library Writers {
         bytes32 asset,
         uint amount
     ) internal pure {
-        (writer.packed, writer.dst) = Blocks.appendTransaction(writer.packed, writer.dst, from, to, asset, amount);
+        uint i = reserve(writer, Sizes.Transaction, Sizes.Transaction);
+        Blocks.writeTransaction(writer.dst, i, from, to, asset, amount);
     }
 
     function appendTransaction(Writer memory writer, Tx memory value) internal pure {

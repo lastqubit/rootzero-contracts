@@ -390,8 +390,7 @@ library Cursors {
     // @param n Number of bytes to advance.
     // @return value Loaded word.
     function read(uint cur, uint n) internal pure returns (uint updated, bytes32 value) {
-        (uint i, uint offset, ) = Spans.decode(cur);
-        uint abs = offset + i;
+        uint abs = Spans.abs(cur);
         assembly ("memory-safe") {
             value := calldataload(abs)
         }
@@ -472,8 +471,7 @@ library Cursors {
     // @return a First loaded word.
     // @return b Second loaded word.
     function read64(uint cur) internal pure returns (uint updated, bytes32 a, bytes32 b) {
-        (uint i, uint offset, ) = Spans.decode(cur);
-        uint abs = offset + i;
+        uint abs = Spans.abs(cur);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -488,8 +486,7 @@ library Cursors {
     // @return b Second loaded word.
     // @return c Third loaded word.
     function read96(uint cur) internal pure returns (uint updated, bytes32 a, bytes32 b, bytes32 c) {
-        (uint i, uint offset, ) = Spans.decode(cur);
-        uint abs = offset + i;
+        uint abs = Spans.abs(cur);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -527,18 +524,13 @@ library Cursors {
         updated = Spans.seek(cur, next);
     }
 
-    function unpackRawKey(uint cur, bytes4 key) private pure returns (uint updated, bytes calldata data) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
-        (uint abs, uint next) = expect(offset, len, i, 0, key, 0, 0);
-        data = msg.data[abs:offset + next];
-        updated = Spans.seek(cur, next);
-    }
-
     /// @notice Consume a reserved BYTES block and return its raw payload.
     // @param cur Cursor; advanced past the BYTES block.
     // @return data Raw BYTES payload.
     function unpackBytes(uint cur) internal pure returns (uint updated, bytes calldata data) {
-        return unpackRawKey(cur, Keys.Bytes);
+        uint next;
+        (data, next) = Blocks.unpackBytes(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a reserved STRING block and return its UTF-8 payload.
@@ -546,7 +538,9 @@ library Cursors {
     // @return data Decoded STRING payload.
     function unpackString(uint cur) internal pure returns (uint updated, string memory data) {
         bytes calldata value;
-        (updated, value) = unpackRawKey(cur, Keys.String);
+        uint next;
+        (value, next) = Blocks.unpackString(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
         data = string(value);
     }
 
@@ -558,12 +552,9 @@ library Cursors {
     function unpackLabel(
         uint cur
     ) internal pure returns (uint updated, uint id, bytes32 namespace, string memory name) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Label, 64 + Sizes.Header, 0);
-        (updated, id) = readUint(updated);
-        (updated, namespace) = read32(updated);
-        (updated, name) = unpackString(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (id, namespace, name, next) = Blocks.unpackLabel(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a SCHEMA block and return its fields.
@@ -574,12 +565,9 @@ library Cursors {
     function unpackSchema(
         uint cur
     ) internal pure returns (uint updated, uint spec, string memory body, bytes32 name) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Schema, 64 + Sizes.Header, 0);
-        (updated, spec) = readUint(updated);
-        (updated, body) = unpackString(updated);
-        (updated, name) = read32(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (spec, body, name, next) = Blocks.unpackSchema(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a dynamic block with a single bytes32 payload.
@@ -661,48 +649,6 @@ library Cursors {
         e = bytes32(msg.data[abs + 128:abs + 160]);
     }
 
-    // Private key-based implementations for type-specific helpers whose block
-    // identity and width are already fixed by the helper name.
-
-    function unpack32(uint cur, bytes4 key) private pure returns (uint updated, bytes32 value) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, key, 32, 32);
-        value = bytes32(msg.data[abs:abs + 32]);
-    }
-
-    function unpack64(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 a, bytes32 b) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, key, 64, 64);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-    }
-
-    function unpack96(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 a, bytes32 b, bytes32 c) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, key, 96, 96);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-        c = bytes32(msg.data[abs + 64:abs + 96]);
-    }
-
-    function unpack128(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 a, bytes32 b, bytes32 c, bytes32 d) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, key, 128, 128);
-        a = bytes32(msg.data[abs:abs + 32]);
-        b = bytes32(msg.data[abs + 32:abs + 64]);
-        c = bytes32(msg.data[abs + 64:abs + 96]);
-        d = bytes32(msg.data[abs + 96:abs + 128]);
-    }
-
     // Generic typed-shape decoders
 
     /// @notice Consume a fixed-size asset amount block and return asset and amount.
@@ -721,17 +667,6 @@ library Cursors {
         amount = uint(b);
     }
 
-    function unpackAssetAmount(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 asset, uint amount) {
-        bytes32 a;
-        bytes32 b;
-        (updated, a, b) = unpack64(cur, key);
-        asset = a;
-        amount = uint(b);
-    }
-
     /// @notice Consume a fixed-size account amount block and return account, asset, and amount.
     // @param cur Cursor; advanced past the block.
     // @param spec Expected block specification.
@@ -746,19 +681,6 @@ library Cursors {
         bytes32 b;
         bytes32 c;
         (updated, a, b, c) = unpack96(cur, spec);
-        account = a;
-        asset = b;
-        amount = uint(c);
-    }
-
-    function unpackAccountAmount(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 account, bytes32 asset, uint amount) {
-        bytes32 a;
-        bytes32 b;
-        bytes32 c;
-        (updated, a, b, c) = unpack96(cur, key);
         account = a;
         asset = b;
         amount = uint(c);
@@ -783,19 +705,6 @@ library Cursors {
         amount = uint(c);
     }
 
-    function unpackHostAmount(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        bytes32 a;
-        bytes32 b;
-        bytes32 c;
-        (updated, a, b, c) = unpack96(cur, key);
-        host = uint(a);
-        asset = b;
-        amount = uint(c);
-    }
-
     /// @notice Consume a fixed-size host account asset block and return host, account, and asset.
     // @param cur Cursor; advanced past the block.
     // @param spec Expected block specification.
@@ -810,19 +719,6 @@ library Cursors {
         bytes32 b;
         bytes32 c;
         (updated, a, b, c) = unpack96(cur, spec);
-        host = uint(a);
-        account = b;
-        asset = c;
-    }
-
-    function unpackHostAccountAsset(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, uint host, bytes32 account, bytes32 asset) {
-        bytes32 a;
-        bytes32 b;
-        bytes32 c;
-        (updated, a, b, c) = unpack96(cur, key);
         host = uint(a);
         account = b;
         asset = c;
@@ -850,53 +746,42 @@ library Cursors {
         amount = uint(d);
     }
 
-    function unpackTransaction(
-        uint cur,
-        bytes4 key
-    ) private pure returns (uint updated, bytes32 from, bytes32 to, bytes32 asset, uint amount) {
-        bytes32 a;
-        bytes32 b;
-        bytes32 c;
-        bytes32 d;
-        (updated, a, b, c, d) = unpack128(cur, key);
-        from = a;
-        to = b;
-        asset = c;
-        amount = uint(d);
-    }
-
     // Type-specific fixed-width decoders
 
     /// @notice Consume an ACCOUNT block and return the account.
     // @param cur Cursor; advanced past the block.
     // @return account Account identifier.
     function unpackAccount(uint cur) internal pure returns (uint updated, bytes32 account) {
-        return unpack32(cur, Keys.Account);
+        uint abs = Spans.abs(cur);
+        account = Blocks.unpackAccount(abs);
+        updated = Spans.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume a NODE block and return the node ID.
     // @param cur Cursor; advanced past the block.
     // @return node Node identifier.
     function unpackNode(uint cur) internal pure returns (uint updated, uint node) {
-        bytes32 value;
-        (updated, value) = unpack32(cur, Keys.Node);
-        node = uint(value);
+        uint abs = Spans.abs(cur);
+        node = Blocks.unpackNode(abs);
+        updated = Spans.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume a FEE block and return the amount.
     // @param cur Cursor; advanced past the block.
     // @return amount Fee amount.
     function unpackFee(uint cur) internal pure returns (uint updated, uint amount) {
-        bytes32 value;
-        (updated, value) = unpack32(cur, Keys.Fee);
-        amount = uint(value);
+        uint abs = Spans.abs(cur);
+        amount = Blocks.unpackFee(abs);
+        updated = Spans.advance(cur, Sizes.Fee);
     }
 
     /// @notice Consume an ASSET block and return the asset identifier.
     // @param cur Cursor; advanced past the block.
     // @return asset Asset identifier.
     function unpackAsset(uint cur) internal pure returns (uint updated, bytes32 asset) {
-        return unpack32(cur, Keys.Asset);
+        uint abs = Spans.abs(cur);
+        asset = Blocks.unpackAsset(abs);
+        updated = Spans.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as separate values.
@@ -906,7 +791,9 @@ library Cursors {
     function unpackAccountAsset(
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes32 asset) {
-        return unpack64(cur, Keys.AccountAsset);
+        uint abs = Spans.abs(cur);
+        (account, asset) = Blocks.unpackAccountAsset(abs);
+        updated = Spans.advance(cur, Sizes.B64);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as a struct.
@@ -923,11 +810,9 @@ library Cursors {
     // @return amount Relayer reward amount.
     // @return relayer Relayer account identifier.
     function unpackBounty(uint cur) internal pure returns (uint updated, uint amount, bytes32 relayer) {
-        bytes32 x;
-        bytes32 y;
-        (updated, x, y) = unpack64(cur, Keys.Bounty);
-        amount = uint(x);
-        relayer = y;
+        uint abs = Spans.abs(cur);
+        (amount, relayer) = Blocks.unpackBounty(abs);
+        updated = Spans.advance(cur, Sizes.Bounty);
     }
 
     /// @notice Consume an AMOUNT block and return its fields as separate values.
@@ -935,14 +820,16 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAmount(uint cur) internal pure returns (uint updated, bytes32 asset, uint amount) {
-        return unpackAssetAmount(cur, Keys.Amount);
+        uint abs = Spans.abs(cur);
+        (asset, amount) = Blocks.unpackAmount(abs);
+        updated = Spans.advance(cur, Sizes.Amount);
     }
 
     /// @notice Consume an AMOUNT block and return its fields as a struct.
     // @param cur Cursor; advanced past the block.
     // @return value Decoded asset and amount.
     function unpackAmountValue(uint cur) internal pure returns (uint updated, AssetAmount memory value) {
-        (updated, value.asset, value.amount) = unpackAssetAmount(cur, Keys.Amount);
+        (updated, value.asset, value.amount) = unpackAmount(cur);
     }
 
     /// @notice Consume a BALANCE block and return its fields as separate values.
@@ -950,14 +837,16 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackBalance(uint cur) internal pure returns (uint updated, bytes32 asset, uint amount) {
-        return unpackAssetAmount(cur, Keys.Balance);
+        uint abs = Spans.abs(cur);
+        (asset, amount) = Blocks.unpackBalance(abs);
+        updated = Spans.advance(cur, Sizes.Balance);
     }
 
     /// @notice Consume a BALANCE block and return its fields as a struct.
     // @param cur Cursor; advanced past the block.
     // @return value Decoded asset and amount.
     function unpackBalanceValue(uint cur) internal pure returns (uint updated, AssetAmount memory value) {
-        (updated, value.asset, value.amount) = unpackAssetAmount(cur, Keys.Balance);
+        (updated, value.asset, value.amount) = unpackBalance(cur);
     }
 
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as separate values.
@@ -968,7 +857,9 @@ library Cursors {
     function unpackHostAccountAsset(
         uint cur
     ) internal pure returns (uint updated, uint host, bytes32 account, bytes32 asset) {
-        return unpackHostAccountAsset(cur, Keys.HostAccountAsset);
+        uint abs = Spans.abs(cur);
+        (host, account, asset) = Blocks.unpackHostAccountAsset(abs);
+        updated = Spans.advance(cur, Sizes.B96);
     }
 
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as a struct.
@@ -977,7 +868,7 @@ library Cursors {
     function unpackHostAccountAssetValue(
         uint cur
     ) internal pure returns (uint updated, HostAccountAsset memory value) {
-        (updated, value.host, value.account, value.asset) = unpackHostAccountAsset(cur, Keys.HostAccountAsset);
+        (updated, value.host, value.account, value.asset) = unpackHostAccountAsset(cur);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as separate values.
@@ -988,7 +879,9 @@ library Cursors {
     function unpackAccountAmount(
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes32 asset, uint amount) {
-        return unpackAccountAmount(cur, Keys.AccountAmount);
+        uint abs = Spans.abs(cur);
+        (account, asset, amount) = Blocks.unpackAccountAmount(abs);
+        updated = Spans.advance(cur, Sizes.B96);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as a struct.
@@ -997,7 +890,7 @@ library Cursors {
     function unpackAccountAmountValue(
         uint cur
     ) internal pure returns (uint updated, AccountAmount memory value) {
-        (updated, value.account, value.asset, value.amount) = unpackAccountAmount(cur, Keys.AccountAmount);
+        (updated, value.account, value.asset, value.amount) = unpackAccountAmount(cur);
     }
 
     /// @notice Consume an ALLOCATION block and return its fields as separate values.
@@ -1006,14 +899,16 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAllocation(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        return unpackHostAmount(cur, Keys.Allocation);
+        uint abs = Spans.abs(cur);
+        (host, asset, amount) = Blocks.unpackAllocation(abs);
+        updated = Spans.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume an ALLOCATION block and return its fields as a struct.
     // @param cur Cursor; advanced past the block.
     // @return value Decoded host, asset, and amount.
     function unpackAllocationValue(uint cur) internal pure returns (uint updated, HostAmount memory value) {
-        (updated, value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Allocation);
+        (updated, value.host, value.asset, value.amount) = unpackAllocation(cur);
     }
 
     /// @notice Consume an ALLOWANCE block and return its fields as separate values.
@@ -1022,14 +917,16 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAllowance(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        return unpackHostAmount(cur, Keys.Allowance);
+        uint abs = Spans.abs(cur);
+        (host, asset, amount) = Blocks.unpackAllowance(abs);
+        updated = Spans.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume an ALLOWANCE block and return its fields as a struct.
     // @param cur Cursor; advanced past the block.
     // @return value Decoded host, asset, and amount.
     function unpackAllowanceValue(uint cur) internal pure returns (uint updated, HostAmount memory value) {
-        (updated, value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Allowance);
+        (updated, value.host, value.asset, value.amount) = unpackAllowance(cur);
     }
 
     /// @notice Consume a CUSTODY block and return its fields as separate values.
@@ -1038,14 +935,16 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackCustody(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        return unpackHostAmount(cur, Keys.Custody);
+        uint abs = Spans.abs(cur);
+        (host, asset, amount) = Blocks.unpackCustody(abs);
+        updated = Spans.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume a CUSTODY block and return its fields as a struct.
     // @param cur Cursor; advanced past the block.
     // @return value Decoded host, asset, and amount.
     function unpackCustodyValue(uint cur) internal pure returns (uint updated, HostAmount memory value) {
-        (updated, value.host, value.asset, value.amount) = unpackHostAmount(cur, Keys.Custody);
+        (updated, value.host, value.asset, value.amount) = unpackCustody(cur);
     }
 
     /// @notice Consume a TRANSACTION block and return its fields as separate values.
@@ -1057,7 +956,9 @@ library Cursors {
     function unpackTransaction(
         uint cur
     ) internal pure returns (uint updated, bytes32 from, bytes32 to, bytes32 asset, uint amount) {
-        return unpackTransaction(cur, Keys.Transaction);
+        uint abs = Spans.abs(cur);
+        (from, to, asset, amount) = Blocks.unpackTransaction(abs);
+        updated = Spans.advance(cur, Sizes.Transaction);
     }
 
     /// @notice Consume a TRANSACTION block and return all fields as a struct.
@@ -1078,12 +979,9 @@ library Cursors {
     function unpackStep(
         uint cur
     ) internal pure returns (uint updated, uint target, uint resources, bytes calldata req) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Step, 64 + Sizes.Header, 0);
-        (updated, target) = readUint(updated);
-        (updated, resources) = readUint(updated);
-        (updated, req) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (target, resources, req, next) = Blocks.unpackStep(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a CALL block and return its target invocation fields.
@@ -1095,12 +993,9 @@ library Cursors {
     function unpackCall(
         uint cur
     ) internal pure returns (uint updated, uint target, uint resources, bytes calldata data) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Call, 64 + Sizes.Header, 0);
-        (updated, target) = readUint(updated);
-        (updated, resources) = readUint(updated);
-        (updated, data) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (target, resources, data, next) = Blocks.unpackCall(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a CONTEXT block and return its command context fields.
@@ -1112,12 +1007,9 @@ library Cursors {
     function unpackContext(
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes calldata state, bytes calldata request) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Context, 32 + 2 * Sizes.Header, 0);
-        (updated, account) = read32(updated);
-        (updated, state) = unpackBytes(updated);
-        (updated, request) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (account, state, request, next) = Blocks.unpackContext(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a RELAY block and return its destination portal, resources, and request stream.
@@ -1128,12 +1020,9 @@ library Cursors {
     function unpackRelay(
         uint cur
     ) internal pure returns (uint updated, uint portal, uint resources, bytes calldata request) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Relay, 64 + Sizes.Header, 0);
-        (updated, portal) = readUint(updated);
-        (updated, resources) = readUint(updated);
-        (updated, request) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (portal, resources, request, next) = Blocks.unpackRelay(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a DISPATCH block and return its destination portal, resources, and payload.
@@ -1144,12 +1033,9 @@ library Cursors {
     function unpackDispatch(
         uint cur
     ) internal pure returns (uint updated, uint portal, uint resources, bytes calldata payload) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Dispatch, 64 + Sizes.Header, 0);
-        (updated, portal) = readUint(updated);
-        (updated, resources) = readUint(updated);
-        (updated, payload) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (portal, resources, payload, next) = Blocks.unpackDispatch(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     /// @notice Consume a RECOVER block and return its handler, resources, key, and witness bytes.
@@ -1161,13 +1047,9 @@ library Cursors {
     function unpackRecover(
         uint cur
     ) internal pure returns (uint updated, uint handler, uint resources, bytes32 key, bytes calldata witness) {
-        uint end;
-        (updated, end) = enter(cur, Keys.Recover, 96 + Sizes.Header, 0);
-        (updated, handler) = readUint(updated);
-        (updated, resources) = readUint(updated);
-        (updated, key) = read32(updated);
-        (updated, witness) = unpackBytes(updated);
-        Spans.expect(updated, end);
+        uint next;
+        (handler, resources, key, witness, next) = Blocks.unpackRecover(Spans.abs(cur));
+        updated = Spans.seekAbs(cur, next);
     }
 
     // Type-specific validators
@@ -1348,12 +1230,9 @@ library Cursors {
         uint cur,
         uint host
     ) internal pure returns (uint updated, bytes32 account, bytes32 asset) {
-        bytes32 actualHost;
-        bytes32 actualAccount;
-        bytes32 actualAsset;
-        (updated, actualHost, actualAccount, actualAsset) = unpack96(cur, Keys.HostAccountAsset);
-        if (uint(actualHost) != host) revert UnexpectedValue();
-        return (updated, actualAccount, actualAsset);
+        uint actual;
+        (updated, actual, account, asset) = unpackHostAccountAsset(cur);
+        if (actual != host) revert UnexpectedValue();
     }
 
     /// @notice Consume an AUTH block at the current position and verify the command ID.
@@ -1379,11 +1258,14 @@ library Cursors {
     // @param asset Expected asset identifier.
     // @param amount Amount that must fall within the encoded min/max range.
     function ensureBalanceLimit(uint cur, bytes32 asset, uint amount) internal pure returns (uint updated) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, Keys.BalanceLimit, 96, 96);
-        if (bytes32(msg.data[abs:abs + 32]) != asset) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 32:abs + 64])) > amount) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 64:abs + 96])) < amount) revert UnexpectedValue();
+        bytes32 actual;
+        uint min;
+        uint max;
+        uint abs = Spans.abs(cur);
+        (actual, min, max) = Blocks.unpackBalanceLimit(abs);
+        updated = Spans.advance(cur, Sizes.BalanceLimit);
+        if (actual != asset) revert UnexpectedValue();
+        if (min > amount || max < amount) revert UnexpectedValue();
     }
 
     /// @notice Consume a CUSTODY_LIMIT block and assert all constraint fields match the provided custody.
@@ -1397,12 +1279,15 @@ library Cursors {
         bytes32 asset,
         uint amount
     ) internal pure returns (uint updated) {
-        uint abs;
-        (updated, abs) = consume(cur, 0, Keys.CustodyLimit, 128, 128);
-        if (uint(bytes32(msg.data[abs:abs + 32])) != host) revert UnexpectedValue();
-        if (bytes32(msg.data[abs + 32:abs + 64]) != asset) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 64:abs + 96])) > amount) revert UnexpectedValue();
-        if (uint(bytes32(msg.data[abs + 96:abs + 128])) < amount) revert UnexpectedValue();
+        uint actualHost;
+        bytes32 actualAsset;
+        uint min;
+        uint max;
+        uint abs = Spans.abs(cur);
+        (actualHost, actualAsset, min, max) = Blocks.unpackCustodyLimit(abs);
+        updated = Spans.advance(cur, Sizes.CustodyLimit);
+        if (actualHost != host || actualAsset != asset) revert UnexpectedValue();
+        if (min > amount || max < amount) revert UnexpectedValue();
     }
 
     // -------------------------------------------------------------------------

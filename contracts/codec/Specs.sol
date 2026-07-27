@@ -155,11 +155,16 @@ library Specs {
         if (size != max(spec) || size < minimum || size > maximum) revert InvalidSpec();
     }
 
-    /// @notice Validate a payload size against a specification's bounds.
-    function validate(uint spec, uint size) internal pure {
+    /// @notice Return whether a payload size lies within a specification's bounds.
+    function accepts(uint spec, uint size) internal pure returns (bool) {
         uint minimum = min(spec);
         uint maximum = max(spec);
-        if (size < minimum || (maximum != 0 && size > maximum)) revert InvalidSpec();
+        return size >= minimum && (maximum == 0 || size <= maximum);
+    }
+
+    /// @notice Validate a payload size against a specification's bounds.
+    function validate(uint spec, uint size) internal pure {
+        if (!accepts(spec, size)) revert InvalidSpec();
     }
 
     /// @notice Return the eight-byte header portion of `spec`.

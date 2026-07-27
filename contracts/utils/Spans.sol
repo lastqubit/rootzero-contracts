@@ -64,6 +64,12 @@ library Spans {
         len = uint32(cur >> LEN_SHIFT);
     }
 
+    /// @notice Return the absolute position of the lower span as `offset + i`.
+    /// @dev Performs no bounds check.
+    function abs(uint cur) internal pure returns (uint) {
+        return uint32(cur) + uint32(cur >> OFFSET_SHIFT);
+    }
+
     /// @notice Decode the consumer metadata and identity tag from the lower span.
     function meta(uint cur) internal pure returns (uint groups, uint8 flags, uint8 tag) {
         groups = uint16(cur >> GROUPS_SHIFT);
@@ -73,6 +79,16 @@ library Spans {
 
     /// @notice Replace the current position of the lower span.
     function seek(uint cur, uint i) internal pure returns (uint updated) {
+        uint len = uint32(cur >> LEN_SHIFT);
+        if (i > len) revert OutOfBounds();
+        updated = (cur & ~FIELD_MASK) | i;
+    }
+
+    /// @notice Replace the lower span's position using an absolute position.
+    function seekAbs(uint cur, uint pos) internal pure returns (uint updated) {
+        uint offset = uint32(cur >> OFFSET_SHIFT);
+        if (pos < offset) revert OutOfBounds();
+        uint i = pos - offset;
         uint len = uint32(cur >> LEN_SHIFT);
         if (i > len) revert OutOfBounds();
         updated = (cur & ~FIELD_MASK) | i;

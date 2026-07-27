@@ -538,11 +538,6 @@ describe("Utils", () => {
   // ── Value ─────────────────────────────────────────────────────────────────
 
   describe("Value", () => {
-    it("msgValue captures msg.value", async () => {
-      const result = await utils.testMsgValue.staticCall({ value: 42n });
-      expect(result).to.equal(42n);
-    });
-
     it("converts remaining native value into a transaction block", async () => {
       const account = encodeUserAccount("0x03");
       const nativeAsset = await utils.testToNativeAsset();

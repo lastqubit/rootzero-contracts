@@ -9,10 +9,9 @@ import { Selectors } from "../utils/Selectors.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
 import { AccessControl } from "../core/Access.sol";
-import { Payable } from "../core/Payable.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestUtils is CommandBase, Payable {
+contract TestUtils is CommandBase {
     constructor() AccessControl(address(0)) {}
 
     function testAddrOr(address addr, address or_) external pure returns (address) {
@@ -281,10 +280,6 @@ contract TestUtils is CommandBase, Payable {
 
     function testToLocalBase(uint32 prefix) external view returns (uint) {
         return toLocalBase(prefix);
-    }
-
-    function testMsgValue() external payable returns (uint) {
-        return msgValue();
     }
 
     function testValueTransaction(
