@@ -111,7 +111,7 @@ mutation flows through virtual hooks (`deposit`, `withdraw`, `burn`,
 `creditAccount`, `debitAccount`, `payout`, `provision`, `allowAsset`,
 `denyAsset`, ...), and the hook implementation is the layer that knows the
 host's ledger policy - in particular the asset binding and the resulting
-balance. The protocol-owned exception is `Payable.end`, which emits
+balance. The protocol-owned exception is `CommandBase.endValue`, which emits
 `Received` with `Actions.Refund` when it creates a native-asset refund
 TRANSACTION block. The `create-rootzero` template
 (`rootzero-evm-commander`) is the reference implementation of the remaining

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Payable} from "../core/Payable.sol";
 import {RoutePayableHook} from "../commands/Relay.sol";
 import {Keys, Specs} from "../Cursors.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
@@ -11,7 +10,7 @@ using Executions for Execution;
 
 /// @title PortDispatchPayable
 /// @notice Port endpoint that forwards DISPATCH blocks to a host-defined route hook.
-abstract contract PortDispatchPayable is PortBase, Payable, RoutePayableHook {
+abstract contract PortDispatchPayable is PortBase, RoutePayableHook {
     uint private immutable descriptor;
 
     constructor() {

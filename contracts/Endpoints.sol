@@ -11,7 +11,6 @@ import { CommandBase } from "./commands/Base.sol";
 import { Execution, Executions, Lanes } from "./execution/Execution.sol";
 import { EndpointBase } from "./core/Endpoint.sol";
 import { Descriptors } from "./utils/Descriptors.sol";
-import { Payable } from "./core/Payable.sol";
 import { CreditAccountHook, DebitAccountHook } from "./core/Settlement.sol";
 
 // Commands

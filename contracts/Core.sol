@@ -12,7 +12,6 @@ import { Host, IHostIntroduction } from "./core/Host.sol";
 import { CommandCalls, FailedCall, NodeCalls, PortCalls } from "./core/Calls.sol";
 import { EndpointBase } from "./core/Endpoint.sol";
 import { Descriptors } from "./utils/Descriptors.sol";
-import { Payable } from "./core/Payable.sol";
 import { Pipeline } from "./core/Pipeline.sol";
 import { CreditAccountHook, DebitAccountHook, Settlement } from "./core/Settlement.sol";
 import { Portal } from "./core/Portal.sol";

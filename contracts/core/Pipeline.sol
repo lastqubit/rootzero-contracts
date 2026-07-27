@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {Cursors, Cur, Readers, Reader} from "../Cursors.sol";
-import {Payable} from "./Payable.sol";
 import {Settlement} from "./Settlement.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
@@ -12,7 +11,7 @@ using Executions for Execution;
 
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
-abstract contract Pipeline is Payable, Settlement {
+abstract contract Pipeline is Settlement {
     /// @dev Thrown when the pipeline finishes with non-empty threaded state.
     error UnexpectedState();
 
