@@ -11,7 +11,7 @@ import {ReceivedEvent} from "../events/Received.sol";
 import {Actions} from "../utils/Actions.sol";
 import {Nodes} from "../utils/Nodes.sol";
 import {Selectors} from "../utils/Selectors.sol";
-import {Spans} from "../utils/Spans.sol";
+import {Cursors} from "../utils/Cursors.sol";
 
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
@@ -49,7 +49,7 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
         Execution memory exec,
         bytes32 account
     ) internal returns (bytes memory output, bytes memory transactions) {
-        if (exec.budget == 0 && Spans.initial(exec.writers)) return ("", "");
+        if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
         output = closeExecution(exec);
         transactions = endValue(exec, account);
     }

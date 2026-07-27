@@ -16,10 +16,10 @@ pragma solidity ^0.8.33;
 
 import {Host} from "../contracts/Core.sol";
 import {CommandBase, Execution, Executions, Keys, Lanes, Specs} from "../contracts/Endpoints.sol";
-import {Cursors, Cur, Sizes} from "../contracts/Cursors.sol";
-import {Spans} from "../contracts/utils/Spans.sol";
+import {Decoders, Cur, Sizes} from "../contracts/Cursors.sol";
+import {Cursors} from "../contracts/utils/Cursors.sol";
 
-using Cursors for Cur;
+using Decoders for Cur;
 using Executions for Execution;
 
 abstract contract MyCommand is CommandBase {
@@ -39,11 +39,11 @@ abstract contract MyCommand is CommandBase {
         Execution memory exec,
         uint8 tag_
     ) private view returns (bytes32 asset, uint amount, Cur memory fee) {
-        Cur memory input = Cur(Spans.select(exec.cursors, tag_));
+        Cur memory input = Cur(Cursors.select(exec.cursors, tag_));
         uint end = input.enter(inputSpec);
         asset = input.read32();
         amount = input.readUint();
-        (uint i, , ) = Spans.decode(input.packed);
+        (uint i, , ) = Cursors.decode(input.packed);
         fee = input.slice(i, end);
         input.seek(end);
         exec.cursors = input.packed;

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cursors, Cur, Readers, Reader} from "../Cursors.sol";
+import {Decoders, Cur, Readers, Reader} from "../Cursors.sol";
 import {Settlement} from "./Settlement.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
-using Cursors for Cur;
+using Decoders for Cur;
 using Readers for Reader;
 using Executions for Execution;
 
@@ -42,7 +42,7 @@ abstract contract Pipeline is Settlement {
     /// @param steps STEP block stream to execute.
     /// @param exec Mutable execution shared across all steps.
     function pipe(bytes32 account, bytes memory state, bytes calldata steps, Execution memory exec) internal {
-        (Cur memory input, ) = Cursors.init(steps, 1, 0);
+        (Cur memory input, ) = Decoders.init(steps, 1, 0);
 
         while (input.more()) {
             (uint target, uint resources, bytes calldata request) = input.unpackStep();

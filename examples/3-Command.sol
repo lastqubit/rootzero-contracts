@@ -12,9 +12,9 @@ pragma solidity ^0.8.33;
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller.
 
 import {CommandBase, Specs} from "../contracts/Endpoints.sol";
-import {Blocks, Cursors, Cur} from "../contracts/Cursors.sol";
+import {Blocks, Decoders, Cur} from "../contracts/Cursors.sol";
 
-using Cursors for Cur;
+using Decoders for Cur;
 
 abstract contract MyCommand is CommandBase {
     // The descriptor announces accepted input, state, output, and flags.
@@ -34,7 +34,7 @@ abstract contract MyCommand is CommandBase {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
         // Create an input cursor and decode the first AMOUNT block from the
         // input stream.
-        Cur memory input = Cursors.openCur(request);
+        Cur memory input = Decoders.openCur(request);
         (bytes32 asset, uint amount) = input.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then return a BALANCE block.

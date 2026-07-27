@@ -4,10 +4,10 @@ pragma solidity ^0.8.33;
 import {HostAmount} from "../core/Types.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
-import {Cursors} from "../codec/Cursors.sol";
+import {Decoders} from "../codec/Decoders.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
 import {Descriptors} from "../utils/Descriptors.sol";
-import {Spans} from "../utils/Spans.sol";
+import {Cursors} from "../utils/Cursors.sol";
 
 /// @notice Mutable state shared across one endpoint execution.
 /// @dev `cursors` contains tagged input and state lanes. Cursor operations
@@ -46,7 +46,7 @@ library Executions {
         uint expected
     ) private pure returns (uint state, uint groups) {
         (, uint group) = Descriptors.state(descriptor);
-        (state, groups) = Cursors.initMeta(source, group, expected, Lanes.State);
+        (state, groups) = Decoders.initMeta(source, group, expected, Lanes.State);
     }
 
     function inputCursor(
@@ -55,20 +55,20 @@ library Executions {
         uint expected
     ) private pure returns (uint input, uint groups) {
         (, , uint group) = Descriptors.input(descriptor);
-        (input, groups) = Cursors.initMeta(source, group, expected, Lanes.Input);
+        (input, groups) = Decoders.initMeta(source, group, expected, Lanes.Input);
     }
 
     function select(Execution memory exec, uint8 tag) private pure returns (uint cursors) {
-        cursors = Spans.select(exec.cursors, tag);
+        cursors = Cursors.select(exec.cursors, tag);
         exec.cursors = cursors;
     }
 
     function position(Execution memory exec, uint8 tag) private pure returns (uint) {
-        return Spans.abs(select(exec, tag));
+        return Cursors.abs(select(exec, tag));
     }
 
     function advance(Execution memory exec, uint size) private pure {
-        exec.cursors = Spans.advance(exec.cursors, size);
+        exec.cursors = Cursors.advance(exec.cursors, size);
     }
 
     function openState(
@@ -106,17 +106,17 @@ library Executions {
         (input, batches) = inputCursor(inputSource, descriptor, batches);
         (state, batches) = stateCursor(stateSource, descriptor, batches);
         exec.budget = msg.value;
-        exec.cursors = Spans.pair(input, state);
+        exec.cursors = Cursors.pair(input, state);
         exec.writers = outputMeta(descriptor, batches);
     }
 
     /// @notice Return whether either execution cursor lane has blocks remaining.
     function more(Execution memory exec) internal pure returns (bool) {
-        return Spans.any(exec.cursors);
+        return Cursors.any(exec.cursors);
     }
 
     function complete(Execution memory exec, uint8 tag) internal pure {
-        Cursors.complete(Spans.select(exec.cursors, tag));
+        Decoders.complete(Cursors.select(exec.cursors, tag));
     }
 
     function unpack32(Execution memory exec, uint8 tag, uint spec) internal pure returns (bytes32 value) {
@@ -219,54 +219,54 @@ library Executions {
         Execution memory exec,
         uint8 tag
     ) internal pure returns (uint target, uint resources, bytes calldata data) {
-        uint next;
-        (target, resources, data, next) = Blocks.unpackCall(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (target, resources, data, next) = Blocks.unpackCall(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function unpackContext(
         Execution memory exec,
         uint8 tag
     ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata request) {
-        uint next;
-        (account, state, request, next) = Blocks.unpackContext(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (account, state, request, next) = Blocks.unpackContext(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function unpackDispatch(
         Execution memory exec,
         uint8 tag
     ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
-        uint next;
-        (portal, resources, payload, next) = Blocks.unpackDispatch(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (portal, resources, payload, next) = Blocks.unpackDispatch(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function unpackLabel(
         Execution memory exec,
         uint8 tag
     ) internal pure returns (uint id, bytes32 namespace, string memory name) {
-        uint next;
-        (id, namespace, name, next) = Blocks.unpackLabel(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (id, namespace, name, next) = Blocks.unpackLabel(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function unpackSchema(
         Execution memory exec,
         uint8 tag
     ) internal pure returns (uint spec, string memory body, bytes32 name) {
-        uint next;
-        (spec, body, name, next) = Blocks.unpackSchema(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (spec, body, name, next) = Blocks.unpackSchema(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function unpackRecover(
         Execution memory exec,
         uint8 tag
     ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
-        uint next;
-        (handler, resources, key, witness, next) = Blocks.unpackRecover(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (handler, resources, key, witness, next) = Blocks.unpackRecover(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
     }
 
     function relayToContext(
@@ -276,9 +276,9 @@ library Executions {
         bytes calldata state
     ) internal pure returns (uint portal, uint resources, bytes memory context) {
         bytes calldata request;
-        uint next;
-        (portal, resources, request, next) = Blocks.unpackRelay(position(exec, tag));
-        exec.cursors = Spans.seekAbs(exec.cursors, next);
+        uint next = position(exec, tag);
+        (portal, resources, request, next) = Blocks.unpackRelay(next);
+        exec.cursors = Cursors.seekAbs(exec.cursors, next);
         context = Blocks.context(account, bytes(state), bytes(request));
     }
 

@@ -5,33 +5,16 @@ import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, 
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Keys} from "./Keys.sol";
-import {Spans} from "../utils/Spans.sol";
+import {Cursors, Cur} from "../utils/Cursors.sol";
 
-/// @notice Logical cursor lanes used by execution-owned cursor pairs.
-/// @notice Zero-copy view into a calldata block stream.
-/// All positions (`i`) are byte offsets relative to the start of the source region.
-/// The absolute calldata location of byte `i` is `offset + i`.
-struct Cur {
-    /// @dev Lower 128-bit cursor lane:
-    /// bits   0–31    i
-    /// bits  32–63    offset
-    /// bits  64–95    len
-    /// bits  96–111   groups (reserved for the scoped run group count)
-    /// bits 112–119   flags (consumer-defined)
-    /// bits 120–127   tag (optional cursor identity)
-    /// A second tagged cursor may occupy bits 128–255. Cursor operations always
-    /// use the lower lane; `Spans.select` swaps the requested lane into place.
-    uint packed;
-}
+using Decoders for Cur;
 
-using Cursors for Cur;
-
-/// @title Cursors
+/// @title Decoders
 /// @notice Calldata block stream parser for the rootzero protocol.
 /// A `Cur` is a lightweight view into a slice of `msg.data`; no data is copied.
 /// Blocks are encoded as `[bytes4 key][bytes4 payloadLen][payload]`.
 /// Consuming packed helpers take `cur` and return the `updated` cursor first.
-library Cursors {
+library Decoders {
     /// @dev `complete` called but the cursor has not consumed exactly to `len`.
     error IncompleteCursor();
     /// @dev `scope` found zero blocks of the expected key; the cursor region is empty.
@@ -85,7 +68,7 @@ library Cursors {
         assembly ("memory-safe") {
             offset := source.offset
         }
-        cur = Spans.create(offset, source.length, 0, 0, 0);
+        cur = Cursors.create(offset, source.length, 0, 0, 0);
     }
 
     /// @notice Create a cursor backed by `source[i:]`.
@@ -115,8 +98,8 @@ library Cursors {
         assembly ("memory-safe") {
             offset := source.offset
         }
-        cur = Spans.create(offset, source.length, 0, 0, tag);
-        (, , uint len) = Spans.decode(cur);
+        cur = Cursors.create(offset, source.length, 0, 0, tag);
+        (, , uint len) = Cursors.decode(cur);
         if (group == 0) {
             if (len != 0) revert IncompleteCursor();
             return (cur, expected);
@@ -129,13 +112,13 @@ library Cursors {
 
     /// @notice Advance the cursor to a later absolute position within the source region.
     /// Reverts with `IncompleteCursor` if `i` is before `cur.i`.
-    /// `Spans.seek` validates that `i` does not exceed the cursor region length.
+    /// `Cursors.seek` validates that `i` does not exceed the cursor region length.
     // @param cur Cursor to advance.
     // @param i New read position (byte offset relative to source start).
     function skipTo(uint cur, uint i) internal pure returns (uint updated) {
-        (uint current, , ) = Spans.decode(cur);
+        (uint current, , ) = Cursors.decode(cur);
         if (current > i) revert IncompleteCursor();
-        updated = Spans.seek(cur, i);
+        updated = Cursors.seek(cur, i);
     }
 
     /// @notice Return the full cursor region as a calldata slice.
@@ -143,7 +126,7 @@ library Cursors {
     // @param cur Cursor whose backing region should be returned.
     // @return data Calldata view over `[cur.offset, cur.offset + cur.len)`.
     function raw(uint cur) internal pure returns (bytes calldata data) {
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
         data = msg.data[offset:offset + len];
     }
@@ -155,7 +138,7 @@ library Cursors {
     // @param to End byte offset within the source region (exclusive).
     // @return data Calldata view over the requested sub-range.
     function raw(uint cur, uint from, uint to) internal pure returns (bytes calldata data) {
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         if (from > to || to > len) revert Blocks.MalformedBlocks();
         if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
         data = msg.data[offset + from:offset + to];
@@ -177,7 +160,7 @@ library Cursors {
     // @return key Four-byte block type identifier.
     // @return len Payload byte length declared in the header.
     function peek(uint cur, uint i) internal pure returns (bytes4 key, uint len) {
-        (, uint offset, uint end) = Spans.decode(cur);
+        (, uint offset, uint end) = Cursors.decode(cur);
         return Blocks.header(offset, end, i);
     }
 
@@ -186,7 +169,7 @@ library Cursors {
     // @param cur Source cursor.
     // @return Byte offset immediately past the current block, relative to the source region.
     function past(uint cur) internal pure returns (uint) {
-        (uint i, uint offset, uint end) = Spans.decode(cur);
+        (uint i, uint offset, uint end) = Cursors.decode(cur);
         (, uint len) = Blocks.header(offset, end, i);
         return i + Sizes.Header + len;
     }
@@ -198,7 +181,7 @@ library Cursors {
     // @param key Expected block type identifier.
     // @return Whether the block header at `i` uses `key`.
     function hasAt(uint cur, uint i, bytes4 key) internal pure returns (bool) {
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         return Blocks.hasAt(offset, len, i, key);
     }
 
@@ -208,7 +191,7 @@ library Cursors {
     // @param key Expected block type identifier.
     // @return Whether the block header at `cur.i` uses `key`.
     function isAt(uint cur, bytes4 key) internal pure returns (bool) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         return Blocks.hasAt(offset, len, i, key);
     }
 
@@ -227,7 +210,7 @@ library Cursors {
         uint min,
         uint max
     ) private pure returns (uint updated, uint next) {
-        (uint i, uint offset, uint end) = Spans.decode(cur);
+        (uint i, uint offset, uint end) = Cursors.decode(cur);
         (, next) = Blocks.expect(offset, end, i, key, min, max);
         updated = cur + Sizes.Header;
     }
@@ -239,7 +222,7 @@ library Cursors {
 
     /// @notice Validate the block described by `spec` at position `i`.
     function expect(uint cur, uint i, uint end, uint spec) internal pure returns (uint abs, uint next) {
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         return expect(offset, len, i, end, Specs.key(spec), Specs.min(spec), Specs.max(spec));
     }
 
@@ -257,10 +240,10 @@ library Cursors {
         uint min,
         uint max
     ) private pure returns (uint updated, uint abs) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         uint next;
         (abs, next) = expect(offset, len, i, end, key, min, max);
-        updated = Spans.seek(cur, next);
+        updated = Cursors.seek(cur, next);
     }
 
     /// @notice Consume the current block described by `spec`.
@@ -275,7 +258,7 @@ library Cursors {
     // @return total Number of consecutive matching blocks.
     // @return next Byte offset immediately after the last counted block.
     function run(uint cur, uint i, bytes4 key) internal pure returns (uint total, uint next) {
-        (, uint offset, uint end) = Spans.decode(cur);
+        (, uint offset, uint end) = Cursors.decode(cur);
         return Blocks.run(offset, end, i, key);
     }
 
@@ -288,11 +271,11 @@ library Cursors {
     // @return groups Number of groups represented by the run (`block count / group`).
     function scope(uint cur, bytes4 key, uint group) internal pure returns (uint updated, uint groups) {
         if (group == 0) revert ZeroGroup();
-        (uint i, uint offset, uint end) = Spans.decode(cur);
+        (uint i, uint offset, uint end) = Cursors.decode(cur);
         (uint count, uint next) = Blocks.run(offset, end, i, key);
         if (count == 0) revert ZeroCursor();
         if (count % group != 0) revert BadRatio();
-        updated = Spans.resize(cur, next);
+        updated = Cursors.resize(cur, next);
         groups = count / group;
     }
 
@@ -302,7 +285,7 @@ library Cursors {
     // @param key Block type to find.
     // @return Byte offset of the matching block, or `cur.len` if not found.
     function find(uint cur, uint i, bytes4 key) internal pure returns (uint) {
-        (, uint offset, uint end) = Spans.decode(cur);
+        (, uint offset, uint end) = Cursors.decode(cur);
         return Blocks.find(offset, end, i, key);
     }
 
@@ -311,7 +294,7 @@ library Cursors {
     // @param key Block type to find.
     // @return Byte offset of the matching block, or `cur.len` if not found.
     function find(uint cur, bytes4 key) internal pure returns (uint) {
-        (uint i, uint offset, uint end) = Spans.decode(cur);
+        (uint i, uint offset, uint end) = Cursors.decode(cur);
         return Blocks.find(offset, end, i, key);
     }
 
@@ -321,10 +304,10 @@ library Cursors {
     // @param cur Cursor positioned at a list block; advanced past the full list.
     // @return items Cursor scoped to the list payload.
     function list(uint cur) internal pure returns (uint updated, uint items) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         (uint abs, uint next) = expect(offset, len, i, 0, Keys.List, 0, 0);
-        items = Spans.create(abs, next - i - Sizes.Header, 0, 0, 0);
-        updated = Spans.seek(cur, next);
+        items = Cursors.create(abs, next - i - Sizes.Header, 0, 0, 0);
+        updated = Cursors.seek(cur, next);
     }
 
     /// @notice Consume a block with the given key at the current position and return a cursor over the full block slice.
@@ -334,10 +317,10 @@ library Cursors {
     // @param key Expected block type key.
     // @return out Cursor scoped to the full block.
     function take(uint cur, bytes4 key) internal pure returns (uint updated, uint child) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         (, uint next) = expect(offset, len, i, 0, key, 0, 0);
-        child = Spans.create(offset + i, next - i, 0, 0, 0);
-        updated = Spans.seek(cur, next);
+        child = Cursors.create(offset + i, next - i, 0, 0, 0);
+        updated = Cursors.seek(cur, next);
     }
 
     /// @notice Return whether the remaining cursor region is empty or exactly one block with `key`.
@@ -347,7 +330,7 @@ library Cursors {
     // @param key Expected optional block key.
     // @return Whether the remaining region contains exactly one block with `key`.
     function maybeOnly(uint cur, bytes4 key) internal pure returns (bool) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         if (i == len) return false;
         if (!Blocks.hasAt(offset, len, i, key)) revert Blocks.InvalidBlock();
         (, uint size) = Blocks.header(offset, len, i);
@@ -362,21 +345,21 @@ library Cursors {
     // @param key Optional block type key.
     // @return out Cursor scoped to the full matching block, or empty when no matching block is present.
     function maybeTake(uint cur, bytes4 key) internal pure returns (uint updated, uint child) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         if (!Blocks.hasAt(offset, len, i, key)) {
-            return (cur, Spans.create(offset + i, 0, 0, 0, 0));
+            return (cur, Cursors.create(offset + i, 0, 0, 0, 0));
         }
 
         (, uint next) = expect(offset, len, i, 0, key, 0, 0);
-        child = Spans.create(offset + i, next - i, 0, 0, 0);
-        updated = Spans.seek(cur, next);
+        child = Cursors.create(offset + i, next - i, 0, 0, 0);
+        updated = Cursors.seek(cur, next);
     }
 
     /// @notice Assert that the cursor has consumed its entire source region.
     /// Reverts with `IncompleteCursor` when `cur.i != cur.len`.
     // @param cur Cursor to check.
     function complete(uint cur) internal pure {
-        if (Spans.more(cur)) revert IncompleteCursor();
+        if (Cursors.more(cur)) revert IncompleteCursor();
     }
 
     // -------------------------------------------------------------------------
@@ -390,7 +373,7 @@ library Cursors {
     // @param n Number of bytes to advance.
     // @return value Loaded word.
     function read(uint cur, uint n) internal pure returns (uint updated, bytes32 value) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         assembly ("memory-safe") {
             value := calldataload(abs)
         }
@@ -471,7 +454,7 @@ library Cursors {
     // @return a First loaded word.
     // @return b Second loaded word.
     function read64(uint cur) internal pure returns (uint updated, bytes32 a, bytes32 b) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -486,7 +469,7 @@ library Cursors {
     // @return b Second loaded word.
     // @return c Third loaded word.
     function read96(uint cur) internal pure returns (uint updated, bytes32 a, bytes32 b, bytes32 c) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -517,11 +500,11 @@ library Cursors {
     // @param spec Expected dynamic block specification.
     // @return data Raw block payload bytes.
     function unpackRaw(uint cur, uint spec) internal pure returns (uint updated, bytes calldata data) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         (uint abs, uint next) =
             expect(offset, len, i, 0, Specs.key(spec), Specs.min(spec), Specs.max(spec));
         data = msg.data[abs:offset + next];
-        updated = Spans.seek(cur, next);
+        updated = Cursors.seek(cur, next);
     }
 
     /// @notice Consume a reserved BYTES block and return its raw payload.
@@ -529,8 +512,8 @@ library Cursors {
     // @return data Raw BYTES payload.
     function unpackBytes(uint cur) internal pure returns (uint updated, bytes calldata data) {
         uint next;
-        (data, next) = Blocks.unpackBytes(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (data, next) = Blocks.unpackBytes(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a reserved STRING block and return its UTF-8 payload.
@@ -539,8 +522,8 @@ library Cursors {
     function unpackString(uint cur) internal pure returns (uint updated, string memory data) {
         bytes calldata value;
         uint next;
-        (value, next) = Blocks.unpackString(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (value, next) = Blocks.unpackString(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
         data = string(value);
     }
 
@@ -553,8 +536,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint id, bytes32 namespace, string memory name) {
         uint next;
-        (id, namespace, name, next) = Blocks.unpackLabel(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (id, namespace, name, next) = Blocks.unpackLabel(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a SCHEMA block and return its fields.
@@ -566,8 +549,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint spec, string memory body, bytes32 name) {
         uint next;
-        (spec, body, name, next) = Blocks.unpackSchema(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (spec, body, name, next) = Blocks.unpackSchema(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a dynamic block with a single bytes32 payload.
@@ -752,36 +735,36 @@ library Cursors {
     // @param cur Cursor; advanced past the block.
     // @return account Account identifier.
     function unpackAccount(uint cur) internal pure returns (uint updated, bytes32 account) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         account = Blocks.unpackAccount(abs);
-        updated = Spans.advance(cur, Sizes.B32);
+        updated = Cursors.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume a NODE block and return the node ID.
     // @param cur Cursor; advanced past the block.
     // @return node Node identifier.
     function unpackNode(uint cur) internal pure returns (uint updated, uint node) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         node = Blocks.unpackNode(abs);
-        updated = Spans.advance(cur, Sizes.B32);
+        updated = Cursors.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume a FEE block and return the amount.
     // @param cur Cursor; advanced past the block.
     // @return amount Fee amount.
     function unpackFee(uint cur) internal pure returns (uint updated, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         amount = Blocks.unpackFee(abs);
-        updated = Spans.advance(cur, Sizes.Fee);
+        updated = Cursors.advance(cur, Sizes.Fee);
     }
 
     /// @notice Consume an ASSET block and return the asset identifier.
     // @param cur Cursor; advanced past the block.
     // @return asset Asset identifier.
     function unpackAsset(uint cur) internal pure returns (uint updated, bytes32 asset) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         asset = Blocks.unpackAsset(abs);
-        updated = Spans.advance(cur, Sizes.B32);
+        updated = Cursors.advance(cur, Sizes.B32);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as separate values.
@@ -791,9 +774,9 @@ library Cursors {
     function unpackAccountAsset(
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes32 asset) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (account, asset) = Blocks.unpackAccountAsset(abs);
-        updated = Spans.advance(cur, Sizes.B64);
+        updated = Cursors.advance(cur, Sizes.B64);
     }
 
     /// @notice Consume an ACCOUNT_ASSET form block and return its fields as a struct.
@@ -810,9 +793,9 @@ library Cursors {
     // @return amount Relayer reward amount.
     // @return relayer Relayer account identifier.
     function unpackBounty(uint cur) internal pure returns (uint updated, uint amount, bytes32 relayer) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (amount, relayer) = Blocks.unpackBounty(abs);
-        updated = Spans.advance(cur, Sizes.Bounty);
+        updated = Cursors.advance(cur, Sizes.Bounty);
     }
 
     /// @notice Consume an AMOUNT block and return its fields as separate values.
@@ -820,9 +803,9 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAmount(uint cur) internal pure returns (uint updated, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (asset, amount) = Blocks.unpackAmount(abs);
-        updated = Spans.advance(cur, Sizes.Amount);
+        updated = Cursors.advance(cur, Sizes.Amount);
     }
 
     /// @notice Consume an AMOUNT block and return its fields as a struct.
@@ -837,9 +820,9 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackBalance(uint cur) internal pure returns (uint updated, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (asset, amount) = Blocks.unpackBalance(abs);
-        updated = Spans.advance(cur, Sizes.Balance);
+        updated = Cursors.advance(cur, Sizes.Balance);
     }
 
     /// @notice Consume a BALANCE block and return its fields as a struct.
@@ -857,9 +840,9 @@ library Cursors {
     function unpackHostAccountAsset(
         uint cur
     ) internal pure returns (uint updated, uint host, bytes32 account, bytes32 asset) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (host, account, asset) = Blocks.unpackHostAccountAsset(abs);
-        updated = Spans.advance(cur, Sizes.B96);
+        updated = Cursors.advance(cur, Sizes.B96);
     }
 
     /// @notice Consume a HOST_ACCOUNT_ASSET form block and return its fields as a struct.
@@ -879,9 +862,9 @@ library Cursors {
     function unpackAccountAmount(
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (account, asset, amount) = Blocks.unpackAccountAmount(abs);
-        updated = Spans.advance(cur, Sizes.B96);
+        updated = Cursors.advance(cur, Sizes.B96);
     }
 
     /// @notice Consume an ACCOUNT_AMOUNT form block and return its fields as a struct.
@@ -899,9 +882,9 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAllocation(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (host, asset, amount) = Blocks.unpackAllocation(abs);
-        updated = Spans.advance(cur, Sizes.HostAmount);
+        updated = Cursors.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume an ALLOCATION block and return its fields as a struct.
@@ -917,9 +900,9 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackAllowance(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (host, asset, amount) = Blocks.unpackAllowance(abs);
-        updated = Spans.advance(cur, Sizes.HostAmount);
+        updated = Cursors.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume an ALLOWANCE block and return its fields as a struct.
@@ -935,9 +918,9 @@ library Cursors {
     // @return asset Asset identifier.
     // @return amount Token amount.
     function unpackCustody(uint cur) internal pure returns (uint updated, uint host, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (host, asset, amount) = Blocks.unpackCustody(abs);
-        updated = Spans.advance(cur, Sizes.HostAmount);
+        updated = Cursors.advance(cur, Sizes.HostAmount);
     }
 
     /// @notice Consume a CUSTODY block and return its fields as a struct.
@@ -956,9 +939,9 @@ library Cursors {
     function unpackTransaction(
         uint cur
     ) internal pure returns (uint updated, bytes32 from, bytes32 to, bytes32 asset, uint amount) {
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (from, to, asset, amount) = Blocks.unpackTransaction(abs);
-        updated = Spans.advance(cur, Sizes.Transaction);
+        updated = Cursors.advance(cur, Sizes.Transaction);
     }
 
     /// @notice Consume a TRANSACTION block and return all fields as a struct.
@@ -980,8 +963,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint target, uint resources, bytes calldata req) {
         uint next;
-        (target, resources, req, next) = Blocks.unpackStep(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (target, resources, req, next) = Blocks.unpackStep(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a CALL block and return its target invocation fields.
@@ -994,8 +977,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint target, uint resources, bytes calldata data) {
         uint next;
-        (target, resources, data, next) = Blocks.unpackCall(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (target, resources, data, next) = Blocks.unpackCall(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a CONTEXT block and return its command context fields.
@@ -1008,8 +991,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, bytes32 account, bytes calldata state, bytes calldata request) {
         uint next;
-        (account, state, request, next) = Blocks.unpackContext(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (account, state, request, next) = Blocks.unpackContext(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a RELAY block and return its destination portal, resources, and request stream.
@@ -1021,8 +1004,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint portal, uint resources, bytes calldata request) {
         uint next;
-        (portal, resources, request, next) = Blocks.unpackRelay(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (portal, resources, request, next) = Blocks.unpackRelay(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a DISPATCH block and return its destination portal, resources, and payload.
@@ -1034,8 +1017,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint portal, uint resources, bytes calldata payload) {
         uint next;
-        (portal, resources, payload, next) = Blocks.unpackDispatch(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (portal, resources, payload, next) = Blocks.unpackDispatch(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     /// @notice Consume a RECOVER block and return its handler, resources, key, and witness bytes.
@@ -1048,8 +1031,8 @@ library Cursors {
         uint cur
     ) internal pure returns (uint updated, uint handler, uint resources, bytes32 key, bytes calldata witness) {
         uint next;
-        (handler, resources, key, witness, next) = Blocks.unpackRecover(Spans.abs(cur));
-        updated = Spans.seekAbs(cur, next);
+        (handler, resources, key, witness, next) = Blocks.unpackRecover(Cursors.abs(cur));
+        updated = Cursors.seekAbs(cur, next);
     }
 
     // Type-specific validators
@@ -1078,7 +1061,7 @@ library Cursors {
     // @return deadline Expiry timestamp.
     // @return proof Raw proof bytes (layout: `[bytes20 signer][bytes65 sig]`).
     function expectAuth(uint cur, uint i, uint cid) internal pure returns (uint deadline, bytes calldata proof) {
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         return expectAuth(offset, len, i, cid);
     }
 
@@ -1244,7 +1227,7 @@ library Cursors {
         uint cur,
         uint cid
     ) internal pure returns (uint updated, uint deadline, bytes calldata proof) {
-        (uint i, uint offset, uint len) = Spans.decode(cur);
+        (uint i, uint offset, uint len) = Cursors.decode(cur);
         (deadline, proof) = expectAuth(offset, len, i, cid);
         updated = cur + Sizes.Auth;
     }
@@ -1261,9 +1244,9 @@ library Cursors {
         bytes32 actual;
         uint min;
         uint max;
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (actual, min, max) = Blocks.unpackBalanceLimit(abs);
-        updated = Spans.advance(cur, Sizes.BalanceLimit);
+        updated = Cursors.advance(cur, Sizes.BalanceLimit);
         if (actual != asset) revert UnexpectedValue();
         if (min > amount || max < amount) revert UnexpectedValue();
     }
@@ -1283,9 +1266,9 @@ library Cursors {
         bytes32 actualAsset;
         uint min;
         uint max;
-        uint abs = Spans.abs(cur);
+        uint abs = Cursors.abs(cur);
         (actualHost, actualAsset, min, max) = Blocks.unpackCustodyLimit(abs);
-        updated = Spans.advance(cur, Sizes.CustodyLimit);
+        updated = Cursors.advance(cur, Sizes.CustodyLimit);
         if (actualHost != host || actualAsset != asset) revert UnexpectedValue();
         if (min > amount || max < amount) revert UnexpectedValue();
     }
@@ -1334,7 +1317,7 @@ library Cursors {
     // @return node Node ID from the NODE block, or `backup` if absent.
     function resolveNode(bytes calldata source, uint backup) internal pure returns (uint node) {
         uint cur = open(source);
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         uint i = Blocks.find(offset, len, 0, Keys.Node);
         if (i == len) return backup;
 
@@ -1359,7 +1342,7 @@ library Cursors {
     // @return account Account from the ACCOUNT block, or `backup` if absent.
     function resolveAccount(bytes calldata source, bytes32 backup) internal pure returns (bytes32 account) {
         uint cur = open(source);
-        (, uint offset, uint len) = Spans.decode(cur);
+        (, uint offset, uint len) = Cursors.decode(cur);
         uint i = Blocks.find(offset, len, 0, Keys.Account);
         if (i == len) return backup;
 
@@ -1388,16 +1371,16 @@ library Cursors {
     }
 
     function more(Cur memory cur) internal pure returns (bool) {
-        return Spans.more(cur.packed);
+        return Cursors.more(cur.packed);
     }
 
     function seek(Cur memory cur, uint i) internal pure returns (Cur memory) {
-        cur.packed = Spans.seek(cur.packed, i);
+        cur.packed = Cursors.seek(cur.packed, i);
         return cur;
     }
 
     function skip(Cur memory cur, uint n) internal pure returns (Cur memory) {
-        cur.packed = Spans.advance(cur.packed, n);
+        cur.packed = Cursors.advance(cur.packed, n);
         return cur;
     }
 
@@ -1407,7 +1390,7 @@ library Cursors {
     }
 
     function slice(Cur memory cur, uint from, uint to) internal pure returns (Cur memory out) {
-        out.packed = Spans.slice(cur.packed, from, to, 0);
+        out.packed = Cursors.slice(cur.packed, from, to, 0);
     }
 
     function raw(Cur memory cur) internal pure returns (bytes calldata) {
@@ -1483,7 +1466,7 @@ library Cursors {
     }
 
     function ensureAt(Cur memory cur, uint pos) internal pure {
-        Spans.expect(cur.packed, pos);
+        Cursors.expect(cur.packed, pos);
     }
 
     function complete(Cur memory cur) internal pure {

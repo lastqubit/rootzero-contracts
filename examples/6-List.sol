@@ -20,9 +20,9 @@ pragma solidity ^0.8.33;
 
 import {Host} from "../contracts/Core.sol";
 import {CommandBase, Specs} from "../contracts/Endpoints.sol";
-import {Cursors, Cur} from "../contracts/Cursors.sol";
+import {Decoders, Cur} from "../contracts/Cursors.sol";
 
-using Cursors for Cur;
+using Decoders for Cur;
 
 // Off-chain schema metadata may describe this list as:
 //
@@ -60,7 +60,7 @@ abstract contract MyCommand is CommandBase {
         bytes calldata,
         bytes calldata request
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Cur memory input = Cursors.openCur(request);
+        Cur memory input = Decoders.openCur(request);
         uint listIndex;
 
         // INPUT publishes one list item descriptor, but the request is still a

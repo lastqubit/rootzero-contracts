@@ -11,9 +11,9 @@ pragma solidity ^0.8.33;
 // AMOUNT child block in its tail.
 
 import {CommandBase, Specs} from "../contracts/Endpoints.sol";
-import {Blocks, Cursors, Cur, Sizes} from "../contracts/Cursors.sol";
+import {Blocks, Decoders, Cur, Sizes} from "../contracts/Cursors.sol";
 
-using Cursors for Cur;
+using Decoders for Cur;
 
 abstract contract MyCommand is CommandBase {
     string private constant INPUT = "{ uint host, #amount as amount }";
@@ -41,7 +41,7 @@ abstract contract MyCommand is CommandBase {
         bytes calldata,
         bytes calldata request
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Cur memory input = Cursors.openCur(request);
+        Cur memory input = Decoders.openCur(request);
 
         (uint targetHost, bytes32 asset, uint amount) = unpackInput(input);
 

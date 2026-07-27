@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Cursors } from "../Cursors.sol";
+import { Decoders } from "../Cursors.sol";
 import { NodeCalls } from "../core/Calls.sol";
 import { AccessControl } from "../core/Access.sol";
 
@@ -14,9 +14,9 @@ contract TestOperation is NodeCalls {
         bytes calldata request,
         uint requestGroup
     ) external pure returns (bool) {
-        (, uint stateGroups) = Cursors.init(state, stateGroup, 0);
-        (, uint requestGroups) = Cursors.init(request, requestGroup, 0);
-        if (stateGroups != requestGroups) revert Cursors.BadRatio();
+        (, uint stateGroups) = Decoders.init(state, stateGroup, 0);
+        (, uint requestGroups) = Decoders.init(request, requestGroup, 0);
+        if (stateGroups != requestGroups) revert Decoders.BadRatio();
         return true;
     }
 }

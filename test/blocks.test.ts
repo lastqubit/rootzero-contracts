@@ -497,7 +497,7 @@ describe("Cursors", () => {
       expect(selected >> 128n).to.equal((lower << 64n) | (7n << 120n));
     });
 
-    it("packs groups, consumer flags, and tag into span metadata", async () => {
+    it("packs groups, consumer flags, and tag into cursor metadata", async () => {
       const [cur, groups, flags, tag] = await helper.testSpanMeta(0x1234, 0x56, 0x78);
 
       expect(cur).to.equal((0x1234n << 96n) | (0x56n << 112n) | (0x78n << 120n));
@@ -506,7 +506,7 @@ describe("Cursors", () => {
       expect(tag).to.equal(0x78n);
     });
 
-    it("detects whether both packed spans remain at their initial positions", async () => {
+    it("detects whether both packed cursors remain at their initial positions", async () => {
       const metadata = (10n << 64n) | ((20n << 64n) << 128n);
 
       expect(await helper.testSpanInitial(metadata)).to.be.true;

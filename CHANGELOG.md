@@ -88,7 +88,7 @@ breaking API changes. Breaking changes are called out explicitly.
 - Portal no longer emits `Recovered` when retrying an undelivered witness.
 - Renamed `Cursors.exit` to `ensureAt` and renamed its position argument to
   `pos`.
-- Removed the redundant `next` return value from both `Cursors.init` overloads;
+- Removed the redundant `next` return value from both `Decoders.init` overloads;
   callers should use the returned cursor's `len` as the run boundary.
 - Changed `Cursors.list` to require the expected current cursor position as
   `pos` before entering the LIST block.
@@ -223,7 +223,7 @@ breaking API changes. Breaking changes are called out explicitly.
 
 ### Breaking Changes
 
-- Simplified `Cursors.init` to parse a single run from the start of a calldata slice. Callers that previously passed an offset must slice first or use `Cursors.open(source, i)`.
+- Simplified `Decoders.init` to parse a single run from the start of a calldata slice. Callers that previously passed an offset must slice first or use `Decoders.open(source, i)`.
 - Tightened command, query, and peer request parsing around the single-run convention used by current protocol endpoints.
 
 ### Added
