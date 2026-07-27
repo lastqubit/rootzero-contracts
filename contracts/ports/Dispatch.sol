@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { PortBase } from "./Base.sol";
-import { Payable } from "../core/Payable.sol";
-import { RoutePayableHook } from "../commands/Relay.sol";
-import { Cursors, Cur, Keys } from "../Cursors.sol";
-import { Budget } from "../utils/Value.sol";
+import {PortBase} from "./Base.sol";
+import {Payable} from "../core/Payable.sol";
+import {RoutePayableHook} from "../commands/Relay.sol";
+import {Keys, Specs} from "../Cursors.sol";
+import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 /// @title PortDispatchPayable
 /// @notice Port endpoint that forwards DISPATCH blocks to a host-defined route hook.
 abstract contract PortDispatchPayable is PortBase, Payable, RoutePayableHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portDispatchPayable", Keys.Dispatch, Keys.Empty, 0, true);
+        (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, 0, true);
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined route hook.
@@ -24,14 +24,12 @@ abstract contract PortDispatchPayable is PortBase, Payable, RoutePayableHook {
     /// @param data DISPATCH block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portDispatchPayable(bytes calldata data) external payable onlyPeer returns (bytes memory) {
-        (Cur memory input, ) = openInput(data, descriptor);
-        Budget memory budget = openValue();
+        Execution memory exec = openInput(data, descriptor, 0);
 
-        while (input.i < input.len) {
-            (uint portal, uint resources, bytes calldata payload) = input.unpackDispatch();
-            route(portal, resources, bytes(payload), budget);
+        while (exec.more()) {
+            (uint portal, uint resources, bytes calldata payload) = exec.unpackDispatch(Lanes.Input);
+            route(portal, resources, bytes(payload), exec);
         }
         return "";
     }
-
 }

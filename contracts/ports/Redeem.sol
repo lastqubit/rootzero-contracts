@@ -2,9 +2,10 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Cursors, Cur, Keys} from "../Cursors.sol";
+import {Keys, Specs} from "../Cursors.sol";
+import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 abstract contract RedeemBalanceHook {
     /// @notice Override to redeem one balance claim from a peer host into local assets.
@@ -19,21 +20,21 @@ abstract contract RedeemBalanceHook {
 /// Each BALANCE block in the request calls `redeemBalance(peer, asset, amount)`.
 /// Restricted to trusted peers.
 abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portRedeemBalance", Keys.Balance, Keys.Empty, 0, false);
+        (, descriptor) = port("portRedeemBalance", Specs.Balance, Specs.Empty, 0, false);
     }
 
     /// @notice Execute the balance redemption port call.
     /// @param data BALANCE block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portRedeemBalance(bytes calldata data) external onlyPeer returns (bytes memory) {
-        (Cur memory input, ) = openInput(data, descriptor);
+        Execution memory exec = openInput(data, descriptor, 0);
         uint peer = caller();
 
-        while (input.i < input.len) {
-            (bytes32 asset, uint amount) = input.unpackBalance();
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.Input);
             redeemBalance(peer, asset, amount);
         }
         return "";

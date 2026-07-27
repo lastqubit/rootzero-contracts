@@ -9,7 +9,7 @@ import { PortDebitAccount } from "../ports/Debit.sol";
 import { PortPipePayable } from "../ports/Pipe.sol";
 import { PortDispatchPayable } from "../ports/Dispatch.sol";
 import { PortSettle } from "../ports/Settle.sol";
-import { Budget } from "../utils/Value.sol";
+import { Execution } from "../execution/Execution.sol";
 
 contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccount, PortDebitAccount, PortSettle, PortPipePayable, PortDispatchPayable {
     event PortAllowanceCalled(uint peer, bytes32 asset, uint amount);
@@ -39,8 +39,8 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         emit PortCreditAccountCalled(account, asset, amount);
     }
 
-    function route(uint portal, uint resources, bytes memory payload, Budget memory budget) internal override {
-        emit PortDispatchCalled(portal, payload, resources, budget.remaining);
+    function route(uint portal, uint resources, bytes memory payload, Execution memory exec) internal override {
+        emit PortDispatchCalled(portal, payload, resources, exec.budget);
     }
 
     function dispatch(

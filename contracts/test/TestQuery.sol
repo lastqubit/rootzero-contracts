@@ -1,60 +1,62 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cur, Cursors, Keys, Writer, Writers} from "../Cursors.sol";
+import {Sizes} from "../Cursors.sol";
+import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {QueryBase} from "../queries/Base.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 contract TestQuery is QueryBase {
-    bytes4 private immutable Value;
+    uint private immutable ValueSpec;
     string private constant INPUT = "{ uint value }";
 
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        bytes4 value = schema(1, INPUT);
-        Value = value;
-        (, descriptor) = query("incrementQuery", value, value, 0);
+        uint32 size = uint32(Sizes.B32 - Sizes.Header);
+        uint valueSpec = schema(1, size, size, size, INPUT, bytes32(0));
+        ValueSpec = valueSpec;
+        (, descriptor) = query("incrementQuery", valueSpec, valueSpec, 0);
     }
 
     function incrementQuery(bytes calldata request) external view returns (bytes memory out) {
-        (Cur memory input, uint outputs) = openInput(request, descriptor);
-        Writer memory output = Writers.alloc32s(outputs);
+        Execution memory exec = openInput(request, descriptor, 0);
+        uint valueSpec = ValueSpec;
 
-        while (input.i < input.len) {
-            uint foo = uint(input.unpack32(Value));
-            output.appendBlock32(Value, bytes32(foo + 1), 32);
+        while (exec.more()) {
+            uint foo = uint(exec.unpack32(Lanes.Input, valueSpec));
+            exec.outputBlock32(valueSpec, bytes32(foo + 1));
         }
 
-        input.complete();
-        out = end(output);
+        exec.complete(Lanes.Input);
+        out = end(exec);
     }
 }
 
 contract TestKeyedLocalQuery is QueryBase {
-    bytes4 private immutable Value;
+    uint private immutable ValueSpec;
     string private constant INPUT = "{ uint value }";
 
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        bytes4 value = schema(2, INPUT);
-        Value = value;
-        (, descriptor) = query("keyedLocalQuery", value, value, 0);
+        uint32 size = uint32(Sizes.B32 - Sizes.Header);
+        uint valueSpec = schema(2, size, size, size, INPUT, bytes32(0));
+        ValueSpec = valueSpec;
+        (, descriptor) = query("keyedLocalQuery", valueSpec, valueSpec, 0);
     }
 
     function keyedLocalQuery(bytes calldata request) external view returns (bytes memory out) {
-        (Cur memory input, uint outputs) = openInput(request, descriptor);
-        Writer memory output = Writers.alloc32s(outputs);
+        Execution memory exec = openInput(request, descriptor, 0);
+        uint valueSpec = ValueSpec;
 
-        while (input.i < input.len) {
-            uint foo = uint(input.unpack32(Value));
-            output.appendBlock32(Value, bytes32(foo + 2), 32);
+        while (exec.more()) {
+            uint foo = uint(exec.unpack32(Lanes.Input, valueSpec));
+            exec.outputBlock32(valueSpec, bytes32(foo + 2));
         }
 
-        input.complete();
-        out = end(output);
+        exec.complete(Lanes.Input);
+        out = end(exec);
     }
 }

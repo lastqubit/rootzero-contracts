@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Cur, Cursors } from "../Cursors.sol";
-import { Keys } from "../blocks/Keys.sol";
+import { Cur, Cursors, Specs } from "../Cursors.sol";
 import { Assets } from "../utils/Assets.sol";
+import {Spans} from "../utils/Spans.sol";
 
 using Cursors for Cur;
 
@@ -12,7 +12,7 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Amount);
+        (asset, rawAmount) = Cursors.unpack64(cur, Specs.Amount);
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
     }
@@ -21,7 +21,7 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Balance);
+        (asset, rawAmount) = Cursors.unpack64(cur, Specs.Balance);
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
     }
@@ -31,40 +31,40 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         bytes32 rawAmount;
         cur = cur.seek(i);
-        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Keys.Custody);
+        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Specs.Custody);
         if (uint(rawHost) != host) revert Cursors.UnexpectedValue();
         amount = uint(rawAmount);
         token = Assets.erc20Addr(asset);
     }
 
     function testExpectErc20Amount(bytes calldata source, uint i) external view returns (address token, uint amount) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         return expectErc20Amount(cur, i);
     }
 
     function testRequireErc20Amount(bytes calldata source) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         bytes32 asset;
         bytes32 rawAmount;
-        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Amount);
+        (asset, rawAmount) = Cursors.unpack64(cur, Specs.Amount);
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        return (token, amount, cur.i);
+        (i, , ) = Spans.decode(cur.packed);
     }
 
     function testExpectErc20Balance(bytes calldata source, uint i) external view returns (address token, uint amount) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         return expectErc20Balance(cur, i);
     }
 
     function testRequireErc20Balance(bytes calldata source) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         bytes32 asset;
         bytes32 rawAmount;
-        (asset, rawAmount) = Cursors.unpack64(cur, Keys.Balance);
+        (asset, rawAmount) = Cursors.unpack64(cur, Specs.Balance);
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        return (token, amount, cur.i);
+        (i, , ) = Spans.decode(cur.packed);
     }
 
     function testExpectErc20Custody(
@@ -72,7 +72,7 @@ contract TestErc20CursorHelper {
         uint i,
         uint host
     ) external view returns (address token, uint amount) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         return expectErc20Custody(cur, i, host);
     }
 
@@ -80,15 +80,15 @@ contract TestErc20CursorHelper {
         bytes calldata source,
         uint host
     ) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Cursors.open(source);
+        Cur memory cur = Cursors.openCur(source);
         bytes32 rawHost;
         bytes32 asset;
         bytes32 rawAmount;
-        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Keys.Custody);
+        (rawHost, asset, rawAmount) = Cursors.unpack96(cur, Specs.Custody);
         if (uint(rawHost) != host) revert Cursors.UnexpectedValue();
         token = Assets.erc20Addr(asset);
         amount = uint(rawAmount);
-        return (token, amount, cur.i);
+        (i, , ) = Spans.decode(cur.packed);
     }
 
 }

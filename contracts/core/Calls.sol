@@ -2,7 +2,6 @@
 pragma solidity ^0.8.33;
 
 import {AccessControl} from "./Access.sol";
-import {CommandContext} from "../commands/Base.sol";
 import {Nodes} from "../utils/Nodes.sol";
 
 /// @dev Emitted when a trusted inter-node call fails.
@@ -100,7 +99,7 @@ abstract contract CommandCalls is NodeCalls {
         bytes calldata request
     ) internal returns (bytes memory nextState, bytes memory transactions) {
         bytes4 selector = Nodes.commandSelector(command);
-        bytes memory data = abi.encodeWithSelector(selector, CommandContext(account, state, request));
+        bytes memory data = abi.encodeWithSelector(selector, account, state, request);
         return abi.decode(trustedCall(command, value, data), (bytes, bytes));
     }
 }

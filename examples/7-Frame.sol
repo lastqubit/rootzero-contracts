@@ -3,8 +3,8 @@ pragma solidity ^0.8.33;
 
 // Example 7: Custom Input Shape
 //
-// Discoverable custom input types define a context-local bytes4 key, such as a
-// small literal or selector, and publish it with Schema(host, key, schema, name).
+// Discoverable custom input types define a context-local spec with a small
+// literal or selector as its key, then publish it with Schema(host, spec, schema, name).
 //
 // For:
 //
@@ -15,43 +15,56 @@ pragma solidity ^0.8.33;
 //   PAYMENT(asset | amount | FEE(fee))
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cursors, Cur} from "../contracts/Cursors.sol";
+import {CommandBase, Execution, Executions, Keys, Lanes, Specs} from "../contracts/Endpoints.sol";
+import {Cursors, Cur, Sizes} from "../contracts/Cursors.sol";
+import {Spans} from "../contracts/utils/Spans.sol";
 
 using Cursors for Cur;
+using Executions for Execution;
 
 abstract contract MyCommand is CommandBase {
     string private constant INPUT = "{ bytes32 asset, uint amount, maybe #fee }";
 
-    bytes4 private immutable inputKey = schema(1, INPUT);
-    bytes32 private immutable descriptor;
+    uint private immutable inputSpec;
+    uint private immutable descriptor;
 
     event PaymentSeen(bytes32 asset, uint amount, uint fee);
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, inputKey, Keys.Empty, 0, false, false);
+        inputSpec = schema(1, 64, 0, uint32(64 + Sizes.Fee), INPUT, bytes32(0));
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, false, false);
     }
 
-    function unpackPayment(Cur memory input) private view returns (bytes32 asset, uint amount, Cur memory fee) {
-        uint end = input.enter(inputKey, 64, 0);
+    function unpackPayment(
+        Execution memory exec,
+        uint8 tag_
+    ) private view returns (bytes32 asset, uint amount, Cur memory fee) {
+        Cur memory input = Cur(Spans.select(exec.cursors, tag_));
+        uint end = input.enter(inputSpec);
         asset = input.read32();
         amount = input.readUint();
-        fee = input.slice(input.i, end);
-        input.i = end;
+        (uint i, , ) = Spans.decode(input.packed);
+        fee = input.slice(i, end);
+        input.seek(end);
+        exec.cursors = input.packed;
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+    function myCommand(
+        bytes32,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
         // The request can batch multiple payment blocks. Each one is decoded
         // with the command-local unpack helper above.
-        while (input.i < input.len) {
-            (bytes32 asset, uint amount, Cur memory tail) = unpackPayment(input);
+        while (exec.more()) {
+            (bytes32 asset, uint amount, Cur memory tail) = unpackPayment(exec, Lanes.Input);
             uint fee = tail.maybeOnly(Keys.Fee) ? tail.unpackFee() : 0;
             emit PaymentSeen(asset, amount, fee);
         }
 
-        input.complete();
+        exec.complete(Lanes.Input);
         return ("", "");
     }
 }

@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, CommandContext, Keys} from "./Base.sol";
-import {Payable} from "../core/Payable.sol";
-import {Cursors, Cur} from "../Cursors.sol";
-import {Budget} from "../utils/Value.sol";
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 abstract contract RecoverHook {
     /// @notice Override to recover a witness through `handler`.
@@ -22,26 +19,29 @@ abstract contract RecoverHook {
 /// Recovery is witness-driven: the command account pays and receives leftover
 /// value settlement, but the recovered subject is defined by each witness.
 /// Produces no output state.
-abstract contract RecoverPayable is CommandBase, Payable, RecoverHook {
-    bytes32 private immutable descriptor;
+abstract contract RecoverPayable is CommandBase, RecoverHook {
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("recoverPayable", Keys.Empty, Keys.Recover, Keys.Empty, 0, true, false);
+        (, descriptor) = command("recoverPayable", Specs.Empty, Specs.Recover, Specs.Empty, 0, true, false);
     }
 
     /// @notice Recover each recover block in the command request.
-    /// @param c Command context; `c.input` must contain Recover blocks.
+    /// @param input RECOVER block stream.
     /// @return Empty output state.
     /// @return Remaining native value as a refund transaction stream.
-    function recoverPayable(CommandContext calldata c) external payable onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
-        Budget memory budget = openValue();
+    function recoverPayable(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external payable onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (uint handler, uint resources, bytes32 key, bytes calldata witness) = input.unpackRecover();
-            recover(handler, key, witness, useValue(budget, resources));
+        while (exec.more()) {
+            (uint handler, uint resources, bytes32 key, bytes calldata witness) = exec.unpackRecover(Lanes.Input);
+            recover(handler, key, witness, exec.useValue(resources));
         }
 
-        return ("", end(budget, c.account));
+        return closeCommand(exec, account);
     }
 }

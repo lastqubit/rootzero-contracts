@@ -1,55 +1,60 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, Keys } from "./Base.sol";
-import { Cursors, Cur, Writer, Writers } from "../Cursors.sol";
-import { DebitAccountHook } from "../core/Settlement.sol";
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {Specs} from "../Cursors.sol";
+import {DebitAccountHook} from "../core/Settlement.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 /// @title DebitAccount
 /// @notice Command that deducts AMOUNT blocks from an account and emits matching BALANCE state.
 /// Use for internally recording debits. The virtual `debitAccount` hook is called once per
 /// AMOUNT block; the default batch implementation handles the full request loop.
 abstract contract DebitAccount is CommandBase, DebitAccountHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
     uint internal immutable debitAccountId;
 
     constructor() {
-        (debitAccountId, descriptor) = command("debitAccount", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
+        (debitAccountId, descriptor) = command(
+            "debitAccount",
+            Specs.Empty,
+            Specs.Amount,
+            Specs.Balance,
+            0,
+            false,
+            false
+        );
     }
 
     /// @notice Override to customize request parsing or batching for debits.
     /// The default implementation iterates AMOUNT blocks, calls
     /// `debitAccount`, and emits matching BALANCE blocks.
-    function debitAccount(bytes32 account, bytes calldata request) internal virtual returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(request, descriptor);
-        Writer memory output = Writers.allocBalances(outputs);
+    function debitAccount(
+        bytes32 account,
+        bytes calldata request
+    ) internal virtual returns (Execution memory exec) {
+        exec = openInput(request, descriptor, 0);
 
-        while (input.i < input.len) {
-            (bytes32 asset, uint amount) = input.unpackAmount();
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
             debitAccount(account, asset, amount);
-            output.appendBalance(asset, amount);
+            exec.outputBalance(asset, amount);
         }
 
-        return end(output);
     }
 
     /// @notice Debit AMOUNT request blocks from the command account and output matching BALANCE blocks.
-    /// @param c Command context; `c.input` must contain AMOUNT blocks.
+    /// @param input AMOUNT block stream.
     /// @return BALANCE block stream matching the debited amounts.
     /// @return Empty transaction stream.
     function debitAccount(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        return (debitAccount(c.account, c.input), "");
+        Execution memory exec = debitAccount(account, input);
+
+        return closeCommand(exec, account);
     }
 }
-
-
-
-
-
-
-

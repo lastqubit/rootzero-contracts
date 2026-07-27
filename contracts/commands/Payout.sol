@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, Keys} from "./Base.sol";
-import {Cursors, Cur} from "../Cursors.sol";
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 abstract contract PayoutHook {
     /// @notice Override to pay `amount` from `account` to `to`.
@@ -20,23 +19,29 @@ abstract contract PayoutHook {
 /// @notice Command that sinks BALANCE state blocks to matching ACCOUNT request blocks.
 /// Each BALANCE block is paired with one ACCOUNT block at the same position.
 abstract contract Payout is CommandBase, PayoutHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("payout", Keys.Balance, Keys.Account, Keys.Empty, 0, false, false);
+        (, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0, false, false);
     }
 
     /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
-    /// @param c Command context; `c.state` must contain BALANCE blocks and `c.input` matching ACCOUNT blocks.
+    /// @param state BALANCE block stream.
+    /// @param input Matching ACCOUNT block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function payout(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, Cur memory state, ) = openCommand(c, descriptor);
+    function payout(
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
-            payout(c.account, input.unpackAccount(), asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
+            payout(account, exec.unpackAccount(Lanes.Input), asset, amount);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

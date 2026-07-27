@@ -7,43 +7,40 @@ pragma solidity ^0.8.33;
 // This example shows how to iterate over all AMOUNT blocks in a request
 // and produce a matching BALANCE block for each one.
 //
-// Use Writers when you need to build the response incrementally rather than
-// returning a single pre-encoded block.
+// Execution owns the response buffer and grows it through output helpers.
 
-import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cur, Cursors, Writer, Writers} from "../contracts/Cursors.sol";
+import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Endpoints.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 abstract contract MyCommand is CommandBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
     }
 
     function myCommand(
-        CommandContext calldata c
+        bytes32,
+        bytes calldata,
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        // Open the descriptor input stream, then size the writer from the
-        // expected output block count returned by the endpoint helper.
-        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-        Writer memory output = Writers.allocBalances(outputs);
+        // Open the descriptor input stream and initialize its output buffer.
+        Execution memory exec = openInput(input, descriptor, 0);
 
         // Walk every AMOUNT block in the current request run.
-        while (input.i < input.len) {
+        while (exec.more()) {
             // Unpack asset and amount from the next AMOUNT block.
-            (bytes32 asset, uint amount) = input.unpackAmount();
+            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
 
             // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
-            output.appendBalance(asset, amount);
+            exec.outputBalance(asset, amount);
         }
 
         // Finalize by checking the cursor completed its run, then
         // return the encoded BALANCE blocks.
-        input.complete();
-        return (end(output), "");
+        exec.complete(Lanes.Input);
+        return (end(exec), "");
     }
 }
 

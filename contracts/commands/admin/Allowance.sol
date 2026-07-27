@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Cursors, Cur} from "../../Cursors.sol";
-using Cursors for Cur;
+import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+using Executions for Execution;
 
 abstract contract AllowanceHook {
     /// @notice Apply or revoke one host-scoped allowance.
@@ -20,23 +19,28 @@ abstract contract AllowanceHook {
 /// @notice Admin command that applies cross-host allowance entries via a virtual hook.
 /// Each ALLOWANCE block grants or updates a host-scoped asset cap. Only callable by the admin account.
 abstract contract Allowance is AdminBase, AllowanceHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allowance", Keys.Empty, Keys.Allowance, Keys.Empty, 0, false, true);
+        (, descriptor) = command("allowance", Specs.Empty, Specs.Allowance, Specs.Empty, 0, false, true);
     }
 
     /// @notice Apply each ALLOWANCE block in the admin request.
-    /// @param c Admin command context; `c.input` must contain ALLOWANCE blocks.
+    /// @param input ALLOWANCE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function allowance(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+    function allowance(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (uint peer, bytes32 asset, uint amount) = input.unpackAllowance();
+        while (exec.more()) {
+            (uint peer, bytes32 asset, uint amount) = exec.unpackAllowance(Lanes.Input);
             allowance(peer, asset, amount);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

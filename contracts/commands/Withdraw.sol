@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, Keys } from "./Base.sol";
-import { Cursors, Cur } from "../Cursors.sol";
-using Cursors for Cur;
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+using Executions for Execution;
 
 abstract contract WithdrawHook {
     /// @notice Override to send funds to `account`.
@@ -19,31 +18,28 @@ abstract contract WithdrawHook {
 /// Use `withdraw` for assets being sent outside the protocol (e.g. ERC-20 transfers, ETH sends).
 /// For internal balance credits, use `creditAccount` instead.
 abstract contract Withdraw is CommandBase, WithdrawHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("withdraw", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
+        (, descriptor) = command("withdraw", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
     }
 
     /// @notice Withdraw each BALANCE block from the command state to the command account.
-    /// @param c Command context; `c.state` must contain BALANCE blocks.
+    /// @param state BALANCE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function withdraw(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory state, ) = openState(c.state, descriptor);
+        Execution memory exec = openState(state, descriptor, 0);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
-            withdraw(c.account, asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
+            withdraw(account, asset, amount);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }
-
-
-
-
-
-

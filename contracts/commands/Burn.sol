@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur } from "../Cursors.sol";
-using Cursors for Cur;
+import { Execution, Executions, CommandBase, Keys, Lanes, Specs } from "./Base.sol";
+using Executions for Execution;
 
 abstract contract BurnHook {
     /// @notice Override to burn or consume the provided balance amount.
@@ -19,24 +18,29 @@ abstract contract BurnHook {
 /// @notice Command that irreversibly destroys each BALANCE state block via a virtual hook.
 /// Produces no output state.
 abstract contract Burn is CommandBase, BurnHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("burn", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
+        (, descriptor) = command("burn", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
     }
 
     /// @notice Burn each BALANCE block from the command state.
-    /// @param c Command context; `c.state` must contain BALANCE blocks.
+    /// @param state BALANCE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function burn(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory state, ) = openState(c.state, descriptor);
+    function burn(
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openState(state, descriptor, 0);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
-            burn(c.account, asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
+            burn(account, asset, amount);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }
 

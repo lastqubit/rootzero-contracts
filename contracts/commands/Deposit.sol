@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandContext, CommandBase, Keys } from "./Base.sol";
-import { Payable } from "../core/Payable.sol";
-import { Cursors, Cur, Writer, Writers } from "../Cursors.sol";
-import { Budget } from "../utils/Value.sol";
+import { Execution, Executions, CommandBase, Keys, Lanes, Specs } from "./Base.sol";
+import { Specs } from "../Cursors.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 abstract contract DepositHook {
     /// @notice Override to receive externally sourced funds for `account`.
@@ -26,8 +23,8 @@ abstract contract DepositPayableHook {
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
     /// @param amount Amount received.
-    /// @param budget Mutable native-value budget drawn from `msg.value`.
-    function deposit(bytes32 account, bytes32 asset, uint amount, Budget memory budget) internal virtual;
+    /// @param exec Mutable execution carrying the remaining native-value budget.
+    function deposit(bytes32 account, bytes32 asset, uint amount, Execution memory exec) internal virtual;
 }
 
 /// @title Deposit
@@ -35,60 +32,61 @@ abstract contract DepositPayableHook {
 /// Use `deposit` for assets arriving from outside the protocol (e.g. ERC-20 transfers, ETH).
 /// For internal balance deductions, use `debitAccount` instead.
 abstract contract Deposit is CommandBase, DepositHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("deposit", Keys.Empty, Keys.Amount, Keys.Balance, 0, false, false);
+        (, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
     }
 
     /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
-    /// @param c Command context; `c.input` must contain AMOUNT blocks.
+    /// @param input AMOUNT block stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Empty transaction stream.
     function deposit(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-        Writer memory output = Writers.allocBalances(outputs);
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (bytes32 asset, uint amount) = input.unpackAmount();
-            deposit(c.account, asset, amount);
-            output.appendBalance(asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            deposit(account, asset, amount);
+            exec.outputBalance(asset, amount);
         }
 
-        return (end(output), "");
+        return closeCommand(exec, account);
     }
 }
 
 /// @title DepositPayable
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
-abstract contract DepositPayable is CommandBase, Payable, DepositPayableHook {
-    bytes32 private immutable descriptor;
+abstract contract DepositPayable is CommandBase, DepositPayableHook {
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("depositPayable", Keys.Empty, Keys.Amount, Keys.Balance, 0, true, false);
+        (, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, true, false);
     }
 
     /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
-    /// @param c Command context; `c.input` must contain AMOUNT blocks.
+    /// @param input AMOUNT block stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Remaining native value as a refund transaction stream.
     function depositPayable(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-        Writer memory output = Writers.allocBalances(outputs);
-        Budget memory budget = openValue();
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (bytes32 asset, uint amount) = input.unpackAmount();
-            deposit(c.account, asset, amount, budget);
-            output.appendBalance(asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            deposit(account, asset, amount, exec);
+            exec.outputBalance(asset, amount);
         }
 
-        return (end(output), end(budget, c.account));
+        return closeCommand(exec, account);
     }
 }
 

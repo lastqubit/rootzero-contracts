@@ -1,42 +1,46 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur } from "../Cursors.sol";
-import { CreditAccountHook } from "../core/Settlement.sol";
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {CreditAccountHook} from "../core/Settlement.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 /// @title CreditAccount
 /// @notice Command that delivers BALANCE state blocks to an account via a virtual hook.
 /// Use for internally recording credits that have already been settled externally.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
     uint internal immutable creditAccountId;
 
     constructor() {
-        (creditAccountId, descriptor) = command("creditAccount", Keys.Balance, Keys.Empty, Keys.Empty, 0, false, false);
+        (creditAccountId, descriptor) = command(
+            "creditAccount",
+            Specs.Balance,
+            Specs.Empty,
+            Specs.Empty,
+            0,
+            false,
+            false
+        );
     }
 
     /// @notice Credit each BALANCE block from the command state to the command account.
-    /// @param c Command context; `c.state` must contain BALANCE blocks.
+    /// @param state BALANCE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function creditAccount(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory state, ) = openState(c.state, descriptor);
+        Execution memory exec = openState(state, descriptor, 0);
 
-        while (state.i < state.len) {
-            (bytes32 asset, uint amount) = state.unpackBalance();
-            creditAccount(c.account, asset, amount);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
+            creditAccount(account, asset, amount);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }
-
-
-
-
-
-

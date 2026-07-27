@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cur, Cursors, Keys, Writer, Writers} from "../Cursors.sol";
+import {Keys, Specs} from "../Cursors.sol";
+import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {QueryBase} from "./Base.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 abstract contract AssetStatusHook {
     /// @notice Resolve support status for one asset.
@@ -20,25 +20,24 @@ abstract contract AssetStatusHook {
 /// The request is a run of `ASSET` blocks.
 /// The response returns one `STATUS` form block per query entry, preserving request order.
 abstract contract AssetStatus is QueryBase, AssetStatusHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = query("assetStatus", Keys.Asset, Keys.Status, 0);
+        (, descriptor) = query("assetStatus", Specs.Asset, Specs.Status, 0);
     }
 
     /// @notice Resolve asset support status for a run of requested assets.
     /// @param request Block-stream request consisting of `asset { bytes32 asset }` blocks.
     /// @return Block-stream response containing one `status { uint code }` form block per asset block.
     function assetStatus(bytes calldata request) external view returns (bytes memory) {
-        (Cur memory input, uint outputs) = openInput(request, descriptor);
-        Writer memory response = Writers.allocStatuses(outputs);
+        Execution memory exec = openInput(request, descriptor, 0);
 
-        while (input.i < input.len) {
-            bytes32 asset = input.unpackAsset();
+        while (exec.more()) {
+            bytes32 asset = exec.unpackAsset(Lanes.Input);
             uint status = assetStatus(asset);
-            response.appendStatus(status);
+            exec.outputStatus(status);
         }
 
-        return end(response);
+        return end(exec);
     }
 }

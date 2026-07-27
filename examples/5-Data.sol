@@ -10,32 +10,38 @@ pragma solidity ^0.8.33;
 // fixed `host` ID followed by an
 // AMOUNT child block in its tail.
 
-import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
-import {Cursors, Cur, Sizes} from "../contracts/Cursors.sol";
+import {CommandBase, Specs} from "../contracts/Endpoints.sol";
+import {Blocks, Cursors, Cur, Sizes} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
 
 abstract contract MyCommand is CommandBase {
     string private constant INPUT = "{ uint host, #amount as amount }";
-    bytes4 private immutable inputKey = schema(1, INPUT);
-    bytes32 private immutable descriptor;
+    uint private immutable inputSpec;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, inputKey, Keys.Custody, 0, false, false);
+        uint32 size = uint32(32 + Sizes.Amount);
+        inputSpec = schema(1, size, size, size, INPUT, bytes32(0));
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0, false, false);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, uint amount) internal virtual;
 
     function unpackInput(Cur memory input) private view returns (uint targetHost, bytes32 asset, uint amount) {
-        uint end = input.enter(inputKey, 32 + Sizes.Header + 64, 32 + Sizes.Header + 64);
+        uint end = input.enter(inputSpec);
         targetHost = input.readUint();
         (asset, amount) = input.unpackAmount();
         input.ensureAt(end);
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        Cur memory input = Cursors.open(c.input);
+    function myCommand(
+        bytes32,
+        bytes calldata,
+        bytes calldata request
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Cur memory input = Cursors.openCur(request);
 
         (uint targetHost, bytes32 asset, uint amount) = unpackInput(input);
 
@@ -45,6 +51,6 @@ abstract contract MyCommand is CommandBase {
         sendToHost(targetHost, asset, amount);
 
         // Return a CUSTODY block recording that this asset is now held by `targetHost`.
-        return (Cursors.toCustodyBlock(targetHost, asset, amount), "");
+        return (Blocks.custody(targetHost, asset, amount), "");
     }
 }

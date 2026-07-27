@@ -7,10 +7,14 @@ import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { Selectors } from "../utils/Selectors.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
-import { Budget, Values } from "../utils/Value.sol";
+import { CommandBase } from "../commands/Base.sol";
+import { AccessControl } from "../core/Access.sol";
 import { Payable } from "../core/Payable.sol";
+import { Execution } from "../execution/Execution.sol";
 
-contract TestUtils is Payable {
+contract TestUtils is CommandBase, Payable {
+    constructor() AccessControl(address(0)) {}
+
     function testAddrOr(address addr, address or_) external pure returns (address) {
         return addrOr(addr, or_);
     }
@@ -280,39 +284,17 @@ contract TestUtils is Payable {
     }
 
     function testMsgValue() external payable returns (uint) {
-        Budget memory budget = openValue();
-        return budget.remaining;
-    }
-
-    function testUseValue(uint128 amount, uint remaining) external pure returns (uint spent, uint remainingAfter) {
-        Budget memory budget = Budget({remaining: remaining});
-        spent = Values.use(budget, amount);
-        remainingAfter = budget.remaining;
-    }
-
-    function testAllocate(
-        uint128 amount,
-        uint remaining
-    ) external pure returns (uint subRemaining, uint parentRemainingAfter) {
-        Budget memory budget = Budget({remaining: remaining});
-        Budget memory sub = Values.allocate(budget, amount);
-        subRemaining = sub.remaining;
-        parentRemainingAfter = budget.remaining;
-    }
-
-    function testDrain(uint remaining) external pure returns (uint drained, uint remainingAfter) {
-        Budget memory budget = Budget({remaining: remaining});
-        drained = Values.drain(budget);
-        remainingAfter = budget.remaining;
+        return msgValue();
     }
 
     function testValueTransaction(
         uint remaining,
         bytes32 account
     ) external returns (bytes memory transaction, uint remainingAfter) {
-        Budget memory budget = Budget({remaining: remaining});
-        transaction = end(budget, account);
-        remainingAfter = budget.remaining;
+        Execution memory exec;
+        exec.budget = remaining;
+        transaction = endValue(exec, account);
+        remainingAfter = exec.budget;
     }
 
     function testBytes32ToString(bytes32 value) external pure returns (string memory) {

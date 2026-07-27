@@ -5,9 +5,12 @@ pragma solidity ^0.8.33;
 // Import this file to inherit from the full rootzero callable host surface without managing individual paths.
 
 // Shared helpers
-import { Keys } from "./blocks/Keys.sol";
-import { CommandBase, CommandContext } from "./commands/Base.sol";
-import { EndpointBase, Lane } from "./core/Endpoint.sol";
+import { Keys } from "./codec/Keys.sol";
+import { Specs } from "./codec/Specs.sol";
+import { CommandBase } from "./commands/Base.sol";
+import { Execution, Executions, Lanes } from "./execution/Execution.sol";
+import { EndpointBase } from "./core/Endpoint.sol";
+import { Descriptors } from "./utils/Descriptors.sol";
 import { Payable } from "./core/Payable.sol";
 import { CreditAccountHook, DebitAccountHook } from "./core/Settlement.sol";
 

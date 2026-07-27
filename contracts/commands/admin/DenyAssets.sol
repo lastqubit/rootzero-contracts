@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, CommandContext, Keys } from "./Base.sol";
-import { Cursors, Cur } from "../../Cursors.sol";
-using Cursors for Cur;
+import { AdminBase, Execution, Executions, Keys, Lanes, Specs } from "./Base.sol";
+using Executions for Execution;
 
 abstract contract DenyAssetsHook {
     /// @dev Override to deny a single asset.
@@ -16,26 +15,29 @@ abstract contract DenyAssetsHook {
 /// @notice Admin command that blocks a list of assets via a virtual hook.
 /// Each ASSET block in the request calls `denyAsset`. Only callable by the admin account.
 abstract contract DenyAssets is AdminBase, DenyAssetsHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("denyAssets", Keys.Empty, Keys.Asset, Keys.Empty, 0, false, true);
+        (, descriptor) = command("denyAssets", Specs.Empty, Specs.Asset, Specs.Empty, 0, false, true);
     }
 
     /// @notice Deny each ASSET block in the admin request.
-    /// @param c Admin command context; `c.input` must contain ASSET blocks.
+    /// @param input ASSET block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function denyAssets(
-        CommandContext calldata c
-    ) external onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            bytes32 asset = input.unpackAsset();
+        while (exec.more()) {
+            bytes32 asset = exec.unpackAsset(Lanes.Input);
             denyAsset(asset);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }
 

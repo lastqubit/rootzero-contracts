@@ -1,33 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Cursors, Cur} from "../../Cursors.sol";
-using Cursors for Cur;
+import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+using Executions for Execution;
 
 /// @title Unauthorize
 /// @notice Admin command that revokes authorization from a list of node IDs.
 /// Each NODE block in the request is deauthorized on the host.
 /// Only callable by the admin account.
 abstract contract Unauthorize is AdminBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
     uint internal immutable unauthorizeId;
 
     constructor() {
-        (unauthorizeId, descriptor) = command("unauthorize", Keys.Empty, Keys.Node, Keys.Empty, 0, false, true);
+        (unauthorizeId, descriptor) =
+            command("unauthorize", Specs.Empty, Specs.Node, Specs.Empty, 0, false, true);
     }
 
     /// @notice Unauthorize each NODE block in the admin request.
-    /// @param c Admin command context; `c.input` must contain NODE blocks.
+    /// @param input NODE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function unauthorize(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+    function unauthorize(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            uint node = input.unpackNode();
+        while (exec.more()) {
+            uint node = exec.unpackNode(Lanes.Input);
             setNode(node, false);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

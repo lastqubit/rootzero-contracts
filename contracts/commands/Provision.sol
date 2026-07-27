@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, Keys} from "./Base.sol";
-import {Payable} from "../core/Payable.sol";
-import {HostAmount, Cursors, Cur, Writer, Writers} from "../Cursors.sol";
-import {Budget} from "../utils/Value.sol";
-using Cursors for Cur;
-using Writers for Writer;
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {HostAmount, Specs} from "../Cursors.sol";
+using Executions for Execution;
 
 /// @notice Shared provision hook used by `Provision`.
 abstract contract ProvisionHook {
@@ -25,35 +22,38 @@ abstract contract ProvisionPayableHook {
     /// side effect (e.g. transfer or record); output blocks are written by the caller.
     /// @param account Caller's account identifier.
     /// @param allocation Host-scoped amount to provision.
-    /// @param budget Mutable native-value budget drawn from `msg.value`.
-    function provision(bytes32 account, HostAmount memory allocation, Budget memory budget) internal virtual;
+    /// @param exec Mutable execution carrying the remaining native-value budget.
+    function provision(bytes32 account, HostAmount memory allocation, Execution memory exec) internal virtual;
 }
 
 /// @title Provision
 /// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("provision", Keys.Empty, Keys.Allocation, Keys.Custody, 0, false, false);
+        (, descriptor) = command("provision", Specs.Empty, Specs.Allocation, Specs.Custody, 0, false, false);
     }
 
     /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
-    /// @param c Command context; `c.input` must contain ALLOCATION blocks.
+    /// @param input ALLOCATION block stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Empty transaction stream.
-    function provision(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-        Writer memory output = Writers.allocCustodies(outputs);
+    function provision(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            HostAmount memory allocation = input.unpackAllocationValue();
-            provision(c.account, allocation);
-            output.appendCustody(allocation);
+        while (exec.more()) {
+            HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);
+            provision(account, allocation);
+            exec.outputCustody(allocation);
         }
 
-        return (end(output), "");
+        return closeCommand(exec, account);
     }
 }
 
@@ -61,31 +61,31 @@ abstract contract Provision is CommandBase, ProvisionHook {
 /// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
 /// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
-abstract contract ProvisionPayable is CommandBase, Payable, ProvisionPayableHook {
-    bytes32 private immutable descriptor;
+abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("provisionPayable", Keys.Empty, Keys.Allocation, Keys.Custody, 0, true, false);
+        (, descriptor) = command("provisionPayable", Specs.Empty, Specs.Allocation, Specs.Custody, 0, true, false);
     }
 
     /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.
-    /// @param c Command context; `c.input` must contain ALLOCATION blocks.
+    /// @param input ALLOCATION block stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Remaining native value as a refund transaction stream.
     function provisionPayable(
-        CommandContext calldata c
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-        Writer memory output = Writers.allocCustodies(outputs);
-        Budget memory budget = openValue();
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            HostAmount memory allocation = input.unpackAllocationValue();
-            provision(c.account, allocation, budget);
-            output.appendCustody(allocation);
+        while (exec.more()) {
+            HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);
+            provision(account, allocation, exec);
+            exec.outputCustody(allocation);
         }
 
-        return (end(output), end(budget, c.account));
+        return closeCommand(exec, account);
     }
 }
 

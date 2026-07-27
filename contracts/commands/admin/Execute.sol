@@ -1,37 +1,38 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Payable} from "../../core/Payable.sol";
-import {Cursors, Cur} from "../../Cursors.sol";
-import {Budget} from "../../utils/Value.sol";
+import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
 
-using Cursors for Cur;
+using Executions for Execution;
 
 /// @title ExecutePayable
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
 /// Each CALL block specifies a target node ID, packed resources, and raw calldata payload.
 /// Only callable by the admin account.
-/// Unspent top-level `msg.value` remains on this host.
-abstract contract ExecutePayable is AdminBase, Payable {
-    bytes32 private immutable descriptor;
+/// Unspent top-level `msg.value` is returned as a refund transaction.
+abstract contract ExecutePayable is AdminBase {
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("executePayable", Keys.Empty, Keys.Call, Keys.Empty, 0, true, true);
+        (, descriptor) = command("executePayable", Specs.Empty, Specs.Call, Specs.Empty, 0, true, true);
     }
 
     /// @notice Execute each CALL block in the admin request.
-    /// @param c Admin command context; `c.input` must contain CALL blocks.
+    /// @param input CALL block stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
-    function executePayable(CommandContext calldata c) external payable onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
-        Budget memory budget = openValue();
+    /// @return Remaining native value as a refund transaction stream.
+    function executePayable(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external payable onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (uint target, uint resources, bytes calldata data) = input.unpackCall();
-            rawCall(target, useValue(budget, resources), data);
+        while (exec.more()) {
+            (uint target, uint resources, bytes calldata data) = exec.unpackCall(Lanes.Input);
+            rawCall(target, exec.useValue(resources), data);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

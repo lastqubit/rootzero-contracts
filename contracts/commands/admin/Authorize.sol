@@ -1,33 +1,37 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Cursors, Cur} from "../../Cursors.sol";
-using Cursors for Cur;
+import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+using Executions for Execution;
 
 /// @title Authorize
 /// @notice Admin command that grants authorization to a list of node IDs.
 /// Each NODE block in the request is authorized on the host.
 /// Only callable by the admin account.
 abstract contract Authorize is AdminBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
     uint internal immutable authorizeId;
 
     constructor() {
-        (authorizeId, descriptor) = command("authorize", Keys.Empty, Keys.Node, Keys.Empty, 0, false, true);
+        (authorizeId, descriptor) = command("authorize", Specs.Empty, Specs.Node, Specs.Empty, 0, false, true);
     }
 
     /// @notice Authorize each NODE block in the admin request.
-    /// @param c Admin command context; `c.input` must contain NODE blocks.
+    /// @param input NODE block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function authorize(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+    function authorize(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            uint node = input.unpackNode();
+        while (exec.more()) {
+            uint node = exec.unpackNode(Lanes.Input);
             setNode(node, true);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandContext, CommandBase, Keys} from "./Base.sol";
-import {HostAmount, Cursors, Cur, Writer, Writers} from "../Cursors.sol";
+import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {HostAmount, Specs} from "../Cursors.sol";
 
-using Cursors for Cur;
-using Writers for Writer;
+using Executions for Execution;
 
 /// @notice Shared allocation hook used by `Allocate`.
 abstract contract AllocateHook {
@@ -23,27 +22,31 @@ abstract contract AllocateHook {
 /// Each BALANCE state block is paired with one NODE request block at the same
 /// position; the output is a matching CUSTODY state stream.
 abstract contract Allocate is CommandBase, AllocateHook {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allocate", Keys.Balance, Keys.Node, Keys.Custody, 0, false, false);
+        (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0, false, false);
     }
 
     /// @notice Allocate BALANCE state blocks to matching NODE request blocks.
-    /// @param c Command context; `c.state` must contain BALANCE blocks and
-    /// `c.input` must contain the same number of NODE blocks.
+    /// @param state BALANCE block stream.
+    /// @param input Matching NODE block stream.
     /// @return CUSTODY block stream matching the allocated balances.
     /// @return Empty transaction stream.
-    function allocate(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        (Cur memory input, Cur memory state, uint outputs) = openCommand(c, descriptor);
-        Writer memory output = Writers.allocCustodies(outputs);
+    function allocate(
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
-        while (state.i < state.len) {
-            HostAmount memory custody = state.unpackBalanceForHost(input.unpackNode());
-            allocate(c.account, custody);
-            output.appendCustody(custody);
+        while (exec.more()) {
+            HostAmount memory custody =
+                exec.unpackBalanceForHost(Lanes.State, exec.unpackNode(Lanes.Input));
+            allocate(account, custody);
+            exec.outputCustody(custody);
         }
 
-        return (end(output), "");
+        return closeCommand(exec, account);
     }
 }

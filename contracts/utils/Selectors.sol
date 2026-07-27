@@ -6,9 +6,9 @@ pragma solidity ^0.8.33;
 library Selectors {
     /// @notice Derive the ABI selector for a command entrypoint.
     /// @param name Command function name.
-    /// @return Selector for `name((bytes32,bytes,bytes))`.
+    /// @return Selector for `name(bytes32,bytes,bytes)`.
     function command(string memory name) internal pure returns (bytes4) {
-        return derive(name, "((bytes32,bytes,bytes))");
+        return derive(name, "(bytes32,bytes,bytes)");
     }
 
     /// @notice Derive the ABI selector for a port entrypoint.

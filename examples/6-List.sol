@@ -19,7 +19,7 @@ pragma solidity ^0.8.33;
 // - the command emits one event per ASSET item, so the behavior is easy to test
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, CommandContext, Keys} from "../contracts/Endpoints.sol";
+import {CommandBase, Specs} from "../contracts/Endpoints.sol";
 import {Cursors, Cur} from "../contracts/Cursors.sol";
 
 using Cursors for Cur;
@@ -32,11 +32,11 @@ using Cursors for Cur;
 // The request can still batch multiple such LIST blocks at the top level.
 
 abstract contract MyCommand is CommandBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
     event AssetSeen(uint indexed listIndex, bytes32 asset);
 
     constructor() {
-        (, descriptor) = command("myCommand", Keys.Empty, many(Keys.Asset), Keys.Empty, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, many(Specs.Asset), Specs.Empty, 0, false, false);
     }
 
     // consumeAssetList consumes one top-level LIST block and parses its payload
@@ -47,7 +47,7 @@ abstract contract MyCommand is CommandBase {
     function consumeAssetList(Cur memory input, uint listIndex) internal {
         Cur memory items = input.list();
 
-        while (items.i < items.len) {
+        while (items.more()) {
             bytes32 asset = items.unpackAsset();
             emit AssetSeen(listIndex, asset);
         }
@@ -55,14 +55,18 @@ abstract contract MyCommand is CommandBase {
         items.complete();
     }
 
-    function myCommand(CommandContext calldata c) external onlyCommand returns (bytes memory, bytes memory) {
-        Cur memory input = Cursors.open(c.input);
+    function myCommand(
+        bytes32,
+        bytes calldata,
+        bytes calldata request
+    ) external onlyCommand returns (bytes memory, bytes memory) {
+        Cur memory input = Cursors.openCur(request);
         uint listIndex;
 
         // INPUT publishes one list item descriptor, but the request is still a
         // top-level batch. Each iteration here consumes one LIST block and
         // emits one event for every ASSET block inside that list.
-        while (input.i < input.len) {
+        while (input.more()) {
             consumeAssetList(input, listIndex);
 
             unchecked {

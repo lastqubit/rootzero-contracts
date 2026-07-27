@@ -1,32 +1,36 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, CommandContext, Keys} from "./Base.sol";
-import {Cursors, Cur} from "../../Cursors.sol";
-using Cursors for Cur;
+import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+using Executions for Execution;
 
 /// @title PublishSchema
 /// @notice Admin command that publishes block schemas for keys.
 /// Each SCHEMA block in the request emits one `Schema` event. Only callable by
 /// the admin account.
 abstract contract PublishSchema is AdminBase {
-    bytes32 private immutable descriptor;
+    uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("publishSchema", Keys.Empty, Keys.Schema, Keys.Empty, 0, false, true);
+        (, descriptor) = command("publishSchema", Specs.Empty, Specs.Schema, Specs.Empty, 0, false, true);
     }
 
     /// @notice Publish each SCHEMA block in the admin request.
-    /// @param c Admin command context; `c.input` must contain SCHEMA blocks.
+    /// @param input SCHEMA block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
-    function publishSchema(CommandContext calldata c) external onlyAdmin(c.account) returns (bytes memory, bytes memory) {
-        (Cur memory input, ) = openInput(c.input, descriptor);
+    function publishSchema(
+        bytes32 account,
+        bytes calldata,
+        bytes calldata input
+    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        while (input.i < input.len) {
-            (bytes4 key, string memory body, bytes32 name) = input.unpackSchema();
-            emit Schema(host, key, body, name);
+        while (exec.more()) {
+            (uint spec, string memory body, bytes32 name) = exec.unpackSchema(Lanes.Input);
+            emit Schema(host, spec, body, name);
         }
-        return ("", "");
+
+        return closeCommand(exec, account);
     }
 }

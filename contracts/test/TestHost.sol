@@ -18,10 +18,11 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
 import { PublishSchema } from "../commands/admin/Schemas.sol";
 import { HostAmount } from "../core/Types.sol";
-import { Budget, Values } from "../utils/Value.sol";
 import { Reader, Readers } from "../Cursors.sol";
+import { Execution, Executions } from "../execution/Execution.sol";
 
 using Readers for Reader;
+using Executions for Execution;
 
 contract TestHost is
     Host,
@@ -75,9 +76,9 @@ contract TestHost is
         bytes32 account,
         bytes32 asset,
         uint amount,
-        Budget memory budget
+        Execution memory exec
     ) internal override {
-        emit DepositPayableCalled(account, asset, Values.use(budget, amount), budget.remaining);
+        emit DepositPayableCalled(account, asset, exec.useValue(amount), exec.budget);
     }
 
     function withdraw(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -103,15 +104,15 @@ contract TestHost is
     function provision(
         bytes32 account,
         HostAmount memory custody,
-        Budget memory budget
+        Execution memory exec
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, Values.use(budget, custody.amount), budget.remaining
+            custody.host, account, custody.asset, exec.useValue(custody.amount), exec.budget
         );
     }
 
-    function route(uint portal, uint resources, bytes memory context, Budget memory budget) internal override {
-        budget;
+    function route(uint portal, uint resources, bytes memory context, Execution memory exec) internal override {
+        exec;
         emit RelayCalled(portal, resources, context);
     }
 
@@ -149,10 +150,11 @@ contract TestHost is
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
-        Budget memory budget = openValue();
-        pipe(account, state, steps, budget);
+        Execution memory exec;
+        exec.budget = msg.value;
+        pipe(account, state, steps, exec);
         Reader memory txs;
-        txs.source = end(budget, account);
+        txs.source = endValue(exec, account);
         while (txs.more()) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
             settle(from, to, asset, amount);

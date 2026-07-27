@@ -4,10 +4,11 @@ pragma solidity ^0.8.33;
 import {Cursors, Cur, Readers, Reader} from "../Cursors.sol";
 import {Payable} from "./Payable.sol";
 import {Settlement} from "./Settlement.sol";
-import {Budget} from "../utils/Value.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 
 using Cursors for Cur;
 using Readers for Reader;
+using Executions for Execution;
 
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
@@ -36,18 +37,18 @@ abstract contract Pipeline is Payable, Settlement {
 
     /// @notice Execute a STEP block stream through the pipeline.
     /// @dev Reverts with `UnexpectedState` if the final threaded state is non-empty.
-    /// Callers remain responsible for settling any unspent value in `budget`.
+    /// Callers remain responsible for settling any unspent value in `exec`.
     /// @param account Account identifier used for each dispatched step.
     /// @param state Initial state block stream passed to the first step.
     /// @param steps STEP block stream to execute.
-    /// @param budget Mutable native-value budget shared across all steps.
-    function pipe(bytes32 account, bytes memory state, bytes calldata steps, Budget memory budget) internal {
-        (Cur memory input, ) = Cursors.init(steps, 1);
+    /// @param exec Mutable execution shared across all steps.
+    function pipe(bytes32 account, bytes memory state, bytes calldata steps, Execution memory exec) internal {
+        (Cur memory input, ) = Cursors.init(steps, 1, 0);
 
-        while (input.i < input.len) {
+        while (input.more()) {
             (uint target, uint resources, bytes calldata request) = input.unpackStep();
             Reader memory txs;
-            (state, txs.source) = dispatch(target, account, state, request, useValue(budget, resources));
+            (state, txs.source) = dispatch(target, account, state, request, exec.useValue(resources));
             while (txs.more()) {
                 (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
                 settle(from, to, asset, amount);

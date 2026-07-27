@@ -36,7 +36,7 @@ pragma solidity ^0.8.33;
 // - generic lists use the stable key derived from `#list`
 // - standard keys are derived from block aliases, e.g. bytes4(keccak256("#amount"))
 // - custom keys are opaque bytes4 tags and only need to be unique in their
-//   active context; use `Schema(host, key, schema, name)` to publish their meaning
+//   active context; use `Schema(host, spec, schema, name)` to publish their meaning
 // - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
@@ -87,7 +87,7 @@ library Schemas {
     string constant Fee = "{ uint amount }";
     string constant Auth = "{ uint cid, uint deadline, #bytes as proof }";
     string constant Label = "{ uint id, bytes32 namespace, #string as name }";
-    string constant Schema = "{ bytes4 key, #string as body, bytes32 name }";
+    string constant Schema = "{ uint spec, #string as body, bytes32 name }";
     string constant Bytes = "";
     string constant String = "";
     string constant List = "";
@@ -107,43 +107,3 @@ library Forms {
     string constant HostAccountAmount = "{ uint host, bytes32 account, bytes32 asset, uint amount }";
 }
 
-/// @title Sizes
-/// @notice Total byte sizes for fixed-width block types, including the 8-byte header (4-byte key + 4-byte payloadLen).
-library Sizes {
-    /// @dev Shared block header size: 4-byte key + 4-byte payload length.
-    uint constant Header = 8;
-    /// @dev One fixed-width payload word.
-    uint constant Word = 32;
-    /// @dev 8 header + 32 payload = 40 bytes total.
-    uint constant B32 = Header + Word;
-    /// @dev 8 header + 64 payload = 72 bytes total.
-    uint constant B64 = Header + 2 * Word;
-    /// @dev 8 header + 96 payload = 104 bytes total.
-    uint constant B96 = Header + 3 * Word;
-    /// @dev 8 header + 128 payload = 136 bytes total.
-    uint constant B128 = Header + 4 * Word;
-    /// @dev 8 header + 160 payload = 168 bytes total.
-    uint constant B160 = Header + 5 * Word;
-    /// @dev AUTH proof segment only: 20-byte signer + 65-byte signature = 85 bytes
-    uint constant Proof = 85;
-    /// @dev AUTH block: 8 header + 32 cid + 32 deadline + nested BYTES block with 85-byte proof = 165 bytes
-    uint constant Auth = B64 + Header + Proof;
-    /// @dev STATUS block: 8 header + 32 status code = 40 bytes
-    uint constant Status = B32;
-    /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
-    uint constant Amount = B64;
-    /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
-    uint constant Balance = B64;
-    /// @dev BALANCE_LIMIT block: 8 header + 32 asset + 32 min + 32 max = 104 bytes
-    uint constant BalanceLimit = B96;
-    /// @dev FEE block: 8 header + 32 amount = 40 bytes
-    uint constant Fee = B32;
-    /// @dev BOUNTY block: 8 header + 32 amount + 32 relayer = 72 bytes
-    uint constant Bounty = B64;
-    /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
-    uint constant HostAmount = B96;
-    /// @dev CUSTODY_LIMIT block: 8 header + 32 host + 32 asset + 32 min + 32 max = 136 bytes
-    uint constant CustodyLimit = B128;
-    /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 amount = 136 bytes
-    uint constant Transaction = B128;
-}
