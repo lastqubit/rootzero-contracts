@@ -59,8 +59,8 @@ describe("Admin Commands", () => {
 
     it("authorizes a node and emits Node event", async () => {
       const nodeId = 0xaaa000n;
-      const request = encodeNodeBlock(nodeId);
-      await expect(callAs(0, "authorize", adminCtx(request)))
+      const input = encodeNodeBlock(nodeId);
+      await expect(callAs(0, "authorize", adminCtx(input)))
         .to.emit(host, "Node")
         .withArgs(await host.host(), nodeId, true);
       expect(await host.isAuthorized(nodeId)).to.be.true;
@@ -69,8 +69,8 @@ describe("Admin Commands", () => {
     it("authorizes multiple nodes from multiple NODE blocks", async () => {
       const node1 = 0xbbb001n;
       const node2 = 0xbbb002n;
-      const request = concat(encodeNodeBlock(node1), encodeNodeBlock(node2));
-      await callAs(0, "authorize", adminCtx(request));
+      const input = concat(encodeNodeBlock(node1), encodeNodeBlock(node2));
+      await callAs(0, "authorize", adminCtx(input));
       expect(await host.isAuthorized(node1)).to.be.true;
       expect(await host.isAuthorized(node2)).to.be.true;
     });
@@ -86,14 +86,14 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x01", 32);
-      const request = encodeNodeBlock(1n);
-      await expect(callAs(0, "authorize", userCtx(fakeAdmin, request)))
+      const input = encodeNodeBlock(1n);
+      await expect(callAs(0, "authorize", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "authorize", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -117,14 +117,14 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x02", 32);
-      const request = encodeNodeBlock(1n);
-      await expect(callAs(0, "unauthorize", userCtx(fakeAdmin, request)))
+      const input = encodeNodeBlock(1n);
+      await expect(callAs(0, "unauthorize", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "unauthorize", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -132,9 +132,9 @@ describe("Admin Commands", () => {
     it("enables guardian account and emits Guardian event", async () => {
       const guardianAddress = await (await getSigner(2)).getAddress();
       const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
-      const request = encodeAccountBlock(guardianAccount);
+      const input = encodeAccountBlock(guardianAccount);
 
-      await expect(callAs(0, "appoint", adminCtx(request)))
+      await expect(callAs(0, "appoint", adminCtx(input)))
         .to.emit(host, "Guardian")
         .withArgs(await host.host(), guardianAccount, true);
 
@@ -156,9 +156,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidAccount");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "appoint", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -166,11 +166,11 @@ describe("Admin Commands", () => {
     it("disables guardian account and emits Guardian event with false", async () => {
       const guardianAddress = await (await getSigner(3)).getAddress();
       const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
-      const request = encodeAccountBlock(guardianAccount);
+      const input = encodeAccountBlock(guardianAccount);
 
-      await callAs(0, "appoint", adminCtx(request));
+      await callAs(0, "appoint", adminCtx(input));
 
-      await expect(callAs(0, "dismiss", adminCtx(request)))
+      await expect(callAs(0, "dismiss", adminCtx(input)))
         .to.emit(host, "Guardian")
         .withArgs(await host.host(), guardianAccount, false);
 
@@ -185,9 +185,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "dismiss", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -196,8 +196,8 @@ describe("Admin Commands", () => {
   describe("allowAssets", () => {
     it("emits AllowAssetCalled for each ASSET block", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
-      const request = encodeAssetBlock(asset);
-      await expect(callAs(0, "allowAssets", adminCtx(request)))
+      const input = encodeAssetBlock(asset);
+      await expect(callAs(0, "allowAssets", adminCtx(input)))
         .to.emit(host, "AllowAssetCalled")
         .withArgs(asset);
     });
@@ -205,8 +205,8 @@ describe("Admin Commands", () => {
     it("processes multiple ASSET blocks", async () => {
       const a1 = ethers.zeroPadValue("0xA1", 32);
       const a2 = ethers.zeroPadValue("0xA2", 32);
-      const request = concat(encodeAssetBlock(a1), encodeAssetBlock(a2));
-      const tx = await callAs(0, "allowAssets", adminCtx(request));
+      const input = concat(encodeAssetBlock(a1), encodeAssetBlock(a2));
+      const tx = await callAs(0, "allowAssets", adminCtx(input));
       await expect(tx).to.emit(host, "AllowAssetCalled").withArgs(a1);
       await expect(tx).to.emit(host, "AllowAssetCalled").withArgs(a2);
     });
@@ -217,9 +217,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "allowAssets", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -239,9 +239,9 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "denyAssets", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -252,22 +252,22 @@ describe("Admin Commands", () => {
       const hostId = 9999n;
       const asset  = ethers.zeroPadValue("0x05", 32);
       const amount = 1000n;
-      const request = encodeAllowanceBlock(hostId, asset, amount);
-      await expect(callAs(0, "allowance", adminCtx(request)))
+      const input = encodeAllowanceBlock(hostId, asset, amount);
+      await expect(callAs(0, "allowance", adminCtx(input)))
         .to.emit(host, "AllowanceCalled")
         .withArgs(hostId, asset, amount);
     });
 
     it("reverts AccessDenied for non-admin", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x05", 32);
-      const request = encodeAllowanceBlock(1n, ethers.zeroPadValue("0x01", 32), 1n);
-      await expect(callAs(0, "allowance", userCtx(fakeAdmin, request)))
+      const input = encodeAllowanceBlock(1n, ethers.zeroPadValue("0x01", 32), 1n);
+      await expect(callAs(0, "allowance", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "allowance", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -288,12 +288,12 @@ describe("Admin Commands", () => {
 
     it("emits Labeled for each LABEL block", async () => {
       const namespace = ethers.encodeBytes32String("docs");
-      const request = concat(
+      const input = concat(
         encodeLabelBlock(await cmd("deposit"), namespace, "deposit v2"),
         encodeLabelBlock(await cmd("relayPayable"), ethers.ZeroHash, "relay")
       );
 
-      const tx = await callAs(0, "label", adminCtx(request));
+      const tx = await callAs(0, "label", adminCtx(input));
       await expect(tx).to.emit(host, "Labeled")
         .withArgs(await cmd("deposit"), namespace, "deposit v2");
       await expect(tx).to.emit(host, "Labeled")
@@ -302,15 +302,15 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x06", 32);
-      const request = encodeLabelBlock(await cmd("deposit"), ethers.ZeroHash, "deposit");
+      const input = encodeLabelBlock(await cmd("deposit"), ethers.ZeroHash, "deposit");
 
-      await expect(callAs(0, "label", userCtx(fakeAdmin, request)))
+      await expect(callAs(0, "label", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "label", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -337,12 +337,12 @@ describe("Admin Commands", () => {
       const localKey = "0x00000001";
       const amountSpec = exactSpec(Keys.Amount, 64);
       const localSpec = rangedSpec(localKey, 48, 0, 128);
-      const request = concat(
+      const input = concat(
         encodeSchemaBlock(amountSpec, amountSchema, amountName),
         encodeSchemaBlock(localSpec, localSchema, localName),
       );
 
-      const tx = await callAs(0, "publishSchema", adminCtx(request));
+      const tx = await callAs(0, "publishSchema", adminCtx(input));
       await expect(tx).to.emit(host, "Schema")
         .withArgs(await host.host(), amountSpec, amountSchema, amountName);
       await expect(tx).to.emit(host, "Schema")
@@ -351,27 +351,27 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x16", 32);
-      const request = encodeSchemaBlock(
+      const input = encodeSchemaBlock(
         exactSpec(Keys.Amount, 64),
         "{ bytes32 asset, uint amount }",
         ethers.encodeBytes32String("amount"),
       );
 
-      await expect(callAs(0, "publishSchema", userCtx(fakeAdmin, request)))
+      await expect(callAs(0, "publishSchema", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor for empty request", async () => {
+    it("reverts EmptyRun for empty input", async () => {
       await expect(callAs(0, "publishSchema", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
   describe("executePayable", () => {
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x07", 32);
-      const request = encodeCallBlock(0n, 0n, "0x");
-      await expect(callAs(0, "executePayable", userCtx(fakeAdmin, request)))
+      const input = encodeCallBlock(0n, 0n, "0x");
+      await expect(callAs(0, "executePayable", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
@@ -379,9 +379,9 @@ describe("Admin Commands", () => {
       const target = await deploy("TestExecuteTarget");
       const targetId = await hostIdFor(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [123n, "0x123456"]);
-      const request = encodeCallBlock(targetId, 0n, calldata);
+      const input = encodeCallBlock(targetId, 0n, calldata);
 
-      await expect(callAs(0, "executePayable", adminCtx(request)))
+      await expect(callAs(0, "executePayable", adminCtx(input)))
         .to.emit(target, "Ping")
         .withArgs(await host.getAddress(), 0n, 123n, "0x123456");
     });
@@ -394,14 +394,14 @@ describe("Admin Commands", () => {
       const asset = ethers.zeroPadValue("0x123456", 32);
       const targetArgs = [await target.getAdminAccount(), "0x", encodeAssetBlock(asset)];
       const calldata = target.interface.encodeFunctionData("allowAssets", targetArgs);
-      const request = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
+      const input = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
-      await expect(source.executePayable(sourceAdminAccount, "0x", request))
+      await expect(source.executePayable(sourceAdminAccount, "0x", input))
         .to.emit(target, "AllowAssetCalled")
         .withArgs(asset);
     });
 
-    it("processes multiple CALL blocks in one request", async () => {
+    it("processes multiple CALL blocks in one input", async () => {
       const source = await deploy("TestCommanderHost", commander);
       const sourceAdminAccount = await source.getAdminAccount();
       const targetA = await deploy("TestHost", await source.getAddress());
@@ -432,9 +432,9 @@ describe("Admin Commands", () => {
       const amount = 5n;
       const targetId = await hostIdFor(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [1n, "0xab"]);
-      const request = encodeCallBlock(targetId, amount, calldata);
+      const input = encodeCallBlock(targetId, amount, calldata);
 
-      await expect(callAs(0, "executePayable", adminCtx(request), { value: amount }))
+      await expect(callAs(0, "executePayable", adminCtx(input), { value: amount }))
         .to.emit(target, "Ping")
         .withArgs(await host.getAddress(), amount, 1n, "0xab");
     });
@@ -445,12 +445,12 @@ describe("Admin Commands", () => {
       const surplus = 7n;
       const targetId = await hostIdFor(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [2n, "0xcd"]);
-      const request = encodeCallBlock(targetId, amount, calldata);
+      const input = encodeCallBlock(targetId, amount, calldata);
 
       const provider = await getProvider();
       const hostAddr = await host.getAddress();
       const targetAddr = await target.getAddress();
-      const tx = await callAs(0, "executePayable", adminCtx(request), { value: amount + surplus });
+      const tx = await callAs(0, "executePayable", adminCtx(input), { value: amount + surplus });
       const receipt = await tx.wait();
       if (!receipt || receipt.status === 0) throw new Error("executePayable tx reverted");
       const hostBefore = await provider.getBalance(hostAddr, receipt.blockNumber - 1);
@@ -467,10 +467,10 @@ describe("Admin Commands", () => {
       const targetAddr = await target.getAddress();
       const targetId = await hostIdFor(targetAddr);
       const amount = ethers.parseEther("0.001");
-      const request = encodeCallBlock(targetId, amount, "0x");
+      const input = encodeCallBlock(targetId, amount, "0x");
 
       const provider = await getProvider();
-      const tx = await callAs(0, "executePayable", adminCtx(request), { value: amount });
+      const tx = await callAs(0, "executePayable", adminCtx(input), { value: amount });
       const receipt = await tx.wait();
       if (!receipt || receipt.status === 0) throw new Error("executePayable tx reverted");
       const before = await provider.getBalance(targetAddr, receipt.blockNumber - 1);

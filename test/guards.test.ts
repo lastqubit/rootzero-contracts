@@ -26,8 +26,8 @@ describe("Guard Actions", () => {
     await host.appoint(...adminCtx(encodeAccountBlock(guardianAccount)));
   });
 
-  function adminCtx(request: string) {
-    return [adminAccount, "0x", request] as const;
+  function adminCtx(input: string) {
+    return [adminAccount, "0x", input] as const;
   }
 
   async function hostIdFor(addr: string) {
@@ -94,19 +94,19 @@ describe("Guard Actions", () => {
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
-  it("reverts ZeroCursor when request is empty", async () => {
+  it("reverts EmptyRun when input is empty", async () => {
     await expect(host.connect(guardianSigner).revoke("0x"))
-      .to.be.revertedWithCustomError(host, "ZeroCursor");
+      .to.be.revertedWithCustomError(host, "EmptyRun");
   });
 
-  it("reverts InvalidBlock when revoke request is not NODE blocks", async () => {
+  it("reverts InvalidBlock when revoke input is not NODE blocks", async () => {
     const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
 
     await expect(host.connect(guardianSigner).revoke(encodeAccountBlock(guardianAccount)))
       .to.be.revertedWithCustomError(host, "InvalidBlock");
   });
 
-  it("reverts MalformedBlocks when revoke request has a truncated NODE block", async () => {
+  it("reverts MalformedBlocks when revoke input has a truncated NODE block", async () => {
     const truncated = ethers.concat([
       Keys.Node,
       ethers.toBeHex(32, 4),

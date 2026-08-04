@@ -50,20 +50,20 @@ describe("Queries", () => {
 
   describe("incrementQuery", () => {
     it("accepts custom value blocks and returns custom value blocks", async () => {
-      const request = encodeBlock(Value, pad32(7n));
+      const input = encodeBlock(Value, pad32(7n));
 
-      const result: string = await query.incrementQuery.staticCall(request);
+      const result: string = await query.incrementQuery.staticCall(input);
 
       expect(result).to.equal(encodeBlock(Value, pad32(8n)));
     });
 
     it("maps multiple custom query blocks into matching response blocks", async () => {
-      const request = concat(
+      const input = concat(
         encodeBlock(Value, pad32(11n)),
         encodeBlock(Value, pad32(22n)),
       );
 
-      const result: string = await query.incrementQuery.staticCall(request);
+      const result: string = await query.incrementQuery.staticCall(input);
 
       expect(result).to.equal(concat(
         encodeBlock(Value, pad32(12n)),
@@ -94,9 +94,9 @@ describe("Queries", () => {
     });
 
     it("accepts the keyed local value block", async () => {
-      const request = encodeBlock(KeyedValue, pad32(7n));
+      const input = encodeBlock(KeyedValue, pad32(7n));
 
-      const result: string = await keyedQuery.keyedLocalQuery.staticCall(request);
+      const result: string = await keyedQuery.keyedLocalQuery.staticCall(input);
 
       expect(result).to.equal(encodeBlock(KeyedValue, pad32(9n)));
     });

@@ -115,11 +115,11 @@ describe("Port Entrypoints", () => {
       | "portSettle(bytes)"
       | "portPipePayable(bytes)"
       | "portDispatchPayable(bytes)",
-    request = "0x",
+    input = "0x",
     overrides: Record<string, bigint> = {}
   ) {
     const signer = await getSigner(signerIndex);
-    return (host.connect(signer) as any)[method](request, overrides);
+    return (host.connect(signer) as any)[method](input, overrides);
   }
 
   async function callerHost(signerIndex: number) {
@@ -176,9 +176,9 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -223,9 +223,9 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -273,14 +273,14 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
-    it("reverts InvalidBlock when request is not an ACCOUNT_AMOUNT block", async () => {
+    it("reverts OutOfBounds when input is too short for an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -328,14 +328,14 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
-    it("reverts InvalidBlock when request is not an ACCOUNT_AMOUNT block", async () => {
+    it("reverts OutOfBounds when input is too short for an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -423,9 +423,9 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });
 
@@ -433,12 +433,12 @@ describe("Port Entrypoints", () => {
     const method = "portPipePayable(bytes)";
     const account = encodeUserAccount("0x44");
 
-    it("unpacks CONTEXT blocks and dispatches nested request as pipe steps", async () => {
+    it("unpacks CONTEXT blocks and dispatches nested input as pipe steps", async () => {
       const step = encodeStepBlock(123n, 0n, "0xabcd");
-      const request = encodeContextBlock(account, "0x", step);
+      const input = encodeContextBlock(account, "0x", step);
       const startCount = await host.stepCount();
 
-      const tx = await callAs(1, method, request);
+      const tx = await callAs(1, method, input);
 
       await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 0n);
     });
@@ -456,26 +456,26 @@ describe("Port Entrypoints", () => {
 
     it("reverts UnexpectedState when a pipe context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), 77n);
-      const request = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
       const signer = await getSigner(1);
 
-      await expect((host.connect(signer) as any)[method].staticCall(request))
+      await expect((host.connect(signer) as any)[method].staticCall(input))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
     it("reverts InsufficientValue when a pipe step requests more than the shared budget", async () => {
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+      const input = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
 
-      await expect(callAs(1, method, request, { value: 0n }))
+      await expect(callAs(1, method, input, { value: 0n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
     it("keeps unspent peer value on the host", async () => {
-      const request = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+      const input = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
       const provider = await getProvider();
       const hostAddress = await host.getAddress();
 
-      const tx = await callAs(1, method, request, { value: 2n });
+      const tx = await callAs(1, method, input, { value: 2n });
       const receipt = await tx.wait();
       if (!receipt || receipt.status === 0) throw new Error("portPipePayable tx reverted");
 
@@ -491,62 +491,62 @@ describe("Port Entrypoints", () => {
     it("dispatches a single DISPATCH block and exposes the remaining value budget", async () => {
       const portal = await localPortal();
       const payload = ethers.hexlify(ethers.toUtf8Bytes("encoded-payload"));
-      const request = encodeDispatchBlock(portal, 5n, payload);
+      const input = encodeDispatchBlock(portal, 5n, payload);
 
-      const tx = await callAs(1, method, request, { value: 8n });
+      const tx = await callAs(1, method, input, { value: 8n });
 
       await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, payload, 5n, 8n);
     });
 
     it("returns empty bytes after dispatching a payload", async () => {
       const signer = await getSigner(1);
-      const request = encodeDispatchBlock(await localPortal(), 0n, "0x1234");
-      const result: string = await (host.connect(signer) as any)[method].staticCall(request);
+      const input = encodeDispatchBlock(await localPortal(), 0n, "0x1234");
+      const result: string = await (host.connect(signer) as any)[method].staticCall(input);
       expect(result).to.equal("0x");
     });
 
     it("reverts CommanderNotAllowed for the commander", async () => {
-      const request = encodeDispatchBlock(await localPortal(), 0n, "0x");
-      await expect(callAs(0, method, request))
+      const input = encodeDispatchBlock(await localPortal(), 0n, "0x");
+      await expect(callAs(0, method, input))
         .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
-      const request = encodeDispatchBlock(await localPortal(), 0n, "0x");
-      await expect(callAs(2, method, request))
+      const input = encodeDispatchBlock(await localPortal(), 0n, "0x");
+      await expect(callAs(2, method, input))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts ZeroCursor when request is empty", async () => {
+    it("reverts EmptyRun when input is empty", async () => {
       await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "ZeroCursor");
+        .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
-    it("reverts InvalidBlock when request is not a DISPATCH block", async () => {
-      const request = encodeContextBlock(encodeUserAccount("0x55"), "0x", "0x");
-      await expect(callAs(1, method, request))
+    it("reverts InvalidBlock when input is not a DISPATCH block", async () => {
+      const input = encodeContextBlock(encodeUserAccount("0x55"), "0x", "0x");
+      await expect(callAs(1, method, input))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("dispatches multiple DISPATCH blocks in one request", async () => {
+    it("dispatches multiple DISPATCH blocks in one input", async () => {
       const portal = await localPortal();
       const first = "0x01";
       const second = "0x02";
-      const request = concat(
+      const input = concat(
         encodeDispatchBlock(portal, 2n, first),
         encodeDispatchBlock(portal, 3n, second),
       );
 
-      const tx = await callAs(1, method, request, { value: 5n });
+      const tx = await callAs(1, method, input, { value: 5n });
 
       await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, first, 2n, 5n);
       await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(portal, second, 3n, 5n);
     });
 
     it("passes dispatch resources through even when it exceeds msg.value", async () => {
-      const request = encodeDispatchBlock(await localPortal(), 2n, "0x");
+      const input = encodeDispatchBlock(await localPortal(), 2n, "0x");
 
-      const tx = await callAs(1, method, request, { value: 1n });
+      const tx = await callAs(1, method, input, { value: 1n });
       await expect(tx).to.emit(host, "PortDispatchCalled").withArgs(await localPortal(), "0x", 2n, 1n);
     });
   });

@@ -16,8 +16,8 @@ describe("BalancesQuery", () => {
 
     await query.mint(await account.getAddress(), 123n);
 
-    const request = encodeAccountAssetBlock(accountId, tokenAsset);
-    const result: string = await query.getBalances.staticCall(request);
+    const input = encodeAccountAssetBlock(accountId, tokenAsset);
+    const result: string = await query.getBalances.staticCall(input);
 
     expect(result).to.equal(encodeAccountAmountBlock(accountId, tokenAsset, 123n));
   });
@@ -34,12 +34,12 @@ describe("BalancesQuery", () => {
     await query.mint(accountAddr, 456n);
     const nativeBalance = await provider.getBalance(accountAddr);
 
-    const request = concat(
+    const input = concat(
       encodeAccountAssetBlock(accountId, tokenAsset),
       encodeAccountAssetBlock(accountId, nativeAsset),
     );
 
-    const result: string = await query.getBalances.staticCall(request);
+    const result: string = await query.getBalances.staticCall(input);
 
     expect(result).to.equal(concat(
       encodeAccountAmountBlock(accountId, tokenAsset, 456n),

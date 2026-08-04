@@ -18,11 +18,13 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
 import { PublishSchema } from "../commands/admin/Schemas.sol";
 import { HostAmount } from "../core/Types.sol";
-import { Reader, Readers } from "../Cursors.sol";
+import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
+import {Budget, Budgets} from "../execution/Budget.sol";
 
 using Readers for Reader;
 using Executions for Execution;
+using Budgets for Budget;
 
 contract TestHost is
     Host,
@@ -76,9 +78,9 @@ contract TestHost is
         bytes32 account,
         bytes32 asset,
         uint amount,
-        Execution memory exec
+        Execution memory funds
     ) internal override {
-        emit DepositPayableCalled(account, asset, exec.useValue(amount), exec.budget);
+        emit DepositPayableCalled(account, asset, funds.useValue(amount), funds.budget);
     }
 
     function withdraw(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -104,15 +106,15 @@ contract TestHost is
     function provision(
         bytes32 account,
         HostAmount memory custody,
-        Execution memory exec
+        Execution memory funds
     ) internal override {
         emit ProvisionPayableCalled(
-            custody.host, account, custody.asset, exec.useValue(custody.amount), exec.budget
+            custody.host, account, custody.asset, funds.useValue(custody.amount), funds.budget
         );
     }
 
-    function route(uint portal, uint resources, bytes memory context, Execution memory exec) internal override {
-        exec;
+    function route(uint portal, uint resources, bytes memory context, Execution memory funds) internal override {
+        funds;
         emit RelayCalled(portal, resources, context);
     }
 
@@ -141,20 +143,21 @@ contract TestHost is
         uint cid,
         bytes32,
         bytes memory state,
-        bytes calldata request,
+        bytes calldata input,
         uint128 value
     ) internal override returns (bytes memory nextState, bytes memory transactions) {
         emit StepDispatched(cid, stepCount++, value);
-        if (cid == type(uint).max) return (state, request);
+        if (cid == type(uint).max) return (state, input);
         return (state, "");
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
-        Execution memory exec;
-        exec.budget = msg.value;
-        pipe(account, state, steps, exec);
+        Execution memory exec = Executions.open();
+        Budget memory budget = exec.takeBudget();
+        pipe(account, state, steps, budget);
+        exec.budget = budget.drain();
         Reader memory txs;
-        txs.source = endValue(exec, account);
+        (, txs.source) = close(exec, account);
         while (txs.more()) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
             settle(from, to, asset, amount);
@@ -174,11 +177,11 @@ contract TestHost is
     }
 
     function testAuthorizeId() external view returns (uint) {
-        return authorizeId;
+        return authorizeId();
     }
 
     function testUnauthorizeId() external view returns (uint) {
-        return unauthorizeId;
+        return unauthorizeId();
     }
 
     function setGuardianAccount(bytes32 account, bool active) external {

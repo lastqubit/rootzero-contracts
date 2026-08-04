@@ -24,12 +24,12 @@ describe("AssetStatus", () => {
     const asset = await query.allowedAssetId();
     const otherAsset = pad32(0xDEADn);
 
-    const request = concat(
+    const input = concat(
       encodeAssetBlock(asset),
       encodeAssetBlock(otherAsset),
     );
 
-    const result: string = await query["assetStatus(bytes)"].staticCall(request);
+    const result: string = await query["assetStatus(bytes)"].staticCall(input);
 
     expect(result).to.equal(concat(
       encodeStatusBlock(1n),

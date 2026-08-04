@@ -5,9 +5,13 @@ import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
 import {Writer, Writers} from "../codec/Writers.sol";
-import {Descriptors} from "../utils/Descriptors.sol";
+import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Cursors} from "../utils/Cursors.sol";
+import {Descriptors} from "../codec/Descriptors.sol";
+import {Budget, Budgets} from "../execution/Budget.sol";
 
 using Writers for Writer;
+using Budgets for Budget;
 
 contract TestBlocksHelper {
     bytes4 private constant TestKey = bytes4(uint32(1));
@@ -17,18 +21,26 @@ contract TestBlocksHelper {
     }
 
     function specRanges() external pure returns (uint32 fixedMin, uint32 fixedMax, uint32 dynamicMin, uint32 dynamicMax) {
-        return (
-            Specs.min(Specs.Transaction),
-            Specs.max(Specs.Transaction),
-            Specs.min(Specs.Step),
-            Specs.max(Specs.Step)
-        );
+        (, fixedMin, fixedMax) = Specs.decode(Specs.Transaction);
+        (, dynamicMin, dynamicMax) = Specs.decode(Specs.Step);
     }
 
-    function listAssetDescriptor() external pure returns (bytes4 key, bytes4 item, uint8 groupSize) {
-        uint input = Specs.derive(Specs.Asset, Specs.List, 3);
-        uint descriptor = Descriptors.pack(Specs.Empty, input, Specs.Empty, false, false);
-        return Descriptors.input(descriptor);
+    function specHint(uint32 hint) external pure returns (uint24) {
+        (uint capacity, ) = Specs.allocation(Specs.create(TestKey, 0, 0, hint), 1);
+        return uint24(capacity - Sizes.Header);
+    }
+
+    function groupedCapacity() external pure returns (uint) {
+        (uint capacity, ) = Specs.allocation(Specs.group(Specs.Balance, 3), 2);
+        return capacity;
+    }
+
+    function listAssetDescriptor() external pure returns (bytes4 key, bytes4 item, uint8 stride) {
+        uint input = Specs.group(Specs.many(Specs.Asset), 3);
+        uint descriptor = Descriptors.create(Specs.Empty, input, Specs.Empty, 0, 0);
+        key = Descriptors.key(descriptor, Lanes.Input);
+        item = bytes4(uint32(descriptor >> 152));
+        stride = Descriptors.stride(descriptor, Lanes.Input);
     }
 
     function balanceOutputDescriptor()
@@ -36,22 +48,69 @@ contract TestBlocksHelper {
         pure
         returns (uint spec)
     {
-        uint descriptor = Descriptors.pack(Specs.Empty, Specs.Empty, Specs.Balance, false, false);
-        return Descriptors.output(descriptor);
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Balance, 0, 0);
+        return uint(uint128(descriptor >> 16)) << 128;
     }
 
-    function groupedBalanceOutputDescriptor() external pure returns (uint spec, uint8 groupSize) {
-        uint output = Specs.withGroup(Specs.Balance, 3);
-        uint descriptor = Descriptors.pack(Specs.Empty, Specs.Empty, output, false, false);
-        spec = Descriptors.output(descriptor);
-        groupSize = Specs.group(spec);
+    function groupedBalanceOutputDescriptor() external pure returns (uint spec, uint stride) {
+        uint output = Specs.group(Specs.Balance, 3);
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, output, 0, 0);
+        spec = uint(uint128(descriptor >> 16)) << 128;
+        stride = Specs.count(spec, 1);
     }
 
     function rejectLaneContainer(bool output) external pure returns (uint) {
-        uint wrapped = Specs.withContainer(Specs.Balance, Specs.List);
+        uint wrapped = Specs.many(Specs.Balance);
         return output
-            ? Descriptors.pack(Specs.Empty, Specs.Empty, wrapped, false, false)
-            : Descriptors.pack(wrapped, Specs.Empty, Specs.Empty, false, false);
+            ? Descriptors.create(Specs.Empty, Specs.Empty, wrapped, 0, 0)
+            : Descriptors.create(wrapped, Specs.Empty, Specs.Empty, 0, 0);
+    }
+
+    function descriptorFlags() external pure returns (bool funded, bool admin) {
+        uint8 flags = Descriptors.Funded | Descriptors.Admin;
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Empty, 0, flags);
+        funded = Descriptors.flagged(descriptor, Descriptors.Funded);
+        admin = Descriptors.flagged(descriptor, Descriptors.Admin);
+    }
+
+    function descriptorTransactions() external pure returns (uint8) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Empty, 3, 0);
+        return Descriptors.stride(descriptor, Lanes.Transactions);
+    }
+
+    function descriptorKey(uint8 lane) external pure returns (bytes4) {
+        uint descriptor = Descriptors.create(
+            Specs.Balance,
+            Specs.many(Specs.Asset),
+            Specs.Amount,
+            1,
+            0
+        );
+        return Descriptors.key(descriptor, lane);
+    }
+
+    /// @notice Return the allocation derived for a constructed descriptor lane.
+    function descriptorAllocation(
+        uint output,
+        uint8 transactions,
+        uint8 lane,
+        uint groups
+    ) external pure returns (uint capacity, bool growable) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, output, transactions, 0);
+        return Descriptors.allocation(descriptor, lane, groups);
+    }
+
+    function executionTransactions(
+        uint8 count,
+        uint batches,
+        uint writes
+    ) external view returns (bytes memory transactions) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Empty, count, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, batches);
+        for (uint i; i < writes; ++i) {
+            Executions.queueTransaction(exec, 0, 0, 0, i);
+        }
+        transactions = Executions.finishTransactions(exec);
     }
 
     function lazyBalance(bytes32 asset, uint amount) external pure returns (bytes memory) {
@@ -60,10 +119,61 @@ contract TestBlocksHelper {
         return writer.finish();
     }
 
-    function emptyWriter() external pure returns (uint i, uint end, bool growable, uint length) {
+    function emptyWriter() external pure returns (uint i, uint len, bool growable, uint length) {
         Writer memory writer = Writers.init(Specs.Bytes, 0);
-        (i, end, growable) = Buffers.decode(writer.packed);
+        (i, , len) = Cursors.decode(writer.cur);
+        growable = Cursors.flagged(writer.cur, Buffers.Growable);
         length = writer.dst.length;
+    }
+
+    /// @notice Reserve a lazily allocated buffer and expose its resulting metadata.
+    function reserveBuffer(
+        uint len,
+        uint groups,
+        bool growable,
+        uint8 tag,
+        uint advance,
+        uint touch
+    ) external pure returns (uint i, uint next, uint capacity, uint packedgroups, uint8 flags, uint8 packedtag, uint physical) {
+        uint cur = Buffers.cursor(len, groups, growable, tag);
+        bytes memory buffer;
+        (cur, buffer, i) = Buffers.reserve(cur, buffer, advance, touch);
+        (next, , capacity) = Cursors.decode(cur);
+        (packedgroups, flags, packedtag) = Cursors.meta(cur);
+        physical = buffer.length;
+    }
+
+    /// @notice Grow a buffer across two writes and return its finalized bytes.
+    function growBuffer(bytes32 a, bytes32 b) external pure returns (bytes memory buffer) {
+        uint cur = Buffers.cursor(32, 1, true, 0);
+        uint i;
+        (cur, buffer, i) = Buffers.reserve(cur, buffer, 32, 32);
+        Buffers.write32(buffer, i, a);
+        (cur, buffer, i) = Buffers.reserve(cur, buffer, 32, 32);
+        Buffers.write32(buffer, i, b);
+        return Buffers.finish(cur, buffer);
+    }
+
+    /// @notice Spend the value lane of `resources` and drain the remainder.
+    function budgetUse(uint resources) external payable returns (uint value, uint remaining) {
+        Budget memory budget = Budgets.open();
+        value = budget.use(resources);
+        remaining = budget.drain();
+    }
+
+    /// @notice Drain a standalone budget and expose its cleared state.
+    function budgetDrain() external payable returns (uint drained, uint remaining) {
+        Budget memory budget = Budgets.open();
+        drained = budget.drain();
+        remaining = budget.remaining;
+    }
+
+    /// @notice Detach an execution budget and expose both resulting balances.
+    function takeBudget() external payable returns (uint execution, uint detached) {
+        Execution memory exec = Executions.open();
+        Budget memory budget = Executions.takeBudget(exec);
+        execution = exec.budget;
+        detached = budget.remaining;
     }
 
     function rejectSecond32(bytes32 value) external pure returns (bytes memory) {
@@ -88,22 +198,22 @@ contract TestBlocksHelper {
         return writer.finish();
     }
 
-    function grow(
-        bytes memory buffer,
-        uint written,
-        uint required
-    ) external pure returns (bytes memory) {
-        return Buffers.grow(buffer, written, required);
+    function read32(bytes calldata source, uint i) external pure returns (bytes32) {
+        return Blocks.read32(position(source) + i);
+    }
+
+    function readUint(bytes calldata source, uint i) external pure returns (uint) {
+        return Blocks.readUint(position(source) + i);
     }
 
     function expectAbsolute(
         bytes calldata source,
         uint spec
     ) external pure returns (uint i, uint end) {
-        uint abs = position(source);
-        (i, end) = Blocks.expect(abs, spec);
-        i -= abs;
-        end -= abs;
+        uint head = position(source);
+        (uint abs, uint limit) = Blocks.expect(head, spec);
+        i = abs - head;
+        end = limit - head;
     }
 
     function headerAbsolute(bytes calldata source) external pure returns (bytes4 key, uint len) {
@@ -145,12 +255,12 @@ contract TestBlocksHelper {
 
     function writeStep(
         uint offset,
-        uint target,
+        uint cmd,
         uint resources,
-        bytes memory request
+        bytes memory input
     ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.B64 + Sizes.Header + request.length);
-        Blocks.writeStep(dst, offset, target, resources, request);
+        dst = new bytes(offset + Sizes.B64 + Sizes.Header + input.length);
+        Blocks.writeStep(dst, offset, cmd, resources, input);
     }
 
     function writeCall(
@@ -167,10 +277,10 @@ contract TestBlocksHelper {
         uint offset,
         uint portal,
         uint resources,
-        bytes memory request
+        bytes memory input
     ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.B64 + Sizes.Header + request.length);
-        Blocks.writeRelay(dst, offset, portal, resources, request);
+        dst = new bytes(offset + Sizes.B64 + Sizes.Header + input.length);
+        Blocks.writeRelay(dst, offset, portal, resources, input);
     }
 
     function writeDispatch(
@@ -187,10 +297,10 @@ contract TestBlocksHelper {
         uint offset,
         bytes32 account,
         bytes memory state,
-        bytes memory request
+        bytes memory input
     ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.B32 + 2 * Sizes.Header + state.length + request.length);
-        Blocks.writeContext(dst, offset, account, state, request);
+        dst = new bytes(offset + Sizes.B32 + 2 * Sizes.Header + state.length + input.length);
+        Blocks.writeContext(dst, offset, account, state, input);
     }
 
     function writeRecover(
@@ -242,10 +352,6 @@ contract TestBlocksHelper {
         return Blocks.unpackNode(position(source));
     }
 
-    function unpackFee(bytes calldata source) external pure returns (uint) {
-        return Blocks.unpackFee(position(source));
-    }
-
     function unpackStatus(bytes calldata source) external pure returns (uint) {
         return Blocks.unpackStatus(position(source));
     }
@@ -258,20 +364,8 @@ contract TestBlocksHelper {
         return Blocks.unpackBalance(position(source));
     }
 
-    function unpackBounty(bytes calldata source) external pure returns (uint, bytes32) {
-        return Blocks.unpackBounty(position(source));
-    }
-
-    function unpackAssetAmount(bytes calldata source) external pure returns (bytes32, uint) {
-        return Blocks.unpackAssetAmount(position(source));
-    }
-
     function unpackAccountAsset(bytes calldata source) external pure returns (bytes32, bytes32) {
         return Blocks.unpackAccountAsset(position(source));
-    }
-
-    function unpackBalanceLimit(bytes calldata source) external pure returns (bytes32, uint, uint) {
-        return Blocks.unpackBalanceLimit(position(source));
     }
 
     function unpackAllocation(bytes calldata source) external pure returns (uint, bytes32, uint) {
@@ -298,10 +392,6 @@ contract TestBlocksHelper {
         return Blocks.unpackHostAccountAsset(position(source));
     }
 
-    function unpackCustodyLimit(bytes calldata source) external pure returns (uint, bytes32, uint, uint) {
-        return Blocks.unpackCustodyLimit(position(source));
-    }
-
     function unpackTransaction(
         bytes calldata source
     ) external pure returns (bytes32, bytes32, bytes32, uint) {
@@ -317,37 +407,37 @@ contract TestBlocksHelper {
     function unpackList(bytes calldata source) external pure returns (bytes memory data, uint length) {
         uint abs = position(source);
         bytes calldata value;
-        uint next;
-        (value, next) = Blocks.unpackList(abs);
+        uint end;
+        (value, end) = Blocks.unpackList(abs);
         data = value;
-        length = next - abs;
+        length = end - abs;
     }
 
     function unpackEvm(bytes calldata source) external pure returns (bytes memory data, uint length) {
         uint abs = position(source);
         bytes calldata value;
-        uint next;
-        (value, next) = Blocks.unpackEvm(abs);
+        uint end;
+        (value, end) = Blocks.unpackEvm(abs);
         data = value;
-        length = next - abs;
+        length = end - abs;
     }
 
     function unpackBytes(bytes calldata source) external pure returns (bytes memory data, uint length) {
         uint abs = position(source);
         bytes calldata value;
-        uint next;
-        (value, next) = Blocks.unpackBytes(abs);
+        uint end;
+        (value, end) = Blocks.unpackBytes(abs);
         data = value;
-        length = next - abs;
+        length = end - abs;
     }
 
     function unpackString(bytes calldata source) external pure returns (bytes memory data, uint length) {
         uint abs = position(source);
         bytes calldata value;
-        uint next;
-        (value, next) = Blocks.unpackString(abs);
+        uint end;
+        (value, end) = Blocks.unpackString(abs);
         data = value;
-        length = next - abs;
+        length = end - abs;
     }
 
     function writeTransaction(

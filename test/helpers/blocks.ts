@@ -11,14 +11,14 @@ export function localKey(value: number): string {
 
 export function exactSpec(key: string, size: number): bigint {
   const value = BigInt(size);
-  return (BigInt(key) << 224n) | (value << 192n) | (value << 160n) | (value << 128n);
+  return (BigInt(key) << 224n) | (value << 192n) | (value << 160n) | (value << 136n);
 }
 
 export function rangedSpec(key: string, min: number, max: number, hint: number): bigint {
   return (BigInt(key) << 224n)
     | (BigInt(min) << 192n)
     | (BigInt(max) << 160n)
-    | (BigInt(hint) << 128n);
+    | (BigInt(hint) << 136n);
 }
 
 export function manyKey(item: string): string {
@@ -33,49 +33,54 @@ function laneValue(lane: string): bigint {
   throw new Error(`invalid endpoint lane length: ${lane}`);
 }
 
-function laneGroup(lane: string, group?: number): number {
-  if (group !== undefined) return group;
-
+function laneStride(lane: string, stride?: number): number {
   const bytes = ethers.getBytes(lane);
-  return bytes.length === 9 ? bytes[8] : 0;
+  const value = stride ?? (bytes.length === 9 ? bytes[8] : 0);
+  return value === 0 && BigInt(lane) !== 0n ? 1 : value;
 }
 
 export function endpointDescriptor({
   state = Keys.Empty,
-  stateGroup,
+  stateStride,
   input = Keys.Empty,
-  inputGroup,
+  inputStride,
   output = Keys.Empty,
-  outputGroup,
+  outputStride,
+  transactions = 0,
   funded = false,
   admin = false,
 }: {
   state?: string;
-  stateGroup?: number;
+  stateStride?: number;
   input?: string;
-  inputGroup?: number;
+  inputStride?: number;
   output?: string | bigint;
-  outputGroup?: number;
+  outputStride?: number;
+  transactions?: number;
   funded?: boolean;
   admin?: boolean;
 }): bigint {
   const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n);
-  const stateGroups = laneGroup(state, stateGroup);
-  const inputGroups = laneGroup(input, inputGroup);
+  const stateLaneStride = laneStride(state, stateStride);
+  const inputLaneStride = laneStride(input, inputStride);
   const outputSpec = typeof output === "bigint"
     ? output
     : output === Keys.Empty
       ? 0n
       : (() => { throw new Error("non-empty output lanes require a spec"); })();
-  const outputGroups = outputGroup
-    ?? (typeof output === "bigint" ? Number((output >> 120n) & 0xffn) : 0);
-  const stateLane = (BigInt(state) << 8n) | BigInt(stateGroups);
-  const inputLane = (laneValue(input) << 8n) | BigInt(inputGroups);
-  const outputLane = ((outputSpec >> 120n) & ~0xffn) | BigInt(outputGroups);
+  const encodedOutputStride = outputStride
+    ?? (typeof output === "bigint" ? Number((output >> 128n) & 0xffn) : 0);
+  const outputLaneStride = encodedOutputStride === 0 && outputSpec !== 0n
+    ? 1
+    : encodedOutputStride;
+  const stateLane = (BigInt(state) << 8n) | BigInt(stateLaneStride);
+  const inputLane = (laneValue(input) << 8n) | BigInt(inputLaneStride);
+  const outputLane = ((outputSpec >> 128n) & ~0xffn) | BigInt(outputLaneStride);
   const descriptor =
     (stateLane << 216n) |
     (inputLane << 144n) |
-    (outputLane << 8n) |
+    (outputLane << 16n) |
+    (BigInt(transactions) << 8n) |
     flags;
 
   return descriptor;
@@ -88,12 +93,9 @@ export const Keys = {
   Local: localKey(1),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
-  BalanceLimit: blockKey("#balanceLimit"),
   Allocation: blockKey("#allocation"),
   Allowance: blockKey("#allowance"),
   Custody: blockKey("#custody"),
-  CustodyLimit: blockKey("#custodyLimit"),
-  Fee: blockKey("#fee"),
   Account: blockKey("#account"),
   Node: blockKey("#node"),
   Asset: blockKey("#asset"),
@@ -104,8 +106,6 @@ export const Keys = {
   Relay: blockKey("#relay"),
   Dispatch: blockKey("#dispatch"),
   Transaction: blockKey("#transaction"),
-  Auth: blockKey("#auth"),
-  Bounty: blockKey("#bounty"),
   Label: blockKey("#label"),
   Schema: blockKey("#schema"),
   Bytes: blockKey("#bytes"),
@@ -113,7 +113,6 @@ export const Keys = {
   List: blockKey("#list"),
   Evm: blockKey("#evm"),
   Status: blockKey("#status"),
-  AssetAmount: blockKey("#assetAmount"),
   AccountAsset: blockKey("#accountAsset"),
   AccountAmount: blockKey("#accountAmount"),
   HostAmount: blockKey("#hostAmount"),
@@ -155,10 +154,6 @@ export function encodeBalanceBlock(asset: string, amount: bigint): string {
   return encodeBlock(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
-export function encodeBalanceLimitBlock(asset: string, min: bigint, max: bigint): string {
-  return encodeBlock(Keys.BalanceLimit, ethers.concat([pad32(asset), pad32(min), pad32(max)]));
-}
-
 export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string): string {
   return encodeBlock(Keys.HostAccountAsset, ethers.concat([pad32(host), pad32(account), pad32(asset)]));
 }
@@ -183,10 +178,6 @@ export function encodeCustodyBlock(host: bigint, asset: string, amount: bigint):
   return encodeBlock(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
-export function encodeCustodyLimitBlock(host: bigint, asset: string, min: bigint, max: bigint): string {
-  return encodeBlock(Keys.CustodyLimit, ethers.concat([pad32(host), pad32(asset), pad32(min), pad32(max)]));
-}
-
 export function encodeAccountBlock(account: string): string {
   return encodeBlock(Keys.Account, pad32(account));
 }
@@ -199,32 +190,28 @@ export function encodeAssetBlock(asset: string): string {
   return encodeBlock(Keys.Asset, pad32(asset));
 }
 
-export function encodeFeeBlock(amount: bigint): string {
-  return encodeBlock(Keys.Fee, pad32(amount));
-}
-
 export function encodeTxBlock(from: string, to: string, asset: string, amount: bigint): string {
   return encodeBlock(Keys.Transaction, ethers.concat([pad32(from), pad32(to), pad32(asset), pad32(amount)]));
 }
 
-export function encodeStepBlock(target: bigint, value: bigint, request: string): string {
-  return encodeBlock(Keys.Step, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(request)]));
+export function encodeStepBlock(cmd: bigint, value: bigint, input: string): string {
+  return encodeBlock(Keys.Step, ethers.concat([pad32(cmd), pad32(value), encodeBytesBlock(input)]));
 }
 
 export function encodeCallBlock(target: bigint, value: bigint, data: string): string {
   return encodeBlock(Keys.Call, ethers.concat([pad32(target), pad32(value), encodeBytesBlock(data)]));
 }
 
-export function encodeContextBlock(account: string, state: string, request: string): string {
-  return encodeBlock(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(request)]));
+export function encodeContextBlock(account: string, state: string, input: string): string {
+  return encodeBlock(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(input)]));
 }
 
 export function encodeRecoverBlock(handler: bigint, resources: bigint, key: string, witness: string): string {
   return encodeBlock(Keys.Recover, ethers.concat([pad32(handler), pad32(resources), pad32(key), encodeBytesBlock(witness)]));
 }
 
-export function encodeRelayBlock(portal: bigint, resources: bigint, request: string): string {
-  return encodeBlock(Keys.Relay, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(request)]));
+export function encodeRelayBlock(portal: bigint, resources: bigint, input: string): string {
+  return encodeBlock(Keys.Relay, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(input)]));
 }
 
 export function encodeDispatchBlock(portal: bigint, resources: bigint, payload: string): string {
@@ -257,14 +244,6 @@ export function encodeStatusBlock(code: bigint): string {
 
 export function encodeListBlock(...members: string[]): string {
   return encodeBlock(Keys.List, concat(...members));
-}
-
-export function encodeAuthBlock(cid: bigint, deadline: bigint, proof: string): string {
-  return encodeBlock(Keys.Auth, ethers.concat([pad32(cid), pad32(deadline), encodeBytesBlock(proof)]));
-}
-
-export function encodeBountyBlock(amount: bigint, relayer: string): string {
-  return encodeBlock(Keys.Bounty, ethers.concat([pad32(amount), pad32(relayer)]));
 }
 
 export function concat(...parts: string[]): string {

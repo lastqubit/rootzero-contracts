@@ -39,8 +39,8 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         emit PortCreditAccountCalled(account, asset, amount);
     }
 
-    function route(uint portal, uint resources, bytes memory payload, Execution memory exec) internal override {
-        emit PortDispatchCalled(portal, payload, resources, exec.budget);
+    function route(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {
+        emit PortDispatchCalled(portal, payload, resources, funds.budget);
     }
 
     function dispatch(

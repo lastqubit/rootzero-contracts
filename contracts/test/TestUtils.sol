@@ -6,7 +6,7 @@ import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { Selectors } from "../utils/Selectors.sol";
-import { addrOr, applyBps, beforeBps, bytes32ToString, isFamily, matchesBase, toLocalBase, toUnspecifiedBase, max8, max16, max32, max64, max128, max160 } from "../utils/Utils.sol";
+import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
 import { AccessControl } from "../core/Access.sol";
 import { Execution } from "../execution/Execution.sol";
@@ -288,7 +288,7 @@ contract TestUtils is CommandBase {
     ) external returns (bytes memory transaction, uint remainingAfter) {
         Execution memory exec;
         exec.budget = remaining;
-        transaction = endValue(exec, account);
+        (, transaction) = close(exec, account);
         remainingAfter = exec.budget;
     }
 
@@ -306,6 +306,38 @@ contract TestUtils is CommandBase {
 
     function testMax32(uint value) external pure returns (uint) {
         return max32(value);
+    }
+
+    function testClear32(uint value, uint shift) external pure returns (uint) {
+        return clear32(value, shift);
+    }
+
+    function testClear8(uint value, uint shift) external pure returns (uint) {
+        return clear8(value, shift);
+    }
+
+    function testClear16(uint value, uint shift) external pure returns (uint) {
+        return clear16(value, shift);
+    }
+
+    function testClear64(uint value, uint shift) external pure returns (uint) {
+        return clear64(value, shift);
+    }
+
+    function testReplace8(uint value, uint shift, uint field) external pure returns (uint) {
+        return replace8(value, shift, field);
+    }
+
+    function testReplace16(uint value, uint shift, uint field) external pure returns (uint) {
+        return replace16(value, shift, field);
+    }
+
+    function testReplace32(uint value, uint shift, uint field) external pure returns (uint) {
+        return replace32(value, shift, field);
+    }
+
+    function testReplace64(uint value, uint shift, uint field) external pure returns (uint) {
+        return replace64(value, shift, field);
     }
 
     function testMax64(uint value) external pure returns (uint) {

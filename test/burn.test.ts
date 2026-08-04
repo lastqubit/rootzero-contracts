@@ -81,9 +81,9 @@ describe("Burn", () => {
 
   // â”€â”€ Error cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it("reverts ZeroCursor when state is empty", async () => {
+  it("reverts EmptyRun when state is empty", async () => {
     await expect(callAs(0, ctx()))
-      .to.be.revertedWithCustomError(host, "ZeroCursor");
+      .to.be.revertedWithCustomError(host, "EmptyRun");
   });
 });
 

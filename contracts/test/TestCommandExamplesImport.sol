@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-3.0-only
+pragma solidity ^0.8.33;
+
+// Import shims ensure every custom-command example builds and can be exercised
+// through the public Commands.sol authoring barrel.
+import {Host} from "../Core.sol";
+import {MyCommand as BasicCommandExample} from "../../examples/3-Command.sol";
+import {MyCommand as BatchCommandExample} from "../../examples/4-Batch.sol";
+import {MyCommand as DataCommandExample} from "../../examples/5-Data.sol";
+import {ExampleHost as ListExampleHost} from "../../examples/6-List.sol";
+
+/// @notice Concrete host used to exercise the single-input command example.
+contract TestBasicCommandExampleHost is Host, BasicCommandExample {
+    constructor(address rootzero) Host(rootzero) {}
+}
+
+/// @notice Concrete host used to exercise the batch command example.
+contract TestBatchCommandExampleHost is Host, BatchCommandExample {
+    constructor(address rootzero) Host(rootzero) {}
+}
+
+/// @notice Concrete host used to exercise the custom-data command example.
+contract TestDataCommandExampleHost is Host, DataCommandExample {
+    event SentToHost(uint host, bytes32 asset, uint amount);
+
+    constructor(address rootzero) Host(rootzero) {}
+
+    function sendToHost(uint host, bytes32 asset, uint amount) internal override {
+        emit SentToHost(host, asset, amount);
+    }
+}
+
+/// @notice Concrete host used to exercise the nested-list command example.
+contract TestListCommandExampleHost is ListExampleHost {
+    constructor(address rootzero) ListExampleHost(rootzero) {}
+}

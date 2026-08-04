@@ -533,6 +533,34 @@ describe("Utils", () => {
       expect(await utils.testMax64((1n << 64n) - 1n)).to.equal((1n << 64n) - 1n);
       expect(await utils.testMax128((1n << 128n) - 1n)).to.equal((1n << 128n) - 1n);
     });
+
+    it("clears and replaces shifted 32-bit fields", async () => {
+      const value = (0xaan << 96n) | (0xffffffffn << 64n) | 0xbbn;
+
+      expect(await utils.testClear32(value, 64)).to.equal((0xaan << 96n) | 0xbbn);
+      expect(await utils.testReplace32(value, 64, 0x12345678)).to.equal(
+        (0xaan << 96n) | (0x12345678n << 64n) | 0xbbn,
+      );
+      await expectCustomError(utils.testReplace32(value, 64, 1n << 32n), "ValueOverflow");
+    });
+
+    it("replaces checked 8-, 16-, and 64-bit fields", async () => {
+      const value = (1n << 128n) - 1n;
+
+      expect(await utils.testClear8(value, 8)).to.equal(value & ~(0xffn << 8n));
+      expect(await utils.testClear16(value, 16)).to.equal(value & ~(0xffffn << 16n));
+      expect(await utils.testClear64(value, 64)).to.equal(value & ~(((1n << 64n) - 1n) << 64n));
+      expect(await utils.testReplace8(value, 8, 0x12)).to.equal((value & ~(0xffn << 8n)) | (0x12n << 8n));
+      expect(await utils.testReplace16(value, 16, 0x1234)).to.equal(
+        (value & ~(0xffffn << 16n)) | (0x1234n << 16n),
+      );
+      expect(await utils.testReplace64(value, 64, 0x123456789abcdef0n)).to.equal(
+        (value & ~(((1n << 64n) - 1n) << 64n)) | (0x123456789abcdef0n << 64n),
+      );
+      await expectCustomError(utils.testReplace8(value, 8, 1n << 8n), "ValueOverflow");
+      await expectCustomError(utils.testReplace16(value, 16, 1n << 16n), "ValueOverflow");
+      await expectCustomError(utils.testReplace64(value, 64, 1n << 64n), "ValueOverflow");
+    });
   });
 
   // ── Value ─────────────────────────────────────────────────────────────────

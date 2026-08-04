@@ -9,8 +9,8 @@ import {
 import "./helpers/matchers.js";
 
 describe("Portal", () => {
-  async function commandCtx(host: any, request: string) {
-    return [await host.getAdminAccount(), "0x", request] as const;
+  async function commandCtx(host: any, input: string) {
+    return [await host.getAdminAccount(), "0x", input] as const;
   }
 
   async function authorize(host: any, node: bigint) {
@@ -46,8 +46,8 @@ describe("Portal", () => {
 
     await expect(tx).to.emit(target, "PortDispatchCalled").withArgs(0n, "0x1234", 2n, 7n);
 
-    const request = encodeRecoverBlock(handler, 0n, key, message);
-    await expect(portal.recoverPayable(...await commandCtx(portal, request)))
+    const input = encodeRecoverBlock(handler, 0n, key, message);
+    await expect(portal.recoverPayable(...await commandCtx(portal, input)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 
@@ -82,8 +82,8 @@ describe("Portal", () => {
     const witness = encodeDispatchBlock(0n, 9n, "0xcafe");
     await portal.testForward(forwardingHandler, key, witness, 0n);
 
-    const request = encodeRecoverBlock(recoveryHandler, 5n, key, witness);
-    const tx = await portal.recoverPayable(...await commandCtx(portal, request), { value: 5n });
+    const input = encodeRecoverBlock(recoveryHandler, 5n, key, witness);
+    const tx = await portal.recoverPayable(...await commandCtx(portal, input), { value: 5n });
 
     await expect(tx).to.emit(recoveryTarget, "PortDispatchCalled").withArgs(0n, "0xcafe", 9n, 5n);
 
@@ -108,8 +108,8 @@ describe("Portal", () => {
     const badWitness = encodeDispatchBlock(0n, 1n, "0xbbbb");
     await portal.testForward(forwardingHandler, key, witness, 0n);
 
-    const request = encodeRecoverBlock(recoveryHandler, 0n, key, badWitness);
-    await expect(portal.recoverPayable(...await commandCtx(portal, request)))
+    const input = encodeRecoverBlock(recoveryHandler, 0n, key, badWitness);
+    await expect(portal.recoverPayable(...await commandCtx(portal, input)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 });
