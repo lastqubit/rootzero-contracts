@@ -15,18 +15,12 @@ library Keys {
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)
     bytes4 constant Balance = bytes4(keccak256("#balance"));
-    /// @dev Balance constraint - (bytes32 asset, uint min, uint max)
-    bytes4 constant BalanceLimit = bytes4(keccak256("#balanceLimit"));
-    /// @dev Host-scoped request amount - (uint host, bytes32 asset, uint amount)
+    /// @dev Host-scoped input amount - (uint host, bytes32 asset, uint amount)
     bytes4 constant Allocation = bytes4(keccak256("#allocation"));
     /// @dev Host-scoped allowance cap - (uint host, bytes32 asset, uint amount)
     bytes4 constant Allowance = bytes4(keccak256("#allowance"));
     /// @dev Cross-host custody state - (uint host, bytes32 asset, uint amount)
     bytes4 constant Custody = bytes4(keccak256("#custody"));
-    /// @dev Cross-host custody constraint - (uint host, bytes32 asset, uint min, uint max)
-    bytes4 constant CustodyLimit = bytes4(keccak256("#custodyLimit"));
-    /// @dev Fee amount - (uint amount)
-    bytes4 constant Fee = bytes4(keccak256("#fee"));
     /// @dev List wrapper; payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256("#list"));
     /// @dev EVM-encoded payload field; layout follows standard ABI tuple encoding
@@ -39,11 +33,11 @@ library Keys {
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
-    /// @dev Sub-command invocation - (uint target, uint resources, #bytes as request)
+    /// @dev Sub-command invocation - (uint cmd, uint resources, #bytes as input)
     bytes4 constant Step = bytes4(keccak256("#step"));
-    /// @dev Portal relay request - (uint portal, uint resources, #bytes as request)
+    /// @dev Portal relay input - (uint portal, uint resources, #bytes as input)
     bytes4 constant Relay = bytes4(keccak256("#relay"));
-    /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as request)
+    /// @dev Command context transport - (bytes32 account, #bytes as state, #bytes as input)
     bytes4 constant Context = bytes4(keccak256("#context"));
     /// @dev Recoverable witness - (uint handler, uint resources, bytes32 key, #bytes as witness)
     bytes4 constant Recover = bytes4(keccak256("#recover"));
@@ -51,14 +45,10 @@ library Keys {
     bytes4 constant Dispatch = bytes4(keccak256("#dispatch"));
     /// @dev Raw external call - (uint target, uint resources, #bytes as payload)
     bytes4 constant Call = bytes4(keccak256("#call"));
-    /// @dev Authentication proof - (uint cid, uint deadline, #bytes as proof); must appear last in its segment
-    bytes4 constant Auth = bytes4(keccak256("#auth"));
     /// @dev Asset descriptor without amount - (bytes32 asset)
     bytes4 constant Asset = bytes4(keccak256("#asset"));
     /// @dev Node identifier - (uint id)
     bytes4 constant Node = bytes4(keccak256("#node"));
-    /// @dev Relayer bounty - (uint amount, bytes32 relayer)
-    bytes4 constant Bounty = bytes4(keccak256("#bounty"));
     /// @dev Mutable node label - (uint id, bytes32 namespace, #string as name)
     bytes4 constant Label = bytes4(keccak256("#label"));
     /// @dev Block schema publication - (bytes4 key, #string as body, bytes32 name)
@@ -66,8 +56,6 @@ library Keys {
 
     /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));
-    /// @dev Structural asset amount form - (bytes32 asset, uint amount)
-    bytes4 constant AssetAmount = bytes4(keccak256("#assetAmount"));
     /// @dev Structural account asset form - (bytes32 account, bytes32 asset)
     bytes4 constant AccountAsset = bytes4(keccak256("#accountAsset"));
     /// @dev Structural account amount form - (bytes32 account, bytes32 asset, uint amount)

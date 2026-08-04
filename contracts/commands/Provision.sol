@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
-import {HostAmount, Specs} from "../Cursors.sol";
+import {Execution, Executions, CommandBase, HostAmount, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Shared provision hook used by `Provision`.
@@ -22,13 +21,13 @@ abstract contract ProvisionPayableHook {
     /// side effect (e.g. transfer or record); output blocks are written by the caller.
     /// @param account Caller's account identifier.
     /// @param allocation Host-scoped amount to provision.
-    /// @param exec Mutable execution carrying the remaining native-value budget.
-    function provision(bytes32 account, HostAmount memory allocation, Execution memory exec) internal virtual;
+    /// @param funds Mutable execution used only for its remaining native-value budget.
+    function provision(bytes32 account, HostAmount memory allocation, Execution memory funds) internal virtual;
 }
 
 /// @title Provision
-/// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
+/// @notice Command that provisions assets to peer hosts from ALLOCATION input blocks.
+/// Each input block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 abstract contract Provision is CommandBase, ProvisionHook {
     uint private immutable descriptor;
 
@@ -36,7 +35,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
         (, descriptor) = command("provision", Specs.Empty, Specs.Allocation, Specs.Custody, 0, false, false);
     }
 
-    /// @notice Provision ALLOCATION request blocks and output matching CUSTODY state blocks.
+    /// @notice Provision ALLOCATION input blocks and output matching CUSTODY state blocks.
     /// @param input ALLOCATION block stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Empty transaction stream.
@@ -53,13 +52,13 @@ abstract contract Provision is CommandBase, ProvisionHook {
             exec.outputCustody(allocation);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }
 
 /// @title ProvisionPayable
-/// @notice Command that provisions assets to peer hosts from ALLOCATION request blocks.
-/// Each request block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
+/// @notice Command that provisions assets to peer hosts from ALLOCATION input blocks.
+/// Each input block supplies the target host plus an asset amount; the output is a CUSTODY state stream.
 /// The hook receives a mutable native-value budget drawn from `msg.value`.
 abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
     uint private immutable descriptor;
@@ -68,7 +67,7 @@ abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
         (, descriptor) = command("provisionPayable", Specs.Empty, Specs.Allocation, Specs.Custody, 0, true, false);
     }
 
-    /// @notice Provision ALLOCATION request blocks with access to a mutable native-value budget.
+    /// @notice Provision ALLOCATION input blocks with access to a mutable native-value budget.
     /// @param input ALLOCATION block stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Remaining native value as a refund transaction stream.
@@ -85,7 +84,7 @@ abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
             exec.outputCustody(allocation);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }
 

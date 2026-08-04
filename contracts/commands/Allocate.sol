@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
-import {HostAmount, Specs} from "../Cursors.sol";
+import {Execution, Executions, CommandBase, HostAmount, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
 /// @notice Shared allocation hook used by `Allocate`.
 abstract contract AllocateHook {
     /// @notice Override to allocate a live balance into custody on a host.
-    /// Called once per paired BALANCE state block and NODE request block.
+    /// Called once per paired BALANCE state block and NODE input block.
     /// Implementations should perform only the custody side effect; output
     /// blocks are written by the caller.
     /// @param account Caller's account identifier.
@@ -19,7 +18,7 @@ abstract contract AllocateHook {
 
 /// @title Allocate
 /// @notice Command that allocates BALANCE state to custody on requested hosts.
-/// Each BALANCE state block is paired with one NODE request block at the same
+/// Each BALANCE state block is paired with one NODE input block at the same
 /// position; the output is a matching CUSTODY state stream.
 abstract contract Allocate is CommandBase, AllocateHook {
     uint private immutable descriptor;
@@ -28,7 +27,7 @@ abstract contract Allocate is CommandBase, AllocateHook {
         (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0, false, false);
     }
 
-    /// @notice Allocate BALANCE state blocks to matching NODE request blocks.
+    /// @notice Allocate BALANCE state blocks to matching NODE input blocks.
     /// @param state BALANCE block stream.
     /// @param input Matching NODE block stream.
     /// @return CUSTODY block stream matching the allocated balances.
@@ -41,12 +40,11 @@ abstract contract Allocate is CommandBase, AllocateHook {
         Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
-            HostAmount memory custody =
-                exec.unpackBalanceForHost(Lanes.State, exec.unpackNode(Lanes.Input));
+            HostAmount memory custody = exec.unpackBalanceForHost(Lanes.State, exec.unpackNode(Lanes.Input));
             allocate(account, custody);
             exec.outputCustody(custody);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

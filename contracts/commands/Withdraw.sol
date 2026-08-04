@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that withdraw account balances.
 abstract contract WithdrawHook {
     /// @notice Override to send funds to `account`.
     /// Called once per BALANCE block in state.
@@ -40,6 +41,6 @@ abstract contract Withdraw is CommandBase, WithdrawHook {
             withdraw(account, asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

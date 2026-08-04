@@ -1,75 +1,73 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {Cursors} from "../utils/Cursors.sol";
+
 /// @title Buffers
 /// @notice Allocation and finalization helpers for mutable memory byte buffers.
+/// @dev Packed buffer positions use `Cursors`; flag bit 0 denotes growth policy.
 library Buffers {
-    uint private constant FIELD_MASK = type(uint32).max;
-    uint private constant END_SHIFT = 32;
-    uint private constant GROWABLE_FLAG = uint(1) << 64;
+    using Cursors for uint;
 
-    /// @dev The requested logical length exceeds the physical buffer length.
+    uint8 internal constant Growable = 1;
+
+    /// @dev A reserved memory write exceeds the physical backing buffer.
     error BufferOverflow();
+    /// @dev A buffer cursor does not match its logical or physical capacity.
+    error IncompleteBuffer();
 
-    /// @notice Initialize packed buffer metadata at write position zero.
-    function init(uint end, bool growable) internal pure returns (uint meta) {
-        meta = encode(0, end, growable);
+    /// @notice Create a packed buffer cursor at write position zero.
+    /// @param len Initial logical byte capacity.
+    /// @param groups Number of logical groups represented by the buffer.
+    /// @param growable Whether writes may expand the logical capacity.
+    /// @param tag Cursor identity tag.
+    /// @return cur Packed buffer cursor.
+    function cursor(uint len, uint groups, bool growable, uint8 tag) internal pure returns (uint cur) {
+        cur = Cursors.create(0, len, groups, growable ? Growable : 0, tag);
     }
 
-    /// @dev Pack the write position, logical end, and growth policy into one word.
-    function encode(uint i, uint end, bool growable) private pure returns (uint meta) {
-        if (i > FIELD_MASK || end > FIELD_MASK) revert BufferOverflow();
-        meta = i | (end << END_SHIFT) | (growable ? GROWABLE_FLAG : 0);
-    }
-
-    /// @notice Decode packed buffer metadata.
-    function decode(uint meta) internal pure returns (uint i, uint end, bool growable) {
-        i = uint32(meta);
-        end = uint32(meta >> END_SHIFT);
-        growable = meta & GROWABLE_FLAG != 0;
-    }
-
-    /// @notice Reserve relative write space and return updated packed buffer metadata.
-    /// @param meta Current packed buffer metadata.
+    /// @notice Reserve relative write space and return the updated packed buffer cursor.
+    /// @dev `touch` may exceed `advance` by at most 31 bytes; `alloc` reserves one
+    /// trailing word so lazy allocation can safely return without another bounds check.
+    /// @param cur Current packed buffer cursor.
     /// @param buffer Current backing buffer.
     /// @param advance Logical number of bytes appended.
     /// @param touch Physical number of bytes the write may touch.
-    /// @return updated Updated packed buffer metadata.
+    /// @return updated Updated packed buffer cursor.
     /// @return dst Original or resized backing buffer.
     /// @return i Original write offset.
     function reserve(
-        uint meta,
+        uint cur,
         bytes memory buffer,
         uint advance,
         uint touch
     ) internal pure returns (uint updated, bytes memory dst, uint i) {
-        uint end;
-        bool growable;
-        (i, end, growable) = decode(meta);
-        uint position = i + advance;
+        uint len;
+        (i, , len) = cur.decode();
         uint required = i + (advance > touch ? advance : touch);
+        bool empty = buffer.length == 0;
         dst = buffer;
 
-        if (growable) {
-            if (required > end) {
-                end = end == 0 ? 64 : end * 2;
-                while (end < required) {
-                    end *= 2;
-                }
-                dst = resize(dst, i, end);
+        if (cur.flagged(Growable) && required > len) {
+            len = len == 0 ? 64 : len * 2;
+            while (len < required) {
+                len *= 2;
             }
-        } else if (position > end) revert BufferOverflow();
+            cur = cur.resize(len);
+            if (!empty) dst = resize(dst, i, len);
+        }
 
-        if (dst.length == 0) {
-            dst = alloc(end);
-        } else if (required > dst.length) revert BufferOverflow();
+        updated = cur.advance(advance);
 
-        updated = encode(position, end, growable);
+        if (empty) dst = alloc(len);
+        if (required > dst.length) revert BufferOverflow();
     }
 
     /// @notice Allocate a buffer with `capacity` logical bytes and trailing write space.
     /// @dev The returned byte-array length is its padded physical capacity. Callers must
     /// track the logical capacity separately and trim the buffer before returning it.
+    /// @param capacity Requested logical byte capacity.
+    /// @return buffer Newly allocated padded buffer.
     function alloc(uint capacity) internal pure returns (bytes memory buffer) {
         uint padded = ((capacity + 31) & ~uint(31)) + 32;
         buffer = new bytes(padded);
@@ -81,37 +79,18 @@ library Buffers {
     /// @param written Number of leading bytes to copy.
     /// @param capacity Requested capacity of the new buffer.
     /// @return resized Newly allocated buffer containing the written prefix.
-    function resize(
-        bytes memory buffer,
-        uint written,
-        uint capacity
-    ) internal pure returns (bytes memory resized) {
+    function resize(bytes memory buffer, uint written, uint capacity) internal pure returns (bytes memory resized) {
         resized = alloc(capacity);
         assembly ("memory-safe") {
             mcopy(add(resized, 0x20), add(buffer, 0x20), written)
         }
     }
 
-    /// @notice Grow `buffer` geometrically when `required` exceeds its current capacity.
-    /// @dev Only the first `written` bytes are copied into a newly allocated buffer.
-    /// @param buffer Current buffer.
-    /// @param written Number of meaningful bytes to preserve.
-    /// @param required Minimum required capacity.
-    /// @return The original buffer when large enough, otherwise a larger buffer.
-    function grow(bytes memory buffer, uint written, uint required) internal pure returns (bytes memory) {
-        uint capacity = buffer.length;
-        if (written > capacity) revert BufferOverflow();
-        if (required <= capacity) return buffer;
-
-        capacity = capacity == 0 ? 64 : capacity * 2;
-        while (capacity < required) {
-            capacity *= 2;
-        }
-
-        return resize(buffer, written, capacity);
-    }
-
     /// @notice Write raw bytes at byte offset `i`.
+    /// @param buffer Destination buffer.
+    /// @param i Destination byte offset.
+    /// @param value Bytes to copy.
+    /// @return next Position immediately after the copied bytes.
     function write(bytes memory buffer, uint i, bytes memory value) internal pure returns (uint next) {
         next = i + value.length;
         if (next > buffer.length) revert BufferOverflow();
@@ -121,6 +100,9 @@ library Buffers {
     }
 
     /// @notice Write one complete raw word at byte offset `i`.
+    /// @param buffer Destination buffer.
+    /// @param i Destination byte offset.
+    /// @param value Word to write.
     function write32(bytes memory buffer, uint i, bytes32 value) internal pure {
         if (i + 32 > buffer.length) revert BufferOverflow();
         assembly ("memory-safe") {
@@ -129,12 +111,11 @@ library Buffers {
     }
 
     /// @notice Write two complete raw words at byte offset `i`.
-    function write64(
-        bytes memory buffer,
-        uint i,
-        bytes32 a,
-        bytes32 b
-    ) internal pure {
+    /// @param buffer Destination buffer.
+    /// @param i Destination byte offset.
+    /// @param a First word to write.
+    /// @param b Second word to write.
+    function write64(bytes memory buffer, uint i, bytes32 a, bytes32 b) internal pure {
         if (i + 64 > buffer.length) revert BufferOverflow();
         assembly ("memory-safe") {
             let p := add(add(buffer, 0x20), i)
@@ -144,13 +125,12 @@ library Buffers {
     }
 
     /// @notice Write three complete raw words at byte offset `i`.
-    function write96(
-        bytes memory buffer,
-        uint i,
-        bytes32 a,
-        bytes32 b,
-        bytes32 c
-    ) internal pure {
+    /// @param buffer Destination buffer.
+    /// @param i Destination byte offset.
+    /// @param a First word to write.
+    /// @param b Second word to write.
+    /// @param c Third word to write.
+    function write96(bytes memory buffer, uint i, bytes32 a, bytes32 b, bytes32 c) internal pure {
         if (i + 96 > buffer.length) revert BufferOverflow();
         assembly ("memory-safe") {
             let p := add(add(buffer, 0x20), i)
@@ -170,5 +150,16 @@ library Buffers {
             mstore(buffer, len)
         }
         return buffer;
+    }
+
+    /// @notice Return an empty buffer when unused, otherwise trim it to the cursor position.
+    /// @param cur Packed buffer cursor.
+    /// @param buffer Backing byte buffer.
+    /// @return out Empty bytes when unused, otherwise the written prefix.
+    function finish(uint cur, bytes memory buffer) internal pure returns (bytes memory out) {
+        (uint i, , uint len) = cur.decode();
+        if (i == 0) return new bytes(0);
+        if (i > len || i > buffer.length) revert IncompleteBuffer();
+        out = trim(buffer, i);
     }
 }

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Execution, Executions, CommandBase, Keys, Lanes, Specs } from "./Base.sol";
-import { Specs } from "../Cursors.sol";
+import { Execution, Executions, CommandBase, Lanes, Specs } from "./Base.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that accept account deposits.
 abstract contract DepositHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
@@ -16,6 +16,7 @@ abstract contract DepositHook {
     function deposit(bytes32 account, bytes32 asset, uint amount) internal virtual;
 }
 
+/// @notice Hook implemented by hosts that accept value-funded deposits.
 abstract contract DepositPayableHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
@@ -23,8 +24,8 @@ abstract contract DepositPayableHook {
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
     /// @param amount Amount received.
-    /// @param exec Mutable execution carrying the remaining native-value budget.
-    function deposit(bytes32 account, bytes32 asset, uint amount, Execution memory exec) internal virtual;
+    /// @param funds Mutable execution used only for its remaining native-value budget.
+    function deposit(bytes32 account, bytes32 asset, uint amount, Execution memory funds) internal virtual;
 }
 
 /// @title Deposit
@@ -38,7 +39,7 @@ abstract contract Deposit is CommandBase, DepositHook {
         (, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
     }
 
-    /// @notice Deposit AMOUNT request blocks into the command account and output matching BALANCE blocks.
+    /// @notice Deposit AMOUNT input blocks into the command account and output matching BALANCE blocks.
     /// @param input AMOUNT block stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Empty transaction stream.
@@ -55,7 +56,7 @@ abstract contract Deposit is CommandBase, DepositHook {
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }
 
@@ -69,7 +70,7 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook {
         (, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, true, false);
     }
 
-    /// @notice Deposit AMOUNT request blocks with access to a mutable native-value budget.
+    /// @notice Deposit AMOUNT input blocks with access to a mutable native-value budget.
     /// @param input AMOUNT block stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Remaining native value as a refund transaction stream.
@@ -86,7 +87,7 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook {
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }
 

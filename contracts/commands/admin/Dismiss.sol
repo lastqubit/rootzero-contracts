@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, Execution, Executions, Keys, Lanes, Specs } from "./Base.sol";
+import { AdminBase, Execution, Executions, Lanes, Specs } from "./Base.sol";
 using Executions for Execution;
 
 /// @title Dismiss
 /// @notice Admin command that revokes guardian status from a list of account IDs.
-/// Each ACCOUNT block in the request is disabled as a guardian on the host.
+/// Each ACCOUNT block in the input is disabled as a guardian on the host.
 /// Only callable by the admin account.
 abstract contract Dismiss is AdminBase {
     uint private immutable descriptor;
@@ -15,7 +15,7 @@ abstract contract Dismiss is AdminBase {
         (, descriptor) = command("dismiss", Specs.Empty, Specs.Account, Specs.Empty, 0, false, true);
     }
 
-    /// @notice Dismiss each ACCOUNT block in the admin request from guardian status.
+    /// @notice Dismiss each ACCOUNT block in the admin input from guardian status.
     /// @param input ACCOUNT block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
@@ -31,6 +31,6 @@ abstract contract Dismiss is AdminBase {
             setGuardian(guardian, false);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

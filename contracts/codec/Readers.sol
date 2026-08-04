@@ -78,7 +78,8 @@ library Readers {
 
     /// @notice Validate and consume the current block described by `spec`.
     function consume(Reader memory cur, uint spec) internal pure returns (uint abs) {
-        return consume(cur, Specs.key(spec), Specs.min(spec), Specs.max(spec));
+        (bytes4 key, uint32 min, uint32 max) = Specs.decode(spec);
+        return consume(cur, key, min, max);
     }
 
     /// @notice Consume a BALANCE block and return its fields.

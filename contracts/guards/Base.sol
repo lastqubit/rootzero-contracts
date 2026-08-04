@@ -18,18 +18,16 @@ abstract contract GuardBase is AccessControl, EndpointBase {
     }
 
     /// @notice Publish guard metadata and a default label.
-    /// @param name Default human-readable guard label and selector name.
+    /// @param name Guard entrypoint name and default label. It must exactly
+    /// match the Solidity guard function name used by the canonical ABI.
     /// @param input Input block specification.
-    /// @param selector Guard ABI selector, or zero to derive it from `name`.
     /// @return id Guard action node ID.
     /// @return descriptor Packed endpoint lane metadata and flags.
     function guard(
         string memory name,
-        uint input,
-        bytes4 selector
+        uint input
     ) internal returns (uint id, uint descriptor) {
-        selector = selector == bytes4(0) ? Selectors.guard(name) : selector;
-        id = Nodes.toGuard(selector, address(this));
-        descriptor = endpoint(id, name, Specs.Empty, input, Specs.Empty, false, false);
+        id = Nodes.toGuard(Selectors.guard(name), address(this));
+        descriptor = endpoint(id, name, Specs.Empty, input, Specs.Empty, 0, 0);
     }
 }

@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that pay balances to accounts.
 abstract contract PayoutHook {
     /// @notice Override to pay `amount` from `account` to `to`.
-    /// Called once per paired BALANCE state block and ACCOUNT request block.
+    /// Called once per paired BALANCE state block and ACCOUNT input block.
     /// @param account Source account identifier.
     /// @param to Destination account identifier.
     /// @param asset Asset identifier.
@@ -16,7 +17,7 @@ abstract contract PayoutHook {
 }
 
 /// @title Payout
-/// @notice Command that sinks BALANCE state blocks to matching ACCOUNT request blocks.
+/// @notice Command that sinks BALANCE state blocks to matching ACCOUNT input blocks.
 /// Each BALANCE block is paired with one ACCOUNT block at the same position.
 abstract contract Payout is CommandBase, PayoutHook {
     uint private immutable descriptor;
@@ -25,7 +26,7 @@ abstract contract Payout is CommandBase, PayoutHook {
         (, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0, false, false);
     }
 
-    /// @notice Pay out BALANCE state blocks to matching ACCOUNT request blocks.
+    /// @notice Pay out BALANCE state blocks to matching ACCOUNT input blocks.
     /// @param state BALANCE block stream.
     /// @param input Matching ACCOUNT block stream.
     /// @return Empty output state.
@@ -42,6 +43,6 @@ abstract contract Payout is CommandBase, PayoutHook {
             payout(account, exec.unpackAccount(Lanes.Input), asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
 import {CreditAccountHook} from "../core/Settlement.sol";
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
@@ -15,7 +15,7 @@ abstract contract PortCreditAccount is PortBase, CreditAccountHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portCreditAccount", Specs.AccountAmount, Specs.Empty, 0, false);
+        (, descriptor) = port("portCreditAccount", Specs.AccountAmount, Specs.Empty, false);
     }
 
     /// @notice Execute the port-credit call.
@@ -28,6 +28,7 @@ abstract contract PortCreditAccount is PortBase, CreditAccountHook {
             (bytes32 account, bytes32 asset, uint amount) = exec.unpackAccountAmount(Lanes.Input);
             creditAccount(account, asset, amount);
         }
+        
         return "";
     }
 }

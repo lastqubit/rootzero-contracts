@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
 import {RoutePayableHook} from "../commands/Relay.sol";
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
@@ -14,7 +14,7 @@ abstract contract PortDispatchPayable is PortBase, RoutePayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, 0, true);
+        (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, true);
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined route hook.
@@ -29,6 +29,7 @@ abstract contract PortDispatchPayable is PortBase, RoutePayableHook {
             (uint portal, uint resources, bytes calldata payload) = exec.unpackDispatch(Lanes.Input);
             route(portal, resources, bytes(payload), exec);
         }
+        
         return "";
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+/// @notice Canonical action identifiers used by protocol events.
 library Actions {
     uint32 constant None = 0;
     uint32 constant Transfer = 1;

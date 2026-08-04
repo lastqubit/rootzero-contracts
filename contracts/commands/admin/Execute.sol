@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
@@ -17,7 +17,7 @@ abstract contract ExecutePayable is AdminBase {
         (, descriptor) = command("executePayable", Specs.Empty, Specs.Call, Specs.Empty, 0, true, true);
     }
 
-    /// @notice Execute each CALL block in the admin request.
+    /// @notice Execute each CALL block in the admin input.
     /// @param input CALL block stream.
     /// @return Empty output state.
     /// @return Remaining native value as a refund transaction stream.
@@ -33,6 +33,6 @@ abstract contract ExecutePayable is AdminBase {
             rawCall(target, exec.useValue(resources), data);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

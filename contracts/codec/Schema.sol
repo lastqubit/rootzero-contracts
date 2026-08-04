@@ -12,7 +12,7 @@ pragma solidity ^0.8.33;
 // - an empty schema string means the block has no structured payload
 // - commas separate siblings at every level
 // - braces define the current block payload body
-// - command requests are a single run when the request schema is non-empty
+// - command inputs are a single run when the input schema is non-empty
 // - command state is a single active state run without trailing globals
 // - run items may repeat at top level for batching
 // - `maybe #x` marks an optional block item
@@ -40,7 +40,7 @@ pragma solidity ^0.8.33;
 // - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
-// - command request and state streams are each a single run of blocks under the
+// - command input and state streams are each a single run of blocks under the
 //   current protocol convention; the block format may support other shapes in
 //   future protocol surfaces
 // - `balance(...)` and `custody(...)` are live, linear state in the active command pipeline
@@ -48,62 +48,60 @@ pragma solidity ^0.8.33;
 // - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
 // - commands must preserve, transform, settle, or intentionally consume pipeline state
-// - request blocks such as `amount(...)`, `allocation(...)`, and `allowance(...)`
+// - input blocks such as `amount(...)`, `allocation(...)`, and `allowance(...)`
 //   express intent, constraints, or references
-// - request and value/response blocks are not live state
+// - input and value/response blocks are not live state
 //
-// Signed blocks:
-// - an authenticated input segment ends with one trailing AUTH block
-// - only the final AUTH is treated specially; earlier AUTH blocks remain ordinary signed bytes
-// - the signed slice runs from the segment start through the AUTH head, excluding only AUTH proof bytes
-// - `cid` binds the signature to one command; `deadline` acts as expiry and nonce
-// - current helpers assume proof layout `[bytes20 signer][bytes65 sig]`
-
 /// @title Schemas
 /// @notice Human-readable schema string constants for each block type.
 /// These strings describe payload layout for discovery events and docs; block
 /// aliases map to standard keys by convention. Custom blocks may use any unique
 /// bytes4 key in their active context.
 library Schemas {
+    // Empty and reserved payloads
+
     string constant Unit = "";
-    string constant Node = "{ uint id }";
-    string constant Account = "{ bytes32 account }";
-    string constant Asset = "{ bytes32 asset }";
-    string constant Amount = "{ bytes32 asset, uint amount }";
-    string constant Balance = "{ bytes32 asset, uint amount }";
-    string constant BalanceLimit = "{ bytes32 asset, uint min, uint max }";
-    string constant Custody = "{ uint host, bytes32 asset, uint amount }";
-    string constant CustodyLimit = "{ uint host, bytes32 asset, uint min, uint max }";
-    string constant Allocation = "{ uint host, bytes32 asset, uint amount }";
-    string constant Allowance = "{ uint host, bytes32 asset, uint amount }";
-    string constant Transaction = "{ bytes32 from, bytes32 to, bytes32 asset, uint amount }";
-    string constant Context = "{ bytes32 account, #bytes as state, #bytes as request }";
-    string constant Recover = "{ uint handler, uint resources, bytes32 key, #bytes as witness }";
-    string constant Call = "{ uint target, uint resources, #bytes as payload }";
-    string constant Step = "{ uint target, uint resources, #bytes as request }";
-    string constant Relay = "{ uint portal, uint resources, #bytes as request }";
-    string constant Dispatch = "{ uint portal, uint resources, #bytes as payload }";
-    string constant Bounty = "{ uint amount, bytes32 relayer }";
-    string constant Fee = "{ uint amount }";
-    string constant Auth = "{ uint cid, uint deadline, #bytes as proof }";
-    string constant Label = "{ uint id, bytes32 namespace, #string as name }";
-    string constant Schema = "{ uint spec, #string as body, bytes32 name }";
     string constant Bytes = "";
     string constant String = "";
     string constant List = "";
     string constant Evm = "";
-}
 
-/// @title Forms
-/// @notice Reusable structural block schemas for core tuple shapes.
-/// These describe payload form without assigning command or query semantics.
-library Forms {
+    // One-word payloads
+
+    string constant Node = "{ uint id }";
+    string constant Account = "{ bytes32 account }";
+    string constant Asset = "{ bytes32 asset }";
     string constant Status = "{ uint code }";
-    string constant AssetAmount = "{ bytes32 asset, uint amount }";
+
+    // Two-word payloads
+
+    string constant Amount = "{ bytes32 asset, uint amount }";
+    string constant Balance = "{ bytes32 asset, uint amount }";
     string constant AccountAsset = "{ bytes32 account, bytes32 asset }";
+
+    // Three-word payloads
+
+    string constant Allocation = "{ uint host, bytes32 asset, uint amount }";
+    string constant Allowance = "{ uint host, bytes32 asset, uint amount }";
+    string constant Custody = "{ uint host, bytes32 asset, uint amount }";
     string constant AccountAmount = "{ bytes32 account, bytes32 asset, uint amount }";
     string constant HostAmount = "{ uint host, bytes32 asset, uint amount }";
     string constant HostAccountAsset = "{ uint host, bytes32 account, bytes32 asset }";
+
+    // Four-word payloads
+
+    string constant Transaction = "{ bytes32 from, bytes32 to, bytes32 asset, uint amount }";
     string constant HostAccountAmount = "{ uint host, bytes32 account, bytes32 asset, uint amount }";
+
+    // Composite payloads
+
+    string constant Call = "{ uint target, uint resources, #bytes as payload }";
+    string constant Step = "{ uint cmd, uint resources, #bytes as input }";
+    string constant Relay = "{ uint portal, uint resources, #bytes as input }";
+    string constant Dispatch = "{ uint portal, uint resources, #bytes as payload }";
+    string constant Context = "{ bytes32 account, #bytes as state, #bytes as input }";
+    string constant Recover = "{ uint handler, uint resources, bytes32 key, #bytes as witness }";
+    string constant Label = "{ uint id, bytes32 namespace, #string as name }";
+    string constant Schema = "{ uint spec, #string as body, bytes32 name }";
 }
 

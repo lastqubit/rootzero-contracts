@@ -13,13 +13,6 @@ error FailedCall(address addr, bytes4 selector, bytes err);
 /// @title NodeCalls
 /// @notice Shared low-level inter-node call helpers for contracts that can talk to other nodes.
 abstract contract NodeCalls is AccessControl {
-    /// @notice Return the host node ID corresponding to the current caller.
-    /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
-    /// @return Host node ID for `msg.sender`.
-    function caller() internal view returns (uint) {
-        return Nodes.toHost(msg.sender);
-    }
-
     /// @notice Try a raw low-level call to another node and return whether it succeeded.
     /// @param node Node ID of the callee.
     /// @param value Native value to forward in wei.
@@ -88,7 +81,7 @@ abstract contract CommandCalls is NodeCalls {
     /// @param value Native value to forward in wei.
     /// @param account Command account identifier.
     /// @param state Current command state block stream.
-    /// @param request Command input block stream.
+    /// @param input Command input block stream.
     /// @return nextState Decoded command output state block stream.
     /// @return transactions Decoded command transaction block stream.
     function callCommand(
@@ -96,10 +89,10 @@ abstract contract CommandCalls is NodeCalls {
         uint128 value,
         bytes32 account,
         bytes memory state,
-        bytes calldata request
+        bytes calldata input
     ) internal returns (bytes memory nextState, bytes memory transactions) {
         bytes4 selector = Nodes.commandSelector(command);
-        bytes memory data = abi.encodeWithSelector(selector, account, state, request);
+        bytes memory data = abi.encodeWithSelector(selector, account, state, input);
         return abi.decode(trustedCall(command, value, data), (bytes, bytes));
     }
 }

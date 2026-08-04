@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Keys, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @title Label
 /// @notice Admin command that publishes namespaced labels for node IDs.
-/// Each LABEL block in the request emits one `Labeled` event. Only callable by
+/// Each LABEL block in the input emits one `Labeled` event. Only callable by
 /// the admin account.
 abstract contract Label is AdminBase {
     uint private immutable descriptor;
@@ -15,7 +15,7 @@ abstract contract Label is AdminBase {
         (, descriptor) = command("label", Specs.Empty, Specs.Label, Specs.Empty, 0, false, true);
     }
 
-    /// @notice Publish each LABEL block in the admin request.
+    /// @notice Publish each LABEL block in the admin input.
     /// @param input LABEL block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
@@ -31,6 +31,6 @@ abstract contract Label is AdminBase {
             emit Labeled(node, namespace, name);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

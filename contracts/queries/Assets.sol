@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {QueryBase} from "./Base.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that expose asset status queries.
 abstract contract AssetStatusHook {
     /// @notice Resolve support status for one asset.
     /// Concrete implementations define the support policy and optional context codes.
@@ -17,20 +18,20 @@ abstract contract AssetStatusHook {
 
 /// @title AssetStatus
 /// @notice Rootzero query that checks support status for one or more assets.
-/// The request is a run of `ASSET` blocks.
-/// The response returns one `STATUS` form block per query entry, preserving request order.
+/// The input is a run of `ASSET` blocks.
+/// The response returns one `STATUS` form block per query entry, preserving input order.
 abstract contract AssetStatus is QueryBase, AssetStatusHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = query("assetStatus", Specs.Asset, Specs.Status, 0);
+        (, descriptor) = query("assetStatus", Specs.Asset, Specs.Status);
     }
 
     /// @notice Resolve asset support status for a run of requested assets.
-    /// @param request Block-stream request consisting of `asset { bytes32 asset }` blocks.
+    /// @param input Block-stream input consisting of `asset { bytes32 asset }` blocks.
     /// @return Block-stream response containing one `status { uint code }` form block per asset block.
-    function assetStatus(bytes calldata request) external view returns (bytes memory) {
-        Execution memory exec = openInput(request, descriptor, 0);
+    function assetStatus(bytes calldata input) external view returns (bytes memory) {
+        Execution memory exec = openInput(input, descriptor, 0);
 
         while (exec.more()) {
             bytes32 asset = exec.unpackAsset(Lanes.Input);
@@ -38,6 +39,6 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
             exec.outputStatus(status);
         }
 
-        return closeExecution(exec);
+        return close(exec);
     }
 }

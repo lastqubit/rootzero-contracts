@@ -4,13 +4,7 @@ pragma solidity ^0.8.33;
 // Aggregator: re-exports command, admin, port, guard, and query endpoint abstractions.
 // Import this file to inherit from the full rootzero callable host surface without managing individual paths.
 
-// Shared helpers
-import { Keys } from "./codec/Keys.sol";
-import { Specs } from "./codec/Specs.sol";
-import { CommandBase } from "./commands/Base.sol";
-import { Execution, Executions, Lanes } from "./execution/Execution.sol";
-import { EndpointBase } from "./core/Endpoint.sol";
-import { Descriptors } from "./utils/Descriptors.sol";
+// Shared endpoint hooks
 import { CreditAccountHook, DebitAccountHook } from "./core/Settlement.sol";
 
 // Commands

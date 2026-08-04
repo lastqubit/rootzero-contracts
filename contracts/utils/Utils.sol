@@ -83,6 +83,52 @@ function max160(uint value) pure returns (uint) {
     return value;
 }
 
+// Packed fields
+
+/// @notice Clear the 8-bit field beginning at `shift`.
+function clear8(uint value, uint shift) pure returns (uint) {
+    return value & ~(uint(type(uint8).max) << shift);
+}
+
+/// @notice Clear the 16-bit field beginning at `shift`.
+function clear16(uint value, uint shift) pure returns (uint) {
+    return value & ~(uint(type(uint16).max) << shift);
+}
+
+/// @notice Clear the 32-bit field beginning at `shift`.
+function clear32(uint value, uint shift) pure returns (uint) {
+    return value & ~(uint(type(uint32).max) << shift);
+}
+
+/// @notice Clear the 64-bit field beginning at `shift`.
+function clear64(uint value, uint shift) pure returns (uint) {
+    return value & ~(uint(type(uint64).max) << shift);
+}
+
+/// @notice Replace the 8-bit field beginning at `shift` with `field`.
+/// @dev Reverts when `field` does not fit in 8 bits.
+function replace8(uint value, uint shift, uint field) pure returns (uint) {
+    return clear8(value, shift) | (max8(field) << shift);
+}
+
+/// @notice Replace the 16-bit field beginning at `shift` with `field`.
+/// @dev Reverts when `field` does not fit in 16 bits.
+function replace16(uint value, uint shift, uint field) pure returns (uint) {
+    return clear16(value, shift) | (max16(field) << shift);
+}
+
+/// @notice Replace the 32-bit field beginning at `shift` with `field`.
+/// @dev Reverts when `field` does not fit in 32 bits.
+function replace32(uint value, uint shift, uint field) pure returns (uint) {
+    return clear32(value, shift) | (max32(field) << shift);
+}
+
+/// @notice Replace the 64-bit field beginning at `shift` with `field`.
+/// @dev Reverts when `field` does not fit in 64 bits.
+function replace64(uint value, uint shift, uint field) pure returns (uint) {
+    return clear64(value, shift) | (max64(field) << shift);
+}
+
 /// @notice Assert that `n` is evenly divisible by `divisor`.
 /// No-op when `divisor` is zero.
 function divisible(uint n, uint divisor) pure {

@@ -17,7 +17,7 @@ struct AccountAsset {
     bytes32 asset;
 }
 
-/// @notice Account-scoped amount shape for requests, responses, and reporting.
+/// @notice Account-scoped amount shape for inputs, responses, and reporting.
 struct AccountAmount {
     /// @dev Account identifier.
     bytes32 account;

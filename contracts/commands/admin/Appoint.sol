@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, Execution, Executions, Keys, Lanes, Specs } from "./Base.sol";
+import { AdminBase, Execution, Executions, Lanes, Specs } from "./Base.sol";
 using Executions for Execution;
 
 /// @title Appoint
 /// @notice Admin command that grants guardian status to a list of account IDs.
-/// Each ACCOUNT block in the request is enabled as a guardian on the host.
+/// Each ACCOUNT block in the input is enabled as a guardian on the host.
 /// Only callable by the admin account.
 abstract contract Appoint is AdminBase {
     uint private immutable descriptor;
@@ -15,7 +15,7 @@ abstract contract Appoint is AdminBase {
         (, descriptor) = command("appoint", Specs.Empty, Specs.Account, Specs.Empty, 0, false, true);
     }
 
-    /// @notice Appoint each ACCOUNT block in the admin request as a guardian.
+    /// @notice Appoint each ACCOUNT block in the admin input as a guardian.
     /// @param input ACCOUNT block stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
@@ -31,6 +31,6 @@ abstract contract Appoint is AdminBase {
             setGuardian(guardian, true);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

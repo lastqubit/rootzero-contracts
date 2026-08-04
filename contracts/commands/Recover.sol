@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that recover previously undelivered payloads.
 abstract contract RecoverHook {
     /// @notice Override to recover a witness through `handler`.
     /// @param handler Port that should attempt recovery.
@@ -15,7 +16,7 @@ abstract contract RecoverHook {
 }
 
 /// @title RecoverPayable
-/// @notice Command that forwards recover request blocks to a virtual hook.
+/// @notice Command that forwards recover input blocks to a virtual hook.
 /// Recovery is witness-driven: the command account pays and receives leftover
 /// value settlement, but the recovered subject is defined by each witness.
 /// Produces no output state.
@@ -26,7 +27,7 @@ abstract contract RecoverPayable is CommandBase, RecoverHook {
         (, descriptor) = command("recoverPayable", Specs.Empty, Specs.Recover, Specs.Empty, 0, true, false);
     }
 
-    /// @notice Recover each recover block in the command request.
+    /// @notice Recover each recover block in the command input.
     /// @param input RECOVER block stream.
     /// @return Empty output state.
     /// @return Remaining native value as a refund transaction stream.
@@ -42,6 +43,6 @@ abstract contract RecoverPayable is CommandBase, RecoverHook {
             recover(handler, key, witness, exec.useValue(resources));
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

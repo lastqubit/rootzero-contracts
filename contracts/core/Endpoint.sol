@@ -6,19 +6,12 @@ import {Execution, Executions} from "../execution/Execution.sol";
 import {EndpointEvent} from "../events/Endpoint.sol";
 import {LabeledEvent} from "../events/Labeled.sol";
 import {SchemaEvent} from "../events/Schema.sol";
-import {Descriptors} from "../utils/Descriptors.sol";
+import {Descriptors} from "../codec/Descriptors.sol";
 import {Runtime} from "./Runtime.sol";
 
 /// @title EndpointBase
 /// @notice Shared endpoint metadata helpers.
 abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEvent {
-    /// @notice Finalize an execution output and return its encoded block stream.
-    /// @param exec Completed endpoint execution.
-    /// @return Encoded output block stream.
-    function closeExecution(Execution memory exec) internal pure returns (bytes memory) {
-        return Executions.finish(exec);
-    }
-
     /// @notice Open an endpoint input stream with an expected batch count.
     /// @param source Input block stream to open.
     /// @param descriptor Packed endpoint descriptor.
@@ -32,14 +25,11 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
         return Executions.openInput(source, descriptor, batches);
     }
 
-    /// @notice Annotate a block spec as a generic LIST item.
-    function many(uint spec) internal pure returns (uint) {
-        return Specs.withContainer(spec, Specs.List);
-    }
-
-    /// @notice Annotate a block spec with an explicit descriptor group size.
-    function group(uint spec, uint8 size) internal pure returns (uint) {
-        return Specs.withGroup(spec, size);
+    /// @notice Finalize an execution output and return its encoded block stream.
+    /// @param exec Completed endpoint execution.
+    /// @return Encoded output block stream.
+    function close(Execution memory exec) internal pure returns (bytes memory) {
+        return Executions.finish(exec);
     }
 
     /// @notice Construct and publish a context-local block specification.
@@ -68,8 +58,8 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
     /// @param state State block specification.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param funded Whether the endpoint accepts nonzero native value.
-    /// @param admin Whether the endpoint is restricted to the admin account.
+    /// @param transactions Number of transaction blocks produced per batch, or zero for none.
+    /// @param flags Packed endpoint behavior flags.
     /// @return descriptor Packed endpoint lane metadata and flags.
     function endpoint(
         uint id,
@@ -77,10 +67,10 @@ abstract contract EndpointBase is Runtime, EndpointEvent, LabeledEvent, SchemaEv
         uint state,
         uint input,
         uint output,
-        bool funded,
-        bool admin
+        uint8 transactions,
+        uint8 flags
     ) internal returns (uint descriptor) {
-        descriptor = Descriptors.pack(state, input, output, funded, admin);
+        descriptor = Descriptors.create(state, input, output, transactions, flags);
         emit Endpoint(host, id, descriptor);
         emit Labeled(id, bytes32(0), name);
     }

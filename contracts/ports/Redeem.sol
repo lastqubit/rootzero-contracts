@@ -2,14 +2,15 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that redeem balances received through a port.
 abstract contract RedeemBalanceHook {
     /// @notice Override to redeem one balance claim from a peer host into local assets.
-    /// @param peer Peer host node ID for this request.
+    /// @param peer Peer host node ID for this input.
     /// @param asset Asset identifier to redeem locally.
     /// @param amount Amount to redeem in the asset's native units.
     function redeemBalance(uint peer, bytes32 asset, uint amount) internal virtual;
@@ -17,13 +18,13 @@ abstract contract RedeemBalanceHook {
 
 /// @title PortRedeemBalance
 /// @notice Port that redeems balance state from a peer host into local assets.
-/// Each BALANCE block in the request calls `redeemBalance(peer, asset, amount)`.
+/// Each BALANCE block in the input calls `redeemBalance(peer, asset, amount)`.
 /// Restricted to trusted peers.
 abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portRedeemBalance", Specs.Balance, Specs.Empty, 0, false);
+        (, descriptor) = port("portRedeemBalance", Specs.Balance, Specs.Empty, false);
     }
 
     /// @notice Execute the balance redemption port call.
@@ -37,6 +38,7 @@ abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
             (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.Input);
             redeemBalance(peer, asset, amount);
         }
+        
         return "";
     }
 }

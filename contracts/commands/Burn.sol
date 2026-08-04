@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Execution, Executions, CommandBase, Keys, Lanes, Specs } from "./Base.sol";
+import { Execution, Executions, CommandBase, Lanes, Specs } from "./Base.sol";
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that burn account assets.
 abstract contract BurnHook {
     /// @notice Override to burn or consume the provided balance amount.
     /// Called once per BALANCE block in state.
@@ -40,7 +41,7 @@ abstract contract Burn is CommandBase, BurnHook {
             burn(account, asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }
 

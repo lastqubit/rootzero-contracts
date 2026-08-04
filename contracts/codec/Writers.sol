@@ -8,8 +8,9 @@ import {Sizes, Specs} from "./Specs.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
 struct Writer {
-    /// @dev Packed writer metadata: `[reserved:23][growable:1][end:4][i:4]`.
-    uint packed;
+    /// @dev Packed cursor metadata. `len` is logical capacity and flag bit 0
+    /// indicates whether the backing buffer may grow.
+    uint cur;
     /// @dev Destination buffer. Physical capacity may be padded up to a full 32-byte word;
     /// final length is set to the packed write position by `finish`.
     bytes dst;
@@ -20,11 +21,8 @@ struct Writer {
 /// Initializes logical capacity from raw metadata or a block specification,
 /// then lazily allocates and writes binary-encoded blocks sequentially.
 /// Physical allocation is rounded up to whole 32-byte words for scratch space,
-/// while `Writer.end` tracks logical capacity. Call `finish` to trim the buffer.
+/// while the writer cursor length tracks logical capacity. Call `finish` to trim the buffer.
 library Writers {
-    /// @dev `finish` called with a writer whose `i` exceeds `dst.length`.
-    error IncompleteWriter();
-
     // -------------------------------------------------------------------------
     // Initialization helpers
     // -------------------------------------------------------------------------
@@ -34,20 +32,19 @@ library Writers {
     /// @param growable Whether append helpers may expand the capacity.
     /// @return writer Unallocated writer positioned at index 0.
     function init(uint len, bool growable) internal pure returns (Writer memory writer) {
-        writer.packed = Buffers.init(len, growable);
+        writer.cur = Buffers.cursor(len, 0, growable, 0);
     }
 
-    /// @notice Initialize writer metadata for `count` blocks described by `spec`.
+    /// @notice Initialize writer metadata for `groups` of blocks described by `spec`.
     /// @param spec Packed block key, payload bounds, allocation hint, and flags.
-    /// @param count Number of blocks the writer is expected to encode.
+    /// @param groups Number of descriptor groups the writer is expected to encode.
     /// @return writer Unallocated writer with capacity derived from the specification,
-    /// or an inert empty writer when `count` is zero.
-    function init(uint spec, uint count) internal pure returns (Writer memory writer) {
-        if (count == 0) return writer;
+    /// or an inert empty writer when its capacity is zero.
+    function init(uint spec, uint groups) internal pure returns (Writer memory writer) {
+        (uint capacity, bool growable) = Specs.allocation(spec, groups);
+        if (capacity == 0) return writer;
 
-        uint size = Sizes.Header + Specs.hint(spec);
-        bool growable = Specs.growable(spec);
-        writer = init(count * size, growable);
+        writer.cur = Buffers.cursor(capacity, groups, growable, 0);
     }
 
     // -------------------------------------------------------------------------
@@ -55,8 +52,20 @@ library Writers {
     // -------------------------------------------------------------------------
 
     /// @dev Reserve through a `Writer` and update it in place.
+    /// @param writer Writer whose cursor and buffer are updated.
+    /// @param advance Logical number of bytes written.
+    /// @param touch Number of bytes that must be addressable by the write.
+    /// @return i Relative offset reserved for the write.
     function reserve(Writer memory writer, uint advance, uint touch) private pure returns (uint i) {
-        (writer.packed, writer.dst, i) = Buffers.reserve(writer.packed, writer.dst, advance, touch);
+        (writer.cur, writer.dst, i) = Buffers.reserve(writer.cur, writer.dst, advance, touch);
+    }
+
+    /// @dev Reserve an exact number of bytes through `writer`.
+    /// @param writer Writer whose cursor and buffer are updated.
+    /// @param size Number of bytes to reserve and touch.
+    /// @return i Relative offset reserved for the write.
+    function reserve(Writer memory writer, uint size) private pure returns (uint i) {
+        return reserve(writer, size, size);
     }
 
     // -------------------------------------------------------------------------
@@ -102,6 +111,9 @@ library Writers {
     }
 
     /// @notice Append a dynamic protocol block.
+    /// @param writer Destination writer.
+    /// @param spec Block specification used to validate and encode the payload.
+    /// @param data Block payload.
     function appendBlock(Writer memory writer, uint spec, bytes memory data) internal pure {
         Specs.validate(spec, data.length);
         uint size = Sizes.Header + data.length;
@@ -109,102 +121,182 @@ library Writers {
         Blocks.write(writer.dst, i, Specs.key(spec), data);
     }
 
+    /// @notice Append a custom fixed block with up to 32 payload bytes.
+    /// @param writer Destination writer.
+    /// @param spec Exact block specification.
+    /// @param a Payload word.
     function appendBlock32(Writer memory writer, uint spec, bytes32 a) internal pure {
         uint keep = Specs.exact(spec, 1, 32);
         uint i = reserve(writer, Sizes.Header + keep, Sizes.B32);
-        Blocks.write32(writer.dst, i, Specs.key(spec), a, keep);
+        Blocks.write32(writer.dst, i, Specs.key(spec), a);
     }
 
-    function appendBytes(Writer memory writer, bytes memory data) internal pure {
-        uint size = Sizes.Header + data.length;
-        uint i = reserve(writer, size, size);
-        Blocks.writeBytes(writer.dst, i, data);
+    /// @notice Append an ACCOUNT block.
+    /// @param writer Destination writer.
+    /// @param account Account identifier to encode.
+    function appendAccount(Writer memory writer, bytes32 account) internal pure {
+        uint i = reserve(writer, Sizes.B32);
+        Blocks.writeAccount(writer.dst, i, account);
     }
 
-    function appendString(Writer memory writer, string memory data) internal pure {
-        uint size = Sizes.Header + bytes(data).length;
-        uint i = reserve(writer, size, size);
-        Blocks.writeString(writer.dst, i, data);
+    /// @notice Append an ASSET block.
+    /// @param writer Destination writer.
+    /// @param asset Asset identifier to encode.
+    function appendAsset(Writer memory writer, bytes32 asset) internal pure {
+        uint i = reserve(writer, Sizes.B32);
+        Blocks.writeAsset(writer.dst, i, asset);
     }
 
-    function appendStep(Writer memory writer, uint target, uint resources, bytes memory request) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + request.length;
-        uint i = reserve(writer, size, size);
-        Blocks.writeStep(writer.dst, i, target, resources, request);
+    /// @notice Append a NODE block.
+    /// @param writer Destination writer.
+    /// @param node Node identifier to encode.
+    function appendNode(Writer memory writer, uint node) internal pure {
+        uint i = reserve(writer, Sizes.B32);
+        Blocks.writeNode(writer.dst, i, node);
     }
 
-    function appendCall(Writer memory writer, uint target, uint resources, bytes memory data) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + data.length;
-        uint i = reserve(writer, size, size);
-        Blocks.writeCall(writer.dst, i, target, resources, data);
-    }
-
-    function appendContext(Writer memory writer, bytes32 account, bytes memory state, bytes memory request) internal pure {
-        uint size = Sizes.B32 + 2 * Sizes.Header + state.length + request.length;
-        uint i = reserve(writer, size, size);
-        Blocks.writeContext(writer.dst, i, account, state, request);
-    }
-
+    /// @notice Append a STATUS block.
+    /// @param writer Destination writer.
+    /// @param code Status code to encode.
     function appendStatus(Writer memory writer, uint code) internal pure {
-        uint i = reserve(writer, Sizes.Status, Sizes.Status);
+        uint i = reserve(writer, Sizes.B32);
         Blocks.writeStatus(writer.dst, i, code);
     }
 
-    function appendBalance(Writer memory writer, bytes32 asset, uint amount) internal pure {
-        uint i = reserve(writer, Sizes.Balance, Sizes.Balance);
-        Blocks.writeBalance(writer.dst, i, asset, amount);
-    }
-
-    function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
-        appendBalance(writer, value.asset, value.amount);
-    }
-
+    /// @notice Append an AMOUNT block.
+    /// @param writer Destination writer.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Asset amount to encode.
     function appendAmount(Writer memory writer, bytes32 asset, uint amount) internal pure {
-        uint i = reserve(writer, Sizes.Amount, Sizes.Amount);
+        uint i = reserve(writer, Sizes.B64);
         Blocks.writeAmount(writer.dst, i, asset, amount);
     }
 
+    /// @notice Append a structured AMOUNT value.
+    /// @param writer Destination writer.
+    /// @param value Structured asset amount to encode.
     function appendAmount(Writer memory writer, AssetAmount memory value) internal pure {
         appendAmount(writer, value.asset, value.amount);
     }
 
-    function appendAccountAmount(
-        Writer memory writer,
-        bytes32 account,
-        bytes32 asset,
-        uint amount
-    ) internal pure {
-        uint i = reserve(writer, Sizes.B96, Sizes.B96);
-        Blocks.writeAccountAmount(writer.dst, i, account, asset, amount);
+    /// @notice Append a BALANCE block.
+    /// @param writer Destination writer.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Balance amount to encode.
+    function appendBalance(Writer memory writer, bytes32 asset, uint amount) internal pure {
+        uint i = reserve(writer, Sizes.B64);
+        Blocks.writeBalance(writer.dst, i, asset, amount);
     }
 
-    function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
-        appendAccountAmount(writer, value.account, value.asset, value.amount);
+    /// @notice Append a structured BALANCE value.
+    /// @param writer Destination writer.
+    /// @param value Structured asset balance to encode.
+    function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
+        appendBalance(writer, value.asset, value.amount);
     }
 
-    function appendAsset(Writer memory writer, bytes32 asset) internal pure {
-        uint i = reserve(writer, Sizes.B32, Sizes.B32);
-        Blocks.writeAsset(writer.dst, i, asset);
+    /// @notice Append an ACCOUNT_ASSET block.
+    /// @param writer Destination writer.
+    /// @param account Account identifier to encode.
+    /// @param asset Asset identifier to encode.
+    function appendAccountAsset(Writer memory writer, bytes32 account, bytes32 asset) internal pure {
+        uint i = reserve(writer, Sizes.B64);
+        Blocks.writeAccountAsset(writer.dst, i, account, asset);
     }
 
-    function appendBounty(Writer memory writer, uint amount, bytes32 relayer) internal pure {
-        uint i = reserve(writer, Sizes.Bounty, Sizes.Bounty);
-        Blocks.writeBounty(writer.dst, i, amount, relayer);
+    /// @notice Append an ALLOCATION block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Allocation amount to encode.
+    function appendAllocation(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
+        uint i = reserve(writer, Sizes.B96);
+        Blocks.writeAllocation(writer.dst, i, host, asset, amount);
     }
 
+    /// @notice Append an ALLOWANCE block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Allowance amount to encode.
+    function appendAllowance(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
+        uint i = reserve(writer, Sizes.B96);
+        Blocks.writeAllowance(writer.dst, i, host, asset, amount);
+    }
+
+    /// @notice Append a CUSTODY block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Custody amount to encode.
     function appendCustody(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
-        uint i = reserve(writer, Sizes.B96, Sizes.B96);
+        uint i = reserve(writer, Sizes.B96);
         Blocks.writeCustody(writer.dst, i, host, asset, amount);
     }
 
+    /// @notice Append a CUSTODY block for `host` and a structured amount.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param value Structured asset amount to encode.
     function appendCustody(Writer memory writer, uint host, AssetAmount memory value) internal pure {
         appendCustody(writer, host, value.asset, value.amount);
     }
 
+    /// @notice Append a structured CUSTODY value.
+    /// @param writer Destination writer.
+    /// @param value Structured host asset amount to encode.
     function appendCustody(Writer memory writer, HostAmount memory value) internal pure {
         appendCustody(writer, value.host, value.asset, value.amount);
     }
 
+    /// @notice Append an ACCOUNT_AMOUNT block.
+    /// @param writer Destination writer.
+    /// @param account Account identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Account amount to encode.
+    function appendAccountAmount(Writer memory writer, bytes32 account, bytes32 asset, uint amount) internal pure {
+        uint i = reserve(writer, Sizes.B96);
+        Blocks.writeAccountAmount(writer.dst, i, account, asset, amount);
+    }
+
+    /// @notice Append a structured ACCOUNT_AMOUNT value.
+    /// @param writer Destination writer.
+    /// @param value Structured account asset amount to encode.
+    function appendAccountAmount(Writer memory writer, AccountAmount memory value) internal pure {
+        appendAccountAmount(writer, value.account, value.asset, value.amount);
+    }
+
+    /// @notice Append a HOST_AMOUNT block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Host amount to encode.
+    function appendHostAmount(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
+        uint i = reserve(writer, Sizes.B96);
+        Blocks.writeHostAmount(writer.dst, i, host, asset, amount);
+    }
+
+    /// @notice Append a HOST_ACCOUNT_ASSET block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param account Account identifier to encode.
+    /// @param asset Asset identifier to encode.
+    function appendHostAccountAsset(
+        Writer memory writer,
+        uint host,
+        bytes32 account,
+        bytes32 asset
+    ) internal pure {
+        uint i = reserve(writer, Sizes.B96);
+        Blocks.writeHostAccountAsset(writer.dst, i, host, account, asset);
+    }
+
+    /// @notice Append a TRANSACTION block.
+    /// @param writer Destination writer.
+    /// @param from Debit account identifier.
+    /// @param to Credit account identifier.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Transaction amount to encode.
     function appendTransaction(
         Writer memory writer,
         bytes32 from,
@@ -212,12 +304,173 @@ library Writers {
         bytes32 asset,
         uint amount
     ) internal pure {
-        uint i = reserve(writer, Sizes.Transaction, Sizes.Transaction);
+        uint i = reserve(writer, Sizes.B128);
         Blocks.writeTransaction(writer.dst, i, from, to, asset, amount);
     }
 
+    /// @notice Append a structured TRANSACTION value.
+    /// @param writer Destination writer.
+    /// @param value Structured transaction to encode.
     function appendTransaction(Writer memory writer, Tx memory value) internal pure {
         appendTransaction(writer, value.from, value.to, value.asset, value.amount);
+    }
+
+    /// @notice Append a HOST_ACCOUNT_AMOUNT block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param account Account identifier to encode.
+    /// @param asset Asset identifier to encode.
+    /// @param amount Host account amount to encode.
+    function appendHostAccountAmount(
+        Writer memory writer,
+        uint host,
+        bytes32 account,
+        bytes32 asset,
+        uint amount
+    ) internal pure {
+        uint i = reserve(writer, Sizes.B128);
+        Blocks.writeHostAccountAmount(writer.dst, i, host, account, asset, amount);
+    }
+
+    /// @notice Append a LIST block.
+    /// @param writer Destination writer.
+    /// @param value Encoded list payload.
+    function appendList(Writer memory writer, bytes memory value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.writeList(writer.dst, i, value);
+    }
+
+    /// @notice Append an EVM block.
+    /// @param writer Destination writer.
+    /// @param value EVM payload to encode.
+    function appendEvm(Writer memory writer, bytes memory value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.writeEvm(writer.dst, i, value);
+    }
+
+    /// @notice Append a BYTES block.
+    /// @param writer Destination writer.
+    /// @param value Byte payload to encode.
+    function appendBytes(Writer memory writer, bytes memory value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.writeBytes(writer.dst, i, value);
+    }
+
+    /// @notice Append a STRING block.
+    /// @param writer Destination writer.
+    /// @param value String payload to encode.
+    function appendString(Writer memory writer, string memory value) internal pure {
+        uint size = Sizes.Header + bytes(value).length;
+        uint i = reserve(writer, size);
+        Blocks.writeString(writer.dst, i, value);
+    }
+
+    /// @notice Append a STEP block.
+    /// @param writer Destination writer.
+    /// @param cmd Command identifier to encode.
+    /// @param resources Packed resources to encode.
+    /// @param input Command input to encode.
+    function appendStep(Writer memory writer, uint cmd, uint resources, bytes memory input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(writer, size);
+        Blocks.writeStep(writer.dst, i, cmd, resources, input);
+    }
+
+    /// @notice Append a CALL block.
+    /// @param writer Destination writer.
+    /// @param target Call target to encode.
+    /// @param resources Packed resources to encode.
+    /// @param payload Call payload to encode.
+    function appendCall(Writer memory writer, uint target, uint resources, bytes memory payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(writer, size);
+        Blocks.writeCall(writer.dst, i, target, resources, payload);
+    }
+
+    /// @notice Append a RELAY block.
+    /// @param writer Destination writer.
+    /// @param portal Destination portal to encode.
+    /// @param resources Packed resources to encode.
+    /// @param input Relay input to encode.
+    function appendRelay(Writer memory writer, uint portal, uint resources, bytes memory input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(writer, size);
+        Blocks.writeRelay(writer.dst, i, portal, resources, input);
+    }
+
+    /// @notice Append a DISPATCH block.
+    /// @param writer Destination writer.
+    /// @param portal Destination portal to encode.
+    /// @param resources Packed resources to encode.
+    /// @param payload Dispatch payload to encode.
+    function appendDispatch(Writer memory writer, uint portal, uint resources, bytes memory payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(writer, size);
+        Blocks.writeDispatch(writer.dst, i, portal, resources, payload);
+    }
+
+    /// @notice Append a CONTEXT block.
+    /// @param writer Destination writer.
+    /// @param account Account identifier to encode.
+    /// @param state State payload to encode.
+    /// @param input Input payload to encode.
+    function appendContext(
+        Writer memory writer,
+        bytes32 account,
+        bytes memory state,
+        bytes memory input
+    ) internal pure {
+        uint size = Sizes.B32 + 2 * Sizes.Header + state.length + input.length;
+        uint i = reserve(writer, size);
+        Blocks.writeContext(writer.dst, i, account, state, input);
+    }
+
+    /// @notice Append a RECOVER block.
+    /// @param writer Destination writer.
+    /// @param handler Recovery handler to encode.
+    /// @param resources Packed resources to encode.
+    /// @param recoverykey Recovery key to encode.
+    /// @param witness Recovery witness to encode.
+    function appendRecover(
+        Writer memory writer,
+        uint handler,
+        uint resources,
+        bytes32 recoverykey,
+        bytes memory witness
+    ) internal pure {
+        uint size = Sizes.B96 + Sizes.Header + witness.length;
+        uint i = reserve(writer, size);
+        Blocks.writeRecover(writer.dst, i, handler, resources, recoverykey, witness);
+    }
+
+    /// @notice Append a LABEL block.
+    /// @param writer Destination writer.
+    /// @param id Node identifier to encode.
+    /// @param namespace Label namespace to encode.
+    /// @param name Label text to encode.
+    function appendLabel(
+        Writer memory writer,
+        uint id,
+        bytes32 namespace,
+        string memory name
+    ) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + bytes(name).length;
+        uint i = reserve(writer, size);
+        Blocks.writeLabel(writer.dst, i, id, namespace, name);
+    }
+
+    /// @notice Append a SCHEMA block.
+    /// @param writer Destination writer.
+    /// @param spec Block specification to encode.
+    /// @param body Schema body to encode.
+    /// @param name Schema name to encode.
+    function appendSchema(Writer memory writer, uint spec, string memory body, bytes32 name) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + bytes(body).length;
+        uint i = reserve(writer, size);
+        Blocks.writeSchema(writer.dst, i, spec, body, name);
     }
 
     // -------------------------------------------------------------------------
@@ -229,9 +482,6 @@ library Writers {
     /// @param writer Completed writer.
     /// @return out The written block stream; length equals the packed write position.
     function finish(Writer memory writer) internal pure returns (bytes memory out) {
-        (uint i, uint end, ) = Buffers.decode(writer.packed);
-        if (i == 0) return new bytes(0);
-        if (i > end || i > writer.dst.length) revert IncompleteWriter();
-        out = Buffers.trim(writer.dst, i);
+        out = Buffers.finish(writer.cur, writer.dst);
     }
 }

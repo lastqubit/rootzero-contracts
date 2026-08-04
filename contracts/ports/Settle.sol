@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
 import {Settlement} from "../core/Settlement.sol";
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
@@ -15,7 +15,7 @@ abstract contract PortSettle is PortBase, Settlement {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portSettle", Specs.Transaction, Specs.Empty, 0, false);
+        (, descriptor) = port("portSettle", Specs.Transaction, Specs.Empty, false);
     }
 
     /// @notice Execute the port-settle call.
@@ -28,6 +28,7 @@ abstract contract PortSettle is PortBase, Settlement {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = exec.unpackTransaction(Lanes.Input);
             settle(from, to, asset, amount);
         }
+        
         return "";
     }
 }

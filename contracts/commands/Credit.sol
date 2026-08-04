@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Keys, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 import {CreditAccountHook} from "../core/Settlement.sol";
 
 using Executions for Execution;
@@ -11,18 +11,15 @@ using Executions for Execution;
 /// Use for internally recording credits that have already been settled externally.
 abstract contract CreditAccount is CommandBase, CreditAccountHook {
     uint private immutable descriptor;
-    uint internal immutable creditAccountId;
+    uint private immutable id;
 
     constructor() {
-        (creditAccountId, descriptor) = command(
-            "creditAccount",
-            Specs.Balance,
-            Specs.Empty,
-            Specs.Empty,
-            0,
-            false,
-            false
-        );
+        (id, descriptor) = command("creditAccount", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+    }
+
+    /// @notice Return the registered CREDIT_ACCOUNT command ID.
+    function creditAccountId() internal view returns (uint) {
+        return id;
     }
 
     /// @notice Credit each BALANCE block from the command state to the command account.
@@ -41,6 +38,6 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
             creditAccount(account, asset, amount);
         }
 
-        return closeCommand(exec, account);
+        return close(exec, account);
     }
 }

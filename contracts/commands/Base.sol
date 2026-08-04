@@ -4,14 +4,17 @@ pragma solidity ^0.8.33;
 import {NodeCalls} from "../core/Calls.sol";
 import {EndpointBase} from "../core/Endpoint.sol";
 import {Blocks} from "../codec/Blocks.sol";
-import {Keys} from "../codec/Keys.sol";
 import {Specs} from "../codec/Specs.sol";
+import {HostAmount} from "../core/Types.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {ReceivedEvent} from "../events/Received.sol";
 import {Actions} from "../utils/Actions.sol";
+import {Descriptors} from "../codec/Descriptors.sol";
 import {Nodes} from "../utils/Nodes.sol";
 import {Selectors} from "../utils/Selectors.sol";
 import {Cursors} from "../utils/Cursors.sol";
+
+using Executions for Execution;
 
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
@@ -45,38 +48,28 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
     /// @param account Account that should receive any unspent value.
     /// @return output Final encoded output block stream.
     /// @return transactions Final encoded transaction block stream.
-    function closeCommand(
+    function close(
         Execution memory exec,
         bytes32 account
     ) internal returns (bytes memory output, bytes memory transactions) {
         if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
-        output = closeExecution(exec);
-        transactions = endValue(exec, account);
-    }
 
-    /// @notice Drain a command execution budget into a credit-only TRANSACTION block.
-    /// @dev Emits `Received` with `Actions.Refund` when a transaction is created.
-    /// @param exec Mutable execution whose remaining budget is drained.
-    /// @param account Destination account to credit with the remaining native value.
-    /// @return transaction Encoded TRANSACTION block, or empty bytes when the budget is empty.
-    function endValue(
-        Execution memory exec,
-        bytes32 account
-    ) internal returns (bytes memory transaction) {
-        uint amount = exec.budget;
-        exec.budget = 0;
-        if (amount == 0) return "";
+        output = close(exec);
+        uint amount = exec.refundValue(account, nativeAsset);
+        if (amount != 0) {
+            emit Received(account, nativeAsset, amount, Actions.Refund, 0);
+        }
 
-        transaction = Blocks.transaction(bytes32(0), account, nativeAsset, amount);
-        emit Received(account, nativeAsset, amount, Actions.Refund, 0);
+        transactions = exec.finishTransactions();
     }
 
     /// @notice Publish command metadata and a default label.
-    /// @param name Default human-readable command label and selector name.
+    /// @param name Command entrypoint name and default label. It must exactly
+    /// match the Solidity command function name used by the canonical ABI.
     /// @param state State block specification.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param selector Command ABI selector, or zero to derive it from `name`.
+    /// @param transactions Number of transaction blocks produced per batch, or zero for none.
     /// @param funded Whether the command accepts nonzero native value.
     /// @param admin Whether the command is restricted to the admin account.
     /// @return id Command node ID.
@@ -86,13 +79,15 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
         uint state,
         uint input,
         uint output,
-        bytes4 selector,
+        uint8 transactions,
         bool funded,
         bool admin
     ) internal returns (uint id, uint descriptor) {
-        selector = selector == bytes4(0) ? Selectors.command(name) : selector;
-        id = Nodes.toCommand(selector, address(this));
-        descriptor = endpoint(id, name, state, input, output, funded, admin);
+        id = Nodes.toCommand(Selectors.command(name), address(this));
+        uint8 flags;
+        if (funded) flags |= Descriptors.Funded;
+        if (admin) flags |= Descriptors.Admin;
+        descriptor = endpoint(id, name, state, input, output, transactions, flags);
     }
 
     /// @notice Open a command state stream and return the expected output block count.

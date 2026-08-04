@@ -6,6 +6,7 @@ import { Specs } from "../codec/Specs.sol";
 import { EndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { Selectors } from "../utils/Selectors.sol";
+import { Descriptors } from "../codec/Descriptors.sol";
 
 /// @title PortBase
 /// @notice Abstract base for peer-facing rootzero ports.
@@ -22,11 +23,18 @@ abstract contract PortBase is NodeCalls, EndpointBase {
         _;
     }
 
+    /// @notice Return the host node ID corresponding to the current caller.
+    /// @dev Encodes `msg.sender` as a host ID using the local-chain host layout.
+    /// @return Host node ID for `msg.sender`.
+    function caller() internal view returns (uint) {
+        return Nodes.toHost(msg.sender);
+    }
+
     /// @notice Publish port metadata and a default label.
-    /// @param name Default human-readable port label and selector name.
+    /// @param name Port entrypoint name and default label. It must exactly
+    /// match the Solidity port function name used by the canonical ABI.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param selector Port ABI selector, or zero to derive it from `name`.
     /// @param funded Whether the port accepts nonzero native value.
     /// @return id Port node ID.
     /// @return descriptor Packed endpoint lane metadata and flags.
@@ -34,11 +42,9 @@ abstract contract PortBase is NodeCalls, EndpointBase {
         string memory name,
         uint input,
         uint output,
-        bytes4 selector,
         bool funded
     ) internal returns (uint id, uint descriptor) {
-        selector = selector == bytes4(0) ? Selectors.port(name) : selector;
-        id = Nodes.toPort(selector, address(this));
-        descriptor = endpoint(id, name, Specs.Empty, input, output, funded, false);
+        id = Nodes.toPort(Selectors.port(name), address(this));
+        descriptor = endpoint(id, name, Specs.Empty, input, output, 0, funded ? Descriptors.Funded : 0);
     }
 }

@@ -3,19 +3,19 @@ pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
 import {AllowAssetsHook} from "../commands/admin/AllowAssets.sol";
-import {Keys, Specs} from "../Cursors.sol";
+import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
 /// @title PortAllowAssets
 /// @notice Port that permits a list of assets on behalf of a peer host.
-/// Each ASSET block in the request calls `allowAsset`. Restricted to trusted peers.
+/// Each ASSET block in the input calls `allowAsset`. Restricted to trusted peers.
 abstract contract PortAllowAssets is PortBase, AllowAssetsHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portAllowAssets", Specs.Asset, Specs.Empty, 0, false);
+        (, descriptor) = port("portAllowAssets", Specs.Asset, Specs.Empty, false);
     }
 
     /// @notice Execute the allow-assets peer call.
@@ -28,6 +28,7 @@ abstract contract PortAllowAssets is PortBase, AllowAssetsHook {
             bytes32 asset = exec.unpackAsset(Lanes.Input);
             allowAsset(asset);
         }
+        
         return "";
     }
 }
