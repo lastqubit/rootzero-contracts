@@ -10,10 +10,9 @@ pragma solidity ^0.8.33;
 // fixed `host` ID followed by an
 // AMOUNT child block in its tail.
 
-import {CommandBase, Specs} from "../contracts/Endpoints.sol";
-import {Blocks, Decoders, Cur, Sizes} from "../contracts/Cursors.sol";
+import {Blocks, CommandBase, Execution, Executions, HostAmount, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
 
-using Decoders for Cur;
+using Executions for Execution;
 
 abstract contract MyCommand is CommandBase {
     string private constant INPUT = "{ uint host, #amount as amount }";
@@ -29,28 +28,35 @@ abstract contract MyCommand is CommandBase {
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, uint amount) internal virtual;
 
-    function unpackInput(Cur memory input) private view returns (uint targetHost, bytes32 asset, uint amount) {
-        uint end = input.enter(inputSpec);
-        targetHost = input.readUint();
-        (asset, amount) = input.unpackAmount();
-        input.ensureAt(end);
+    function unpackInput(
+        Execution memory exec,
+        uint8 lane
+    ) private view returns (uint peer, bytes32 asset, uint amount) {
+        (uint abs, uint end) = exec.consume(lane, inputSpec);
+
+        peer = Blocks.readUint(abs);
+        (asset, amount) = Blocks.unpackAmount(abs + 32);
+
+        if (abs + 32 + Sizes.Amount != end) revert Blocks.InvalidBlock();
     }
 
     function myCommand(
-        bytes32,
+        bytes32 account,
         bytes calldata,
-        bytes calldata request
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Cur memory input = Decoders.openCur(request);
+        Execution memory exec = openInput(input, descriptor, 0);
 
-        (uint targetHost, bytes32 asset, uint amount) = unpackInput(input);
+        while (exec.more()) {
+            (uint targetHost, bytes32 asset, uint amount) = unpackInput(exec, Lanes.Input);
 
-        input.complete();
+            // Delegate to the implementer to move the asset to the selected host.
+            sendToHost(targetHost, asset, amount);
 
-        // Delegate to the implementer to move the asset to the selected host.
-        sendToHost(targetHost, asset, amount);
+            // Append a CUSTODY block recording that this asset is now held by `targetHost`.
+            exec.outputCustody(HostAmount({host: targetHost, asset: asset, amount: amount}));
+        }
 
-        // Return a CUSTODY block recording that this asset is now held by `targetHost`.
-        return (Blocks.custody(targetHost, asset, amount), "");
+        return close(exec, account);
     }
 }

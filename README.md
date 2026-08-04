@@ -10,7 +10,7 @@ of the protocol: the base contracts, block codecs, and helpers that rootzero
 applications compose.
 
 Two decisions shape everything below. First, all data that crosses a host
-boundary is encoded in one binary block format, so a request means the same
+boundary is encoded in one binary block format, so a input means the same
 bytes on every chain. Second, every surface operates on *runs* of blocks rather
 than single values, so batching is the default, not a feature added later. This
 guide introduces the protocol bottom-up: blocks, then identities, then hosts
@@ -48,7 +48,7 @@ contract ExampleHost is Host, Balances, Deposit {
 ```
 
 Deploy it with your own address as commander and you can call its commands
-directly. A request is a run of binary blocks — here, a single `#amount` block
+directly. A input is a run of binary blocks — here, a single `#amount` block
 asking to deposit an asset (the encoders are a few lines each; see
 [`test/helpers/blocks.ts`](test/helpers/blocks.ts) for reference
 implementations):
@@ -57,8 +57,8 @@ implementations):
 const host = await ethers.deployContract("ExampleHost", [deployer.address]);
 
 const account = encodeUserAccount(user.address); // receiving account
-const request = encodeAmountBlock(asset, 100n); // what to deposit
-await host.deposit({ account, state: "0x", input: request }); // emits Balance
+const input = encodeAmountBlock(asset, 100n); // what to deposit
+await host.deposit({ account, state: "0x", input: input }); // emits Balance
 ```
 
 The rest of this guide explains the ideas this example leans on — blocks, IDs,
@@ -66,7 +66,7 @@ hosts, commands — and the surfaces built on top of them.
 
 ## Blocks
 
-Every request, response, and piece of in-flight state is a stream of typed
+Every input, response, and piece of in-flight state is a stream of typed
 blocks. A block is a four-byte key, a four-byte big-endian length, and a
 payload:
 
@@ -85,7 +85,7 @@ amount { bytes32 asset, uint amount }
 is 72 bytes on the wire: an 8-byte header followed by two big-endian 32-byte
 fields. There is no ABI encoding and no chain-specific type anywhere in the
 format — field types are chain-neutral integers, bytes, and booleans. A deposit
-request built for an EVM host is byte-for-byte the request a CosmWasm or Solana
+input built for an EVM host is byte-for-byte the input a CosmWasm or Solana
 port would parse; what differs per chain is how a host *resolves* the
 identifiers inside, never how the bytes are laid out.
 
@@ -96,11 +96,11 @@ paths give off-chain tooling presentation names without changing a single byte
 on the wire. The full schema language is specified in
 [`docs/Schema.md`](docs/Schema.md). The standard block schemas live in
 `Schemas` and their runtime keys in `Keys` (both via
-`@rootzero/contracts/Cursors.sol`).
+`@rootzero/contracts/Codec.sol`).
 
 ## Batches
 
-A request is not a single struct; it is a run of blocks. One `#amount` block
+A input is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
 The descriptor lane key is the prime item: it is the block type that may repeat
@@ -117,15 +117,15 @@ Off-chain, building a batch is concatenation. Using the reference encoders from
 import { concat } from "ethers";
 import { encodeAmountBlock } from "./helpers/blocks";
 
-const request = concat([
+const input = concat([
   encodeAmountBlock(usdc, 250_000_000n),
   encodeAmountBlock(dai, 250n * 10n ** 18n),
 ]);
-// deposit(request) returns two #balance blocks in its state output and an
+// deposit(input) returns two #balance blocks in its state output and an
 // empty transaction output
 ```
 
-Everything downstream keeps this shape: commands loop over request blocks,
+Everything downstream keeps this shape: commands loop over input blocks,
 settlement loops over transactions, pipelines loop over steps. Batching is
 never a special case.
 
@@ -281,25 +281,25 @@ A single command is rarely the whole story. A pipeline is a run of `#step`
 blocks executed in order within one transaction:
 
 ```txt
-step { uint target, uint resources, #bytes as request }
+step { uint cmd, uint resources, #bytes as input }
 ```
 
-Each step names a target command, the resources it may spend, and its request.
+Each step names a command, the resources it may spend, and its input.
 The returned state threads into the next command and the final state must be
 empty. Returned transactions do not enter the state lane; the pipeline passes
 each decoded transaction to the shared settlement implementation before
 running the next step. This is the core of `Pipeline.pipe`:
 
 ```solidity
-while (input.i < input.len) {
-    (uint target, uint resources, bytes calldata request) = input.unpackStep();
+while (cur.more()) {
+    (uint cmd, uint resources, bytes calldata input) = cur.unpackStep();
     Reader memory transactions;
     (state, transactions.source) = dispatch(
-        target,
+        cmd,
         account,
         state,
-        request,
-        useValue(budget, resources)
+        input,
+        budget.use(resources)
     );
     while (transactions.more()) {
         (bytes32 from, bytes32 to, bytes32 asset, uint amount) = transactions.unpackTransaction();
@@ -310,7 +310,7 @@ if (state.length != 0) revert UnexpectedState();
 ```
 
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
-`#amount` request into `#balance` state, and `payout` consumes that state
+`#amount` input into `#balance` state, and `payout` consumes that state
 toward a recipient. Because a pipeline is just blocks, it is also the unit of
 command batching — and `resources` is a chain-specific word interpreted by the
 portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
@@ -318,13 +318,13 @@ shared budget), so the same pipeline bytes are meaningful to every port.
 
 ## Queries
 
-Queries are the read endpoints: view functions that take a block-stream request
+Queries are the read endpoints: view functions that take a block-stream input
 and return a block-stream response, with the same batch shape as commands. The
 standard `getBalances` query takes a run of positions and answers each one in
 order:
 
 ```txt
-request:  accountAsset { bytes32 account, bytes32 asset }
+input:  accountAsset { bytes32 account, bytes32 asset }
 response: accountAmount { bytes32 account, bytes32 asset, uint amount }
 ```
 
@@ -347,8 +347,8 @@ This is also the cross-portal mechanism. `relayPayable` (or `portDispatchPayable
 wraps a pipe and addresses it to a portal, commonly the destination host ID;
 a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
-the same pipeline loop. Nothing in the payload is EVM-specific — step targets
-are destination-local node IDs, and only the adapter boundary (native
+the same pipeline loop. Nothing in the payload is EVM-specific — step commands
+are destination-local command IDs, and only the adapter boundary (native
 transfers, address resolution, signatures) is chain-specific. The parity rule
 for ports is strict: every chain's implementation must parse the same input
 bytes and produce the same output bytes for every endpoint.
@@ -379,10 +379,12 @@ Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
   `Settlement`, `Pipeline`, `Portal`, validator
+- `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, codec
+  helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
   mixins and their hooks
-- `@rootzero/contracts/Cursors.sol` — calldata `Cur`/`Cursors`, memory
-  `Reader`/`Readers`, `Writers`, `Schemas`, `Keys`
+- `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
+  `Reader`/`Readers`, `Writers`, `Schemas`, `Keys`, and `Specs`
 - `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
   layout and value helpers
 - `@rootzero/contracts/Events.sol` — protocol event contracts

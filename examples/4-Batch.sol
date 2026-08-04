@@ -3,13 +3,13 @@ pragma solidity ^0.8.33;
 
 // Example 4: Batch Processing
 //
-// Requests can contain multiple blocks of the same type.
-// This example shows how to iterate over all AMOUNT blocks in a request
+// Inputs can contain multiple blocks of the same type.
+// This example shows how to iterate over all AMOUNT blocks in a input
 // and produce a matching BALANCE block for each one.
 //
 // Execution owns the response buffer and grows it through output helpers.
 
-import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Endpoints.sol";
+import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 
@@ -21,14 +21,14 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32,
+        bytes32 account,
         bytes calldata,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
         // Open the descriptor input stream and initialize its output buffer.
         Execution memory exec = openInput(input, descriptor, 0);
 
-        // Walk every AMOUNT block in the current request run.
+        // Walk every AMOUNT block in the current input run.
         while (exec.more()) {
             // Unpack asset and amount from the next AMOUNT block.
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
@@ -37,10 +37,7 @@ abstract contract MyCommand is CommandBase {
             exec.outputBalance(asset, amount);
         }
 
-        // Finalize by checking the cursor completed its run, then
-        // return the encoded BALANCE blocks.
-        exec.complete(Lanes.Input);
-        return (closeExecution(exec), "");
+        return close(exec, account);
     }
 }
 

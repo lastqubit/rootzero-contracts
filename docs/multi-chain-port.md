@@ -41,7 +41,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
    structured and may be deconstructed by their local runtime layout.
 
 5. **Routing metadata lives outside Rootzero core.**
-   A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the CONTEXT payload. When the destination host receives the request, each STEP target is already a local node ID for that host's runtime.
+   A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the CONTEXT payload. When the destination host receives the input, each STEP command is already a local command ID for that host's runtime.
 
 6. **Each chain owns its native identity model.**
    EVM uses addresses and ABI selectors. Solana uses program IDs, accounts, and instruction discriminators. CosmWasm uses contract addresses and execute message variants. NEAR uses account IDs and method names. The shared protocol should not force those into a global foreign-chain shape.
@@ -68,7 +68,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
-| Port pipe request shape | `ports/Pipe.sol`, `codec/Schema.sol` | CONTEXT blocks carry `(account, state, request)`; the request bytes are a STEP stream. |
+| Port pipe input shape | `ports/Pipe.sol`, `codec/Schema.sol` | CONTEXT blocks carry `(account, state, input)`; the input bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
 
 ### Chain-Specific
@@ -305,7 +305,7 @@ type RouteRef = {
 };
 ```
 
-`chain` and `host` are transport concerns. The submitted Rootzero payload is still just CONTEXT blocks. Inside those contexts, STEP targets are local node IDs for the destination host.
+`chain` and `host` are transport concerns. The submitted Rootzero payload is still just CONTEXT blocks. Inside those contexts, STEP commands are local command IDs for the destination host.
 
 This keeps the core libraries simple: Solana code does not parse EVM chain IDs, and EVM contracts do not need a registry of Solana network constants.
 
@@ -318,8 +318,8 @@ The bridge is a byte transport. It does not need to understand Rootzero internal
 On the source side:
 
 1. Build a CONTEXT block stream.
-2. Each CONTEXT block contains `(account, state, request)`.
-3. Each nested `request` value is a STEP block stream whose targets are local IDs on the destination host.
+2. Each CONTEXT block contains `(account, state, input)`.
+3. Each nested `input` value is a STEP block stream whose commands are local IDs on the destination host.
 4. Submit the raw CONTEXT bytes to the bridge with whatever destination metadata the bridge requires.
 
 On the destination side:
@@ -327,19 +327,19 @@ On the destination side:
 1. The bridge endpoint verifies the bridge message using its own security model.
 2. The bridge endpoint calls the destination host's port pipe entrypoint with the raw CONTEXT bytes.
 3. The host checks that the local caller is trusted, just like `PortBase.onlyPeer` does on EVM.
-4. The host unpacks each CONTEXT block and runs `pipe(account, state, request, budget)`.
-5. `pipe()` dispatches local STEP targets exactly like a same-chain pipeline.
+4. The host unpacks each CONTEXT block and runs `pipe(account, state, input, budget)`.
+5. `pipe()` dispatches local STEP commands exactly like a same-chain pipeline.
 
 In EVM today, the entrypoint is:
 
 ```solidity
-function portPipePayable(bytes calldata request) external payable onlyPeer returns (bytes memory)
+function portPipePayable(bytes calldata input) external payable onlyPeer returns (bytes memory)
 ```
 
 The non-EVM ports should provide the same logical endpoint, even if the native name differs:
 
 ```rust
-fn peer_pipe(request: &[u8], attached_value: NativeValue) -> Result<Vec<u8>>
+fn peer_pipe(input: &[u8], attached_value: NativeValue) -> Result<Vec<u8>>
 ```
 
 The bridge adapter is the only component that cares about remote chain identity. The host only sees a trusted local caller and a byte payload.
@@ -352,13 +352,13 @@ The destination payload is:
 context {
   bytes32 account,
   #bytes state,
-  #bytes request     // STEP block stream for pipe execution
+  #bytes input     // STEP block stream for pipe execution
 }
 ```
 
 Multiple CONTEXT blocks can be batched in one bridge message. They share the peer call's value budget and execute independently through the same host pipeline.
 
-Important consequence: target IDs inside the nested STEP stream are destination-local. The source chain does not need to understand them, and the destination chain does not need to understand where the bytes came from beyond trusting the bridge adapter.
+Important consequence: command IDs inside the nested STEP stream are destination-local. The source chain does not need to understand them, and the destination chain does not need to understand where the bytes came from beyond trusting the bridge adapter.
 
 ---
 
@@ -532,8 +532,8 @@ Chain-specific dispatch:
 The `pipe()` loop is pure protocol logic:
 
 1. Iterate STEP blocks.
-2. Decode `(target, value, request)`.
-3. Dispatch `target` locally.
+2. Decode `(cmd, value, input)`.
+3. Dispatch `cmd` locally.
 4. Thread the returned state bytes into the next step, decode each returned transaction, and settle it before dispatching the next step.
 5. Require the final state to be empty.
 
@@ -541,7 +541,7 @@ After `pipe()` returns, its caller still owns the remaining native-value
 budget. If the entrypoint refunds that value, it encodes the refund as a
 TRANSACTION block and passes it through the same settlement path.
 
-Dispatch should not extract a target chain ID. It should only validate that `target` is a trusted local node and resolve it through the local chain's dispatch table.
+Dispatch should not extract a target chain ID. It should only validate that `cmd` is a trusted local command and resolve it through the local chain's dispatch table.
 
 #### Port Pipe
 
@@ -717,7 +717,7 @@ trait Dispatcher {
         target: LocalNodeId,
         account: [u8; 32],
         state: Vec<u8>,
-        request: &[u8],
+        input: &[u8],
         value: u64,
     ) -> Result<CommandOutput>;
 }
@@ -734,7 +734,7 @@ trait PortPipe {
     fn peer_pipe(
         &mut self,
         caller: LocalCaller,
-        request: &[u8],
+        input: &[u8],
         value: Self::NativeValue,
     ) -> Result<Vec<u8>>;
 }
@@ -814,7 +814,7 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 
 | Test | What it checks |
 |------|----------------|
-| Wire format round trip | Build a STEP stream in TypeScript; parse it with Rust; verify identical `(target, value, request)`. |
+| Wire format round trip | Build a STEP stream in TypeScript; parse it with Rust; verify identical `(cmd, value, input)`. |
 | Local ID isolation | Solana ID constructors require only Solana program/account data and do not import EVM/Cosmos/NEAR constants. |
 | ID resolution | For lookup-backed chains, construct an ID from a native identity, resolve it back from local state, and reject unknown IDs. |
 | Balance opacity | Credit and debit balances using opaque account IDs without resolving them to native addresses. |

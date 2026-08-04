@@ -11,10 +11,9 @@ pragma solidity ^0.8.33;
 //   2. Metadata defined in the constructor to announce the command to the protocol.
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller.
 
-import {CommandBase, Specs} from "../contracts/Endpoints.sol";
-import {Blocks, Decoders, Cur} from "../contracts/Cursors.sol";
+import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Commands.sol";
 
-using Decoders for Cur;
+using Executions for Execution;
 
 abstract contract MyCommand is CommandBase {
     // The descriptor announces accepted input, state, output, and flags.
@@ -27,18 +26,18 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32,
+        bytes32 account,
         bytes calldata,
-        bytes calldata request
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
-        // Create an input cursor and decode the first AMOUNT block from the
-        // input stream.
-        Cur memory input = Decoders.openCur(request);
-        (bytes32 asset, uint amount) = input.unpackAmount();
+        Execution memory exec = openInput(input, descriptor, 1);
+        (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
 
-        // Apply your app logic here (e.g. debit the account), then return a BALANCE block.
-        return (Blocks.balance(asset, amount), "");
+        // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
+        exec.outputBalance(asset, amount);
+
+        return close(exec, account);
     }
 }
 

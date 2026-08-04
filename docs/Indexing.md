@@ -135,7 +135,7 @@ event Rooted(bytes32 indexed account, uint deadline, uint value)
 A host that wants to be indexable from logs alone must follow these rules. A
 host that omits them still works on-chain, but its ledger is invisible to
 log-based tooling - there is no fallback channel, because both command outputs
-(`state` and `transactions`) are return data and requests are calldata.
+(`state` and `transactions`) are return data and inputs are calldata.
 
 **Announcement.** A root (commander) host emits `Commander` once at construction
 with its host ID, the local chain ID, native asset, and its admin account,
@@ -252,12 +252,12 @@ as normative and update the event NatSpec accordingly.
 
 These were evaluated and deliberately not proposed:
 
-- **Per-invocation request/response events.** Request payloads are already in
+- **Per-invocation input/response events.** Input payloads are already in
   calldata and outputs in return data; logging them would roughly double the
   byte cost of every call. `Rooted` already marks invocations, and reverted
   calls emit no logs anyway, so such events cannot provide failure
   observability. The protocol's position stands: emit focused semantic events
-  instead of mirroring complete request and output block streams into logs.
+  instead of mirroring complete input and output block streams into logs.
 - **Unconditional library-forced flow emission for hook-driven commands.** Hosts
   route hooks internally (e.g. a payout hook that calls the credit hook), so
   unconditional emission at that layer would double-count or misattribute.

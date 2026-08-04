@@ -8,7 +8,7 @@ pragma solidity ^0.8.33;
 // you only write the business logic specific to your app.
 //
 // DebitAccount:
-//   - creates a request cursor over the AMOUNT run in `request`
+//   - opens an execution over the AMOUNT run in `input`
 //   - calls `debitAccount` for each block in that run
 //   - returns matching BALANCE blocks as the response
 

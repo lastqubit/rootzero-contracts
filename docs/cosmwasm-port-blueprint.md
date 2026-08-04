@@ -131,7 +131,7 @@ pub enum InstantiateMsg {
 
 pub enum ExecuteMsg {
     PortPipe {
-        request: Binary,
+        input: Binary,
     },
     BridgeReceive {
         source: BridgeSource,
@@ -158,7 +158,7 @@ pub enum QueryMsg {
 }
 ```
 
-`PortPipe { request }` is the CosmWasm equivalent of the EVM port pipe entrypoint. It receives raw CONTEXT block bytes and runs the local pipeline.
+`PortPipe { input }` is the CosmWasm equivalent of the EVM port pipe entrypoint. It receives raw CONTEXT block bytes and runs the local pipeline.
 
 `BridgeReceive` is optional. Use it if a bridge must call a specific adapter entrypoint first. The bridge adapter should authenticate the bridge message, then call the same internal `peer_pipe` implementation.
 
@@ -241,8 +241,8 @@ Rules:
 - `payload_len` is a 4-byte big-endian `uint32`
 - all fixed words are 32 bytes, big-endian for integers
 - nested bytes are encoded as `#bytes` blocks
-- STEP payload is `[target:32][value:32][#bytes request]`
-- CONTEXT payload is `[account:32][#bytes state][#bytes request]`
+- STEP payload is `[cmd:32][value:32][#bytes input]`
+- CONTEXT payload is `[account:32][#bytes state][#bytes input]`
 
 Port these first:
 
@@ -352,7 +352,7 @@ fn pipe(
     budget: NativeBudget,
 ) -> Result<(), ContractError> {
     // iterate STEP blocks
-    // dispatch each local target and receive (state, transactions)
+    // dispatch each local command and receive (state, transactions)
     // thread returned state into the next step
     // settle each non-empty returned TRANSACTION stream before the next step
     // require final state is empty
@@ -364,14 +364,14 @@ that value should be refunded, encode it as a TRANSACTION block and pass it
 through the same settlement path; do not add a separate per-command refund
 hook.
 
-Do not parse a target chain ID from a STEP target. The target is already local to this CosmWasm host.
+Do not parse a target chain ID from a STEP command. The command is already local to this CosmWasm host.
 
 Put chain-neutral STEP parsing and dispatcher traits in `rootzero-protocol`. Put CosmWasm-specific dispatch, storage, and message generation in `rootzero-cosmwasm`.
 
 Dispatch can be implemented as an internal table:
 
 ```rust
-match command_tag(target)? {
+match command_tag(cmd)? {
     TAG_DEBIT => commands::debit::execute(...),
     TAG_CREDIT => commands::credit::execute(...),
     TAG_DEPOSIT => commands::deposit::execute(...),
@@ -390,15 +390,15 @@ Port `ports/Pipe.sol` as the cross-chain byte execution surface.
 External CosmWasm entrypoint:
 
 ```rust
-ExecuteMsg::PortPipe { request }
+ExecuteMsg::PortPipe { input }
 ```
 
 Internal behavior:
 
 1. Enforce trusted peer/bridge caller.
-2. Parse `request` as one or more CONTEXT blocks.
-3. For each CONTEXT block, unpack `(account, state, request)`.
-4. Run `pipe(account, state, request, budget)`.
+2. Parse `input` as one or more CONTEXT blocks.
+3. For each CONTEXT block, unpack `(account, state, input)`.
+4. Run `pipe(account, state, input, budget)`.
 5. Return an empty response payload unless the EVM behavior being ported returns data.
 
 The bridge should deliver raw CONTEXT bytes. The bridge route, source chain, source sender, nonce, and proof are bridge adapter data, not Rootzero core data.
@@ -445,7 +445,7 @@ balance key = (account_id, asset_id)
 As a rule of thumb:
 
 - `debit` and `credit` can mostly live in `rootzero-protocol` because they are ledger operations over protocol IDs.
-- `deposit`, `withdraw`, and `payout` should have protocol-level request parsing in `rootzero-protocol`, but native asset movement in `rootzero-cosmwasm`.
+- `deposit`, `withdraw`, and `payout` should have protocol-level input parsing in `rootzero-protocol`, but native asset movement in `rootzero-cosmwasm`.
 
 ## Native Asset Adapter
 
@@ -563,6 +563,6 @@ CosmWasm writer bytes -> TypeScript/Solidity parser -> exact byte match
 - Balances use protocol account IDs as keys.
 - Asset/account/node resolution happens only at native boundaries.
 - `PortPipe` accepts raw CONTEXT bytes and calls the same pipeline path as local execution.
-- STEP targets are local CosmWasm node IDs.
+- STEP commands are local CosmWasm command IDs.
 - The port has no global chain ID registry.
 - Ported tests pass against fixtures from `rootzero-contracts`.

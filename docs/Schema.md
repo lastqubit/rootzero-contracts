@@ -1,6 +1,6 @@
 # Schema
 
-Rootzero request and response data is encoded as a stream of typed blocks. A
+Rootzero input and response data is encoded as a stream of typed blocks. A
 schema string describes the payload body for discovery events and tooling; the
 runtime block key is the compact type tag that identifies that payload layout in
 the active schema context. The block alias is published separately from the
@@ -50,7 +50,7 @@ schema: { bytes32 asset, uint amount }
 A block body can reference another block alias as a child item with `#`:
 
 ```txt
-{ bytes32 account, #bytes as state, #bytes as request }
+{ bytes32 account, #bytes as state, #bytes as input }
 ```
 
 The empty schema string `""` means the block has no structured payload. This is
@@ -72,7 +72,7 @@ length, fixed fields may appear before, after, or between child blocks.
 
 ```txt
 { uint target, uint resources, #bytes as payload }
-{ bytes32 account, #bytes as state, #bytes as request }
+{ bytes32 account, #bytes as state, #bytes as input }
 { uint spec, #string as body, bytes32 name }
 { #bytes as left, uint op, #bytes as right }
 ```
@@ -328,10 +328,9 @@ amount   { bytes32 asset, uint amount }
 balance  { bytes32 asset, uint amount }
 custody  { uint host, bytes32 asset, uint amount }
 call     { uint target, uint resources, #bytes as payload }
-step     { uint target, uint resources, #bytes as request }
-context  { bytes32 account, #bytes as state, #bytes as request }
+step     { uint cmd, uint resources, #bytes as input }
+context  { bytes32 account, #bytes as state, #bytes as input }
 recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
-auth     { uint cid, uint deadline, #bytes as proof }
 schema   { uint spec, #string as body, bytes32 name }
 ```
 
