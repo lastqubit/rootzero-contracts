@@ -3,6 +3,48 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.14.0
+
+### Breaking Changes
+
+- Replaced `CommandContext` and the separate payable value lifecycle with the
+  unified `Execution` context. Endpoint and command implementations now open an
+  execution directly from calldata, use its packed decoder and writer lanes,
+  and finish through the shared `close` helpers.
+- Reworked the block codec around absolute-position `Blocks` primitives,
+  packed `Cursors`, cursor-backed `Decoders`, lazy `Buffers`, and thin
+  `Writers`. Several low-level cursor and writer APIs were renamed or removed.
+- Redefined block specs and endpoint descriptors. Specs now encode key, minimum,
+  maximum, allocation hint, stride, and optional LIST container metadata;
+  descriptors use normalized lane specs and include a transaction stride.
+- Replaced the `Cursors.sol` package entry point with `Codec.sol`, added the
+  command-authoring `Commands.sol` entry point, and reorganized exports across
+  the package barrels.
+- Endpoint selectors are now derived from endpoint names. The configured name
+  must match the implementing function name, and descriptor values are
+  represented as `uint` throughout.
+- Removed the AUTH and BOUNTY codec blocks, the obsolete `Payable`/`Values`
+  helpers, and superseded decoder, writer, schema, and descriptor overloads.
+
+### Added
+
+- Added packed output and transaction writer lanes to `Execution`, including
+  semantic output helpers, queued credit/debit transactions, budget refunds,
+  and direct transaction finalization.
+- Added detachable `Budget` values for pipeline-style consumers, shared lane
+  identifiers, spec-driven writer allocation, and optimized semantic block
+  readers, writers, and composite unpackers.
+- Added a transaction-output example, command and codec barrel import examples,
+  and expanded coverage for packed cursors, buffers, descriptors, budgets,
+  execution output, and command flows.
+
+### Changed
+
+- Standardized command, query, guard, and port implementations on the same
+  execution open/close lifecycle and renamed request terminology to input.
+- Expanded NatSpec across the new execution and codec APIs and refreshed the
+  protocol, schema, indexing, and multi-chain documentation.
+
 ## 1.13.0
 
 ### Breaking Changes
