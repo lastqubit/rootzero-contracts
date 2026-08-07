@@ -3,6 +3,48 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.15.0
+
+### Breaking Changes
+
+- Replaced the monolithic `AccessControl` base with the composable
+  `CommanderAccess`, `AdminAccess`, `NodeAccess`, `GuardianAccess`,
+  `CallerAccess`, and `TrustAccess` capabilities. `CommandBase` now requires a
+  concrete caller policy and no longer inherits outbound `NodeCalls`.
+- Split host composition into the commander-only `CommandHost`, the advanced
+  `Host`, and the optional `Admins` and `Guardians` feature bundles. Commands
+  that use trusted outbound calls must now inherit `NodeCalls` directly and
+  compose a `TrustAccess` implementation.
+- Removed the guardian account subtype. Guardians are now ordinary user
+  accounts assigned a host-local role, so previously encoded guardian account
+  IDs are not compatible.
+- Replaced the `Labeled` and `Schema` discovery events and their dedicated admin
+  commands with typed blocks in the generic `Annotation` event and the
+  `annotate` admin command.
+- Added the origin user account to `Introduction`, changing its event signature
+  to `Introduction(uint indexed host, uint peer, bytes32 origin, uint blocknum)`.
+
+### Added
+
+- Added opt-in `Label`, `Schema`, and `Action` annotation mixins together with
+  canonical `#label`, `#schema`, `#annotation`, and `#action` codec support.
+- Added semantic action annotations to deposit, payable deposit, withdrawal,
+  burn, payout, and port settlement endpoints.
+
+### Changed
+
+- Enabled the Solidity optimizer with 200 runs and pinned release testing to
+  the Cancun EVM target, the minimum target supporting the codec's `MCOPY` use.
+- Guardians can revoke node access but remain unable to grant it; admin
+  commands continue to require both the immutable commander caller and its
+  derived admin account.
+
+### Upgrade Compatibility
+
+- Existing deployments are not upgradeable and this release does not preserve
+  storage layout or guardian mapping keys for proxy upgrades. Deploy fresh host
+  contracts when adopting this version.
+
 ## 1.14.0
 
 ### Breaking Changes

@@ -27,18 +27,18 @@ npx create-rootzero@latest my-app
 npm install @rootzero/contracts
 ```
 
-A minimal host composes the base `Host` with the endpoints it needs and
-implements their policy hooks:
+A minimal commander-only host composes `CommandHost` with the endpoints it
+needs and implements their policy hooks:
 
 ```solidity
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Host, Balances } from "@rootzero/contracts/Core.sol";
+import { CommandHost, Balances } from "@rootzero/contracts/Core.sol";
 import { Deposit } from "@rootzero/contracts/Endpoints.sol";
 
-contract ExampleHost is Host, Balances, Deposit {
-    constructor(address rootzero) Host(rootzero) {}
+contract ExampleHost is CommandHost, Balances, Deposit {
+    constructor(address commander) CommandHost(commander) {}
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
         uint balance = creditTo(account, asset, amount);
@@ -46,6 +46,29 @@ contract ExampleHost is Host, Balances, Deposit {
     }
 }
 ```
+
+`CommandHost` requires a nonzero commander and accepts command calls only from
+that address. It has no built-in admin commands, peer registry, guardians,
+inbound introduction endpoint, generic execution command, or native-token
+receive function. Use `Host` instead when the application needs those advanced
+facilities; its commands accept the commander, the host itself, and explicitly
+authorized host callers.
+
+Both host types introduce themselves during deployment when the commander is a
+contract. That commander must implement `introduce(uint,uint)` and accept the
+call, otherwise deployment reverts. EOA commanders do not receive an
+introduction call.
+
+Host contracts are designed for fresh deployment rather than proxy upgrades.
+Releases may change inheritance storage layout, immutable configuration, and
+encoded identity formats; storage compatibility across versions is not
+supported.
+
+Commands using trusted outbound `NodeCalls` also require a `TrustAccess`
+implementation. The advanced `Host` supplies one through its composed node access, while
+`CommandHost` deliberately does not. A minimal host can explicitly compose a
+custom trust policy, or a command that intentionally targets arbitrary nodes
+can inherit `RawNodeCalls` instead.
 
 Deploy it with your own address as commander and you can call its commands
 directly. A input is a run of binary blocks — here, a single `#amount` block
@@ -164,7 +187,8 @@ Structured EVM IDs use:
 where `type` packs `[uint16 representation][uint8 category][uint8 subtype]`. A
 structured ID announces what it is (an account, an asset, a node) and which
 chain it lives on, and the payload usually embeds the underlying address. User
-accounts are chain-agnostic; admin and guardian accounts are chain-local.
+accounts are chain-agnostic, while admin accounts are chain-local. Guardians
+are normal user accounts assigned a host-specific role.
 Assets are unique IDs in the same single-word form as accounts and nodes.
 Nodes are hosts, commands, ports, queries, and guards.
 
@@ -186,12 +210,17 @@ bytes32 opaque = Ids.toKeccak(preimage);  // 0x00-prefixed opaque ID
 
 A host is one contract assembled from mixins. The base `Host` brings access
 control and the admin surface (authorize, unauthorize, appoint, dismiss,
-label, executePayable) plus the guardian `revoke` action; you add the
+annotate, executePayable) plus the guardian `revoke` action; you add the
 endpoints you need and the policy hooks they require. Keeping a ledger is
 optional: the `Balances` mixin provides one, but a host can just as well
 implement commands that hold no persistent state in the host at all —
 forwarding funds elsewhere, or operating only on the state threaded through a
 pipeline.
+
+The built-in surface is also available as two independent feature bundles:
+`Admins` provides annotate, authorize, unauthorize, and executePayable;
+`Guardians` provides appoint, dismiss, and revoke. The full `Host` composes
+both, while smaller hosts can inherit either bundle separately.
 
 Trust is explicit and minimal. Each host has an immutable **commander**
 address fixed at construction, from which its **admin account** is derived.
