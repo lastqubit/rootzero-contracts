@@ -6,9 +6,8 @@ import {
   Keys,
   endpointDescriptor,
   exactSpec,
-  rangedSpec,
   encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeCallBlock, encodeLabelBlock, encodeSchemaBlock, concat
+  encodeCallBlock, encodeLabelBlock, encodeAnnotationBlock, encodeSchemaBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -129,9 +128,9 @@ describe("Admin Commands", () => {
   });
 
   describe("appoint", () => {
-    it("enables guardian account and emits Guardian event", async () => {
+    it("assigns the guardian role to a user account and emits Guardian", async () => {
       const guardianAddress = await (await getSigner(2)).getAddress();
-      const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+      const guardianAccount = await utils.testToUserAccount(guardianAddress);
       const input = encodeAccountBlock(guardianAccount);
 
       await expect(callAs(0, "appoint", adminCtx(input)))
@@ -143,16 +142,16 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x13", 32);
-      const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(2)).getAddress());
+      const guardianAccount = await utils.testToUserAccount(await (await getSigner(2)).getAddress());
 
       await expect(callAs(0, "appoint", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts InvalidAccount for non-guardian account blocks", async () => {
-      const userAccount = await utils.testToUserAccount(await (await getSigner(2)).getAddress());
+    it("reverts InvalidAccount for non-user account blocks", async () => {
+      const adminAccount = await utils.testToAdminAccount(await (await getSigner(2)).getAddress());
 
-      await expect(callAs(0, "appoint", adminCtx(encodeAccountBlock(userAccount))))
+      await expect(callAs(0, "appoint", adminCtx(encodeAccountBlock(adminAccount))))
         .to.be.revertedWithCustomError(host, "InvalidAccount");
     });
 
@@ -163,9 +162,9 @@ describe("Admin Commands", () => {
   });
 
   describe("dismiss", () => {
-    it("disables guardian account and emits Guardian event with false", async () => {
+    it("removes the guardian role and emits Guardian with false", async () => {
       const guardianAddress = await (await getSigner(3)).getAddress();
-      const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+      const guardianAccount = await utils.testToUserAccount(guardianAddress);
       const input = encodeAccountBlock(guardianAccount);
 
       await callAs(0, "appoint", adminCtx(input));
@@ -179,7 +178,7 @@ describe("Admin Commands", () => {
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x14", 32);
-      const guardianAccount = await utils.testToGuardianAccount(await (await getSigner(3)).getAddress());
+      const guardianAccount = await utils.testToUserAccount(await (await getSigner(3)).getAddress());
 
       await expect(callAs(0, "dismiss", userCtx(fakeAdmin, encodeAccountBlock(guardianAccount))))
         .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -271,98 +270,66 @@ describe("Admin Commands", () => {
     });
   });
 
-  describe("label", () => {
-    it("discovers label and publishes its default label", async () => {
+  describe("annotate", () => {
+    it("discovers annotate and publishes its default label", async () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
       await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await cmd("label"),
-          endpointDescriptor({ input: Keys.Label, admin: true }),
+          await cmd("annotate"),
+          endpointDescriptor({ input: Keys.Annotation, admin: true }),
         );
-      await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await cmd("label"), ethers.ZeroHash, "label");
+      await expect(deployment!).to.emit(host, "Annotation")
+        .withArgs(await cmd("annotate"), encodeLabelBlock(ethers.ZeroHash, "annotate"));
     });
 
-    it("emits Labeled for each LABEL block", async () => {
-      const namespace = ethers.encodeBytes32String("docs");
-      const input = concat(
-        encodeLabelBlock(await cmd("deposit"), namespace, "deposit v2"),
-        encodeLabelBlock(await cmd("relayPayable"), ethers.ZeroHash, "relay")
-      );
+    it("emits an Annotation containing the encoded block stream", async () => {
+      const entity = await cmd("deposit");
+      const data = concat(encodeNodeBlock(11n), encodeNodeBlock(12n));
+      const input = encodeAnnotationBlock(entity, data);
 
-      const tx = await callAs(0, "label", adminCtx(input));
-      await expect(tx).to.emit(host, "Labeled")
-        .withArgs(await cmd("deposit"), namespace, "deposit v2");
-      await expect(tx).to.emit(host, "Labeled")
-        .withArgs(await cmd("relayPayable"), ethers.ZeroHash, "relay");
+      await expect(callAs(0, "annotate", adminCtx(input)))
+        .to.emit(host, "Annotation")
+        .withArgs(entity, data);
+    });
+
+    it("publishes a namespaced label through an Annotation block", async () => {
+      const entity = await cmd("deposit");
+      const namespace = ethers.encodeBytes32String("docs");
+      const data = encodeLabelBlock(namespace, "deposit v2");
+      const input = encodeAnnotationBlock(entity, data);
+
+      await expect(callAs(0, "annotate", adminCtx(input)))
+        .to.emit(host, "Annotation")
+        .withArgs(entity, data);
+    });
+
+    it("publishes a block schema through an Annotation block", async () => {
+      const entity = await host.host();
+      const name = ethers.encodeBytes32String("amount");
+      const data = encodeSchemaBlock(
+        exactSpec(Keys.Amount, 64),
+        "{ bytes32 asset, uint amount }",
+        name,
+      );
+      const input = encodeAnnotationBlock(entity, data);
+
+      await expect(callAs(0, "annotate", adminCtx(input)))
+        .to.emit(host, "Annotation")
+        .withArgs(entity, data);
     });
 
     it("reverts AccessDenied for non-admin account", async () => {
       const fakeAdmin = ethers.zeroPadValue("0x06", 32);
-      const input = encodeLabelBlock(await cmd("deposit"), ethers.ZeroHash, "deposit");
-
-      await expect(callAs(0, "label", userCtx(fakeAdmin, input)))
+      const input = encodeAnnotationBlock(await cmd("deposit"), encodeNodeBlock(1n));
+      await expect(callAs(0, "annotate", userCtx(fakeAdmin, input)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "label", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
-    });
-  });
-
-  describe("publishSchema", () => {
-    it("discovers publishSchema and publishes its default label", async () => {
-      const deployment = host.deploymentTransaction();
-      expect(deployment).to.not.equal(null);
-
-      await expect(deployment!).to.emit(host, "Endpoint")
-        .withArgs(
-          await host.host(),
-          await cmd("publishSchema"),
-          endpointDescriptor({ input: Keys.Schema, admin: true }),
-        );
-      await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await cmd("publishSchema"), ethers.ZeroHash, "publishSchema");
-    });
-
-    it("emits Schema for each SCHEMA block", async () => {
-      const amountName = ethers.encodeBytes32String("amount");
-      const localName = ethers.encodeBytes32String("payment");
-      const amountSchema = "{ bytes32 asset, uint amount }";
-      const localSchema = "{ #bytes as left, uint op, #bytes as right }";
-      const localKey = "0x00000001";
-      const amountSpec = exactSpec(Keys.Amount, 64);
-      const localSpec = rangedSpec(localKey, 48, 0, 128);
-      const input = concat(
-        encodeSchemaBlock(amountSpec, amountSchema, amountName),
-        encodeSchemaBlock(localSpec, localSchema, localName),
-      );
-
-      const tx = await callAs(0, "publishSchema", adminCtx(input));
-      await expect(tx).to.emit(host, "Schema")
-        .withArgs(await host.host(), amountSpec, amountSchema, amountName);
-      await expect(tx).to.emit(host, "Schema")
-        .withArgs(await host.host(), localSpec, localSchema, localName);
-    });
-
-    it("reverts AccessDenied for non-admin account", async () => {
-      const fakeAdmin = ethers.zeroPadValue("0x16", 32);
-      const input = encodeSchemaBlock(
-        exactSpec(Keys.Amount, 64),
-        "{ bytes32 asset, uint amount }",
-        ethers.encodeBytes32String("amount"),
-      );
-
-      await expect(callAs(0, "publishSchema", userCtx(fakeAdmin, input)))
-        .to.be.revertedWithCustomError(host, "AccessDenied");
-    });
-
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "publishSchema", adminCtx("0x")))
+      await expect(callAs(0, "annotate", adminCtx("0x")))
         .to.be.revertedWithCustomError(host, "EmptyRun");
     });
   });

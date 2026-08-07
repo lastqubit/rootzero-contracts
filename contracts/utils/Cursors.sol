@@ -20,9 +20,22 @@ struct Cur {
 /// bits  96-111   groups
 /// bits 112-119   flags (consumer-defined)
 /// bits 120-127   tag
-/// A packed word may contain a lower cursor in bits 0-127 and a higher cursor
-/// in bits 128-255. Operations target the lower cursor; `select` swaps a
-/// requested tagged cursor into that position.
+///
+/// A cursor is one 128-bit value with this layout. A pair is a 256-bit value
+/// containing a lower cursor in bits 0-127 and an optional higher cursor in
+/// bits 128-255. The lower cursor is the active cursor: navigation and
+/// inspection operations target it, and `select` swaps a requested tagged
+/// cursor into that position while preserving the pair.
+///
+/// A mark is a standalone cursor value used as an immutable positional
+/// reference. It retains the cursor's offset, length, groups, flags, and tag,
+/// but may carry a different `i`. A mark has no intrinsic boundary or movement
+/// semantics; callers may later use its position for comparison, validation,
+/// seeking, or another operation. Because it has the ordinary single-cursor
+/// layout, existing positional decoding and absolute-position rules also apply
+/// to marks. A zero mark identifies the empty cursor at position zero; `before`
+/// therefore treats it as already reached.
+///
 /// The zero word represents an absent cursor.
 library Cursors {
     /// @dev A cursor position exceeds its logical length.
@@ -37,8 +50,8 @@ library Cursors {
     /// @dev Paired cursors must have different identity tags.
     error DuplicateTag(uint8 tag);
 
-    /// @dev Neither packed cursor has the requested tag.
-    error MissingTag(uint8 tag);
+    /// @dev Neither packed cursor matches the requested identity.
+    error MissingCursor();
 
     // Creation and sources
 
@@ -97,6 +110,14 @@ library Cursors {
         len = uint32(cur >> 64);
     }
 
+    /// @notice Return the active cursor without its position.
+    /// @dev Ignores the upper cursor when `cur` is a pair.
+    /// @param cur Packed cursor or cursor pair.
+    /// @return The lower cursor's offset, length, groups, flags, and tag.
+    function frame(uint cur) internal pure returns (uint) {
+        return clear32(uint128(cur), 0);
+    }
+
     /// @notice Return the absolute position of the lower cursor as `offset + i`.
     /// @dev Performs no bounds check.
     /// @param cur Packed cursor or cursor pair.
@@ -142,6 +163,13 @@ library Cursors {
     /// @param i Expected relative position.
     function expect(uint cur, uint i) internal pure {
         if (uint32(cur) != i) revert UnexpectedPosition();
+    }
+
+    /// @notice Require the lower cursor to be positioned at absolute position `abs`.
+    /// @param cur Packed cursor or cursor pair.
+    /// @param abs Expected absolute position.
+    function expectAbs(uint cur, uint abs) internal pure {
+        if (absolute(cur) != abs) revert UnexpectedPosition();
     }
 
     /// @notice Return whether the lower cursor contains `flag`.
@@ -279,7 +307,38 @@ library Cursors {
         if (uint8(cur >> 120) == expected) return cur;
 
         updated = swap(cur);
-        if (uint8(updated >> 120) != expected) revert MissingTag(expected);
+        if (uint8(updated >> 120) != expected) revert MissingCursor();
+    }
+
+    // Marks
+
+    /// @notice Select the live cursor whose frame matches the active cursor in `mark`.
+    /// @dev Only the lower 128 bits of `mark` are considered. The returned value
+    /// preserves the cursor pair and places the matching cursor in the lower half.
+    /// A zero frame may select an empty cursor lane.
+    /// @param cur Packed cursor or cursor pair to search.
+    /// @param mark Cursor-shaped positional reference to match.
+    /// @return located Cursor pair with the matching cursor active.
+    function locate(uint cur, uint mark) internal pure returns (uint located) {
+        uint expected = frame(mark);
+        if (frame(cur) == expected) return cur;
+
+        located = swap(cur);
+        if (frame(located) != expected) revert MissingCursor();
+    }
+
+    /// @notice Return whether a matched cursor is positioned before `mark`.
+    /// @dev Returns false at the mark and reverts after it. Only the active lower
+    /// cursor in `mark` participates in the comparison. A zero mark represents
+    /// the already-reached position of an empty cursor.
+    /// @param cur Packed cursor or cursor pair containing the marked cursor.
+    /// @param mark Cursor-shaped positional reference.
+    /// @return Whether the live cursor position precedes the marked position.
+    function before(uint cur, uint mark) internal pure returns (bool) {
+        uint i = uint32(locate(cur, mark));
+        uint target = uint32(mark);
+        if (i > target) revert OutOfBounds();
+        return i < target;
     }
 
     // Consumption

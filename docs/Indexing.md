@@ -46,34 +46,58 @@ event Endpoint(uint indexed host, uint id, uint descriptor)
   for non-empty specs.
 - Command, port, query, and guard endpoints all share `Endpoint`; admin commands
   are marked by the descriptor's admin flag.
-- block schema strings are published separately with
-  `event Schema(uint indexed host, uint spec, string body, bytes32 name)`.
-  Hosts that opt into the admin `publishSchema` command may publish additional schema
-  claims later.
+- Block schema strings are published as `#schema` blocks in `Annotation` events.
+  Hosts may publish additional schema claims later through the admin `annotate`
+  command.
 
-Names arrive separately. Each standard mixin emits a canonical label at
-construction, and the admin `label` command publishes mutable namespaced labels
+Names arrive as annotations. Each standard mixin emits a canonical label block
+at construction, and the admin `annotate` command publishes mutable annotations
 later:
 
 ```txt
-event Labeled(uint indexed id, bytes32 namespace, string name)
+event Annotation(uint indexed entity, bytes data)
+#label { bytes32 namespace, #string as name }
 ```
 
-Labels are claims by the emitting contract: any contract may label any ID, so
-indexers decide which emitters they trust per ID or namespace. Constructor
-labels emitted by the host itself are trustworthy for that host's own
-endpoints.
+Annotations are claims by the emitting contract: any contract may annotate any
+entity, so indexers decide which emitters they trust per entity and annotation
+type. Constructor label annotations emitted by the host itself are trustworthy
+for that host's own endpoints. Consumers process annotation events in log order
+and blocks within `data` in stream order.
+
+`Annotation` is a policy-neutral envelope. There is no universal rule that a
+later block replaces an earlier block: every annotation type defines its own
+logical identity and merge behavior. A type may replace an earlier value,
+accumulate distinct values, preserve every value as history, or define an
+explicit revocation convention. Indexers must apply those type-specific rules
+after checking the emitter they trust for that type.
+
+The standard types currently use these rules:
+
+- An `#action` is identified by its entity. The latest trusted action replaces
+  the previous value; `Actions.None` clears the primary action classification.
+- A `#label` is identified by `(entity, namespace)`. The latest trusted label
+  for that identity replaces its previous value; labels in different namespaces
+  coexist.
+- A `#schema` is identified by `(entity, block key)`. Schemas for distinct keys
+  coexist, while the latest trusted schema claim for the same key replaces the
+  earlier claim.
+
+New annotation types must document their logical identity, whether values
+replace or accumulate, and how values are revoked when revocation is supported.
 
 Host topology and access state are fully evented by the library:
 
 ```txt
-event Introduction(uint indexed host, uint peer, uint blocknum)
+event Introduction(uint indexed host, uint peer, bytes32 origin, uint blocknum)
 event Node(uint indexed host, uint node, bool active)
 event Guardian(uint indexed host, bytes32 account, bool active)
 ```
 
 `Introduction` fires on the receiving host when a peer host introduces itself
-during construction. Every node-trust change routes through `setNode` and every
+during construction. `origin` records `tx.origin` as a chain-agnostic user
+account for provenance and must not be treated as authorization. Every
+node-trust change routes through `setNode` and every
 guardian change through `setGuardian`, so `Node` and `Guardian` are exhaustive:
 replaying them yields the exact current access sets.
 
@@ -91,7 +115,8 @@ keccak256. The remaining bytes are host/domain-specific for now.
 
 1. Start from the chain's commander host (announced via `Chain`, below, or a
    known address). Replay its deployment logs: `EventAbi` gives the event ABIs,
-   the discovery events give the endpoint catalog, `Labeled` gives names.
+   the discovery events give the endpoint catalog, and `Annotation` label blocks
+   give names.
 2. Follow `Introduction` events on the commander to enumerate hosts. The `peer`
    ID embeds the introduced host's address; the receiving `host` is the
    commander that accepted the introduction, and the peer's admin account
@@ -139,7 +164,7 @@ log-based tooling - there is no fallback channel, because both command outputs
 
 **Announcement.** A root (commander) host emits `Commander` once at construction
 with its host ID, the local chain ID, native asset, and its admin account,
-and labels itself (e.g. `Labeled(host, "hosts", name)`). This closes the
+and labels itself with an `Annotation` containing a `#label` block. This closes the
 cold-start problem: `commander`, `admin`, and `nativeAsset` are constructor
 immutables that appear in no library event on the host itself. Child hosts need
 no announcement - they are discovered through `Introduction` on their
@@ -268,12 +293,13 @@ These were evaluated and deliberately not proposed:
   host-policy vocabulary: `Rooted` belongs to host entrypoints the library does
   not own, and `Position` reporting depends on what the host considers a
   position.
-- **Any change to the discovery events.** They are complete as deployed, and
-  v1.2.0 already settled the naming model (`Labeled` + namespaces).
+- **A dedicated event and command for every metadata type.** Entity metadata is
+  carried by typed blocks inside `Annotation`, with the generic admin `annotate`
+  command publishing later updates.
 
 ## Compatibility
 
-Nothing in this document alters an event signature or topic. The proposed
-helpers are additive Solidity; the correlation semantics and host conventions
-are documentation that existing conforming hosts already satisfy. Under the
-changelog conventions these ship as a non-breaking minor release.
+Replacing `Labeled` and `Schema` with block-based `Annotation` changes the
+discovery event surface and is breaking for indexers that consume the former
+events. Consumers must decode annotation block streams and recognize `#label`
+blocks for names and `#schema` blocks for block definitions.

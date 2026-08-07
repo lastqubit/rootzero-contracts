@@ -21,7 +21,7 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         uint32 size = uint32(32 + Sizes.Amount);
-        inputSpec = schema(1, size, size, size, INPUT, bytes32(0));
+        inputSpec = schema(1, size, INPUT, bytes32(0));
         (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0, false, false);
     }
 
@@ -32,12 +32,12 @@ abstract contract MyCommand is CommandBase {
         Execution memory exec,
         uint8 lane
     ) private view returns (uint peer, bytes32 asset, uint amount) {
-        (uint abs, uint end) = exec.consume(lane, inputSpec);
+        (uint abs, ) = exec.consume(lane, inputSpec);
 
         peer = Blocks.readUint(abs);
         (asset, amount) = Blocks.unpackAmount(abs + 32);
 
-        if (abs + 32 + Sizes.Amount != end) revert Blocks.InvalidBlock();
+        exec.expectAbs(abs + 32 + Sizes.Amount);
     }
 
     function myCommand(

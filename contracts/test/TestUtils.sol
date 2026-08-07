@@ -8,11 +8,15 @@ import { Nodes } from "../utils/Nodes.sol";
 import { Selectors } from "../utils/Selectors.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
-import { AccessControl } from "../core/Access.sol";
+import { CommanderAccess } from "../core/Access.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestUtils is CommandBase {
-    constructor() AccessControl(address(0)) {}
+contract TestUtils is CommandBase, CommanderAccess {
+    constructor() CommanderAccess(address(0)) {}
+
+    function enforceCaller(address caller) internal view override returns (address) {
+        return enforceCommander(caller);
+    }
 
     function testAddrOr(address addr, address or_) external pure returns (address) {
         return addrOr(addr, or_);
@@ -54,10 +58,6 @@ contract TestUtils is CommandBase {
         return Accounts.toAdmin(addr);
     }
 
-    function testToGuardianAccount(address addr) external view returns (bytes32) {
-        return Accounts.toGuardian(addr);
-    }
-
     function testToUserAccount(address addr) external pure returns (bytes32) {
         return Accounts.toUser(addr);
     }
@@ -70,20 +70,12 @@ contract TestUtils is CommandBase {
         return Accounts.isAdmin(account);
     }
 
-    function testIsGuardianAccount(bytes32 account) external pure returns (bool) {
-        return Accounts.isGuardian(account);
-    }
-
     function testIsUserAccount(bytes32 account) external pure returns (bool) {
         return Accounts.isUser(account);
     }
 
     function testAdminAccount(bytes32 account) external pure returns (bytes32) {
         return Accounts.admin(account);
-    }
-
-    function testGuardianAccount(bytes32 account) external pure returns (bytes32) {
-        return Accounts.guardian(account);
     }
 
     function testUserAccount(bytes32 account) external pure returns (bytes32) {

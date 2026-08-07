@@ -40,8 +40,6 @@ library Layout {
 
     /// @dev Admin account — chain-local, backed by an EVM address.
     uint8 constant Admin = 0x01;
-    /// @dev Guardian account — chain-local, backed by an EVM address.
-    uint8 constant Guardian = 0x02;
     /// @dev User account — chain-agnostic, backed by an EVM address.
     uint8 constant User = 0x03;
     // -------------------------------------------------------------------------

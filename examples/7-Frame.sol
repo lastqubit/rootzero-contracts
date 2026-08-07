@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 // Example 7: Custom Input Shape
 //
 // Discoverable custom input types define a context-local spec with a small
-// literal or selector as its key, then publish it with Schema(host, spec, schema, name).
+// literal or selector as its key, then publish it with a #schema annotation.
 //
 // For:
 //

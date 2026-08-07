@@ -175,7 +175,7 @@ TRUSTED_NODES:
   LocalNodeId bytes -> bool
 
 GUARDIANS:
-  AccountId bytes -> bool
+  User AccountId bytes -> bool
 
 BALANCES:
   (account_id bytes, asset_id bytes) -> Uint128
@@ -327,7 +327,7 @@ State:
 ```text
 commander: Addr
 trusted nodes: LocalNodeId -> bool
-guardians: AccountId -> bool
+guardians: User AccountId -> bool
 ```
 
 Rules:

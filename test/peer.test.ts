@@ -12,6 +12,8 @@ import {
   encodeStepBlock,
   encodeTxBlock,
   encodeDispatchBlock,
+  encodeActionBlock,
+  encodeLabelBlock,
   encodeUserAccount,
 } from "./helpers/blocks.js";
 import { ethers } from "ethers";
@@ -45,8 +47,8 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.Amount }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portAllowance(bytes)"), ethers.ZeroHash, "portAllowance");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portAllowance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portAllowance"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -56,8 +58,8 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.Balance }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portRedeemBalance(bytes)"), ethers.ZeroHash, "portRedeemBalance");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portRedeemBalance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portRedeemBalance"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -67,8 +69,8 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.AccountAmount }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portCreditAccount(bytes)"), ethers.ZeroHash, "portCreditAccount");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portCreditAccount(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portCreditAccount"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -78,8 +80,8 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.AccountAmount }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portDebitAccount(bytes)"), ethers.ZeroHash, "portDebitAccount");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portDebitAccount(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portDebitAccount"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -89,8 +91,8 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.Context, funded: true }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portPipePayable(bytes)"), ethers.ZeroHash, "portPipePayable");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portPipePayable(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portPipePayable"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -100,8 +102,12 @@ describe("Port Entrypoints", () => {
         endpointDescriptor({ input: Keys.Dispatch, funded: true }),
       );
     await expect(tx!)
-      .to.emit(host, "Labeled")
-      .withArgs(await port("portDispatchPayable(bytes)"), ethers.ZeroHash, "portDispatchPayable");
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portDispatchPayable(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portDispatchPayable"));
+
+    await expect(tx!)
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portSettle(bytes)"), encodeActionBlock(3n));
 
   });
 

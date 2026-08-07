@@ -4,6 +4,7 @@ import { deploy } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
+  encodeActionBlock,
   encodeAccountAmountBlock,
   encodeAllocationBlock,
   encodeAllowanceBlock,
@@ -243,8 +244,8 @@ describe("Cursors", () => {
         .to.equal(expected(encodeContextBlock(account, state, input)));
       expect(await blocksHelper.writeRecover(offset, target, resources, recoveryKey, raw))
         .to.equal(expected(encodeRecoverBlock(target, resources, recoveryKey, raw)));
-      expect(await blocksHelper.writeLabel(offset, target, namespace, "rootzero"))
-        .to.equal(expected(encodeLabelBlock(target, namespace, "rootzero")));
+      expect(await blocksHelper.writeLabel(offset, namespace, "rootzero"))
+        .to.equal(expected(encodeLabelBlock(namespace, "rootzero")));
       expect(await blocksHelper.writeSchema(offset, spec, "bytes32 asset", name))
         .to.equal(expected(encodeSchemaBlock(spec, "bytes32 asset", name)));
     });
@@ -313,6 +314,36 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "ValueOverflow");
     });
 
+    it("label factory matches the canonical LABEL encoding", async () => {
+      const namespace = pad32("0x1234");
+      expect(await helper.testToLabelBlock(namespace, "rootzero"))
+        .to.equal(encodeLabelBlock(namespace, "rootzero"));
+    });
+
+    it("action factory matches the canonical ACTION encoding", async () => {
+      expect(await helper.testToActionBlock(4n)).to.equal(encodeActionBlock(4n));
+    });
+
+    it("publishes an action annotation", async () => {
+      await expect(blocksHelper.publishAction(123n, 4n))
+        .to.emit(blocksHelper, "Annotation")
+        .withArgs(123n, encodeActionBlock(4n));
+    });
+
+    it("schema factory matches the canonical SCHEMA encoding", async () => {
+      const spec = exactSpec(Keys.Asset, 32);
+      const name = pad32("0x55");
+      expect(await helper.testToSchemaBlock(spec, "bytes32 asset", name))
+        .to.equal(encodeSchemaBlock(spec, "bytes32 asset", name));
+    });
+
+    it("creates exact specs from a numeric key and size", async () => {
+      const key = 1n;
+      const size = 64n;
+      const spec = (key << 224n) | (size << 192n) | (size << 160n) | (size << 136n);
+      expect(await blocksHelper.exactSpec(key, size)).to.equal(spec);
+    });
+
     it("derives initial byte capacity from spec groups and hints", async () => {
       expect(await blocksHelper.groupedCapacity()).to.equal(6n * 72n);
     });
@@ -376,7 +407,7 @@ describe("Cursors", () => {
     it("omits the transaction writer when its declared count is zero", async () => {
       expect(await blocksHelper.executionTransactions(0, 3, 0)).to.equal("0x");
       await expect(blocksHelper.executionTransactions(0, 3, 1))
-        .to.be.revertedWithCustomError(blocksHelper, "MissingTag");
+        .to.be.revertedWithCustomError(blocksHelper, "MissingCursor");
     });
 
     it("text returns a valid encoded STRING block", async () => {
@@ -586,6 +617,38 @@ describe("Cursors", () => {
       expect(tag).to.equal(0x78n);
     });
 
+    it("returns the active cursor frame without its position or paired cursor", async () => {
+      const frame = (10n << 32n) | (20n << 64n) | (3n << 96n) | (4n << 112n) | (1n << 120n);
+      expect(await helper.testFrame()).to.equal(frame);
+    });
+
+    it("matches an upper cursor by frame and reports whether it is before a mark", async () => {
+      const [matched, pending] = await helper.testMarkBefore(8n, 12n, false);
+      expect(matched & 0xffffffffn).to.equal(8n);
+      expect((matched >> 120n) & 0xffn).to.equal(2n);
+      expect(pending).to.be.true;
+    });
+
+    it("ignores the upper 128 bits of a mark and returns false exactly at it", async () => {
+      const [, pending] = await helper.testMarkBefore(12n, 12n, true);
+      expect(pending).to.be.false;
+    });
+
+    it("reverts after a mark or when no cursor frame matches it", async () => {
+      await expect(helper.testMarkBefore(13n, 12n, false))
+        .to.be.revertedWithCustomError(helper, "OutOfBounds");
+      await expect(helper.testMissingMark())
+        .to.be.revertedWithCustomError(helper, "MissingCursor");
+    });
+
+    it("locates an empty cursor and treats its zero mark as reached", async () => {
+      const cur = (10n << 64n) | (1n << 120n);
+      expect(await helper.testZeroMark(0)).to.equal(0n);
+      expect(await helper.testZeroMark(cur)).to.equal(cur << 128n);
+      expect(await helper.testZeroBefore(0)).to.be.false;
+      expect(await helper.testZeroBefore(cur)).to.be.false;
+    });
+
     it("detects whether both packed cursors remain at their initial positions", async () => {
       const metadata = (10n << 64n) | ((20n << 64n) << 128n);
 
@@ -639,9 +702,9 @@ describe("Cursors", () => {
       expect((other >> 120n) & 0xffn).to.equal(1n);
     });
 
-    it("reverts MissingTag when a cursor pair does not contain the requested tag", async () => {
+    it("reverts MissingCursor when a cursor pair does not contain the requested tag", async () => {
       await expect(helper.testSelectTag(11n, 7, 22n, 42, 9))
-        .to.be.revertedWithCustomError(helper, "MissingTag");
+        .to.be.revertedWithCustomError(helper, "MissingCursor");
     });
 
     it("unpackBalanceForHost scopes a consumed BALANCE to the supplied host", async () => {
@@ -785,6 +848,17 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "UnexpectedPosition");
     });
 
+    it("expectAbs succeeds at the cursor's absolute position", async () => {
+      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
+      expect(await helper.testExpectAbsolute(source, 1n)).to.be.greaterThan(1n);
+    });
+
+    it("expectAbs reverts UnexpectedPosition for a different absolute position", async () => {
+      const source = encodeAssetBlock(asset);
+      await expect(helper.testExpectAbsoluteMismatch(source))
+        .to.be.revertedWithCustomError(helper, "UnexpectedPosition");
+    });
+
     it("list consumes the list and returns a cursor scoped to its payload", async () => {
       const item1 = encodeAssetBlock(asset);
       const item2 = encodeAssetBlock(otherAsset);
@@ -900,12 +974,10 @@ describe("Cursors", () => {
     });
 
     it("unpackLabel consumes a LABEL block and returns its fields", async () => {
-      const id = 789n;
       const namespace = ethers.encodeBytes32String("peer");
       const name = "portDispatchPayable";
-      const source = encodeLabelBlock(id, namespace, name);
-      const [outId, outNamespace, outName, i] = await stringHelper.testUnpackLabel(source);
-      expect(outId).to.equal(id);
+      const source = encodeLabelBlock(namespace, name);
+      const [outNamespace, outName, i] = await stringHelper.testUnpackLabel(source);
       expect(outNamespace).to.equal(namespace);
       expect(outName).to.equal(name);
       expect(i).to.equal(BigInt(ethers.getBytes(source).length));

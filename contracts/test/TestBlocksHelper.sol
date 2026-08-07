@@ -9,11 +9,12 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {Cursors} from "../utils/Cursors.sol";
 import {Descriptors} from "../codec/Descriptors.sol";
 import {Budget, Budgets} from "../execution/Budget.sol";
+import {Action} from "../annotations/Action.sol";
 
 using Writers for Writer;
 using Budgets for Budget;
 
-contract TestBlocksHelper {
+contract TestBlocksHelper is Action {
     bytes4 private constant TestKey = bytes4(uint32(1));
 
     function transactionSpec() external pure returns (bytes32) {
@@ -28,6 +29,14 @@ contract TestBlocksHelper {
     function specHint(uint32 hint) external pure returns (uint24) {
         (uint capacity, ) = Specs.allocation(Specs.create(TestKey, 0, 0, hint), 1);
         return uint24(capacity - Sizes.Header);
+    }
+
+    function exactSpec(uint32 key, uint32 size) external pure returns (uint) {
+        return Specs.create(key, size);
+    }
+
+    function publishAction(uint entity, uint value) external {
+        action(entity, value);
     }
 
     function groupedCapacity() external pure returns (uint) {
@@ -316,12 +325,11 @@ contract TestBlocksHelper {
 
     function writeLabel(
         uint offset,
-        uint id,
         bytes32 namespace,
         string memory name
     ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.B64 + Sizes.Header + bytes(name).length);
-        Blocks.writeLabel(dst, offset, id, namespace, name);
+        dst = new bytes(offset + Sizes.B32 + Sizes.Header + bytes(name).length);
+        Blocks.writeLabel(dst, offset, namespace, name);
     }
 
     function writeSchema(

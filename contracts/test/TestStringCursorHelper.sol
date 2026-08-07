@@ -27,9 +27,9 @@ contract TestStringCursorHelper {
 
     function testUnpackLabel(
         bytes calldata source
-    ) external pure returns (uint id, bytes32 namespace, string memory name, uint i) {
+    ) external pure returns (bytes32 namespace, string memory name, uint i) {
         Cur memory cur = Decoders.wrap(source);
-        (id, namespace, name) = cur.unpackLabel();
+        (namespace, name) = cur.unpackLabel();
         (i, , ) = Cursors.decode(cur.state);
     }
 

@@ -5,7 +5,7 @@ let _connection: Awaited<ReturnType<typeof hre.network.connect>> | null = null;
 
 async function getConnection() {
   if (!_connection) {
-    _connection = await hre.network.connect();
+    _connection = await hre.network.getOrCreate();
   }
   return _connection;
 }
@@ -26,7 +26,7 @@ export async function getSigners(count = 5) {
   return Promise.all(accounts.slice(0, count).map((_, i) => provider.getSigner(i)));
 }
 
-export async function deploy(contractName: string, ...args: unknown[]) {
+export async function deploy(contractName: string, ...args: unknown[]): Promise<any> {
   const signer = await getSigner();
   const artifact = await hre.artifacts.readArtifact(contractName);
   const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
@@ -35,7 +35,7 @@ export async function deploy(contractName: string, ...args: unknown[]) {
   return contract;
 }
 
-export async function deployAs(signerIndex: number, contractName: string, ...args: unknown[]) {
+export async function deployAs(signerIndex: number, contractName: string, ...args: unknown[]): Promise<any> {
   const signer = await getSigner(signerIndex);
   const artifact = await hre.artifacts.readArtifact(contractName);
   const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);

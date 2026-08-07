@@ -3,20 +3,25 @@ pragma solidity ^0.8.33;
 
 // Example 1: Minimal Host
 //
-// A Host is your application contract. Extending Host gives you:
-//   - control command support (Authorize, Unauthorize, Execute)
-//   - trusted caller enforcement for command entrypoints
-//   - optional auto-registration with a rootzero discovery contract
+// CommandHost supplies only commander access and deployment-time introduction.
+// The inherited command module supplies CommandBase and its endpoint.
 //
-// This is the smallest valid rootzero host - no commands yet.
+// This host deliberately has no admin commands, node registry, guardians,
+// inbound introduction endpoint, generic execution, or receive function.
 
-import { Host } from "../contracts/Core.sol";
+import { CommandHost } from "../contracts/Core.sol";
+import { DebitAccount } from "../contracts/Endpoints.sol";
 
-contract ExampleHost is Host {
-    // rootzero - the trusted caller for command execution, typically a commander host.
-    //            If rootzero is a contract, the host announces itself there on deployment.
-    //            Pass address(0) for a self-managed host with no auto-registration.
-    constructor(address rootzero) Host(rootzero) {}
+contract ExampleHost is CommandHost, DebitAccount {
+    mapping(bytes32 account => mapping(bytes32 asset => uint amount)) internal balances;
+
+    // commander must be nonzero and is the only address allowed to invoke debitAccount.
+    // If it is a contract, it must accept introduce(uint,uint) during deployment.
+    constructor(address commander) CommandHost(commander) {}
+
+    function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {
+        balances[account][asset] -= amount;
+    }
 }
 
 

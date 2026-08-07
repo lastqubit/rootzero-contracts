@@ -61,6 +61,42 @@ contract TestCursorHelper {
         (decodedGroups, decodedFlags, decodedTag) = Cursors.meta(cur);
     }
 
+    function testFrame() external pure returns (uint) {
+        uint low = Cursors.create(10, 20, 3, 4, 1).seek(5);
+        uint high = Cursors.create(100, 30, 6, 7, 2).seek(8);
+        return Cursors.pair(low, high).frame();
+    }
+
+    function testMarkBefore(
+        uint current,
+        uint target,
+        bool pairedMark
+    ) external pure returns (uint matched, bool pending) {
+        uint low = Cursors.create(10, 20, 3, 4, 1).seek(5);
+        uint high = Cursors.create(100, 30, 6, 7, 2).seek(current);
+        uint cursors = Cursors.pair(low, high);
+        uint mark = Cursors.create(100, 30, 6, 7, 2).seek(target);
+        if (pairedMark) mark = Cursors.pair(mark, low);
+
+        matched = cursors.locate(mark);
+        pending = cursors.before(mark);
+    }
+
+    function testMissingMark() external pure returns (bool) {
+        uint cur = Cursors.create(10, 20, 0, 0, 1);
+        uint mark = Cursors.create(11, 20, 0, 0, 1);
+        cur.before(mark);
+        return true;
+    }
+
+    function testZeroMark(uint cur) external pure returns (uint) {
+        return cur.locate(0);
+    }
+
+    function testZeroBefore(uint cur) external pure returns (bool) {
+        return cur.before(0);
+    }
+
     function testSpanInitial(uint cur) external pure returns (bool) {
         return Cursors.initial(cur);
     }
@@ -156,6 +192,18 @@ contract TestCursorHelper {
 
     function testToBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         return Blocks.balance(asset, amount);
+    }
+
+    function testToLabelBlock(bytes32 namespace, string memory name) external pure returns (bytes memory) {
+        return Blocks.label(namespace, name);
+    }
+
+    function testToActionBlock(uint value) external pure returns (bytes memory) {
+        return Blocks.action(value);
+    }
+
+    function testToSchemaBlock(uint spec, string memory body, bytes32 name) external pure returns (bytes memory) {
+        return Blocks.schema(spec, body, name);
     }
 
     function testToCustodyBlock(
@@ -358,6 +406,19 @@ contract TestCursorHelper {
             cur.state = (cur.state & ~uint(type(uint32).max)) | (pos + 1);
         }
         cur.state.expect(pos);
+        return true;
+    }
+
+    function testExpectAbsolute(bytes calldata source, uint pos) external pure returns (uint abs) {
+        Cur memory cur = Decoders.wrap(source);
+        cur.state = cur.state.seek(pos);
+        abs = cur.state.absolute();
+        cur.state.expectAbs(abs);
+    }
+
+    function testExpectAbsoluteMismatch(bytes calldata source) external pure returns (bool) {
+        Cur memory cur = Decoders.wrap(source);
+        cur.state.expectAbs(cur.state.absolute() + 1);
         return true;
     }
 

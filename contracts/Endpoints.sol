@@ -23,13 +23,12 @@ import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 import { AdminBase } from "./commands/admin/Base.sol";
 import { AllowAssets, AllowAssetsHook } from "./commands/admin/AllowAssets.sol";
 import { Allowance, AllowanceHook } from "./commands/admin/Allowance.sol";
+import { Annotate } from "./commands/admin/Annotate.sol";
 import { Appoint } from "./commands/admin/Appoint.sol";
 import { Authorize } from "./commands/admin/Authorize.sol";
 import { DenyAssets, DenyAssetsHook } from "./commands/admin/DenyAssets.sol";
 import { Dismiss } from "./commands/admin/Dismiss.sol";
 import { ExecutePayable } from "./commands/admin/Execute.sol";
-import { Label } from "./commands/admin/Label.sol";
-import { PublishSchema } from "./commands/admin/Schemas.sol";
 import { Unauthorize } from "./commands/admin/Unauthorize.sol";
 
 // Port endpoints

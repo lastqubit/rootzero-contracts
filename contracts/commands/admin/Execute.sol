@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
+import {RawNodeCalls} from "../../core/Calls.sol";
 
 using Executions for Execution;
 
@@ -10,7 +11,7 @@ using Executions for Execution;
 /// Each CALL block specifies a target node ID, packed resources, and raw calldata payload.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` is returned as a refund transaction.
-abstract contract ExecutePayable is AdminBase {
+abstract contract ExecutePayable is RawNodeCalls, AdminBase {
     uint private immutable descriptor;
 
     constructor() {

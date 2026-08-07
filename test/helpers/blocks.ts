@@ -107,6 +107,8 @@ export const Keys = {
   Dispatch: blockKey("#dispatch"),
   Transaction: blockKey("#transaction"),
   Label: blockKey("#label"),
+  Annotation: blockKey("#annotation"),
+  Action: blockKey("#action"),
   Schema: blockKey("#schema"),
   Bytes: blockKey("#bytes"),
   String: blockKey("#string"),
@@ -226,8 +228,16 @@ export function encodeStringBlock(data: string): string {
   return encodeBlock(Keys.String, ethers.hexlify(ethers.toUtf8Bytes(data)));
 }
 
-export function encodeLabelBlock(id: bigint, namespace: string, name: string): string {
-  return encodeBlock(Keys.Label, ethers.concat([pad32(id), pad32(namespace), encodeStringBlock(name)]));
+export function encodeLabelBlock(namespace: string, name: string): string {
+  return encodeBlock(Keys.Label, ethers.concat([pad32(namespace), encodeStringBlock(name)]));
+}
+
+export function encodeAnnotationBlock(entity: bigint, data: string): string {
+  return encodeBlock(Keys.Annotation, ethers.concat([pad32(entity), encodeBytesBlock(data)]));
+}
+
+export function encodeActionBlock(action: bigint): string {
+  return encodeBlock(Keys.Action, pad32(action));
 }
 
 export function encodeSchemaBlock(spec: bigint, body: string, name: string): string {
