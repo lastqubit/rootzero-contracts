@@ -2,6 +2,8 @@
 pragma solidity ^0.8.33;
 
 import { Execution, Executions, CommandBase, Lanes, Specs } from "./Base.sol";
+import {Action} from "../annotations/Action.sol";
+import {Actions} from "../utils/Actions.sol";
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that burn account assets.
@@ -18,11 +20,13 @@ abstract contract BurnHook {
 /// @title Burn
 /// @notice Command that irreversibly destroys each BALANCE state block via a virtual hook.
 /// Produces no output state.
-abstract contract Burn is CommandBase, BurnHook {
+abstract contract Burn is CommandBase, BurnHook, Action {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("burn", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+        uint id;
+        (id, descriptor) = command("burn", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+        action(id, Actions.Burn);
     }
 
     /// @notice Burn each BALANCE block from the command state.

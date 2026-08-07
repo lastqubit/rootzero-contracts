@@ -5,17 +5,21 @@ import {PortBase} from "./Base.sol";
 import {Settlement} from "../core/Settlement.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Action} from "../annotations/Action.sol";
+import {Actions} from "../utils/Actions.sol";
 
 using Executions for Execution;
 
 /// @title PortSettle
 /// @notice Port that consumes peer-supplied TRANSACTION blocks through debit and credit hooks.
 /// Each TRANSACTION block calls `debitAccount` for `from` and `creditAccount` for `to`.
-abstract contract PortSettle is PortBase, Settlement {
+abstract contract PortSettle is PortBase, Settlement, Action {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portSettle", Specs.Transaction, Specs.Empty, false);
+        uint id;
+        (id, descriptor) = port("portSettle", Specs.Transaction, Specs.Empty, false);
+        action(id, Actions.Settle);
     }
 
     /// @notice Execute the port-settle call.

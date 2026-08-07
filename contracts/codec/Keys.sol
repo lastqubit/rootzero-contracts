@@ -5,7 +5,7 @@ pragma solidity ^0.8.33;
 /// @notice Standard block type selectors for the rootzero block stream protocol.
 /// Standard keys use the first 4 bytes of `keccak256("#name")` by convention.
 /// Custom block keys only need to be unique in the context where they are used;
-/// hosts may publish custom key meanings with the `Schema` event.
+/// hosts may publish custom key meanings with `#schema` annotations.
 library Keys {
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
@@ -49,8 +49,12 @@ library Keys {
     bytes4 constant Asset = bytes4(keccak256("#asset"));
     /// @dev Node identifier - (uint id)
     bytes4 constant Node = bytes4(keccak256("#node"));
-    /// @dev Mutable node label - (uint id, bytes32 namespace, #string as name)
+    /// @dev Entity label annotation - (bytes32 namespace, #string as name)
     bytes4 constant Label = bytes4(keccak256("#label"));
+    /// @dev Entity annotations - (uint entity, #bytes as data)
+    bytes4 constant Annotation = bytes4(keccak256("#annotation"));
+    /// @dev Primary semantic action annotation - (uint action)
+    bytes4 constant Action = bytes4(keccak256("#action"));
     /// @dev Block schema publication - (bytes4 key, #string as body, bytes32 name)
     bytes4 constant Schema = bytes4(keccak256("#schema"));
 

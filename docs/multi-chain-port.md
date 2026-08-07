@@ -77,7 +77,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 |-----------|----------|--------------|
 | Node IDs | Type prefix + `block.chainid` + ABI selector + address | Local node prefix + local dispatch tag + local address/program/contract fingerprint. |
 | Asset IDs | Native value, ERC-20, or opaque hash handles | Native token, SPL Token, IBC denom, CW20, NEP-141, or opaque hash handles. |
-| Account IDs | Admin/guardian are EVM chain-local; users can be chain-unspecified | Chain-native signer/account identity or opaque account commitment. |
+| Account IDs | Admins are EVM chain-local; users can be chain-unspecified; guardian is a role on a user account | Chain-native signer/account identity or opaque account commitment. |
 | ID resolution | Address is recoverable from the ID when needed | Use IDs as protocol keys; recover or look up native identities only at native call/transfer boundaries. |
 | Auth proof | secp256k1 ECDSA via `ecrecover` | ed25519, secp256k1, account abstraction, or native signed transaction context. |
 | Dispatch | `abi.encodeWithSelector` + EVM `call()` | Anchor instruction/CPI, CosmWasm `WasmMsg::Execute`, NEAR promise/cross-contract call. |
@@ -157,7 +157,7 @@ The representation bytes describe how a structured payload should be
 interpreted. EVM uses `Layout.Evm` because its payloads are built around
 20-byte addresses. Non-EVM ports should define chain-appropriate representation
 tags, such as `Solana`, `CosmWasm`, or `Near`, while still keeping the
-same `Account`, `Node`, `Asset`, `Admin`, `Guardian`, `User`, `Host`,
+same `Account`, `Node`, `Asset`, `Admin`, `User`, `Host`,
 `Command`, `Port`, `Query`, and `Guard` taxonomy where it applies.
 
 The bits after the shared prefix are chain-specific. The `local domain / reserved field` is not a global chain ID. A chain can set it to zero, a host-local namespace, a deployment generation, or another local-only value if useful. No library should maintain constants like `SOLANA_MAINNET`, `COSMOS_HUB`, or `NEAR_MAINNET`.
@@ -472,7 +472,7 @@ State:
 
 - `commander`: local privileged admin identity
 - `nodes`: local trusted node IDs
-- `guardians`: local guardian account IDs
+- `guardians`: user account IDs assigned the guardian role
 
 Checks:
 

@@ -54,6 +54,7 @@ library Specs {
     uint private constant Exact96 = 96 * SizeFields;
     uint private constant Exact128 = 128 * SizeFields;
     uint private constant UnboundedHint128 = uint(128) << 136;
+    uint private constant UnboundedMin40Hint256 = (uint(40) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin72Hint256 = (uint(72) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin48Hint512 = (uint(48) << 192) | (uint(512) << 136);
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
@@ -79,7 +80,9 @@ library Specs {
     uint constant Call = uint(bytes32(Keys.Call)) | UnboundedMin72Hint256;
     uint constant Asset = uint(bytes32(Keys.Asset)) | Exact32;
     uint constant Node = uint(bytes32(Keys.Node)) | Exact32;
-    uint constant Label = uint(bytes32(Keys.Label)) | UnboundedMin72Hint256;
+    uint constant Label = uint(bytes32(Keys.Label)) | UnboundedMin40Hint256;
+    uint constant Annotation = uint(bytes32(Keys.Annotation)) | UnboundedMin40Hint256;
+    uint constant Action = uint(bytes32(Keys.Action)) | Exact32;
     uint constant Schema = uint(bytes32(Keys.Schema)) | UnboundedMin72Hint256;
 
     uint constant Status = uint(bytes32(Keys.Status)) | Exact32;
@@ -96,10 +99,29 @@ library Specs {
     /// @param hint Initial per-block payload capacity.
     /// @return spec Packed block specification.
     function create(bytes4 blockkey, uint32 min, uint32 max, uint32 hint) internal pure returns (uint spec) {
-        spec |= uint(uint32(blockkey)) << 224;
+        return create(uint32(blockkey), min, max, hint);
+    }
+
+    /// @notice Construct a block specification from its numeric key and encoded fields.
+    /// @param blockkey Numeric block key.
+    /// @param min Minimum accepted payload length.
+    /// @param max Maximum accepted payload length; zero means unbounded.
+    /// @param hint Initial per-block payload capacity.
+    /// @return spec Packed block specification.
+    function create(uint32 blockkey, uint32 min, uint32 max, uint32 hint) internal pure returns (uint spec) {
+        spec |= uint(blockkey) << 224;
         spec |= uint(min) << 192;
         spec |= uint(max) << 160;
         spec |= uint(max24(hint)) << 136;
+    }
+
+    /// @notice Construct an exact-size block specification from a numeric key.
+    /// @dev Sets the minimum, maximum, and allocation hint to `size`.
+    /// @param blockkey Numeric block key.
+    /// @param size Exact payload length and initial per-block payload capacity.
+    /// @return spec Packed exact-size block specification.
+    function create(uint32 blockkey, uint32 size) internal pure returns (uint spec) {
+        return create(blockkey, size, size, size);
     }
 
     /// @notice Decode the block key and accepted payload range from `spec`.

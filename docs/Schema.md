@@ -27,11 +27,22 @@ For example, the standard `amount` alias uses the key derived from `#amount`
 and the schema body `{ bytes32 asset, uint amount }`. Custom block keys do not
 have to be keccak-derived. They
 are opaque `bytes4` tags and only need to be unique in the context where they are
-used. A host can publish the meaning of a custom key with:
+used. A host can publish the meaning of a custom key as an annotation:
 
 ```solidity
-event Schema(uint indexed host, uint spec, string body, bytes32 name);
+event Annotation(uint indexed entity, bytes data);
+#schema { uint spec, #string as body, bytes32 name }
 ```
+
+Annotation merge behavior is defined by the annotation block type rather than
+by the `Annotation` event. A `#schema` annotation is identified by its entity
+and the block key encoded in `spec`: distinct keys accumulate, while the latest
+trusted claim for the same key replaces the earlier one. Other annotation types
+may define additive, historical, or explicitly revocable behavior instead.
+
+The standard `#action { uint action }` annotation assigns one primary semantic
+action to an entity. The latest trusted value replaces the previous value, and
+`Actions.None` clears the classification.
 
 For example, a host-specific payment block can use a small literal, the command
 selector, or any other chosen `bytes4` value as long as that key is not
@@ -155,7 +166,7 @@ top-level structure.
 
 ## Field Aliases
 
-Block aliases are published in `Schema` events. Field aliases are presentation
+Block aliases are published in `#schema` annotations. Field aliases are presentation
 metadata for tooling. They do not change payload layout or runtime keys.
 
 ```txt
@@ -306,8 +317,8 @@ invalid in any path segment.
 - `#list`: generic list wrapper emitted by `many`
 
 Custom input shapes should define their own context-local block spec and publish
-it with a `Schema` event. Endpoint contracts can use `schema(...)` to construct
-and publish that spec:
+it with a `#schema` annotation. Endpoint contracts can use `schema(...)` to
+construct and publish that spec:
 
 ```solidity
 uint input = schema(1, 64, 64, 64, "{ bytes32 asset, uint amount }", bytes32(0));

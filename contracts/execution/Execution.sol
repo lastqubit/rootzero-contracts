@@ -166,6 +166,14 @@ library Executions {
         exec.decoders = cur.seekAbs(end);
     }
 
+    /// @notice Require the active execution decoder to be at absolute position `abs`.
+    /// @dev The most recent lane-aware decoder operation determines the active lane.
+    /// @param exec Execution whose active decoder position is validated.
+    /// @param abs Expected absolute position.
+    function expectAbs(Execution memory exec, uint abs) internal pure {
+        exec.decoders.expectAbs(abs);
+    }
+
     /// @notice Consume a LIST block and return a cursor scoped to its payload.
     /// @param exec Execution whose decoder is advanced.
     /// @param lane Decoder lane containing the LIST block.
@@ -520,6 +528,21 @@ library Executions {
         exec.decoders = cur.seekAbs(end);
     }
 
+    /// @notice Decode and consume one ANNOTATION block from `lane`.
+    /// @param exec Execution whose decoder is advanced.
+    /// @param lane Decoder lane to consume.
+    /// @return entity Decoded entity identifier.
+    /// @return data Decoded annotation block stream.
+    function unpackAnnotation(
+        Execution memory exec,
+        uint8 lane
+    ) internal pure returns (uint entity, bytes calldata data) {
+        uint cur = exec.decoders.select(lane);
+        uint end;
+        (entity, data, end) = Blocks.unpackAnnotation(cur.absolute());
+        exec.decoders = cur.seekAbs(end);
+    }
+
     /// @notice Decode and consume one CONTEXT block from `lane`.
     /// @param exec Execution whose decoder is advanced.
     /// @param lane Decoder lane to consume.
@@ -573,17 +596,16 @@ library Executions {
     /// @notice Decode and consume one LABEL block from `lane`.
     /// @param exec Execution whose decoder is advanced.
     /// @param lane Decoder lane to consume.
-    /// @return id Decoded node identifier.
     /// @return namespace Decoded label namespace.
     /// @return name Decoded label text.
     function unpackLabel(
         Execution memory exec,
         uint8 lane
-    ) internal pure returns (uint id, bytes32 namespace, string memory name) {
+    ) internal pure returns (bytes32 namespace, string memory name) {
         uint cur = exec.decoders.select(lane);
         uint abs = cur.absolute();
         uint end;
-        (id, namespace, name, end) = Blocks.unpackLabel(abs);
+        (namespace, name, end) = Blocks.unpackLabel(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
@@ -956,13 +978,12 @@ library Executions {
 
     /// @notice Append a LABEL block to execution output.
     /// @param exec Execution receiving the block.
-    /// @param id Node identifier to encode.
     /// @param namespace Label namespace to encode.
     /// @param name Label text to encode.
-    function outputLabel(Execution memory exec, uint id, bytes32 namespace, string memory name) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + bytes(name).length;
+    function outputLabel(Execution memory exec, bytes32 namespace, string memory name) internal pure {
+        uint size = Sizes.B32 + Sizes.Header + bytes(name).length;
         uint i = reserve(exec, size);
-        Blocks.writeLabel(exec.output, i, id, namespace, name);
+        Blocks.writeLabel(exec.output, i, namespace, name);
     }
 
     /// @notice Append a SCHEMA block to execution output.

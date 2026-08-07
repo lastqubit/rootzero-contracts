@@ -36,7 +36,7 @@ pragma solidity ^0.8.33;
 // - generic lists use the stable key derived from `#list`
 // - standard keys are derived from block aliases, e.g. bytes4(keccak256("#amount"))
 // - custom keys are opaque bytes4 tags and only need to be unique in their
-//   active context; use `Schema(host, spec, schema, name)` to publish their meaning
+//   active context; use a `#schema` annotation to publish their meaning
 // - see `docs/Schema.md` for the full working spec
 //
 // Pipeline state:
@@ -101,7 +101,12 @@ library Schemas {
     string constant Dispatch = "{ uint portal, uint resources, #bytes as payload }";
     string constant Context = "{ bytes32 account, #bytes as state, #bytes as input }";
     string constant Recover = "{ uint handler, uint resources, bytes32 key, #bytes as witness }";
-    string constant Label = "{ uint id, bytes32 namespace, #string as name }";
+    string constant Annotation = "{ uint entity, #bytes as data }";
+
+    // Annotation payloads
+
+    string constant Action = "{ uint action }";
+    string constant Label = "{ bytes32 namespace, #string as name }";
     string constant Schema = "{ uint spec, #string as body, bytes32 name }";
 }
 

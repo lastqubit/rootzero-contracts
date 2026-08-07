@@ -1,7 +1,7 @@
 ﻿import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner } from "./helpers/setup.js";
-import { concat, encodeBalanceBlock } from "./helpers/blocks.js";
+import { commandId, deploy, getSigner } from "./helpers/setup.js";
+import { concat, encodeActionBlock, encodeBalanceBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
 describe("Burn", () => {
@@ -34,6 +34,14 @@ describe("Burn", () => {
     const callArgs = Array.isArray(args[0]) ? [...args[0], ...args.slice(1)] : args;
     return (host.connect(signer) as any)[burnMethod](...callArgs);
   }
+
+  it("annotates burn with its semantic action", async () => {
+    const deployment = host.deploymentTransaction();
+    expect(deployment).to.not.equal(null);
+
+    await expect(deployment!).to.emit(host, "Annotation")
+      .withArgs(await commandId(burnMethod, host), encodeActionBlock(8n));
+  });
 
   // â”€â”€ Happy path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

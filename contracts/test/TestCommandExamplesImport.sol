@@ -4,10 +4,16 @@ pragma solidity ^0.8.33;
 // Import shims ensure every custom-command example builds and can be exercised
 // through the public Commands.sol authoring barrel.
 import {Host} from "../Core.sol";
+import {ExampleHost as MinimalHostExample} from "../../examples/1-Host.sol";
 import {MyCommand as BasicCommandExample} from "../../examples/3-Command.sol";
 import {MyCommand as BatchCommandExample} from "../../examples/4-Batch.sol";
 import {MyCommand as DataCommandExample} from "../../examples/5-Data.sol";
 import {ExampleHost as ListExampleHost} from "../../examples/6-List.sol";
+
+/// @notice Concrete wrapper ensuring the minimal command-host example compiles.
+contract TestMinimalHostExample is MinimalHostExample {
+    constructor(address commander) MinimalHostExample(commander) {}
+}
 
 /// @notice Concrete host used to exercise the single-input command example.
 contract TestBasicCommandExampleHost is Host, BasicCommandExample {

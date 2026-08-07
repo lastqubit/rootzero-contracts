@@ -106,16 +106,6 @@ describe("Utils", () => {
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
     });
 
-    it("toGuardianAccount encodes guardian prefix, chainId and address", async () => {
-      const result: string = await utils.testToGuardianAccount(signerAddress);
-      const val = BigInt(result);
-      const prefix = (val >> 224n) & 0xffffffffn;
-      expect(prefix).to.equal(0x01200102n);
-
-      const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
-      expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
-    });
-
     it("toUserAccount encodes user prefix without chain-specific chainId", async () => {
       const result: string = await utils.testToUserAccount(signerAddress);
       const val = BigInt(result);
@@ -134,36 +124,22 @@ describe("Utils", () => {
       expect(await utils.testIsAdminAccount(userAccount)).to.be.false;
     });
 
-    it("isGuardianAccount returns true for guardian account", async () => {
-      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
-      expect(await utils.testIsGuardianAccount(guardianAccount)).to.be.true;
-    });
-
-    it("isGuardianAccount returns false for admin and user accounts", async () => {
-      expect(await utils.testIsGuardianAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
-      expect(await utils.testIsGuardianAccount(await utils.testToUserAccount(signerAddress))).to.be.false;
-    });
-
     it("isUserAccount returns true for user account", async () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
       expect(await utils.testIsUserAccount(userAccount)).to.be.true;
     });
 
-    it("isUserAccount returns false for admin and guardian accounts", async () => {
+    it("isUserAccount returns false for admin accounts", async () => {
       expect(await utils.testIsUserAccount(await utils.testToAdminAccount(signerAddress))).to.be.false;
-      expect(await utils.testIsUserAccount(await utils.testToGuardianAccount(signerAddress))).to.be.false;
     });
 
     it("EVM account helpers accept supported EVM accounts", async () => {
       const admin = await utils.testToAdminAccount(signerAddress);
-      const guardian = await utils.testToGuardianAccount(signerAddress);
       const user = await utils.testToUserAccount(signerAddress);
 
       expect(await utils.testIsEvmAccount(admin)).to.be.true;
-      expect(await utils.testIsEvmAccount(guardian)).to.be.true;
       expect(await utils.testIsEvmAccount(user)).to.be.true;
       expect(await utils.testEvmAccount(admin)).to.equal(admin);
-      expect(await utils.testEvmAccount(guardian)).to.equal(guardian);
       expect(await utils.testEvmAccount(user)).to.equal(user);
     });
 
@@ -186,22 +162,18 @@ describe("Utils", () => {
 
     it("typed account helpers return matching accounts", async () => {
       const adminAccount = await utils.testToAdminAccount(signerAddress);
-      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
       const userAccount = await utils.testToUserAccount(signerAddress);
 
       expect(await utils.testAdminAccount(adminAccount)).to.equal(adminAccount);
-      expect(await utils.testGuardianAccount(guardianAccount)).to.equal(guardianAccount);
       expect(await utils.testUserAccount(userAccount)).to.equal(userAccount);
     });
 
     it("typed account helpers reject mismatched accounts", async () => {
       const adminAccount = await utils.testToAdminAccount(signerAddress);
-      const guardianAccount = await utils.testToGuardianAccount(signerAddress);
       const userAccount = await utils.testToUserAccount(signerAddress);
 
       await expectCustomError(utils.testAdminAccount(userAccount), "InvalidAccount");
-      await expectCustomError(utils.testGuardianAccount(adminAccount), "InvalidAccount");
-      await expectCustomError(utils.testUserAccount(guardianAccount), "InvalidAccount");
+      await expectCustomError(utils.testUserAccount(adminAccount), "InvalidAccount");
     });
 
     it("accountAddr extracts embedded address", async () => {

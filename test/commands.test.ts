@@ -9,7 +9,7 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeTxBlock,
+  encodeActionBlock, encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeTxBlock, encodeLabelBlock,
   concat
 } from "./helpers/blocks.js";
 
@@ -59,6 +59,21 @@ describe("Commands", () => {
     return commandId(host.interface.getFunction(method)!.selector, host);
   }
 
+  it("annotates commands with intrinsic semantic actions", async () => {
+    const deployment = host.deploymentTransaction();
+    expect(deployment).to.not.equal(null);
+
+    for (const [method, action] of [
+      ["deposit", 4n],
+      ["depositPayable", 4n],
+      ["withdraw", 5n],
+      ["payout", 2n],
+    ] as const) {
+      await expect(deployment!).to.emit(host, "Annotation")
+        .withArgs(await cmd(method), encodeActionBlock(action));
+    }
+  });
+
   // ── Deposit ───────────────────────────────────────────────────────────────
 
   describe("deposit", () => {
@@ -96,6 +111,20 @@ describe("Commands", () => {
         encodeBalanceBlock(asset2, 20n)
       ));
       expect(transactions).to.equal("0x");
+    });
+
+    it("accepts an ordinary command call from an authorized node", async () => {
+      const caller = await deploy("TestExecuteTarget");
+      const node = await utils.testToHostId(await caller.getAddress());
+      await host.authorize(adminAccount, "0x", encodeNodeBlock(node));
+
+      const asset = ethers.zeroPadValue("0x03", 32);
+      const input = encodeAmountBlock(asset, 25n);
+      const data = host.interface.encodeFunctionData("deposit", ctx({ input }));
+
+      await expect(caller.callTarget(await host.getAddress(), data))
+        .to.emit(host, "DepositCalled")
+        .withArgs(userAccount, asset, 25n);
     });
 
     it("reverts AccessDenied for untrusted caller", async () => {
@@ -498,8 +527,8 @@ describe("Commands", () => {
           await cmd("relayPayable"),
           endpointDescriptor({ state: Keys.Any, input: Keys.Relay, funded: true }),
         );
-      await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await cmd("relayPayable"), ethers.ZeroHash, "relayPayable");
+      await expect(deployment!).to.emit(host, "Annotation")
+        .withArgs(await cmd("relayPayable"), encodeLabelBlock(ethers.ZeroHash, "relayPayable"));
     });
 
     it("passes the RELAY block as an encoded destination context to the hook", async () => {
@@ -584,8 +613,8 @@ describe("Commands", () => {
           await cmd("recoverPayable"),
           endpointDescriptor({ input: Keys.Recover, funded: true }),
         );
-      await expect(deployment!).to.emit(host, "Labeled")
-        .withArgs(await cmd("recoverPayable"), ethers.ZeroHash, "recoverPayable");
+      await expect(deployment!).to.emit(host, "Annotation")
+        .withArgs(await cmd("recoverPayable"), encodeLabelBlock(ethers.ZeroHash, "recoverPayable"));
     });
 
     it("passes the recovery key, witness, and assigned value to the hook", async () => {

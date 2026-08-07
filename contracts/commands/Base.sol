@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {NodeCalls} from "../core/Calls.sol";
+import {CallerAccess} from "../core/Access.sol";
 import {EndpointBase} from "../core/Endpoint.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
@@ -19,16 +19,9 @@ using Executions for Execution;
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
 /// Provides access control modifiers and command endpoint metadata helpers.
-abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
+abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
-
-    /// @dev Restrict execution to the commander using the host's admin account.
-    modifier onlyAdmin(bytes32 account) {
-        if (account != admin) revert AccessDenied();
-        enforceCommander(msg.sender);
-        _;
-    }
 
     /// @dev Restrict execution to trusted callers.
     modifier onlyCommand() {
@@ -41,26 +34,6 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
     modifier onlyActive(uint deadline) {
         if (deadline < block.timestamp) revert Expired();
         _;
-    }
-
-    /// @notice Close a command execution and refund unspent value to `account`.
-    /// @param exec Command execution to close.
-    /// @param account Account that should receive any unspent value.
-    /// @return output Final encoded output block stream.
-    /// @return transactions Final encoded transaction block stream.
-    function close(
-        Execution memory exec,
-        bytes32 account
-    ) internal returns (bytes memory output, bytes memory transactions) {
-        if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
-
-        output = close(exec);
-        uint amount = exec.refundValue(account, nativeAsset);
-        if (amount != 0) {
-            emit Received(account, nativeAsset, amount, Actions.Refund, 0);
-        }
-
-        transactions = exec.finishTransactions();
     }
 
     /// @notice Publish command metadata and a default label.
@@ -83,11 +56,22 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
         bool funded,
         bool admin
     ) internal returns (uint id, uint descriptor) {
-        id = Nodes.toCommand(Selectors.command(name), address(this));
-        uint8 flags;
+        uint8 flags = 0;
         if (funded) flags |= Descriptors.Funded;
         if (admin) flags |= Descriptors.Admin;
-        descriptor = endpoint(id, name, state, input, output, transactions, flags);
+        descriptor = Descriptors.create(state, input, output, transactions, flags);
+        return command(name, descriptor);
+    }
+
+    /// @notice Publish an already constructed command descriptor and default label.
+    /// @param name Command entrypoint name and default label. It must exactly
+    /// match the Solidity command function name used by the canonical ABI.
+    /// @param descriptor Packed command endpoint descriptor.
+    /// @return id Command node ID.
+    /// @return published Published endpoint descriptor.
+    function command(string memory name, uint descriptor) internal returns (uint id, uint published) {
+        id = Nodes.toCommand(Selectors.command(name), address(this));
+        published = endpoint(id, name, descriptor);
     }
 
     /// @notice Open a command state stream and return the expected output block count.
@@ -116,5 +100,25 @@ abstract contract CommandBase is NodeCalls, EndpointBase, ReceivedEvent {
         uint batches
     ) internal view returns (Execution memory exec) {
         return Executions.open(state, input, descriptor, batches);
+    }
+
+    /// @notice Close a command execution and refund unspent value to `account`.
+    /// @param exec Command execution to close.
+    /// @param account Account that should receive any unspent value.
+    /// @return output Final encoded output block stream.
+    /// @return transactions Final encoded transaction block stream.
+    function close(
+        Execution memory exec,
+        bytes32 account
+    ) internal returns (bytes memory output, bytes memory transactions) {
+        if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
+
+        output = close(exec);
+        uint amount = exec.refundValue(account, nativeAsset);
+        if (amount != 0) {
+            emit Received(account, nativeAsset, amount, Actions.Refund, 0);
+        }
+
+        transactions = exec.finishTransactions();
     }
 }

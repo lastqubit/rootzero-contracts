@@ -3,10 +3,10 @@ pragma solidity ^0.8.33;
 
 import { Cur, Cursors, Decoders } from "../Codec.sol";
 import { NodeCalls } from "../core/Calls.sol";
-import { AccessControl } from "../core/Access.sol";
+import { CommanderAccess, NodeAccess } from "../core/Access.sol";
 
-contract TestOperation is NodeCalls {
-    constructor() AccessControl(address(0)) {}
+contract TestOperation is NodeCalls, NodeAccess {
+    constructor() CommanderAccess(address(0)) {}
 
     function testCheckCursorRatio(
         bytes calldata state,

@@ -754,20 +754,18 @@ library Blocks {
     /// block size and ensure the encoded payload length fits in uint32.
     /// @param dst Destination buffer.
     /// @param i Relative write position.
-    /// @param id Node identifier.
     /// @param namespace Label namespace.
     /// @param name Label text.
-    function writeLabel(bytes memory dst, uint i, uint id, bytes32 namespace, string memory name) internal pure {
-        uint len = 64 + Sizes.Header + bytes(name).length;
+    function writeLabel(bytes memory dst, uint i, bytes32 namespace, string memory name) internal pure {
+        uint len = 32 + Sizes.Header + bytes(name).length;
         uint key = uint32(Keys.Label);
         uint stringkey = uint32(Keys.String);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, or(shl(224, key), shl(192, len)))
-            mstore(add(p, 0x08), id)
-            mstore(add(p, 0x28), namespace)
+            mstore(add(p, 0x08), namespace)
 
-            let q := add(p, 0x48)
+            let q := add(p, 0x28)
             let namelen := mload(name)
             mstore(q, or(shl(224, stringkey), shl(192, namelen)))
             mcopy(add(q, 0x08), add(name, 0x20), namelen)
@@ -1345,6 +1343,23 @@ library Blocks {
 
     // One fixed word
 
+    /// @notice Decode one ANNOTATION block and its nested block stream.
+    /// @param abs Absolute block position.
+    /// @return entity Decoded entity identifier.
+    /// @return stream Decoded annotation block stream.
+    /// @return end Absolute position after the block.
+    function unpackAnnotation(
+        uint abs
+    ) internal pure returns (uint entity, bytes calldata stream, uint end) {
+        uint limit;
+        (abs, limit) = expect(abs, Specs.Annotation);
+        assembly ("memory-safe") {
+            entity := calldataload(abs)
+        }
+        (stream, end) = unpackBytes(abs + 32);
+        if (end != limit) revert InvalidBlock();
+    }
+
     /// @notice Decode one CONTEXT block and all nested byte blocks.
     /// @param abs Absolute block position.
     /// @return account Decoded account identifier.
@@ -1444,19 +1459,17 @@ library Blocks {
 
     /// @notice Decode one LABEL block and its nested name.
     /// @param abs Absolute block position.
-    /// @return id Decoded node identifier.
     /// @return namespace Decoded label namespace.
     /// @return name Decoded label text.
     /// @return end Absolute position after the block.
-    function unpackLabel(uint abs) internal pure returns (uint id, bytes32 namespace, string memory name, uint end) {
+    function unpackLabel(uint abs) internal pure returns (bytes32 namespace, string memory name, uint end) {
         uint limit;
         (abs, limit) = expect(abs, Specs.Label);
         assembly ("memory-safe") {
-            id := calldataload(abs)
-            namespace := calldataload(add(abs, 0x20))
+            namespace := calldataload(abs)
         }
         bytes calldata value;
-        (value, end) = unpackString(abs + 64);
+        (value, end) = unpackString(abs + 32);
         if (end != limit) revert InvalidBlock();
         name = string(value);
     }
@@ -1530,6 +1543,30 @@ library Blocks {
     /// @return Encoded STRING block bytes.
     function text(string memory value) internal pure returns (bytes memory) {
         return create(Keys.String, bytes(value));
+    }
+
+    /// @notice Encode a LABEL block.
+    /// @param namespace Label namespace.
+    /// @param name Label text.
+    /// @return Encoded LABEL block bytes.
+    function label(bytes32 namespace, string memory name) internal pure returns (bytes memory) {
+        return create(Keys.Label, bytes.concat(namespace, text(name)));
+    }
+
+    /// @notice Encode an ACTION annotation block.
+    /// @param value Canonical semantic action identifier.
+    /// @return Encoded ACTION block bytes.
+    function action(uint value) internal pure returns (bytes memory) {
+        return create(Keys.Action, bytes.concat(bytes32(value)));
+    }
+
+    /// @notice Encode a SCHEMA block.
+    /// @param spec Block specification.
+    /// @param body Schema body.
+    /// @param name Schema name.
+    /// @return Encoded SCHEMA block bytes.
+    function schema(uint spec, string memory body, bytes32 name) internal pure returns (bytes memory) {
+        return create(Keys.Schema, bytes.concat(bytes32(spec), text(body), name));
     }
 
     /// @notice Encode a BALANCE block.

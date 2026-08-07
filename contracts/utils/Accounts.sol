@@ -10,7 +10,6 @@ import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol"
 ///
 /// Account IDs embed a 4-byte type tag in bits [255:224]:
 ///   - `Admin`    — chain-local EVM address in bits [191:32]
-///   - `Guardian` — chain-local EVM address in bits [191:32]
 ///   - `User`     — chain-agnostic EVM address in bits [191:32]
 ///
 /// If the first byte is zero, the account is an opaque
@@ -26,8 +25,6 @@ library Accounts {
     uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Account);
     /// @dev Full 4-byte type prefix for admin accounts (chain-local EVM address).
     uint32 constant Admin = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Admin);
-    /// @dev Full 4-byte type prefix for guardian accounts (chain-local EVM address).
-    uint32 constant Guardian = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Guardian);
     /// @dev Full 4-byte type prefix for user accounts (chain-agnostic EVM address).
     uint32 constant User = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.User);
 
@@ -51,11 +48,6 @@ library Accounts {
     /// @notice Return true if `account` is an admin account.
     function isAdmin(bytes32 account) internal pure returns (bool) {
         return prefix(account) == Admin;
-    }
-
-    /// @notice Return true if `account` is a guardian account.
-    function isGuardian(bytes32 account) internal pure returns (bool) {
-        return prefix(account) == Guardian;
     }
 
     /// @notice Return true if `account` is a user account.
@@ -87,14 +79,6 @@ library Accounts {
         return value;
     }
 
-    /// @notice Assert that `value` is a guardian account and return it unchanged.
-    /// @param value Account identifier to validate.
-    /// @return account The same `value` if it is a guardian account.
-    function guardian(bytes32 value) internal pure returns (bytes32 account) {
-        if (!isGuardian(value)) revert InvalidAccount();
-        return value;
-    }
-
     /// @notice Assert that `value` is a user account and return it unchanged.
     /// @param value Account identifier to validate.
     /// @return account The same `value` if it is a user account.
@@ -108,13 +92,6 @@ library Accounts {
     /// @return Admin account ID bound to the current chain.
     function toAdmin(address account) internal view returns (bytes32) {
         return bytes32(toLocalBase(Admin) | (uint(uint160(account)) << 32));
-    }
-
-    /// @notice Encode an EVM address as a chain-local guardian account ID.
-    /// @param account EVM address to embed.
-    /// @return Guardian account ID bound to the current chain.
-    function toGuardian(address account) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Guardian) | (uint(uint160(account)) << 32));
     }
 
     /// @notice Encode an EVM address as a chain-agnostic user account ID.

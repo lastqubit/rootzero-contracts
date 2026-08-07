@@ -2,6 +2,8 @@
 pragma solidity ^0.8.33;
 
 import { Execution, Executions, CommandBase, Lanes, Specs } from "./Base.sol";
+import {Action} from "../annotations/Action.sol";
+import {Actions} from "../utils/Actions.sol";
 
 using Executions for Execution;
 
@@ -32,11 +34,13 @@ abstract contract DepositPayableHook {
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `deposit` for assets arriving from outside the protocol (e.g. ERC-20 transfers, ETH).
 /// For internal balance deductions, use `debitAccount` instead.
-abstract contract Deposit is CommandBase, DepositHook {
+abstract contract Deposit is CommandBase, DepositHook, Action {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        uint id;
+        (id, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        action(id, Actions.Deposit);
     }
 
     /// @notice Deposit AMOUNT input blocks into the command account and output matching BALANCE blocks.
@@ -63,11 +67,13 @@ abstract contract Deposit is CommandBase, DepositHook {
 /// @title DepositPayable
 /// @notice Command that receives externally sourced assets and records them as BALANCE state.
 /// Use `depositPayable` when the hook needs tracked access to `msg.value` via a mutable budget.
-abstract contract DepositPayable is CommandBase, DepositPayableHook {
+abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, true, false);
+        uint id;
+        (id, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, true, false);
+        action(id, Actions.Deposit);
     }
 
     /// @notice Deposit AMOUNT input blocks with access to a mutable native-value budget.

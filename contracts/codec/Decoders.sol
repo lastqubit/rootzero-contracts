@@ -365,6 +365,19 @@ library Decoders {
         cur.state = cur.state.seekAbs(end);
     }
 
+    /// @notice Decode and consume one ANNOTATION block.
+    /// @param cur Cursor advanced past the block.
+    /// @return entity Decoded entity identifier.
+    /// @return data Decoded annotation block stream.
+    function unpackAnnotation(
+        Cur memory cur
+    ) internal pure returns (uint entity, bytes calldata data) {
+        uint abs = cur.state.absolute();
+        uint end;
+        (entity, data, end) = Blocks.unpackAnnotation(abs);
+        cur.state = cur.state.seekAbs(end);
+    }
+
     /// @notice Decode and consume one CONTEXT block.
     /// @param cur Cursor advanced past the block.
     /// @return account Decoded account identifier.
@@ -395,13 +408,12 @@ library Decoders {
 
     /// @notice Decode and consume one LABEL block.
     /// @param cur Cursor advanced past the block.
-    /// @return id Decoded node identifier.
     /// @return namespace Decoded label namespace.
     /// @return name Decoded label text.
-    function unpackLabel(Cur memory cur) internal pure returns (uint id, bytes32 namespace, string memory name) {
+    function unpackLabel(Cur memory cur) internal pure returns (bytes32 namespace, string memory name) {
         uint abs = cur.state.absolute();
         uint end;
-        (id, namespace, name, end) = Blocks.unpackLabel(abs);
+        (namespace, name, end) = Blocks.unpackLabel(abs);
         cur.state = cur.state.seekAbs(end);
     }
 

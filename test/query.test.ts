@@ -6,6 +6,8 @@ import {
   concat,
   encodeBlock,
   endpointDescriptor,
+  encodeLabelBlock,
+  encodeSchemaBlock,
   exactSpec,
   localKey,
   pad32,
@@ -41,11 +43,11 @@ describe("Queries", () => {
         endpointDescriptor({ input: Value, output: ValueSpec }),
       );
     await expect(tx!)
-      .to.emit(query, "Schema")
-      .withArgs(await query.host(), ValueSpec, "{ uint value }", ethers.ZeroHash);
+      .to.emit(query, "Annotation")
+      .withArgs(await query.host(), encodeSchemaBlock(ValueSpec, "{ uint value }", ethers.ZeroHash));
     await expect(tx!)
-      .to.emit(query, "Labeled")
-      .withArgs(await qry("incrementQuery"), ethers.ZeroHash, "incrementQuery");
+      .to.emit(query, "Annotation")
+      .withArgs(await qry("incrementQuery"), encodeLabelBlock(ethers.ZeroHash, "incrementQuery"));
   });
 
   describe("incrementQuery", () => {
@@ -77,7 +79,7 @@ describe("Queries", () => {
       return queryId(keyedQuery.interface.getFunction(method)!.selector, keyedQuery);
     }
 
-    it("emits Schema discovery for a keyed local schema", async () => {
+    it("emits a schema annotation for a keyed local schema", async () => {
       const tx = keyedQuery.deploymentTransaction();
       expect(tx).to.not.equal(null);
 
@@ -89,8 +91,8 @@ describe("Queries", () => {
           endpointDescriptor({ input: KeyedValue, output: KeyedValueSpec }),
         );
       await expect(tx!)
-        .to.emit(keyedQuery, "Schema")
-        .withArgs(await keyedQuery.host(), KeyedValueSpec, "{ uint value }", ethers.ZeroHash);
+        .to.emit(keyedQuery, "Annotation")
+        .withArgs(await keyedQuery.host(), encodeSchemaBlock(KeyedValueSpec, "{ uint value }", ethers.ZeroHash));
     });
 
     it("accepts the keyed local value block", async () => {

@@ -16,7 +16,6 @@ import { PortSettle } from "../ports/Settle.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
-import { PublishSchema } from "../commands/admin/Schemas.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
@@ -43,8 +42,7 @@ contract TestHost is
     PortSettle,
     AllowAssets,
     DenyAssets,
-    Allowance,
-    PublishSchema
+    Allowance
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);

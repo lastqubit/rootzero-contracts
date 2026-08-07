@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
 import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/setup.js";
-import { encodeAccountBlock, encodeNodeBlock, endpointDescriptor, Keys, pad32 } from "./helpers/blocks.js";
+import { encodeAccountBlock, encodeLabelBlock, encodeNodeBlock, endpointDescriptor, Keys, pad32 } from "./helpers/blocks.js";
 
 describe("Guard Actions", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
@@ -22,7 +22,7 @@ describe("Guard Actions", () => {
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
 
-    const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+    const guardianAccount = await utils.testToUserAccount(guardianAddress);
     await host.appoint(...adminCtx(encodeAccountBlock(guardianAccount)));
   });
 
@@ -56,10 +56,10 @@ describe("Guard Actions", () => {
 
     await expect(deploymentTx)
       .to.emit(deployed, "Endpoint")
-      .withArgs(await deployed.host(), await guard("revoke", deployed), endpointDescriptor({ input: Keys.Node }));
+      .withArgs(await (deployed as any).host(), await guard("revoke", deployed), endpointDescriptor({ input: Keys.Node }));
     await expect(deploymentTx)
-      .to.emit(deployed, "Labeled")
-      .withArgs(await guard("revoke", deployed), ethers.ZeroHash, "revoke");
+      .to.emit(deployed, "Annotation")
+      .withArgs(await guard("revoke", deployed), encodeLabelBlock(ethers.ZeroHash, "revoke"));
   });
 
   it("guardian can revoke an authorized node directly", async () => {
@@ -100,7 +100,7 @@ describe("Guard Actions", () => {
   });
 
   it("reverts InvalidBlock when revoke input is not NODE blocks", async () => {
-    const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+    const guardianAccount = await utils.testToUserAccount(guardianAddress);
 
     await expect(host.connect(guardianSigner).revoke(encodeAccountBlock(guardianAccount)))
       .to.be.revertedWithCustomError(host, "InvalidBlock");
@@ -121,7 +121,7 @@ describe("Guard Actions", () => {
     const node = await hostIdFor(await (await getSigner(2)).getAddress());
     await host.authorize(...adminCtx(encodeNodeBlock(node)));
 
-    const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+    const guardianAccount = await utils.testToUserAccount(guardianAddress);
     await host.dismiss(...adminCtx(encodeAccountBlock(guardianAccount)));
 
     await expect(host.connect(guardianSigner).revoke(encodeNodeBlock(node)))
@@ -129,7 +129,7 @@ describe("Guard Actions", () => {
   });
 
   it("appointing the same guardian twice is idempotent", async () => {
-    const guardianAccount = await utils.testToGuardianAccount(guardianAddress);
+    const guardianAccount = await utils.testToUserAccount(guardianAddress);
 
     await expect(host.appoint(...adminCtx(encodeAccountBlock(guardianAccount))))
       .to.emit(host, "Guardian")

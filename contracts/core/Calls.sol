@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AccessControl} from "./Access.sol";
+import {TrustAccess} from "./Access.sol";
 import {Nodes} from "../utils/Nodes.sol";
 
 /// @dev Emitted when a trusted inter-node call fails.
@@ -10,9 +10,9 @@ import {Nodes} from "../utils/Nodes.sol";
 /// @param err Revert data returned by the failed call.
 error FailedCall(address addr, bytes4 selector, bytes err);
 
-/// @title NodeCalls
-/// @notice Shared low-level inter-node call helpers for contracts that can talk to other nodes.
-abstract contract NodeCalls is AccessControl {
+/// @title RawNodeCalls
+/// @notice Low-level inter-node call helpers without target authorization.
+abstract contract RawNodeCalls {
     /// @notice Try a raw low-level call to another node and return whether it succeeded.
     /// @param node Node ID of the callee.
     /// @param value Native value to forward in wei.
@@ -21,15 +21,6 @@ abstract contract NodeCalls is AccessControl {
     function tryRawCall(uint node, uint128 value, bytes memory data) internal returns (bool success) {
         address addr = Nodes.addr(node);
         (success, ) = payable(addr).call{value: value}(data);
-    }
-
-    /// @notice Try a trusted low-level call to another node and return whether it succeeded.
-    /// @param node Node ID of the callee.
-    /// @param value Native value to forward in wei.
-    /// @param data Encoded calldata to send.
-    /// @return success True if the low-level call succeeded.
-    function tryTrustedCall(uint node, uint128 value, bytes memory data) internal returns (bool success) {
-        return tryRawCall(ensureTrusted(node), value, data);
     }
 
     /// @notice Make a raw low-level call to another node and revert when it fails.
@@ -44,15 +35,6 @@ abstract contract NodeCalls is AccessControl {
         if (!success) revert FailedCall(addr, bytes4(data), out);
     }
 
-    /// @notice Make a trusted low-level call to another node and revert when it fails.
-    /// @param node Node ID of the callee.
-    /// @param value Native value to forward in wei.
-    /// @param data Encoded calldata to send.
-    /// @return out Return data from the successful call.
-    function trustedCall(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
-        return rawCall(ensureTrusted(node), value, data);
-    }
-
     /// @notice Make a raw low-level read-only query to another node and revert when it fails.
     /// @param node Node ID of the callee.
     /// @param data Encoded calldata to send.
@@ -62,6 +44,29 @@ abstract contract NodeCalls is AccessControl {
         address addr = Nodes.addr(node);
         (success, out) = addr.staticcall(data);
         if (!success) revert FailedCall(addr, bytes4(data), out);
+    }
+
+}
+
+/// @title NodeCalls
+/// @notice Trusted low-level inter-node calls backed by a host-provided node policy.
+abstract contract NodeCalls is RawNodeCalls, TrustAccess {
+    /// @notice Try a trusted low-level call to another node and return whether it succeeded.
+    /// @param node Node ID of the callee.
+    /// @param value Native value to forward in wei.
+    /// @param data Encoded calldata to send.
+    /// @return success True if the low-level call succeeded.
+    function tryTrustedCall(uint node, uint128 value, bytes memory data) internal returns (bool success) {
+        return tryRawCall(ensureTrusted(node), value, data);
+    }
+
+    /// @notice Make a trusted low-level call to another node and revert when it fails.
+    /// @param node Node ID of the callee.
+    /// @param value Native value to forward in wei.
+    /// @param data Encoded calldata to send.
+    /// @return out Return data from the successful call.
+    function trustedCall(uint node, uint128 value, bytes memory data) internal returns (bytes memory out) {
+        return rawCall(ensureTrusted(node), value, data);
     }
 
     /// @notice Make a trusted low-level read-only query to another node and revert when it fails.

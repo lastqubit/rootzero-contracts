@@ -448,18 +448,16 @@ library Writers {
 
     /// @notice Append a LABEL block.
     /// @param writer Destination writer.
-    /// @param id Node identifier to encode.
     /// @param namespace Label namespace to encode.
     /// @param name Label text to encode.
     function appendLabel(
         Writer memory writer,
-        uint id,
         bytes32 namespace,
         string memory name
     ) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + bytes(name).length;
+        uint size = Sizes.B32 + Sizes.Header + bytes(name).length;
         uint i = reserve(writer, size);
-        Blocks.writeLabel(writer.dst, i, id, namespace, name);
+        Blocks.writeLabel(writer.dst, i, namespace, name);
     }
 
     /// @notice Append a SCHEMA block.
