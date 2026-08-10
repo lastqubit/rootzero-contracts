@@ -9,8 +9,6 @@ pragma solidity ^0.8.33;
 library Keys {
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
-    /// @dev Wildcard key used in discovery when any block stream is accepted.
-    bytes4 constant Any = 0xffffffff;
     /// @dev Input amount - (bytes32 asset, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)
@@ -21,6 +19,8 @@ library Keys {
     bytes4 constant Allowance = bytes4(keccak256("#allowance"));
     /// @dev Cross-host custody state - (uint host, bytes32 asset, uint amount)
     bytes4 constant Custody = bytes4(keccak256("#custody"));
+    /// @dev Asset-liability position state - (bytes32 asset, uint amount, bytes32 liability, uint debt)
+    bytes4 constant Position = bytes4(keccak256("#position"));
     /// @dev List wrapper; payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256("#list"));
     /// @dev EVM-encoded payload field; layout follows standard ABI tuple encoding

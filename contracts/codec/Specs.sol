@@ -31,6 +31,8 @@ library Sizes {
     uint constant HostAmount = B96;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 amount = 136 bytes
     uint constant Transaction = B128;
+    /// @dev POSITION block: 8 header + four-word asset-liability pair = 136 bytes
+    uint constant Position = B128;
 }
 
 /// @title Specs
@@ -44,7 +46,6 @@ library Specs {
     error InvalidSpec();
     /// @dev A direct specification cannot contain a wrapper block.
     error InvalidContainer();
-
     uint private constant SizeFields = (uint(1) << 192) | (uint(1) << 160) | (uint(1) << 136);
 
     // Reusable field shapes keep public specs readable while remaining valid
@@ -60,12 +61,12 @@ library Specs {
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
 
     uint constant Empty = uint(bytes32(Keys.Empty));
-    uint constant Any = uint(bytes32(Keys.Any)) | UnboundedHint128;
     uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
     uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
     uint constant Allocation = uint(bytes32(Keys.Allocation)) | Exact96;
     uint constant Allowance = uint(bytes32(Keys.Allowance)) | Exact96;
     uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;
+    uint constant Position = uint(bytes32(Keys.Position)) | Exact128;
     uint constant List = uint(bytes32(Keys.List)) | UnboundedHint128;
     uint constant Evm = uint(bytes32(Keys.Evm)) | UnboundedHint128;
     uint constant Bytes = uint(bytes32(Keys.Bytes)) | UnboundedHint128;
@@ -237,4 +238,5 @@ library Specs {
     function group(uint spec, uint8 n) internal pure returns (uint) {
         return replace8(spec, 128, n);
     }
+
 }

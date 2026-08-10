@@ -89,13 +89,13 @@ export function endpointDescriptor({
 // Known block keys
 export const Keys = {
   Empty: "0x00000000",
-  Any: "0xffffffff",
   Local: localKey(1),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
   Allocation: blockKey("#allocation"),
   Allowance: blockKey("#allowance"),
   Custody: blockKey("#custody"),
+  Position: blockKey("#position"),
   Account: blockKey("#account"),
   Node: blockKey("#node"),
   Asset: blockKey("#asset"),
@@ -178,6 +178,20 @@ export function encodeAllowanceBlock(host: bigint, asset: string, amount: bigint
 
 export function encodeCustodyBlock(host: bigint, asset: string, amount: bigint): string {
   return encodeBlock(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
+}
+
+export function encodePositionBlock(
+  asset: string,
+  amount: bigint,
+  liability: string,
+  debt: bigint,
+): string {
+  return encodeBlock(Keys.Position, ethers.concat([
+    pad32(asset),
+    pad32(amount),
+    pad32(liability),
+    pad32(debt),
+  ]));
 }
 
 export function encodeAccountBlock(account: string): string {

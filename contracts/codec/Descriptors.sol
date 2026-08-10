@@ -37,7 +37,6 @@ library Descriptors {
         state = Specs.normalize(state, true);
         input = Specs.normalize(input, false);
         output = Specs.normalize(output, true);
-
         descriptor = pack(state, input, output, transactions, flags);
     }
 

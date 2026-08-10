@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAmount, HostAmount, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAmount, HostAmount, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Buffers} from "./Buffers.sol";
 import {Sizes, Specs} from "./Specs.sol";
@@ -44,7 +44,7 @@ library Writers {
         (uint capacity, bool growable) = Specs.allocation(spec, groups);
         if (capacity == 0) return writer;
 
-        writer.cur = Buffers.cursor(capacity, groups, growable, 0);
+        writer.cur = Buffers.cursor(capacity, Specs.count(spec, groups), growable, 0);
     }
 
     // -------------------------------------------------------------------------
@@ -289,6 +289,23 @@ library Writers {
     ) internal pure {
         uint i = reserve(writer, Sizes.B96);
         Blocks.writeHostAccountAsset(writer.dst, i, host, account, asset);
+    }
+
+    /// @notice Append a POSITION block.
+    function appendPosition(
+        Writer memory writer,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) internal pure {
+        uint i = reserve(writer, Sizes.Position);
+        Blocks.writePosition(writer.dst, i, asset, amount, liability, debt);
+    }
+
+    /// @notice Append a structured POSITION value.
+    function appendPosition(Writer memory writer, Position memory value) internal pure {
+        appendPosition(writer, value.asset, value.amount, value.liability, value.debt);
     }
 
     /// @notice Append a TRANSACTION block.

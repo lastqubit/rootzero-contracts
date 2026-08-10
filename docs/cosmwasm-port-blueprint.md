@@ -354,14 +354,14 @@ fn pipe(
     // iterate STEP blocks
     // dispatch each local command and receive (state, transactions)
     // thread returned state into the next step
-    // settle each non-empty returned TRANSACTION stream before the next step
+    // post each non-empty returned TRANSACTION stream before the next step
     // require final state is empty
 }
 ```
 
 After `pipe` returns, the entrypoint still owns the remaining native budget. If
 that value should be refunded, encode it as a TRANSACTION block and pass it
-through the same settlement path; do not add a separate per-command refund
+through the same posting path; do not add a separate per-command refund
 hook.
 
 Do not parse a target chain ID from a STEP command. The command is already local to this CosmWasm host.
@@ -418,6 +418,11 @@ payout
 Command inputs and outputs remain Rootzero block streams. Every command returns
 two byte streams: `state` for the next pipeline step and `transactions` for the
 pipeline host to settle outside the state lane.
+
+Treat incoming state as a linear value. Each command must validate and consume
+the complete state stream, transform and return it, forward it intact, or
+reject it. A command that declares no state must reject non-empty state; it must
+never silently discard balance, custody, or position blocks.
 
 `CommandContext`:
 

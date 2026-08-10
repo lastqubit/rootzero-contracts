@@ -94,6 +94,19 @@ library Readers {
         }
     }
 
+    /// @notice Consume a POSITION block and return its fields.
+    function unpackPosition(
+        Reader memory cur
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint abs = consume(cur, Keys.Position, 128, 128);
+        assembly ("memory-safe") {
+            asset := mload(abs)
+            amount := mload(add(abs, 0x20))
+            liability := mload(add(abs, 0x40))
+            debt := mload(add(abs, 0x60))
+        }
+    }
+
     /// @notice Consume a TRANSACTION block and return its fields.
     /// @param cur Reader; advanced past the block.
     /// @return from Source account identifier.

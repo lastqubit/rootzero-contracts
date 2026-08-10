@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
@@ -9,6 +9,7 @@ import {Descriptors} from "../codec/Descriptors.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
 import {Lanes} from "../utils/Lanes.sol";
 import {Budget} from "./Budget.sol";
+import {max16} from "../utils/Utils.sol";
 
 /// @notice Mutable state shared across one endpoint execution.
 /// @dev `decoders` contains tagged input and state cursor lanes. Cursor operations
@@ -28,6 +29,10 @@ library Executions {
 
     /// @dev Thrown when an execution attempts to spend more value than remains in its budget.
     error InsufficientValue();
+    /// @dev Decoder block counts do not form compatible descriptor groups.
+    error BadRatio();
+    /// @dev A descriptor-empty lane received a non-empty block source.
+    error ZeroStride();
 
     // -------------------------------------------------------------------------
     // Opening
@@ -37,15 +42,39 @@ library Executions {
     /// @param source Calldata source for the decoder lane.
     /// @param descriptor Packed endpoint descriptor.
     /// @param lane Input or state lane identifier.
-    /// @return cur Tagged packed decoder cursor, or zero for an absent lane.
+    /// @return cur Tagged packed decoder cursor carrying its raw block count, or zero for an absent lane.
     function openDecoder(bytes calldata source, uint descriptor, uint8 lane) private pure returns (uint cur) {
         uint stride = Descriptors.stride(descriptor, lane);
         (uint abs, uint limit) = Cursors.bounds(source);
         if (stride == 0 && abs == limit) return 0;
+        if (stride == 0) revert ZeroStride();
 
-        bytes4 key = bytes4(source);
-        (uint groups, uint end) = Blocks.scope(abs, limit, key, stride);
-        cur = Cursors.create(abs, end - abs, groups, 0, lane);
+        bytes4 key = Descriptors.key(descriptor, lane);
+        (uint count, uint end) = Blocks.runExact(abs, limit, key);
+        if (count == 0) revert Blocks.EmptyRun();
+        cur = Cursors.create(abs, end - abs, count, 0, lane);
+    }
+
+    /// @dev Convert one decoder lane's raw block count into descriptor groups.
+    function groupCount(uint decoders, uint descriptor, uint8 lane) private pure returns (uint groups) {
+        uint stride = Descriptors.stride(descriptor, lane);
+        if (stride == 0) return 0;
+
+        uint count = decoders.select(lane).count();
+        if (count % stride != 0) revert BadRatio();
+        groups = count / stride;
+    }
+
+    /// @dev Reconcile decoder lane groups once at endpoint execution opening.
+    function reconcile(uint decoders, uint descriptor, uint expected) private pure returns (uint groups) {
+        uint input = groupCount(decoders, descriptor, Lanes.Input);
+        uint state = groupCount(decoders, descriptor, Lanes.State);
+        if (input != 0 && state != 0 && input != state) revert BadRatio();
+
+        groups = input != 0 ? input : state;
+        if (groups != 0 && expected != 0 && groups != expected) revert BadRatio();
+        if (groups == 0) groups = expected;
+        max16(groups);
     }
 
     /// @dev Initialize one tagged writer cursor from a descriptor lane.
@@ -58,7 +87,9 @@ library Executions {
         (uint capacity, bool growable) = Descriptors.allocation(descriptor, lane, batches);
         if (capacity == 0) return 0;
 
-        cur = Buffers.cursor(capacity + padding, batches, growable, lane);
+        uint count = batches * Descriptors.stride(descriptor, lane);
+        if (padding != 0) count += padding / Sizes.Transaction;
+        cur = Buffers.cursor(capacity + padding, count, growable, lane);
     }
 
     /// @dev Open and pair the input and state decoder cursors.
@@ -91,7 +122,7 @@ library Executions {
     function open(uint decoders, uint descriptor, uint batches) private view returns (Execution memory exec) {
         exec.budget = msg.value;
         exec.decoders = decoders;
-        batches = Cursors.reconcile(decoders, batches);
+        batches = reconcile(decoders, descriptor, batches);
         exec.writers = writerCursors(descriptor, batches);
     }
 
@@ -292,6 +323,24 @@ library Executions {
     /// @return value Decoded asset and balance amount.
     function unpackBalanceValue(Execution memory exec, uint8 lane) internal pure returns (AssetAmount memory value) {
         (value.asset, value.amount) = unpackBalance(exec, lane);
+    }
+
+    /// @notice Decode and consume one POSITION block from `lane`.
+    function unpackPosition(
+        Execution memory exec,
+        uint8 lane
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Position);
+        (asset, amount, liability, debt) = Blocks.unpackPosition(abs);
+    }
+
+    /// @notice Decode one POSITION block into its structured value.
+    function unpackPositionValue(
+        Execution memory exec,
+        uint8 lane
+    ) internal pure returns (Position memory value) {
+        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(exec, lane);
     }
 
     /// @notice Decode one BALANCE block and associate it with `host`.
@@ -730,6 +779,23 @@ library Executions {
         outputBalance(exec, value.asset, value.amount);
     }
 
+    /// @notice Append a POSITION block to execution output.
+    function outputPosition(
+        Execution memory exec,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) internal pure {
+        uint i = reserve(exec, Sizes.Position);
+        Blocks.writePosition(exec.output, i, asset, amount, liability, debt);
+    }
+
+    /// @notice Append a structured POSITION value to execution output.
+    function outputPosition(Execution memory exec, Position memory value) internal pure {
+        outputPosition(exec, value.asset, value.amount, value.liability, value.debt);
+    }
+
     /// @notice Append an ACCOUNT_ASSET block to execution output.
     /// @param exec Execution receiving the block.
     /// @param account Account identifier to encode.
@@ -1010,15 +1076,23 @@ library Executions {
         exec.budget = 0;
     }
 
+    /// @notice Deduct an exact native value from the execution budget.
+    /// @param exec Mutable execution whose budget is charged.
+    /// @param value Native value to consume in wei.
+    /// @return The consumed native value.
+    function useValue(Execution memory exec, uint value) internal pure returns (uint) {
+        if (value > exec.budget) revert InsufficientValue();
+        exec.budget -= value;
+        return value;
+    }
+
     /// @notice Deduct the EVM value lane of `resources` from the execution budget.
     /// @dev EVM resources use the low 128 bits as native value/endowment.
     /// @param exec Mutable execution whose budget is charged.
     /// @param resources Packed resources whose value lane should be spent.
     /// @return value Native value to forward in wei.
-    function useValue(Execution memory exec, uint resources) internal pure returns (uint128 value) {
-        value = uint128(resources);
-        if (value > exec.budget) revert InsufficientValue();
-        exec.budget -= value;
+    function useResourceValue(Execution memory exec, uint resources) internal pure returns (uint128) {
+        return uint128(useValue(exec, uint128(resources)));
     }
 
     /// @notice Append a deferred transaction to the transaction writer lane.

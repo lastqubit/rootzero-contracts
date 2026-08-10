@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import { NodeCalls } from "../core/Calls.sol";
 import { NodeAccess } from "../core/Access.sol";
 import { Specs } from "../codec/Specs.sol";
-import { EndpointBase } from "../core/Endpoint.sol";
+import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { Selectors } from "../utils/Selectors.sol";
 import { Descriptors } from "../codec/Descriptors.sol";
@@ -13,7 +13,7 @@ import { Descriptors } from "../codec/Descriptors.sol";
 /// @notice Abstract base for peer-facing rootzero ports.
 /// Ports handle inter-host operations between cooperating hosts.
 /// Access is restricted to trusted peer callers via `onlyPeer`.
-abstract contract PortBase is NodeCalls, NodeAccess, EndpointBase {
+abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
 
     /// @dev Restrict execution to trusted callers, excluding the commander.
     modifier onlyPeer() {

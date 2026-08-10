@@ -8,10 +8,12 @@ import { PortCreditAccount } from "../ports/Credit.sol";
 import { PortDebitAccount } from "../ports/Debit.sol";
 import { PortPipePayable } from "../ports/Pipe.sol";
 import { PortDispatchPayable } from "../ports/Dispatch.sol";
-import { PortSettle } from "../ports/Settle.sol";
+import { PortPost } from "../ports/Post.sol";
+import { Settlement } from "../core/Settlement.sol";
+import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccount, PortDebitAccount, PortSettle, PortPipePayable, PortDispatchPayable {
+contract TestPortHost is Host, Settlement, PortAllowance, PortRedeemBalance, PortCreditAccount, PortDebitAccount, PortPost, PortPipePayable, PortDispatchPayable {
     event PortAllowanceCalled(uint peer, bytes32 asset, uint amount);
     event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
@@ -39,7 +41,11 @@ contract TestPortHost is Host, PortAllowance, PortRedeemBalance, PortCreditAccou
         emit PortCreditAccountCalled(account, asset, amount);
     }
 
-    function route(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {
+    function testSettle(bytes32 account, Position calldata position) external {
+        settle(account, position.asset, position.amount, position.liability, position.debt);
+    }
+
+    function relayTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {
         emit PortDispatchCalled(portal, payload, resources, funds.budget);
     }
 

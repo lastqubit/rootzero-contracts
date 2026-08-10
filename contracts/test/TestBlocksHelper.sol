@@ -122,6 +122,26 @@ contract TestBlocksHelper is Action {
         transactions = Executions.finishTransactions(exec);
     }
 
+    function executionOutputPosition(
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) external view returns (bytes memory output) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Position, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputPosition(exec, asset, amount, liability, debt);
+        output = Executions.finish(exec);
+    }
+
+    function executionUnpackPosition(
+        bytes calldata state
+    ) external view returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint descriptor = Descriptors.create(Specs.Position, Specs.Empty, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openState(state, descriptor, 1);
+        return Executions.unpackPosition(exec, Lanes.State);
+    }
+
     function lazyBalance(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory writer = Writers.init(Specs.Balance, 1);
         writer.appendBalance(asset, amount);
@@ -138,17 +158,17 @@ contract TestBlocksHelper is Action {
     /// @notice Reserve a lazily allocated buffer and expose its resulting metadata.
     function reserveBuffer(
         uint len,
-        uint groups,
+        uint count,
         bool growable,
         uint8 tag,
         uint advance,
         uint touch
-    ) external pure returns (uint i, uint next, uint capacity, uint packedgroups, uint8 flags, uint8 packedtag, uint physical) {
-        uint cur = Buffers.cursor(len, groups, growable, tag);
+    ) external pure returns (uint i, uint next, uint capacity, uint packedCount, uint8 flags, uint8 packedtag, uint physical) {
+        uint cur = Buffers.cursor(len, count, growable, tag);
         bytes memory buffer;
         (cur, buffer, i) = Buffers.reserve(cur, buffer, advance, touch);
         (next, , capacity) = Cursors.decode(cur);
-        (packedgroups, flags, packedtag) = Cursors.meta(cur);
+        (packedCount, flags, packedtag) = Cursors.meta(cur);
         physical = buffer.length;
     }
 
@@ -164,9 +184,16 @@ contract TestBlocksHelper is Action {
     }
 
     /// @notice Spend the value lane of `resources` and drain the remainder.
-    function budgetUse(uint resources) external payable returns (uint value, uint remaining) {
+    function budgetUseResourceValue(uint resources) external payable returns (uint value, uint remaining) {
         Budget memory budget = Budgets.open();
-        value = budget.use(resources);
+        value = budget.useResourceValue(resources);
+        remaining = budget.drain();
+    }
+
+    /// @notice Spend an exact value and drain the remainder.
+    function budgetUseValue(uint value) external payable returns (uint used, uint remaining) {
+        Budget memory budget = Budgets.open();
+        used = budget.useValue(value);
         remaining = budget.drain();
     }
 
@@ -240,6 +267,17 @@ contract TestBlocksHelper is Action {
     ) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.Balance);
         Blocks.writeBalance(dst, offset, asset, amount);
+    }
+
+    function writePosition(
+        uint offset,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) external pure returns (bytes memory dst) {
+        dst = new bytes(offset + Sizes.Position);
+        Blocks.writePosition(dst, offset, asset, amount, liability, debt);
     }
 
     function writeList(uint offset, bytes memory value) external pure returns (bytes memory dst) {
@@ -370,6 +408,10 @@ contract TestBlocksHelper is Action {
 
     function unpackBalance(bytes calldata source) external pure returns (bytes32, uint) {
         return Blocks.unpackBalance(position(source));
+    }
+
+    function unpackPosition(bytes calldata source) external pure returns (bytes32, uint, bytes32, uint) {
+        return Blocks.unpackPosition(position(source));
     }
 
     function unpackAccountAsset(bytes calldata source) external pure returns (bytes32, bytes32) {

@@ -24,14 +24,14 @@ abstract contract ExecutePayable is RawNodeCalls, AdminBase {
     /// @return Remaining native value as a refund transaction stream.
     function executePayable(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external payable onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (uint target, uint resources, bytes calldata data) = exec.unpackCall(Lanes.Input);
-            rawCall(target, exec.useValue(resources), data);
+            rawCall(target, exec.useResourceValue(resources), data);
         }
 
         return close(exec, account);

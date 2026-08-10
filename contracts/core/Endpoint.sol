@@ -43,23 +43,25 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
         return descriptor;
     }
 
-    /// @notice Open an endpoint input stream with an expected batch count.
-    /// @param source Input block stream to open.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Required batch count, or zero to accept the input count.
-    /// @return exec Execution with its output buffer metadata initialized for the input batch count.
-    function openInput(
-        bytes calldata source,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        return Executions.openInput(source, descriptor, batches);
-    }
-
     /// @notice Finalize an execution output and return its encoded block stream.
     /// @param exec Completed endpoint execution.
     /// @return Encoded output block stream.
     function close(Execution memory exec) internal pure returns (bytes memory) {
         return Executions.finish(exec);
+    }
+}
+
+/// @title InputEndpointBase
+/// @notice Shared input opening for endpoint families that have only an input lane.
+/// Commands intentionally do not inherit this base because they must open state
+/// and input together through `openCommand`.
+abstract contract InputEndpointBase is EndpointBase {
+    /// @notice Open an endpoint input stream with an expected batch count.
+    function openInput(
+        bytes calldata input,
+        uint descriptor,
+        uint batches
+    ) internal view returns (Execution memory exec) {
+        return Executions.openInput(input, descriptor, batches);
     }
 }

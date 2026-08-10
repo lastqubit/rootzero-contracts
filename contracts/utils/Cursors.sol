@@ -12,12 +12,12 @@ struct Cur {
 }
 
 /// @title Cursors
-/// @notice Packed cursor state and navigation for grouped byte regions.
+/// @notice Packed cursor state and navigation for byte regions.
 /// @dev Each 128-bit cursor uses the following layout:
 /// bits   0-31    i
 /// bits  32-63    offset
 /// bits  64-95    len
-/// bits  96-111   groups
+/// bits  96-111   count (opaque consumer metadata)
 /// bits 112-119   flags (consumer-defined)
 /// bits 120-127   tag
 ///
@@ -28,7 +28,7 @@ struct Cur {
 /// cursor into that position while preserving the pair.
 ///
 /// A mark is a standalone cursor value used as an immutable positional
-/// reference. It retains the cursor's offset, length, groups, flags, and tag,
+/// reference. It retains the cursor's offset, length, count, flags, and tag,
 /// but may carry a different `i`. A mark has no intrinsic boundary or movement
 /// semantics; callers may later use its position for comparison, validation,
 /// seeking, or another operation. Because it has the ordinary single-cursor
@@ -40,9 +40,6 @@ struct Cur {
 library Cursors {
     /// @dev A cursor position exceeds its logical length.
     error OutOfBounds();
-
-    /// @dev Two optional group counts are both set but do not match.
-    error BadRatio();
 
     /// @dev A cursor is not positioned at the expected offset.
     error UnexpectedPosition();
@@ -58,14 +55,14 @@ library Cursors {
     /// @notice Create a cursor positioned at its beginning.
     /// @param offset Absolute source or buffer offset.
     /// @param len Logical byte length.
-    /// @param groups Logical group count.
+    /// @param items Opaque item count associated with the region.
     /// @param flags Consumer-defined flags.
     /// @param tag Cursor identity tag.
     /// @return cur Packed cursor.
-    function create(uint offset, uint len, uint groups, uint8 flags, uint8 tag) internal pure returns (uint cur) {
+    function create(uint offset, uint len, uint items, uint8 flags, uint8 tag) internal pure returns (uint cur) {
         cur |= max32(offset) << 32;
         cur |= max32(len) << 64;
-        cur |= max16(groups) << 96;
+        cur |= max16(items) << 96;
         cur |= uint(flags) << 112;
         cur |= uint(tag) << 120;
     }
@@ -113,7 +110,7 @@ library Cursors {
     /// @notice Return the active cursor without its position.
     /// @dev Ignores the upper cursor when `cur` is a pair.
     /// @param cur Packed cursor or cursor pair.
-    /// @return The lower cursor's offset, length, groups, flags, and tag.
+    /// @return The lower cursor's offset, length, count, flags, and tag.
     function frame(uint cur) internal pure returns (uint) {
         return clear32(uint128(cur), 0);
     }
@@ -128,13 +125,18 @@ library Cursors {
 
     /// @notice Decode the consumer metadata and identity tag from the lower cursor.
     /// @param cur Packed cursor or cursor pair.
-    /// @return groups Logical group count.
+    /// @return items Opaque item count.
     /// @return flags Consumer-defined flags.
     /// @return tag Cursor identity tag.
-    function meta(uint cur) internal pure returns (uint groups, uint8 flags, uint8 tag) {
-        groups = uint16(cur >> 96);
+    function meta(uint cur) internal pure returns (uint items, uint8 flags, uint8 tag) {
+        items = uint16(cur >> 96);
         flags = uint8(cur >> 112);
         tag = uint8(cur >> 120);
+    }
+
+    /// @notice Return the opaque item count attached to the active cursor.
+    function count(uint cur) internal pure returns (uint) {
+        return uint16(cur >> 96);
     }
 
     /// @notice Return whether both packed cursors remain at their initial positions.
@@ -233,7 +235,7 @@ library Cursors {
     }
 
     /// @notice Create a child cursor over `[start, end)` within the lower cursor.
-    /// @dev The child starts at position zero, has no groups, and uses the
+    /// @dev The child starts at position zero, has no recorded count, and uses the
     /// supplied tag. Any higher cursor is omitted.
     /// @param cur Parent cursor or cursor pair.
     /// @param start Child start relative to the parent base.
@@ -247,22 +249,6 @@ library Cursors {
     }
 
     // Pairing and selection
-
-    /// @notice Reconcile both packed cursor lanes with an expected group count.
-    /// @dev Zero lanes and lanes with zero groups do not constrain the result.
-    /// @param cur Packed cursor or cursor pair.
-    /// @param expected Expected group count; zero accepts the encoded count.
-    /// @return groups Reconciled effective group count.
-    function reconcile(uint cur, uint expected) internal pure returns (uint groups) {
-        uint low = uint16(cur >> 96);
-        uint high = uint16(cur >> 224);
-        if (low != 0 && high != 0 && low != high) revert BadRatio();
-
-        groups = low != 0 ? low : high;
-        if (groups != 0 && expected != 0 && groups != expected) revert BadRatio();
-        if (groups == 0) groups = expected;
-        max16(groups);
-    }
 
     /// @notice Combine two cursors into one packed word.
     /// @dev Zero represents absence and acts as the identity value.

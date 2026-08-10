@@ -149,7 +149,7 @@ const input = concat([
 ```
 
 Everything downstream keeps this shape: commands loop over input blocks,
-settlement loops over transactions, pipelines loop over steps. Batching is
+posting loops over transactions, pipelines loop over steps. Batching is
 never a special case.
 
 ## IDs, Accounts, Assets, and Nodes
@@ -248,30 +248,51 @@ struct CommandContext {
 
 Every command returns two block streams: `state`, which is threaded into the
 next pipeline step, and `transactions`, which contains `#transaction` blocks
-for the pipeline host to settle outside the state lane. Either stream may be
+for the pipeline host to post outside the state lane. Either stream may be
 empty.
 
-The input carries instructions; the state carries live value. While a
-sequence of commands executes, `#balance` and `#custody` blocks in the state
-are the funds being moved — produced by one command, consumed by the next.
+State is linear, not optional ambient context. A command is responsible for
+the entire state stream it receives: it must validate and consume it, transform
+and return it, forward it intact, or revert. A command must never succeed while
+silently ignoring or dropping supplied state. Commands that declare
+`Specs.Empty` state therefore reject any non-empty state, while commands that
+accept state validate the complete stream against their declared state schema.
+This is especially important for `#position`, because dropping a position could
+silently discard both live value and an outstanding debt requirement.
 
-The standard `Deposit` mixin shows the canonical shape — open the input,
-loop the batch, call the hook, write the output run:
+The input carries instructions; the state carries live value. While a
+sequence of commands executes, `#balance`, `#custody`, and `#position` blocks
+in the state are the value being moved — produced by one command, consumed by
+the next. A position carries an asset-liability pair as
+`{ asset, amount, liability, debt }`.
+
+`#position` is general live state rather than a lending-specific debt record.
+It pairs value acquired or controlled with value owed or required. A command
+may preserve or replace either side and return the resulting position for the
+next step; `settle` terminally consumes the pair. This supports swaps,
+borrowing, refinancing, collateral changes, callback obligations, cross-host
+claims, fees, netting, and other multi-step operations. A position is a
+transient representation and does not itself create or erase an obligation
+recorded by an external system.
+
+The standard `Deposit` mixin shows the canonical shape: open and validate both
+command lanes, loop the batch, call the hook, and write the output run:
 
 ```solidity
 function deposit(
-    CommandContext calldata c
+    bytes32 account,
+    bytes calldata state,
+    bytes calldata input
 ) external onlyCommand returns (bytes memory, bytes memory) {
-    (Cur memory input, uint outputs) = openInput(c.input, descriptor);
-    Writer memory output = Writers.allocBalances(outputs);
+    Execution memory exec = openCommand(state, input, descriptor, 0);
 
-    while (input.i < input.len) {
-        (bytes32 asset, uint amount) = input.unpackAmount();
-        deposit(c.account, asset, amount); // host policy hook
-        output.appendBalance(asset, amount);
+    while (exec.more()) {
+        (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+        deposit(account, asset, amount); // host policy hook
+        exec.outputBalance(asset, amount);
     }
 
-    return (end(output), "");
+    return close(exec, account);
 }
 ```
 
@@ -292,7 +313,13 @@ abstract contract MyCommand is CommandBase {
         bytes calldata state,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        // parse input, loop, return the output state run and any transactions
+        Execution memory exec = openCommand(state, input, descriptor, 0);
+        while (exec.more()) {
+            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            // Apply command-specific behavior for this group.
+            exec.outputBalance(asset, amount);
+        }
+        return close(exec, account);
     }
 }
 ```
@@ -301,8 +328,10 @@ The standard commands cover the common ledger movements: `deposit` and
 `depositPayable` (external funds in), `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
 state to other accounts), `allocate` (turn balance state into custody),
-`provision` (provision custody from an external allocation), and `relayPayable`
-(hand a pipeline to another portal).
+`provision` (provision custody from an external allocation), `settle` (consume
+asset-liability position state), `relayPayable` (relay a pipeline without
+state), and `relayBalancePayable` (relay balance state and a pipeline to another
+portal).
 
 ## Pipelines
 
@@ -316,7 +345,7 @@ step { uint cmd, uint resources, #bytes as input }
 Each step names a command, the resources it may spend, and its input.
 The returned state threads into the next command and the final state must be
 empty. Returned transactions do not enter the state lane; the pipeline passes
-each decoded transaction to the shared settlement implementation before
+each decoded transaction to the shared posting implementation before
 running the next step. This is the core of `Pipeline.pipe`:
 
 ```solidity
@@ -328,11 +357,11 @@ while (cur.more()) {
         account,
         state,
         input,
-        budget.use(resources)
+        budget.useResourceValue(resources)
     );
     while (transactions.more()) {
         (bytes32 from, bytes32 to, bytes32 asset, uint amount) = transactions.unpackTransaction();
-        settle(from, to, asset, amount);
+        post(from, to, asset, amount);
     }
 }
 if (state.length != 0) revert UnexpectedState();
@@ -344,6 +373,31 @@ toward a recipient. Because a pipeline is just blocks, it is also the unit of
 command batching — and `resources` is a chain-specific word interpreted by the
 portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
 shared budget), so the same pipeline bytes are meaningful to every port.
+
+Hosts that implement a pipeline locally can inherit `InternalDebitAccount`,
+`InternalCreditAccount`, and `InternalSettle` to advertise the canonical command
+endpoints while routing their local command IDs through `executeDebitAccount`,
+`executeCreditAccount`, and `executeSettle`. These adapters consume the
+memory-backed pipeline state directly and avoid an external self-call. The host
+dispatcher must reject nonzero step value before invoking them because all three
+commands are non-funded.
+
+Positions also support backward-composed pipelines. In an exact-output route,
+the asset side can represent the desired result while the liability side
+represents the value currently required upstream. Each hop consumes one
+position, fulfills or transforms its current requirement, and returns the next
+position:
+
+```txt
+position(C, 100, C, 100)
+→ position(C, 100, B, 50)
+→ position(C, 100, A, 25)
+→ settle
+```
+
+This is backward composition, not backward execution: `#step` blocks still
+execute forward in their encoded order. Exact-output routing is only one use;
+other commands may transform the asset side, the liability side, or both.
 
 ## Queries
 
@@ -365,15 +419,15 @@ the descriptor's lanes through the published block schemas.
 Ports are the host-to-host surfaces, callable only by trusted peer hosts. The two
 central ones are batches all the way down:
 
-- `portSettle` consumes `transaction { bytes32 from, bytes32 to, bytes32 asset,
+- `portPost` consumes `transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
-  block — how two hosts record settlement between their ledgers.
+  block — how two hosts post transactions between their ledgers.
 - `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
 
-This is also the cross-portal mechanism. `relayPayable` (or `portDispatchPayable`)
-wraps a pipe and addresses it to a portal, commonly the destination host ID;
+This is also the cross-portal mechanism. `relayPayable`, `relayBalancePayable`,
+or `portDispatchPayable` wraps a pipe and addresses it to a portal, commonly the destination host ID;
 a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step commands
@@ -386,9 +440,9 @@ bytes and produce the same output bytes for every endpoint.
 
 Admin commands use the regular command shape but are gated to the host's admin
 account: trust management (`authorize`, `unauthorize`), guardian management
-(`appoint`, `dismiss`), metadata (`label`, `publishSchema`), asset gating (`allowAssets`,
-`denyAssets`, `allowance`), lifecycle (`init`, `destroy`), and raw calls
-(`executePayable`). Guards go the other way: direct actions guardians can take
+(`appoint`, `dismiss`), metadata (`annotate`), optional asset gating
+(`allowAssets`, `denyAssets`, `allowance`), and raw calls (`executePayable`).
+Guards go the other way: direct actions guardians can take
 without any command context — the default is `revoke`, which lets a guardian
 drop a trusted node immediately.
 

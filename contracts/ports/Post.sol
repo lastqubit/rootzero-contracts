@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Settlement} from "../core/Settlement.sol";
+import {PostHook} from "../core/Settlement.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {Action} from "../annotations/Action.sol";
@@ -10,29 +10,29 @@ import {Actions} from "../utils/Actions.sol";
 
 using Executions for Execution;
 
-/// @title PortSettle
-/// @notice Port that consumes peer-supplied TRANSACTION blocks through debit and credit hooks.
+/// @title PortPost
+/// @notice Port that posts peer-supplied TRANSACTION blocks through debit and credit hooks.
 /// Each TRANSACTION block calls `debitAccount` for `from` and `creditAccount` for `to`.
-abstract contract PortSettle is PortBase, Settlement, Action {
+abstract contract PortPost is PortBase, PostHook, Action {
     uint private immutable descriptor;
 
     constructor() {
         uint id;
-        (id, descriptor) = port("portSettle", Specs.Transaction, Specs.Empty, false);
-        action(id, Actions.Settle);
+        (id, descriptor) = port("portPost", Specs.Transaction, Specs.Empty, false);
+        action(id, Actions.Post);
     }
 
-    /// @notice Execute the port-settle call.
+    /// @notice Post peer-supplied transactions.
     /// @param data TRANSACTION block stream supplied by the trusted peer.
     /// @return Empty response bytes.
-    function portSettle(bytes calldata data) external onlyPeer returns (bytes memory) {
+    function portPost(bytes calldata data) external onlyPeer returns (bytes memory) {
         Execution memory exec = openInput(data, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = exec.unpackTransaction(Lanes.Input);
-            settle(from, to, asset, amount);
+            post(from, to, asset, amount);
         }
-        
+
         return "";
     }
 }

@@ -5,6 +5,9 @@ import {RecoverPayable} from "../commands/Recover.sol";
 import {Host} from "../core/Host.sol";
 import {Portal} from "../core/Portal.sol";
 import {UndeliveredEvent} from "../events/Undelivered.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
+
+using Executions for Execution;
 
 contract TestPortalRecoverHost is Host, Portal, RecoverPayable, UndeliveredEvent {
     constructor(address rootzero) Host(rootzero) {}
@@ -18,7 +21,13 @@ contract TestPortalRecoverHost is Host, Portal, RecoverPayable, UndeliveredEvent
         return admin;
     }
 
-    function recover(uint handler, bytes32 key, bytes calldata witness, uint128 value) internal override {
-        retry(handler, key, witness, value);
+    function recover(
+        uint handler,
+        uint resources,
+        bytes32 key,
+        bytes calldata witness,
+        Execution memory funds
+    ) internal override {
+        retry(handler, key, witness, funds.useResourceValue(resources));
     }
 }

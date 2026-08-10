@@ -36,9 +36,9 @@ abstract contract Withdraw is CommandBase, WithdrawHook, Action {
     function withdraw(
         bytes32 account,
         bytes calldata state,
-        bytes calldata
+        bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openState(state, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);

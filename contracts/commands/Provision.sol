@@ -41,10 +41,10 @@ abstract contract Provision is CommandBase, ProvisionHook {
     /// @return Empty transaction stream.
     function provision(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);
@@ -73,10 +73,10 @@ abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
     /// @return Remaining native value as a refund transaction stream.
     function provisionPayable(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);

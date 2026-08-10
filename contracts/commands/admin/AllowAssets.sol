@@ -28,10 +28,10 @@ abstract contract AllowAssets is AdminBase, AllowAssetsHook {
     /// @return Empty transaction stream.
     function allowAssets(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             bytes32 asset = exec.unpackAsset(Lanes.Input);

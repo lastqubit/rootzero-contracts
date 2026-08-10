@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {EndpointBase} from "../core/Endpoint.sol";
+import {InputEndpointBase} from "../core/Endpoint.sol";
 import {GuardianAccess} from "../core/Access.sol";
 import {Specs} from "../codec/Specs.sol";
 import {Nodes} from "../utils/Nodes.sol";
@@ -10,7 +10,7 @@ import {Selectors} from "../utils/Selectors.sol";
 /// @title GuardBase
 /// @notice Abstract base for guardian-only direct host actions.
 /// Guard actions are non-payable direct calls with no command context, state, or response.
-abstract contract GuardBase is GuardianAccess, EndpointBase {
+abstract contract GuardBase is GuardianAccess, InputEndpointBase {
     /// @dev Restrict execution to active guardian addresses.
     modifier onlyGuardian() {
         enforceGuardian(msg.sender);

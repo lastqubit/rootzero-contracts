@@ -11,7 +11,6 @@ import { BalanceEvent } from "./events/Balance.sol";
 import { CommanderEvent } from "./events/Commander.sol";
 import { DispatchEvent } from "./events/Dispatch.sol";
 import { EndpointEvent } from "./events/Endpoint.sol";
-import { PositionEvent } from "./events/Position.sol";
 import { ReceivedEvent } from "./events/Received.sol";
 import { RecoveredEvent } from "./events/Recovered.sol";
 import { EventEmitter } from "./events/Emitter.sol";

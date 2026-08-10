@@ -5,7 +5,7 @@ import {CallerAccess} from "../core/Access.sol";
 import {EndpointBase} from "../core/Endpoint.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
-import {HostAmount} from "../core/Types.sol";
+import {HostAmount, Position} from "../core/Types.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {ReceivedEvent} from "../events/Received.sol";
 import {Actions} from "../utils/Actions.sol";
@@ -74,20 +74,11 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         published = endpoint(id, name, descriptor);
     }
 
-    /// @notice Open a command state stream and return the expected output block count.
-    /// @param source State block stream to open.
-    /// @param descriptor Packed command endpoint descriptor.
-    /// @param batches Required batch count, or zero to accept the state count.
-    /// @return exec Execution with its output buffer metadata initialized for the state batch count.
-    function openState(
-        bytes calldata source,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        return Executions.openState(source, descriptor, batches);
-    }
-
-    /// @notice Open a command execution with batches derived from its input and state lanes.
+    /// @notice Open and validate both command lanes, including lanes declared EMPTY.
+    /// Batches are derived from the input and state lanes. A non-empty stream for
+    /// a lane whose descriptor has zero stride reverts instead of being ignored.
+    /// Commands must account for the complete validated state by consuming it,
+    /// transforming and returning it, forwarding it intact, or reverting.
     /// @param state Current command state block stream.
     /// @param input Command input block stream.
     /// @param descriptor Packed command endpoint descriptor.
