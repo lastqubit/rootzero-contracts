@@ -10,14 +10,14 @@ import { CreditAccountHook, DebitAccountHook, PostHook, SettleHook } from "./cor
 // Commands
 import { Allocate, AllocateHook } from "./commands/Allocate.sol";
 import { Burn, BurnHook } from "./commands/Burn.sol";
-import { CreditAccount } from "./commands/Credit.sol";
-import { DebitAccount } from "./commands/Debit.sol";
+import { CreditAccount, InternalCreditAccount } from "./commands/Credit.sol";
+import { DebitAccount, InternalDebitAccount } from "./commands/Debit.sol";
 import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./commands/Deposit.sol";
 import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
 import { RecoverPayable, RecoverPayableHook } from "./commands/Recover.sol";
 import { RelayPayable, RelayBalancePayable, RelayPayableHook } from "./commands/Relay.sol";
-import { Settle } from "./commands/Settle.sol";
+import { InternalSettle, Settle } from "./commands/Settle.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
 // Admin commands

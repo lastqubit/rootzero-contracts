@@ -54,6 +54,8 @@ breaking API changes. Breaking changes are called out explicitly.
 - Pipeline transaction streams are posted before the next step, and position
   state is settled separately through the scalar asset, amount, liability, and
   debt hook.
+- Completed the public barrel exports for internal command adapters,
+  input-only endpoint bases, access errors, and low-level utility helpers.
 
 ### Upgrade Compatibility
 
