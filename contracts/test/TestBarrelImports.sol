@@ -4,10 +4,17 @@ pragma solidity ^0.8.33;
 // Compile-time coverage for public symbols that were previously omitted from
 // their package barrels.
 import {
+    CommandBase,
     InternalCreditAccount,
     InternalDebitAccount,
-    InternalSettle
+    InternalSettle,
+    RevokeAllowance,
+    SettlePayable,
+    SettlePayableHook
 } from "../Endpoints.sol";
+import {HostAsset as CodecHostAsset} from "../Codec.sol";
+import {HostAsset as CommandHostAsset} from "../Commands.sol";
+import {HostAsset as CoreHostAsset} from "../Core.sol";
 import {
     AccessDenied,
     CommanderNotAllowed,

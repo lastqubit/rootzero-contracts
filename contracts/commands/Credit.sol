@@ -54,13 +54,16 @@ abstract contract InternalCreditAccount is CreditAccount {
     /// @param account Account credited by each balance.
     /// @param state BALANCE block stream held in pipeline memory.
     /// @param input Empty input required by the command schema.
+    /// @param value Native value assigned to the command; must be zero.
     /// @return output Empty output state.
     /// @return transactions Empty transaction stream.
     function executeCreditAccount(
         bytes32 account,
         bytes memory state,
-        bytes calldata input
+        bytes calldata input,
+        uint128 value
     ) internal returns (bytes memory, bytes memory) {
+        if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert Executions.ZeroStride();
         if (state.length == 0) revert Blocks.EmptyRun();
 

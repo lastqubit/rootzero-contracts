@@ -3,7 +3,15 @@ import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
 import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/setup.js";
-import { encodeAccountBlock, encodeLabelBlock, encodeNodeBlock, endpointDescriptor, Keys, pad32 } from "./helpers/blocks.js";
+import {
+  encodeAccountBlock,
+  encodeHostAssetBlock,
+  encodeLabelBlock,
+  encodeNodeBlock,
+  endpointDescriptor,
+  Keys,
+  pad32,
+} from "./helpers/blocks.js";
 
 describe("Guard Actions", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
@@ -60,6 +68,56 @@ describe("Guard Actions", () => {
     await expect(deploymentTx)
       .to.emit(deployed, "Annotation")
       .withArgs(await guard("revoke", deployed), encodeLabelBlock(ethers.ZeroHash, "revoke"));
+    await expect(deploymentTx)
+      .to.emit(deployed, "Endpoint")
+      .withArgs(
+        await (deployed as any).host(),
+        await guard("revokeAllowance", deployed),
+        endpointDescriptor({ input: Keys.HostAsset }),
+      );
+    await expect(deploymentTx)
+      .to.emit(deployed, "Annotation")
+      .withArgs(
+        await guard("revokeAllowance", deployed),
+        encodeLabelBlock(ethers.ZeroHash, "revokeAllowance"),
+      );
+  });
+
+  it("guardian can revoke host asset allowances", async () => {
+    const peer1 = await hostIdFor(await (await getSigner(2)).getAddress());
+    const peer2 = await hostIdFor(await (await getSigner(3)).getAddress());
+    const asset1 = ethers.id("asset-1");
+    const asset2 = ethers.id("asset-2");
+
+    const tx = host.connect(guardianSigner).revokeAllowance(ethers.concat([
+      encodeHostAssetBlock(peer1, asset1),
+      encodeHostAssetBlock(peer2, asset2),
+    ]));
+    await expect(tx).to.emit(host, "AllowanceCalled").withArgs(peer1, asset1, 0n);
+    await expect(tx).to.emit(host, "AllowanceCalled").withArgs(peer2, asset2, 0n);
+  });
+
+  it("non-guardians cannot revoke allowances", async () => {
+    await expect(host.revokeAllowance(encodeHostAssetBlock(1n, ethers.id("asset"))))
+      .to.be.revertedWithCustomError(host, "AccessDenied");
+  });
+
+  it("revokeAllowance rejects an empty input run", async () => {
+    await expect(host.connect(guardianSigner).revokeAllowance("0x"))
+      .to.be.revertedWithCustomError(host, "EmptyRun");
+  });
+
+  it("revokeAllowance rejects allowance blocks carrying an amount", async () => {
+    const allowance = ethers.concat([
+      Keys.Allowance,
+      ethers.toBeHex(96, 4),
+      pad32(1n),
+      pad32(ethers.id("asset")),
+      pad32(10n),
+    ]);
+
+    await expect(host.connect(guardianSigner).revokeAllowance(allowance))
+      .to.be.revertedWithCustomError(host, "InvalidBlock");
   });
 
   it("guardian can revoke an authorized node directly", async () => {

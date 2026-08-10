@@ -94,6 +94,18 @@ library Readers {
         }
     }
 
+    /// @notice Consume a HOST_ASSET block and return its fields.
+    /// @param cur Reader; advanced past the block.
+    /// @return host Host identifier.
+    /// @return asset Asset identifier.
+    function unpackHostAsset(Reader memory cur) internal pure returns (uint host, bytes32 asset) {
+        uint abs = consume(cur, Keys.HostAsset, 64, 64);
+        assembly ("memory-safe") {
+            host := mload(abs)
+            asset := mload(add(abs, 0x20))
+        }
+    }
+
     /// @notice Consume a POSITION block and return its fields.
     function unpackPosition(
         Reader memory cur

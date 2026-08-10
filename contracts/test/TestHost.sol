@@ -11,13 +11,14 @@ import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
-import { InternalSettle } from "../commands/Settle.sol";
+import { InternalSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
 import { PortPost } from "../ports/Post.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
+import { RevokeAllowance } from "../guards/Revoke.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
@@ -42,15 +43,15 @@ contract TestHost is
     RelayBalancePayable,
     RecoverPayable,
     InternalSettle,
+    SettlePayable,
     Settlement,
     Pipeline,
     PortPost,
     AllowAssets,
     DenyAssets,
-    Allowance
+    Allowance,
+    RevokeAllowance
 {
-    error ValueNotAllowed();
-
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
@@ -68,6 +69,14 @@ contract TestHost is
         uint amount,
         bytes32 liability,
         uint debt
+    );
+    event SettlePayableCalled(
+        bytes32 account,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt,
+        uint remaining
     );
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
@@ -107,6 +116,18 @@ contract TestHost is
         uint debt
     ) internal override(Settlement, SettleHook) {
         emit SettleCalled(account, asset, amount, liability, debt);
+    }
+
+    function settle(
+        bytes32 account,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt,
+        Execution memory funds
+    ) internal override {
+        funds.useValue(amount + debt);
+        emit SettlePayableCalled(account, asset, amount, liability, debt, funds.budget);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -171,23 +192,16 @@ contract TestHost is
     ) internal override returns (bytes memory nextState, bytes memory transactions) {
         emit StepDispatched(cid, stepCount++, value);
         if (cid == debitAccountId()) {
-            enforceNoValue(value);
-            return executeDebitAccount(account, state, input);
+            return executeDebitAccount(account, state, input, value);
         }
         if (cid == creditAccountId()) {
-            enforceNoValue(value);
-            return executeCreditAccount(account, state, input);
+            return executeCreditAccount(account, state, input, value);
         }
         if (cid == settleId()) {
-            enforceNoValue(value);
-            return executeSettle(account, state, input);
+            return executeSettle(account, state, input, value);
         }
         if (cid == type(uint).max) return (state, input);
         return (state, "");
-    }
-
-    function enforceNoValue(uint128 value) private pure {
-        if (value != 0) revert ValueNotAllowed();
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {

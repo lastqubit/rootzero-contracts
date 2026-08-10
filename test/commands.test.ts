@@ -69,6 +69,7 @@ describe("Commands", () => {
       ["withdraw", 5n],
       ["payout", 2n],
       ["settle", 3n],
+      ["settlePayable", 3n],
     ] as const) {
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd(method), encodeActionBlock(action));
@@ -309,6 +310,76 @@ describe("Commands", () => {
       const input = encodeAmountBlock(asset, 1n);
 
       await expect(callAs(0, "settle", ctx({ state, input })))
+        .to.be.revertedWithCustomError(host, "ZeroStride");
+    });
+  });
+
+  describe("settlePayable", () => {
+    const asset = ethers.zeroPadValue("0x24", 32);
+    const liability = ethers.zeroPadValue("0x25", 32);
+
+    it("discovers a funded command with POSITION state", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("settlePayable"),
+          endpointDescriptor({ state: Keys.Position, funded: true }),
+        );
+    });
+
+    it("passes one shared value budget through a batch", async () => {
+      const secondAsset = ethers.zeroPadValue("0x26", 32);
+      const secondLiability = ethers.zeroPadValue("0x27", 32);
+      const state = concat(
+        encodePositionBlock(asset, 100n, liability, 40n),
+        encodePositionBlock(secondAsset, 20n, secondLiability, 10n),
+      );
+      const tx = await callAs(0, "settlePayable", ctx({ state }), { value: 200n });
+
+      await expect(tx).to.emit(host, "SettlePayableCalled")
+        .withArgs(userAccount, asset, 100n, liability, 40n, 60n);
+      await expect(tx).to.emit(host, "SettlePayableCalled")
+        .withArgs(userAccount, secondAsset, 20n, secondLiability, 10n, 30n);
+    });
+
+    it("returns unspent command value as a refund transaction", async () => {
+      const state = encodePositionBlock(asset, 3n, liability, 2n);
+      const [output, transactions] = await host.settlePayable.staticCall(
+        ...ctx({ state }),
+        { value: 8n },
+      );
+
+      expect(output).to.equal("0x");
+      expect(ethers.getBytes(transactions).length).to.equal(136);
+    });
+
+    it("reverts InsufficientValue when the hook overspends the budget", async () => {
+      const state = encodePositionBlock(asset, 3n, liability, 2n);
+
+      await expect(callAs(0, "settlePayable", ctx({ state }), { value: 4n }))
+        .to.be.revertedWithCustomError(host, "InsufficientValue");
+    });
+
+    it("reverts EmptyRun for empty state", async () => {
+      await expect(callAs(0, "settlePayable", ctx()))
+        .to.be.revertedWithCustomError(host, "EmptyRun");
+    });
+
+    it("reverts AccessDenied for an untrusted caller", async () => {
+      const state = encodePositionBlock(asset, 3n, liability, 2n);
+
+      await expect(callAs(1, "settlePayable", ctx({ state }), { value: 5n }))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("rejects input because the input lane is empty", async () => {
+      const state = encodePositionBlock(asset, 3n, liability, 2n);
+      const input = encodeAmountBlock(asset, 1n);
+
+      await expect(callAs(0, "settlePayable", ctx({ state, input }), { value: 5n }))
         .to.be.revertedWithCustomError(host, "ZeroStride");
     });
   });
@@ -871,16 +942,37 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, amount, liability, debt);
     });
 
-    it("rejects value assigned to a local non-funded command", async () => {
+    it("rejects value assigned to every local non-funded command", async () => {
       const asset = ethers.zeroPadValue("0xc1", 32);
-      const input = encodeStepBlock(
-        await cmd("debitAccount"),
-        1n,
-        encodeAmountBlock(asset, 1n),
-      );
+      const liability = ethers.zeroPadValue("0xc2", 32);
+      const cases = [
+        {
+          command: "debitAccount",
+          state: "0x",
+          input: encodeAmountBlock(asset, 1n),
+        },
+        {
+          command: "creditAccount",
+          state: encodeBalanceBlock(asset, 1n),
+          input: "0x",
+        },
+        {
+          command: "settle",
+          state: encodePositionBlock(asset, 1n, liability, 1n),
+          input: "0x",
+        },
+      ];
 
-      await expect(callAs(0, "testPipe", userAccount, "0x", input, { value: 1n }))
-        .to.be.revertedWithCustomError(host, "ValueNotAllowed");
+      for (const testCase of cases) {
+        const steps = encodeStepBlock(
+          await cmd(testCase.command),
+          1n,
+          testCase.input,
+        );
+        await expect(
+          callAs(0, "testPipe", userAccount, testCase.state, steps, { value: 1n }),
+        ).to.be.revertedWithCustomError(host, "ValueNotAllowed");
+      }
     });
 
     it("executes STEP blocks and emits StepDispatched", async () => {

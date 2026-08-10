@@ -335,6 +335,22 @@ library Blocks {
         }
     }
 
+    /// @notice Write a HOST_ASSET block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    function writeHostAsset(bytes memory dst, uint i, uint host, bytes32 asset) internal pure {
+        uint spec = Specs.HostAsset;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), host)
+            mstore(add(p, 0x28), asset)
+        }
+    }
+
     // Three-word payloads
 
     /// @notice Write an ALLOCATION block at `i`.
@@ -1282,6 +1298,22 @@ library Blocks {
             amount := calldataload(add(abs, 0x28))
             liability := calldataload(add(abs, 0x48))
             debt := calldataload(add(abs, 0x68))
+        }
+    }
+
+    /// @notice Decode a low-level fixed-width HOST_ASSET block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return host Decoded host identifier.
+    /// @return asset Decoded asset identifier.
+    function unpackHostAsset(uint abs) internal pure returns (uint host, bytes32 asset) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.HostAsset >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            host := calldataload(add(abs, 0x08))
+            asset := calldataload(add(abs, 0x28))
         }
     }
 

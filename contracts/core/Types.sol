@@ -27,6 +27,14 @@ struct AccountAmount {
     uint amount;
 }
 
+/// @notice Host-scoped asset shape.
+struct HostAsset {
+    /// @dev Host node identifier.
+    uint host;
+    /// @dev Asset identifier.
+    bytes32 asset;
+}
+
 /// @notice Host-scoped asset and amount shape.
 struct HostAmount {
     /// @dev Host node identifier.

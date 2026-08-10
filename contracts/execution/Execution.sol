@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
@@ -285,6 +285,31 @@ library Executions {
         uint8 lane
     ) internal pure returns (AccountAsset memory value) {
         (value.account, value.asset) = unpackAccountAsset(exec, lane);
+    }
+
+    /// @notice Decode and consume one HOST_ASSET block from `lane`.
+    /// @param exec Execution whose decoder is advanced.
+    /// @param lane Decoder lane to consume.
+    /// @return host Decoded host identifier.
+    /// @return asset Decoded asset identifier.
+    function unpackHostAsset(
+        Execution memory exec,
+        uint8 lane
+    ) internal pure returns (uint host, bytes32 asset) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.HostAsset);
+        (host, asset) = Blocks.unpackHostAsset(abs);
+    }
+
+    /// @notice Decode one HOST_ASSET block into its structured value.
+    /// @param exec Execution whose decoder is advanced.
+    /// @param lane Decoder lane to consume.
+    /// @return value Decoded host and asset.
+    function unpackHostAssetValue(
+        Execution memory exec,
+        uint8 lane
+    ) internal pure returns (HostAsset memory value) {
+        (value.host, value.asset) = unpackHostAsset(exec, lane);
     }
 
     /// @notice Decode and consume one AMOUNT block from `lane`.
@@ -803,6 +828,15 @@ library Executions {
     function outputAccountAsset(Execution memory exec, bytes32 account, bytes32 asset) internal pure {
         uint i = reserve(exec, Sizes.B64);
         Blocks.writeAccountAsset(exec.output, i, account, asset);
+    }
+
+    /// @notice Append a HOST_ASSET block to execution output.
+    /// @param exec Execution receiving the block.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    function outputHostAsset(Execution memory exec, uint host, bytes32 asset) internal pure {
+        uint i = reserve(exec, Sizes.HostAsset);
+        Blocks.writeHostAsset(exec.output, i, host, asset);
     }
 
     /// @notice Append an ALLOCATION block to execution output.

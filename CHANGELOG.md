@@ -3,6 +3,36 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.17.0
+
+### Breaking Changes
+
+- `executeDebitAccount`, `executeCreditAccount`, and `executeSettle` now require
+  the pipeline step's `uint128 value` argument and reject nonzero value inside
+  the internal adapter.
+- `AllowanceHook` implementations must treat an amount of zero as revocation.
+
+### Added
+
+- Added the `HostAsset` structural block and complete codec support for
+  host-scoped asset references.
+- Added the opt-in `RevokeAllowance` guardian endpoint, which accepts
+  `HostAsset` entries and revokes each allowance through `AllowanceHook`.
+- Added the funded `settlePayable` command and `SettlePayableHook` for settlement
+  implementations that require access to the command's native-value budget.
+
+### Changed
+
+- Completed the endpoint barrel with `CommandBase` and exported the new command,
+  guard, hook, internal adapter, and structural type surfaces from their
+  corresponding package barrels.
+
+### Upgrade Compatibility
+
+- Pipeline hosts using the internal debit, credit, or settle adapters must pass
+  each step's assigned value into the adapter. Existing non-funded steps should
+  continue to pass zero.
+
 ## 1.16.0
 
 ### Breaking Changes

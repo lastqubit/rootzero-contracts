@@ -116,6 +116,7 @@ export const Keys = {
   Evm: blockKey("#evm"),
   Status: blockKey("#status"),
   AccountAsset: blockKey("#accountAsset"),
+  HostAsset: blockKey("#hostAsset"),
   AccountAmount: blockKey("#accountAmount"),
   HostAmount: blockKey("#hostAmount"),
   HostAccountAsset: blockKey("#hostAccountAsset"),
@@ -162,6 +163,10 @@ export function encodeHostAccountAssetBlock(host: bigint, account: string, asset
 
 export function encodeAccountAssetBlock(account: string, asset: string): string {
   return encodeBlock(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset)]));
+}
+
+export function encodeHostAssetBlock(host: bigint, asset: string): string {
+  return encodeBlock(Keys.HostAsset, ethers.concat([pad32(host), pad32(asset)]));
 }
 
 export function encodeAccountAmountBlock(account: string, asset: string, amount: bigint): string {

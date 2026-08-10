@@ -81,6 +81,7 @@ library Schemas {
     string constant Amount = "{ bytes32 asset, uint amount }";
     string constant Balance = "{ bytes32 asset, uint amount }";
     string constant AccountAsset = "{ bytes32 account, bytes32 asset }";
+    string constant HostAsset = "{ uint host, bytes32 asset }";
 
     // Three-word payloads
 

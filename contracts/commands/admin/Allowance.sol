@@ -12,7 +12,7 @@ abstract contract AllowanceHook {
     /// or another host-specific authorization record.
     /// @param peer Host node receiving the allowed cap.
     /// @param asset Asset identifier.
-    /// @param amount Allowed cap amount.
+    /// @param amount Allowed cap amount. A zero amount MUST revoke the allowance.
     function allowance(uint peer, bytes32 asset, uint amount) internal virtual;
 }
 

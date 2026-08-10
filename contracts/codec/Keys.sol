@@ -62,6 +62,8 @@ library Keys {
     bytes4 constant Status = bytes4(keccak256("#status"));
     /// @dev Structural account asset form - (bytes32 account, bytes32 asset)
     bytes4 constant AccountAsset = bytes4(keccak256("#accountAsset"));
+    /// @dev Structural host asset form - (uint host, bytes32 asset)
+    bytes4 constant HostAsset = bytes4(keccak256("#hostAsset"));
     /// @dev Structural account amount form - (bytes32 account, bytes32 asset, uint amount)
     bytes4 constant AccountAmount = bytes4(keccak256("#accountAmount"));
     /// @dev Structural host amount form - (uint host, bytes32 asset, uint amount)

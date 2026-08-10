@@ -24,6 +24,7 @@ import {
   encodeContextBlock,
   encodeRecoverBlock,
   encodeHostAccountAssetBlock,
+  encodeHostAssetBlock,
   encodeBlock,
   encodeLabelBlock,
   encodeNodeBlock,
@@ -128,6 +129,21 @@ describe("Cursors", () => {
       expect(await helper.testUnpackAccountAsset(data)).to.deep.equal([account, asset]);
     });
 
+    it("hostAsset block round-trips", async () => {
+      const host = 1234n;
+      const data = encodeHostAssetBlock(host, asset);
+      expect(ethers.getBytes(data).length).to.equal(72);
+      expect(data.slice(0, 10)).to.equal(Keys.HostAsset);
+      expect(await helper.testUnpackHostAsset(data)).to.deep.equal([host, asset]);
+      expect(await blocksHelper.unpackHostAsset(data)).to.deep.equal([host, asset]);
+      expect(await blocksHelper.writeHostAsset(3n, host, asset)).to.equal(
+        ethers.concat([new Uint8Array(3), data]),
+      );
+      expect(await blocksHelper.appendHostAsset(host, asset)).to.equal(data);
+      expect(await blocksHelper.executionOutputHostAsset(host, asset)).to.equal(data);
+      expect(await helper.testReaderUnpackHostAsset(data)).to.deep.equal([host, asset, 72n, true]);
+    });
+
     it("writeCustodyBlock produces 104 bytes", async () => {
       const data: string = await helper.testWriteCustodyBlock(1234n, asset, amount);
       expect(ethers.getBytes(data).length).to.equal(104);
@@ -197,6 +213,8 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackAccountAsset(encodeAccountAssetBlock(account, asset)))
         .to.deep.equal([account, asset]);
+      expect(await blocksHelper.unpackHostAsset(encodeHostAssetBlock(host, asset)))
+        .to.deep.equal([host, asset]);
 
       expect(await blocksHelper.unpackAllocation(encodeAllocationBlock(host, asset, amount)))
         .to.deep.equal([host, asset, amount]);
