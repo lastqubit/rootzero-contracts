@@ -59,7 +59,19 @@ struct HostAccountAmount {
     uint amount;
 }
 
-/// @notice Transfer payload used by transaction blocks and peer settlement.
+/// @notice Asset and liability pair threaded as live pipeline state.
+struct Position {
+    /// @dev Identifier for the asset side.
+    bytes32 asset;
+    /// @dev Quantity on the asset side.
+    uint amount;
+    /// @dev Identifier for the liability side.
+    bytes32 liability;
+    /// @dev Quantity owed on the liability side.
+    uint debt;
+}
+
+/// @notice Transfer payload used by transaction blocks and peer posting.
 struct Tx {
     /// @dev Sender account identifier.
     bytes32 from;

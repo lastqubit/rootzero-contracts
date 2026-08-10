@@ -35,10 +35,6 @@ library Blocks {
     error UnexpectedValue();
     /// @dev A scoped block run contained no blocks.
     error EmptyRun();
-    /// @dev A block run was scoped with a zero stride.
-    error ZeroStride();
-    /// @dev A block count is not divisible by its declared stride.
-    error BadRatio();
 
     // -------------------------------------------------------------------------
     // Calldata inspection and navigation
@@ -147,25 +143,16 @@ library Blocks {
         }
     }
 
-    /// @notice Scope a consecutive block run into equal-sized groups.
+    /// @notice Count a run that must consume the complete region.
+    /// @dev Reverts when any well-formed trailing block has a different key.
     /// @param abs Absolute start position.
     /// @param limit Absolute region boundary.
-    /// @param key Block key forming the run.
-    /// @param stride Number of blocks per group.
-    /// @return groups Number of complete groups in the run.
-    /// @return end Absolute position immediately after the run.
-    function scope(
-        uint abs,
-        uint limit,
-        bytes4 key,
-        uint stride
-    ) internal pure returns (uint groups, uint end) {
-        if (stride == 0) revert ZeroStride();
-        uint count;
-        (count, end) = run(abs, limit, key);
-        if (count == 0) revert EmptyRun();
-        if (count % stride != 0) revert BadRatio();
-        groups = count / stride;
+    /// @param key Required block key for the complete region.
+    /// @return total Number of matching blocks.
+    /// @return end Absolute position equal to `limit`.
+    function runExact(uint abs, uint limit, bytes4 key) internal pure returns (uint total, uint end) {
+        (total, end) = run(abs, limit, key);
+        if (end != limit) revert InvalidBlock();
     }
 
     // Generic block writes
@@ -459,6 +446,33 @@ library Blocks {
     }
 
     // Four-word payloads
+
+    /// @notice Write a POSITION block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param asset Identifier for the asset side.
+    /// @param amount Quantity on the asset side.
+    /// @param liability Identifier for the liability side.
+    /// @param debt Quantity owed on the liability side.
+    function writePosition(
+        bytes memory dst,
+        uint i,
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) internal pure {
+        uint spec = Specs.Position;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+            mstore(add(p, 0x48), liability)
+            mstore(add(p, 0x68), debt)
+        }
+    }
 
     /// @notice Write a TRANSACTION block at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
@@ -1249,6 +1263,28 @@ library Blocks {
 
     // Four-word payloads
 
+    /// @notice Decode a low-level fixed-width POSITION block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return asset Decoded asset-side identifier.
+    /// @return amount Decoded asset-side quantity.
+    /// @return liability Decoded liability-side identifier.
+    /// @return debt Decoded liability-side debt.
+    function unpackPosition(
+        uint abs
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Position >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+            liability := calldataload(add(abs, 0x48))
+            debt := calldataload(add(abs, 0x68))
+        }
+    }
+
     /// @notice Decode a low-level fixed-width TRANSACTION block at `abs`.
     /// @param abs Absolute block position.
     /// @return from Decoded debit account.
@@ -1575,6 +1611,28 @@ library Blocks {
     /// @return Encoded BALANCE block bytes.
     function balance(bytes32 asset, uint amount) internal pure returns (bytes memory) {
         return bytes.concat(Keys.Balance, bytes4(uint32(64)), asset, bytes32(amount));
+    }
+
+    /// @notice Encode a POSITION block.
+    /// @param asset Identifier for the asset side.
+    /// @param amount Quantity on the asset side.
+    /// @param liability Identifier for the liability side.
+    /// @param debt Quantity owed on the liability side.
+    /// @return Encoded POSITION block bytes.
+    function position(
+        bytes32 asset,
+        uint amount,
+        bytes32 liability,
+        uint debt
+    ) internal pure returns (bytes memory) {
+        return bytes.concat(
+            Keys.Position,
+            bytes4(uint32(128)),
+            asset,
+            bytes32(amount),
+            liability,
+            bytes32(debt)
+        );
     }
 
     /// @notice Encode a CUSTODY block.

@@ -6,21 +6,28 @@ import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that recover previously undelivered payloads.
-abstract contract RecoverHook {
+abstract contract RecoverPayableHook {
     /// @notice Override to recover a witness through `handler`.
     /// @param handler Port that should attempt recovery.
+    /// @param resources Chain-specific resources assigned to the recovery attempt.
     /// @param key Recovery lookup key.
     /// @param witness Witness payload used to prove and replay recovery.
-    /// @param value Native EVM value assigned to the recovery attempt.
-    function recover(uint handler, bytes32 key, bytes calldata witness, uint128 value) internal virtual;
+    /// @param funds Shared execution containing the source value budget.
+    function recover(
+        uint handler,
+        uint resources,
+        bytes32 key,
+        bytes calldata witness,
+        Execution memory funds
+    ) internal virtual;
 }
 
 /// @title RecoverPayable
 /// @notice Command that forwards recover input blocks to a virtual hook.
 /// Recovery is witness-driven: the command account pays and receives leftover
-/// value settlement, but the recovered subject is defined by each witness.
+/// value posting, but the recovered subject is defined by each witness.
 /// Produces no output state.
-abstract contract RecoverPayable is CommandBase, RecoverHook {
+abstract contract RecoverPayable is CommandBase, RecoverPayableHook {
     uint private immutable descriptor;
 
     constructor() {
@@ -33,14 +40,14 @@ abstract contract RecoverPayable is CommandBase, RecoverHook {
     /// @return Remaining native value as a refund transaction stream.
     function recoverPayable(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (uint handler, uint resources, bytes32 key, bytes calldata witness) = exec.unpackRecover(Lanes.Input);
-            recover(handler, key, witness, exec.useValue(resources));
+            recover(handler, resources, key, witness, exec);
         }
 
         return close(exec, account);

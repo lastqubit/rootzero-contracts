@@ -3,6 +3,64 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.16.0
+
+### Breaking Changes
+
+- Removed the unused generic `Position` event and `PositionEvent` base contract.
+- Renamed transaction handling from settlement to posting: the transaction
+  helper is now `post(...)`, and `portSettle(bytes)` is now `portPost(bytes)`.
+  The port selector and node ID change, and its action is now `Actions.Post`
+  (`14`) instead of `Actions.Settle` (`3`). The `Settlement` convenience base
+  implements both the transaction `PostHook` and position `SettleHook`.
+- Removed `openInput` from `EndpointBase`. Port, query, and guard bases expose
+  `openInput` through the input-only `InputEndpointBase`, while custom commands
+  must pass both state and input through `openCommand`.
+- Removed the wildcard `Specs.Any` state type. The stateful relay is now
+  `relayBalancePayable` and accepts `BALANCE` state blocks; `relayPayable`
+  explicitly accepts empty state.
+- Renamed the numeric `Position` fields from `assets` and `liabilities` to
+  `amount` and `debt`.
+- Renamed `Budget.use` to `useResourceValue` and split execution spending into
+  exact `useValue` and packed-resource `useResourceValue` helpers.
+- Renamed `RoutePayableHook.route` to `RelayPayableHook.relayTo`. Recovery hooks
+  are now `RecoverPayableHook` implementations that receive the complete
+  resource word and mutable execution budget.
+
+### Added
+
+- Added the hostless `#position` state block for threading asset-liability pairs
+  between pipeline commands.
+- Added the `settle` command, the position `SettleHook`, and the transaction
+  `PostHook`. The `Settlement` convenience base provides default implementations
+  of both through the debit and credit account hooks.
+- Added `relayBalancePayable` for relaying required `BALANCE` state while
+  `relayPayable` now explicitly relays with empty state.
+- Added memory-backed `InternalDebitAccount`, `InternalCreditAccount`, and
+  `InternalSettle` adapters for hosts that execute canonical commands directly
+  from their pipeline dispatcher.
+
+### Changed
+
+- Documented the command state-safety invariant: every command must handle the
+  complete supplied state stream or revert, and commands with empty state lanes
+  must reject non-empty state.
+- Endpoint decoder opening now requires the complete supplied lane to be one
+  homogeneous run of the descriptor's declared key; trailing block types are
+  rejected instead of silently left outside the decoder cursor.
+- Block runs and cursors now retain raw block counts only. Descriptor stride
+  conversion and state/input group reconciliation happen once in execution
+  opening rather than in `Blocks` or `Cursors`.
+- Pipeline transaction streams are posted before the next step, and position
+  state is settled separately through the scalar asset, amount, liability, and
+  debt hook.
+
+### Upgrade Compatibility
+
+- Command and port selectors, block schemas, and hook signatures changed in
+  this release. Deploy fresh hosts and update pipeline builders and peer
+  integrations together.
+
 ## 1.15.0
 
 ### Breaking Changes

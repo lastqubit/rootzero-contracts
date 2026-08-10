@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
@@ -32,20 +32,17 @@ library Decoders {
         cur.state = Cursors.wrap(source[i:], 0, 0);
     }
 
-    /// @notice Open the first homogeneous run in `source` using `stride`.
+    /// @notice Open the first homogeneous run in `source`.
     /// @param source Calldata block stream to open.
-    /// @param stride Number of blocks per group, or zero for an ungrouped stream.
     /// @return cur Cursor spanning the first homogeneous run.
-    function open(
-        bytes calldata source,
-        uint stride
-    ) internal pure returns (Cur memory cur) {
+    function open(bytes calldata source) internal pure returns (Cur memory cur) {
         (uint abs, uint limit) = Cursors.bounds(source);
-        if (stride == 0 && abs == limit) return cur;
+        if (abs == limit) revert Blocks.EmptyRun();
 
         bytes4 key = bytes4(source);
-        (uint groups, uint end) = Blocks.scope(abs, limit, key, stride);
-        cur.state = Cursors.create(abs, end - abs, groups, 0, 0);
+        (uint count, uint end) = Blocks.run(abs, limit, key);
+        if (count == 0) revert Blocks.EmptyRun();
+        cur.state = Cursors.create(abs, end - abs, count, 0, 0);
     }
 
     /// @notice Return whether `cur` has unread bytes.
@@ -161,6 +158,16 @@ library Decoders {
     function find(Cur memory cur, bytes4 key) internal pure returns (uint) {
         (uint i, uint offset, uint end) = cur.state.decode();
         return Blocks.find(offset + i, offset + end, key) - offset;
+    }
+
+    /// @notice Count consecutive blocks with `key` from the current cursor position.
+    /// @dev Does not advance the cursor.
+    /// @param cur Cursor to inspect.
+    /// @param key Block key forming the run.
+    /// @return count Number of consecutive matching blocks.
+    function run(Cur memory cur, bytes4 key) internal pure returns (uint count) {
+        (uint i, uint offset, uint len) = cur.state.decode();
+        (count, ) = Blocks.run(offset + i, offset + len, key);
     }
 
     /// @notice Consume one LIST block and return a cursor over its items.
@@ -530,6 +537,20 @@ library Decoders {
     /// @return value Structured custody amount.
     function unpackCustodyValue(Cur memory cur) internal pure returns (HostAmount memory value) {
         (value.host, value.asset, value.amount) = unpackCustody(cur);
+    }
+
+    /// @notice Decode and consume one POSITION block.
+    function unpackPosition(
+        Cur memory cur
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.Position);
+        (asset, amount, liability, debt) = Blocks.unpackPosition(abs);
+    }
+
+    /// @notice Decode one POSITION block into its structured value.
+    function unpackPositionValue(Cur memory cur) internal pure returns (Position memory value) {
+        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(cur);
     }
 
     /// @notice Decode one TRANSACTION block into its structured value.

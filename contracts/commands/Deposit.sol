@@ -49,10 +49,10 @@ abstract contract Deposit is CommandBase, DepositHook, Action {
     /// @return Empty transaction stream.
     function deposit(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
@@ -82,10 +82,10 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
     /// @return Remaining native value as a refund transaction stream.
     function depositPayable(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);

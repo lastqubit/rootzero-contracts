@@ -32,10 +32,10 @@ abstract contract Allowance is AdminBase, AllowanceHook {
     /// @return Empty transaction stream.
     function allowance(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             (uint peer, bytes32 asset, uint amount) = exec.unpackAllowance(Lanes.Input);

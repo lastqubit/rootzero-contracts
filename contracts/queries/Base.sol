@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { EndpointBase } from "../core/Endpoint.sol";
+import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Descriptors } from "../codec/Descriptors.sol";
 import { Specs } from "../codec/Specs.sol";
 import { Nodes } from "../utils/Nodes.sol";
@@ -11,7 +11,7 @@ import { Selectors } from "../utils/Selectors.sol";
 /// @notice Abstract base for rootzero query contracts.
 /// Queries are view-only entry points that consume a block-stream input and
 /// return a block-stream response.
-abstract contract QueryBase is EndpointBase {
+abstract contract QueryBase is InputEndpointBase {
 
     /// @notice Publish query metadata and a default label.
     /// @param name Query entrypoint name and default label. It must exactly

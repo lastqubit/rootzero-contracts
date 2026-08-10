@@ -18,12 +18,12 @@ library Buffers {
 
     /// @notice Create a packed buffer cursor at write position zero.
     /// @param len Initial logical byte capacity.
-    /// @param groups Number of logical groups represented by the buffer.
+    /// @param count Number of logical items represented by the buffer.
     /// @param growable Whether writes may expand the logical capacity.
     /// @param tag Cursor identity tag.
     /// @return cur Packed buffer cursor.
-    function cursor(uint len, uint groups, bool growable, uint8 tag) internal pure returns (uint cur) {
-        cur = Cursors.create(0, len, groups, growable ? Growable : 0, tag);
+    function cursor(uint len, uint count, bool growable, uint8 tag) internal pure returns (uint cur) {
+        cur = Cursors.create(0, len, count, growable ? Growable : 0, tag);
     }
 
     /// @notice Reserve relative write space and return the updated packed buffer cursor.

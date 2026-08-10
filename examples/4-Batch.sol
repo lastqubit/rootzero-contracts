@@ -22,11 +22,11 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        // Open the descriptor input stream and initialize its output buffer.
-        Execution memory exec = openInput(input, descriptor, 0);
+        // Open and validate both descriptor lanes and initialize the output buffer.
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         // Walk every AMOUNT block in the current input run.
         while (exec.more()) {

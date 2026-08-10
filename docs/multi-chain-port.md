@@ -64,7 +64,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Cursor parsing | `codec/Decoders.sol` | Zero-copy byte stream reader. Re-implement per language. |
 | Writer helpers | `codec/Writers.sol` | Block stream builder. Re-implement per language. |
 | Block key constants | `codec/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
-| Pipeline state model | `core/Pipeline.sol` | STEP stream, threaded `bytes` state, and separately settled TRANSACTION output. Only dispatch and settlement are chain-specific. |
+| Pipeline state model | `core/Pipeline.sol` | STEP stream, threaded `bytes` state, and separately posted TRANSACTION output. Only dispatch and posting are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
@@ -245,7 +245,7 @@ Resolution should be lazy and limited to the native boundary:
 - `dispatch(target, ...)` resolves `target` only when it needs the local callable node address/program/account.
 - access control stores trusted local node IDs; it resolves only when comparing a native caller to an encoded local node identity requires it.
 - balance storage uses `account` and `asset` IDs as keys without resolving account addresses.
-- settlement uses the account IDs from TRANSACTION blocks as ledger identities without resolving them.
+- posting uses the account IDs from TRANSACTION blocks as ledger identities without resolving them.
 - asset hooks resolve asset IDs only when they need to perform native token transfers.
 - account hooks resolve account IDs only when the native runtime requires the full address, pubkey, or account string, such as paying out to a local token account.
 
@@ -516,7 +516,13 @@ Each command has:
 
 The `input`, `state`, and transaction output are always Rootzero block streams.
 The two outputs are separate lanes: only state is threaded into the next
-command, while the pipeline host settles each non-empty transaction output.
+command, while the pipeline host posts each non-empty transaction output.
+
+Every command implementation must account for its complete incoming state.
+It must validate and consume the state, transform and return it, forward it
+intact, or reject the invocation. Commands that accept no state must reject a
+non-empty state stream. Ports must preserve this rule: silently ignoring state
+or decoding only a prefix can destroy live balance, custody, or position value.
 
 Chain-specific dispatch:
 
@@ -534,12 +540,12 @@ The `pipe()` loop is pure protocol logic:
 1. Iterate STEP blocks.
 2. Decode `(cmd, value, input)`.
 3. Dispatch `cmd` locally.
-4. Thread the returned state bytes into the next step, decode each returned transaction, and settle it before dispatching the next step.
+4. Thread the returned state bytes into the next step, decode each returned transaction, and post it before dispatching the next step.
 5. Require the final state to be empty.
 
 After `pipe()` returns, its caller still owns the remaining native-value
 budget. If the entrypoint refunds that value, it encodes the refund as a
-TRANSACTION block and passes it through the same settlement path.
+TRANSACTION block and passes it through the same posting path.
 
 Dispatch should not extract a target chain ID. It should only validate that `cmd` is a trusted local command and resolve it through the local chain's dispatch table.
 
@@ -549,16 +555,16 @@ Dispatch should not extract a target chain ID. It should only validate that `cmd
 
 This means the bridge does not need a special "execute remote command" API. It only needs to deliver bytes to the destination host's port pipe. From that point onward, execution is identical to local pipeline execution.
 
-#### Port Settlement
+#### Port Posting
 
-`ports/Settle.sol` ports directly at the logic level:
+`ports/Post.sol` ports directly at the logic level:
 
 1. Iterate TRANSACTION blocks.
 2. For each `(from, to, asset, amount)`, debit the source balance.
 3. Credit the destination balance.
 4. Let chain-specific hooks perform actual asset movement where needed.
 
-The settlement logic is portable because `from`, `to`, and `asset` are protocol IDs. Do not resolve account IDs just to update balances. Asset custody and transfer hooks are local, and those hooks may resolve IDs when native asset movement requires it.
+The posting logic is portable because `from`, `to`, and `asset` are protocol IDs. Do not resolve account IDs just to update balances. Asset custody and transfer hooks are local, and those hooks may resolve IDs when native asset movement requires it.
 
 ### Layer 3 - Chain Adapters
 
@@ -801,7 +807,7 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 2. **Shared Rust protocol crate**: package cursor, writer, keys, schema, shared ID taxonomy, protocol types, and storage/dispatch traits as `rootzero-protocol`.
 3. **Identity strategy**: decide which node, account, and asset identities fit inline and which require local lookup.
 4. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
-5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer settlement.
+5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer posting.
 6. **Port pipe port**: implement the local port pipe entrypoint that consumes CONTEXT blocks and calls `pipe()`.
 7. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
 8. **CosmWasm host template**: wire `rootzero-protocol` to CosmWasm storage, `Addr` resolution, native denom/CW20/IBC assets, and bridge adapter entrypoints.

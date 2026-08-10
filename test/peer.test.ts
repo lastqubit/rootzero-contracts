@@ -107,7 +107,7 @@ describe("Port Entrypoints", () => {
 
     await expect(tx!)
       .to.emit(host, "Annotation")
-      .withArgs(await port("portSettle(bytes)"), encodeActionBlock(3n));
+      .withArgs(await port("portPost(bytes)"), encodeActionBlock(14n));
 
   });
 
@@ -118,7 +118,7 @@ describe("Port Entrypoints", () => {
       | "portRedeemBalance(bytes)"
       | "portCreditAccount(bytes)"
       | "portDebitAccount(bytes)"
-      | "portSettle(bytes)"
+      | "portPost(bytes)"
       | "portPipePayable(bytes)"
       | "portDispatchPayable(bytes)",
     input = "0x",
@@ -284,9 +284,9 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
-    it("reverts OutOfBounds when input is too short for an ACCOUNT_AMOUNT block", async () => {
+    it("reverts InvalidBlock when input is not an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "OutOfBounds");
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 
@@ -339,14 +339,54 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
-    it("reverts OutOfBounds when input is too short for an ACCOUNT_AMOUNT block", async () => {
+    it("reverts InvalidBlock when input is not an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "OutOfBounds");
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 
-  describe("portSettle", () => {
-    const method = "portSettle(bytes)";
+  describe("settlement", () => {
+    const account = encodeUserAccount("0x41");
+    const asset = ethers.zeroPadValue("0x42", 32);
+    const liability = ethers.zeroPadValue("0x43", 32);
+
+    it("credits the asset and debits the liability of a position", async () => {
+      const position = {
+        asset,
+        amount: 100n,
+        liability,
+        debt: 40n,
+      };
+
+      const tx = await host.testSettle(account, position);
+      await expect(tx).to.emit(host, "PortCreditAccountCalled").withArgs(account, asset, 100n);
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(account, liability, 40n);
+    });
+
+    it("skips zero sides of a position", async () => {
+      const tx = await host.testSettle(account, {
+        asset,
+        amount: 0n,
+        liability,
+        debt: 40n,
+      });
+
+      const receipt = await tx.wait();
+      const names = receipt?.logs.map((log) => {
+        try {
+          return host.interface.parseLog({ topics: log.topics as string[], data: log.data })?.name;
+        } catch {
+          return null;
+        }
+      });
+
+      expect(names).to.not.include("PortCreditAccountCalled");
+      await expect(tx).to.emit(host, "PortDebitAccountCalled").withArgs(account, liability, 40n);
+    });
+  });
+
+  describe("portPost", () => {
+    const method = "portPost(bytes)";
     const from_ = encodeUserAccount("0x11");
     const to_ = encodeUserAccount("0x22");
     const asset = ethers.zeroPadValue("0xaa", 32);

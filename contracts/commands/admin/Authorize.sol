@@ -27,10 +27,10 @@ abstract contract Authorize is AdminBase {
     /// @return Empty transaction stream.
     function authorize(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openCommand(state, input, descriptor, 0);
 
         while (exec.more()) {
             uint node = exec.unpackNode(Lanes.Input);

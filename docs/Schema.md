@@ -161,8 +161,58 @@ with no payload, use a zero-payload block such as `#unit`.
 
 Endpoint descriptors currently use a narrower convention than the full block
 grammar: each state, input, or output lane is a single run of blocks, without
-additional global items. Future protocol surfaces may use the more flexible
-top-level structure.
+additional global items. Endpoint decoder opening requires that run to consume
+the complete supplied lane; a trailing block with another key is invalid.
+Lower-level cursor scanning may still intentionally open only a prefix run.
+Those lower layers retain only the raw block count; descriptor strides are
+applied and lane groups reconciled once when an endpoint execution opens.
+Future protocol surfaces may use the more flexible top-level structure.
+
+For commands, complete-lane validation is also a state-safety rule. State is a
+linear value owned by the current pipeline step, not optional context that a
+command may disregard. Every command must account for the complete supplied
+state by consuming it, transforming and returning it, forwarding it intact, or
+reverting. A command whose descriptor declares an empty state lane must reject
+non-empty state. A command that accepts state must validate the complete stream
+against its declared schema; accepting only a prefix and silently dropping the
+remainder is invalid.
+
+## Live Pipeline State
+
+`#balance`, `#custody`, and `#position` are live state carried between command
+steps for the active account. A position atomically pairs an asset side with a
+liability side:
+
+```txt
+position { bytes32 asset, uint amount, bytes32 liability, uint debt }
+```
+
+The pair is deliberately general. The asset side represents value acquired or
+controlled, and the liability side represents value owed or required. Commands
+may preserve or replace either side and return a new position. The terminal
+`settle` command consumes the pair. Position state is transient protocol state;
+rewriting it does not by itself create, discharge, or replace an obligation
+persisted by a host or external protocol. The responsible command hook must
+perform or verify those effects. A command must not ignore a supplied position:
+it must explicitly consume, transform, forward, or reject it, so neither its
+asset nor its debt can disappear accidentally.
+
+This representation supports ordinary forward transformations as well as
+backward composition. For example, an exact-output route can carry its desired
+asset while successive hops replace the upstream liability:
+
+```txt
+position(C, 100, C, 100)
+→ position(C, 100, B, 50)
+→ position(C, 100, A, 25)
+→ settle
+```
+
+“Backward” describes how requirements are composed from the desired result
+toward the source. Pipeline execution is not reversed: STEP blocks always run
+forward in their encoded order. Exact-output routing is only an example;
+borrowing, refinancing, collateral transformation, callback obligations,
+cross-host claims, fees, and netting can use the same position state.
 
 ## Field Aliases
 

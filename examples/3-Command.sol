@@ -27,11 +27,11 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         bytes32 account,
-        bytes calldata,
+        bytes calldata state,
         bytes calldata input
     ) external onlyCommand returns (bytes memory, bytes memory) {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
-        Execution memory exec = openInput(input, descriptor, 1);
+        Execution memory exec = openCommand(state, input, descriptor, 1);
         (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
 
         // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
