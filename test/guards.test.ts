@@ -5,6 +5,7 @@ import "./helpers/matchers.js";
 import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/setup.js";
 import {
   encodeAccountBlock,
+  encodeAssetBlock,
   encodeHostAssetBlock,
   encodeLabelBlock,
   encodeNodeBlock,
@@ -81,6 +82,41 @@ describe("Guard Actions", () => {
         await guard("revokeAllowance", deployed),
         encodeLabelBlock(ethers.ZeroHash, "revokeAllowance"),
       );
+    await expect(deploymentTx)
+      .to.emit(deployed, "Endpoint")
+      .withArgs(
+        await (deployed as any).host(),
+        await guard("revokeAsset", deployed),
+        endpointDescriptor({ input: Keys.Asset }),
+      );
+    await expect(deploymentTx)
+      .to.emit(deployed, "Annotation")
+      .withArgs(
+        await guard("revokeAsset", deployed),
+        encodeLabelBlock(ethers.ZeroHash, "revokeAsset"),
+      );
+  });
+
+  it("guardian can revoke assets", async () => {
+    const asset1 = ethers.id("asset-1");
+    const asset2 = ethers.id("asset-2");
+
+    const tx = host.connect(guardianSigner).revokeAsset(ethers.concat([
+      encodeAssetBlock(asset1),
+      encodeAssetBlock(asset2),
+    ]));
+    await expect(tx).to.emit(host, "DenyAssetCalled").withArgs(asset1);
+    await expect(tx).to.emit(host, "DenyAssetCalled").withArgs(asset2);
+  });
+
+  it("non-guardians cannot revoke assets", async () => {
+    await expect(host.revokeAsset(encodeAssetBlock(ethers.id("asset"))))
+      .to.be.revertedWithCustomError(host, "AccessDenied");
+  });
+
+  it("revokeAsset rejects an empty input run", async () => {
+    await expect(host.connect(guardianSigner).revokeAsset("0x"))
+      .to.be.revertedWithCustomError(host, "EmptyRun");
   });
 
   it("guardian can revoke host asset allowances", async () => {

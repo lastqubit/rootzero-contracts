@@ -28,22 +28,23 @@ abstract contract PostHook {
     function post(bytes32 from, bytes32 to, bytes32 asset, uint amount) internal virtual;
 }
 
+/// @title RepayHook
+/// @notice Hook for repaying one account liability.
+abstract contract RepayHook {
+    /// @notice Override to repay `debt` denominated in `liability` for `account`.
+    function repay(bytes32 account, bytes32 liability, uint debt) internal virtual;
+}
+
 /// @title SettleHook
 /// @notice Hook for settling one asset-liability position.
 abstract contract SettleHook {
     /// @notice Override to settle one position for `account`.
-    function settle(
-        bytes32 account,
-        bytes32 asset,
-        uint amount,
-        bytes32 liability,
-        uint debt
-    ) internal virtual;
+    function settle(bytes32 account, bytes32 asset, uint amount, bytes32 liability, uint debt) internal virtual;
 }
 
 /// @title Settlement
 /// @notice Default account-hook implementation for transaction posting and position settlement.
-abstract contract Settlement is PostHook, SettleHook, DebitAccountHook, CreditAccountHook {
+abstract contract Settlement is PostHook, SettleHook, RepayHook, DebitAccountHook, CreditAccountHook {
     /// @notice Post one transaction by debiting its source and crediting its destination.
     /// Returns without calling either hook when `amount` is zero and skips either
     /// operation when the corresponding account is zero.
@@ -51,6 +52,12 @@ abstract contract Settlement is PostHook, SettleHook, DebitAccountHook, CreditAc
         if (amount == 0) return;
         if (from != 0) debitAccount(from, asset, amount);
         if (to != 0) creditAccount(to, asset, amount);
+    }
+
+    /// @notice Repay one liability by debiting it from the account.
+    /// Skips the debit when `debt` is zero.
+    function repay(bytes32 account, bytes32 liability, uint debt) internal virtual override {
+        if (debt != 0) debitAccount(account, liability, debt);
     }
 
     /// @notice Settle one position by crediting its asset and debiting its liability.
