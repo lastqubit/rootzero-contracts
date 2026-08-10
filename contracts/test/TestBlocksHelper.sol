@@ -134,6 +134,13 @@ contract TestBlocksHelper is Action {
         output = Executions.finish(exec);
     }
 
+    function executionOutputHostAsset(uint host, bytes32 asset) external view returns (bytes memory output) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.HostAsset, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputHostAsset(exec, host, asset);
+        output = Executions.finish(exec);
+    }
+
     function executionUnpackPosition(
         bytes calldata state
     ) external view returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
@@ -146,6 +153,17 @@ contract TestBlocksHelper is Action {
         Writer memory writer = Writers.init(Specs.Balance, 1);
         writer.appendBalance(asset, amount);
         return writer.finish();
+    }
+
+    function appendHostAsset(uint host, bytes32 asset) external pure returns (bytes memory) {
+        Writer memory writer = Writers.init(Specs.HostAsset, 1);
+        writer.appendHostAsset(host, asset);
+        return writer.finish();
+    }
+
+    function writeHostAsset(uint offset, uint host, bytes32 asset) external pure returns (bytes memory dst) {
+        dst = new bytes(offset + Sizes.HostAsset);
+        Blocks.writeHostAsset(dst, offset, host, asset);
     }
 
     function emptyWriter() external pure returns (uint i, uint len, bool growable, uint length) {
@@ -416,6 +434,10 @@ contract TestBlocksHelper is Action {
 
     function unpackAccountAsset(bytes calldata source) external pure returns (bytes32, bytes32) {
         return Blocks.unpackAccountAsset(position(source));
+    }
+
+    function unpackHostAsset(bytes calldata source) external pure returns (uint, bytes32) {
+        return Blocks.unpackHostAsset(position(source));
     }
 
     function unpackAllocation(bytes calldata source) external pure returns (uint, bytes32, uint) {

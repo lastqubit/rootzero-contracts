@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
@@ -276,6 +276,16 @@ library Decoders {
         (account, asset) = Blocks.unpackAccountAsset(abs);
     }
 
+    /// @notice Decode and consume one HOST_ASSET block.
+    /// @param cur Cursor advanced past the block.
+    /// @return host Decoded host identifier.
+    /// @return asset Decoded asset identifier.
+    function unpackHostAsset(Cur memory cur) internal pure returns (uint host, bytes32 asset) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.HostAsset);
+        (host, asset) = Blocks.unpackHostAsset(abs);
+    }
+
     /// @notice Decode and consume one AMOUNT block.
     /// @param cur Cursor advanced past the block.
     /// @return asset Decoded asset identifier.
@@ -460,6 +470,13 @@ library Decoders {
     /// @return value Structured account and asset.
     function unpackAccountAssetValue(Cur memory cur) internal pure returns (AccountAsset memory value) {
         (value.account, value.asset) = unpackAccountAsset(cur);
+    }
+
+    /// @notice Decode one HOST_ASSET block into its structured value.
+    /// @param cur Cursor advanced past the block.
+    /// @return value Structured host and asset.
+    function unpackHostAssetValue(Cur memory cur) internal pure returns (HostAsset memory value) {
+        (value.host, value.asset) = unpackHostAsset(cur);
     }
 
     /// @notice Decode one AMOUNT block into its structured value.

@@ -204,6 +204,15 @@ library Writers {
         Blocks.writeAccountAsset(writer.dst, i, account, asset);
     }
 
+    /// @notice Append a HOST_ASSET block.
+    /// @param writer Destination writer.
+    /// @param host Host identifier to encode.
+    /// @param asset Asset identifier to encode.
+    function appendHostAsset(Writer memory writer, uint host, bytes32 asset) internal pure {
+        uint i = reserve(writer, Sizes.HostAsset);
+        Blocks.writeHostAsset(writer.dst, i, host, asset);
+    }
+
     /// @notice Append an ALLOCATION block.
     /// @param writer Destination writer.
     /// @param host Host identifier to encode.

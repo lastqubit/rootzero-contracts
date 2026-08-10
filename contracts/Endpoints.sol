@@ -8,6 +8,7 @@ pragma solidity ^0.8.33;
 import { CreditAccountHook, DebitAccountHook, PostHook, SettleHook } from "./core/Settlement.sol";
 
 // Commands
+import { CommandBase } from "./commands/Base.sol";
 import { Allocate, AllocateHook } from "./commands/Allocate.sol";
 import { Burn, BurnHook } from "./commands/Burn.sol";
 import { CreditAccount, InternalCreditAccount } from "./commands/Credit.sol";
@@ -17,7 +18,7 @@ import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
 import { RecoverPayable, RecoverPayableHook } from "./commands/Recover.sol";
 import { RelayPayable, RelayBalancePayable, RelayPayableHook } from "./commands/Relay.sol";
-import { InternalSettle, Settle } from "./commands/Settle.sol";
+import { InternalSettle, Settle, SettlePayable, SettlePayableHook } from "./commands/Settle.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
 // Admin commands
@@ -46,7 +47,7 @@ import { PortPost } from "./ports/Post.sol";
 
 // Guard endpoints
 import { GuardBase } from "./guards/Base.sol";
-import { Revoke } from "./guards/Revoke.sol";
+import { Revoke, RevokeAllowance } from "./guards/Revoke.sol";
 
 // Query endpoints
 import { QueryBase } from "./queries/Base.sol";

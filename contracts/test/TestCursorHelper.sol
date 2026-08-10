@@ -294,6 +294,14 @@ contract TestCursorHelper {
         return (asset, amount, cur.i, cur.done());
     }
 
+    function testReaderUnpackHostAsset(
+        bytes calldata source
+    ) external pure returns (uint host_, bytes32 asset, uint i, bool done) {
+        Reader memory cur = Readers.open(bytes(source));
+        (host_, asset) = cur.unpackHostAsset();
+        return (host_, asset, cur.i, cur.done());
+    }
+
     function testReaderUnpackTwoBalances(
         bytes calldata source
     )
@@ -337,6 +345,13 @@ contract TestCursorHelper {
     ) external pure returns (bytes32 account, bytes32 asset) {
         Cur memory cur = Decoders.wrap(source);
         return cur.unpackAccountAsset();
+    }
+
+    function testUnpackHostAsset(
+        bytes calldata source
+    ) external pure returns (uint host_, bytes32 asset) {
+        Cur memory cur = Decoders.wrap(source);
+        return cur.unpackHostAsset();
     }
 
     function testUnpackAccount(bytes calldata source) external pure returns (bytes32 account) {

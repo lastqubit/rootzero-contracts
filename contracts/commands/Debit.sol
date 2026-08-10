@@ -58,13 +58,16 @@ abstract contract InternalDebitAccount is DebitAccount {
     /// @param account Account whose funds are debited.
     /// @param state Empty pipeline state required by the command schema.
     /// @param input AMOUNT block stream.
+    /// @param value Native value assigned to the command; must be zero.
     /// @return output BALANCE block stream matching the debited amounts.
     /// @return transactions Empty transaction stream.
     function executeDebitAccount(
         bytes32 account,
         bytes memory state,
-        bytes calldata input
+        bytes calldata input,
+        uint128 value
     ) internal returns (bytes memory, bytes memory) {
+        if (value != 0) revert ValueNotAllowed();
         if (state.length != 0) revert Executions.ZeroStride();
         if (input.length == 0) revert Blocks.EmptyRun();
 
