@@ -219,7 +219,10 @@ pipeline.
 
 The built-in surface is also available as two independent feature bundles:
 `Admins` provides annotate, authorize, unauthorize, and executePayable;
-`Guardians` provides appoint, dismiss, and revoke. The full `Host` composes
+`Guardians` provides appoint, dismiss, and node revocation. Hosts that implement
+the allowance hook can additionally inherit the opt-in `RevokeAllowance` guard,
+which accepts `hostAsset { uint host, bytes32 asset }` entries and always applies
+a zero allowance. The full `Host` composes
 both, while smaller hosts can inherit either bundle separately.
 
 Trust is explicit and minimal. Each host has an immutable **commander**
@@ -325,7 +328,8 @@ abstract contract MyCommand is CommandBase {
 ```
 
 The standard commands cover the common ledger movements: `deposit` and
-`depositPayable` (external funds in), `withdraw` and `burn` (funds out),
+`depositPayable` (external funds in), `settlePayable` (funded settlement),
+`withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
 state to other accounts), `allocate` (turn balance state into custody),
 `provision` (provision custody from an external allocation), `settle` (consume
@@ -378,8 +382,8 @@ Hosts that implement a pipeline locally can inherit `InternalDebitAccount`,
 `InternalCreditAccount`, and `InternalSettle` to advertise the canonical command
 endpoints while routing their local command IDs through `executeDebitAccount`,
 `executeCreditAccount`, and `executeSettle`. These adapters consume the
-memory-backed pipeline state directly and avoid an external self-call. The host
-dispatcher must reject nonzero step value before invoking them because all three
+memory-backed pipeline state directly and avoid an external self-call. Pass the
+step value into each adapter; all three reject nonzero value because the
 commands are non-funded.
 
 Positions also support backward-composed pipelines. In an exact-output route,
