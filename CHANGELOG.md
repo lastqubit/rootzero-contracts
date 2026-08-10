@@ -3,6 +3,33 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.18.0
+
+### Added
+
+- Added the non-funded `repay` and funded `repayPayable` commands. Both consume
+  `Position` state, settle only its liability side, and return the released
+  asset side as `Balance` state.
+- Added the reusable non-funded `RepayHook` settlement primitive and the
+  execution-funded `RepayPayableHook`.
+- Added the opt-in `RevokeAsset` guardian endpoint, which accepts `Asset`
+  entries and denies each asset through the existing `DenyAssetsHook`.
+
+### Changed
+
+- `Settlement.settle` now delegates its liability leg to the virtual `repay`
+  primitive. The default behavior remains a nonzero `debitAccount` call, while
+  derived settlement implementations can customize repayment in one place.
+- Exported the repayment commands and hooks and the asset-revocation guard from
+  their corresponding public barrels.
+
+### Upgrade Compatibility
+
+- Hosts inheriting `Settlement` retain the previous default settlement
+  behavior. Hosts that already declare an internal
+  `repay(bytes32,bytes32,uint)` function may need to mark it as an override or
+  rename it when upgrading.
+
 ## 1.17.0
 
 ### Breaking Changes
