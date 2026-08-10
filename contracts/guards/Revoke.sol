@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {AllowanceHook} from "../commands/admin/Allowance.sol";
+import {DenyAssetsHook} from "../commands/admin/DenyAssets.sol";
 import {GuardBase} from "./Base.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
@@ -46,6 +47,27 @@ abstract contract RevokeAllowance is GuardBase, AllowanceHook {
         while (exec.more()) {
             (uint peer, bytes32 asset) = exec.unpackHostAsset(Lanes.Input);
             allowance(peer, asset, 0);
+        }
+    }
+}
+
+/// @title RevokeAsset
+/// @notice Guardian action that denies assets through the host's existing asset hook.
+/// @dev Opt-in guard. Hosts expose it by inheriting this contract and implementing DenyAssetsHook.
+abstract contract RevokeAsset is GuardBase, DenyAssetsHook {
+    uint private immutable descriptor;
+
+    constructor() {
+        (, descriptor) = guard("revokeAsset", Specs.Asset);
+    }
+
+    /// @notice Deny every ASSET block in `input` as the active guardian.
+    function revokeAsset(bytes calldata input) external onlyGuardian {
+        Execution memory exec = openInput(input, descriptor, 0);
+
+        while (exec.more()) {
+            bytes32 asset = exec.unpackAsset(Lanes.Input);
+            denyAsset(asset);
         }
     }
 }

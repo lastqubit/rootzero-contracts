@@ -16,7 +16,7 @@ import { CommandCalls, FailedCall, NodeCalls, PortCalls, RawNodeCalls } from "./
 import { EndpointBase, InputEndpointBase } from "./core/Endpoint.sol";
 import { Pipeline } from "./core/Pipeline.sol";
 import { Budget, Budgets } from "./execution/Budget.sol";
-import { CreditAccountHook, DebitAccountHook, PostHook, SettleHook, Settlement } from "./core/Settlement.sol";
+import { CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook, Settlement } from "./core/Settlement.sol";
 import { Portal } from "./core/Portal.sol";
 import { AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Position, Tx } from "./core/Types.sol";
 import { Validator } from "./core/Validator.sol";

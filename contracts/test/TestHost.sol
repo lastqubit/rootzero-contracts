@@ -11,6 +11,7 @@ import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
+import { Repay, RepayPayable } from "../commands/Repay.sol";
 import { InternalSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
@@ -18,7 +19,7 @@ import { PortPost } from "../ports/Post.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
-import { RevokeAllowance } from "../guards/Revoke.sol";
+import { RevokeAllowance, RevokeAsset } from "../guards/Revoke.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
@@ -42,6 +43,8 @@ contract TestHost is
     RelayPayable,
     RelayBalancePayable,
     RecoverPayable,
+    Repay,
+    RepayPayable,
     InternalSettle,
     SettlePayable,
     Settlement,
@@ -50,7 +53,8 @@ contract TestHost is
     AllowAssets,
     DenyAssets,
     Allowance,
-    RevokeAllowance
+    RevokeAllowance,
+    RevokeAsset
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
@@ -74,6 +78,12 @@ contract TestHost is
         bytes32 account,
         bytes32 asset,
         uint amount,
+        bytes32 liability,
+        uint debt,
+        uint remaining
+    );
+    event RepayPayableCalled(
+        bytes32 account,
         bytes32 liability,
         uint debt,
         uint remaining
@@ -128,6 +138,16 @@ contract TestHost is
     ) internal override {
         funds.useValue(amount + debt);
         emit SettlePayableCalled(account, asset, amount, liability, debt, funds.budget);
+    }
+
+    function repay(
+        bytes32 account,
+        bytes32 liability,
+        uint debt,
+        Execution memory funds
+    ) internal override {
+        funds.useValue(debt);
+        emit RepayPayableCalled(account, liability, debt, funds.budget);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {

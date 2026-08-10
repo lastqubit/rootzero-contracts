@@ -5,7 +5,7 @@ pragma solidity ^0.8.33;
 // Import this file to inherit from the full rootzero callable host surface without managing individual paths.
 
 // Shared endpoint hooks
-import { CreditAccountHook, DebitAccountHook, PostHook, SettleHook } from "./core/Settlement.sol";
+import { CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook } from "./core/Settlement.sol";
 
 // Commands
 import { CommandBase } from "./commands/Base.sol";
@@ -17,8 +17,14 @@ import { Deposit, DepositHook, DepositPayable, DepositPayableHook } from "./comm
 import { Payout, PayoutHook } from "./commands/Payout.sol";
 import { Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook } from "./commands/Provision.sol";
 import { RecoverPayable, RecoverPayableHook } from "./commands/Recover.sol";
+import { Repay, RepayPayable, RepayPayableHook } from "./commands/Repay.sol";
 import { RelayPayable, RelayBalancePayable, RelayPayableHook } from "./commands/Relay.sol";
-import { InternalSettle, Settle, SettlePayable, SettlePayableHook } from "./commands/Settle.sol";
+import {
+    InternalSettle,
+    Settle,
+    SettlePayable,
+    SettlePayableHook
+} from "./commands/Settle.sol";
 import { Withdraw, WithdrawHook } from "./commands/Withdraw.sol";
 
 // Admin commands
@@ -47,7 +53,7 @@ import { PortPost } from "./ports/Post.sol";
 
 // Guard endpoints
 import { GuardBase } from "./guards/Base.sol";
-import { Revoke, RevokeAllowance } from "./guards/Revoke.sol";
+import { Revoke, RevokeAllowance, RevokeAsset } from "./guards/Revoke.sol";
 
 // Query endpoints
 import { QueryBase } from "./queries/Base.sol";
