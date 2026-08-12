@@ -34,7 +34,7 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
         Execution memory exec = openCommand(state, input, descriptor, 1);
         (uint portal, uint resources, bytes calldata payload) = exec.unpackRelay(Lanes.Input);
-        bytes memory context = Blocks.context(account, bytes(state), bytes(payload));
+        bytes memory context = Blocks.contextCopy(account, state, payload);
 
         relayTo(portal, resources, context, exec);
 
@@ -66,7 +66,7 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
         Execution memory exec = openCommand(state, input, descriptor, 1);
         (uint portal, uint resources, bytes calldata payload) = exec.unpackRelay(Lanes.Input);
-        bytes memory context = Blocks.context(account, bytes(state), bytes(payload));
+        bytes memory context = Blocks.contextCopy(account, state, payload);
 
         relayTo(portal, resources, context, exec);
 

@@ -24,6 +24,8 @@ struct Execution {
 
 /// @title Executions
 /// @notice Opening, decoding, output, transaction, and value helpers for executions.
+/// @dev `output*` helpers consume memory inputs; `outputCopy*` helpers copy
+/// calldata inputs directly to the output lane.
 library Executions {
     using Cursors for uint;
 
@@ -197,6 +199,21 @@ library Executions {
         exec.decoders = cur.seekAbs(end);
     }
 
+    /// @notice Validate and enter the payload of the next block in an execution decoder lane.
+    /// @dev The selected lane remains in its existing frame so callers can decode
+    /// child blocks in place. Callers should prove complete payload consumption
+    /// with `exec.expectAbs(end)` after decoding the children from the same lane.
+    /// @param exec Execution whose selected decoder cursor advances over the block header.
+    /// @param lane Execution decoder lane to select.
+    /// @param spec Expected parent block specification.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(Execution memory exec, uint8 lane, uint spec) internal pure returns (uint abs, uint end) {
+        uint cur = exec.decoders.select(lane);
+        (abs, end) = Blocks.expect(cur.absolute(), spec);
+        exec.decoders = cur.seekAbs(abs);
+    }
+
     /// @notice Require the active execution decoder to be at absolute position `abs`.
     /// @dev The most recent lane-aware decoder operation determines the active lane.
     /// @param exec Execution whose active decoder position is validated.
@@ -217,6 +234,46 @@ library Executions {
     // -------------------------------------------------------------------------
     // Fixed-width block decoding
     // -------------------------------------------------------------------------
+
+    /// @dev Return the next raw calldata word from `lane` and advance by `size` bytes.
+    function next(Execution memory exec, uint8 lane, uint size) private pure returns (bytes32 value) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(lane, size);
+        value = Blocks.read32(abs);
+    }
+
+    /// @notice Return the next raw byte from a decoder lane and advance it by one byte.
+    function next1(Execution memory exec, uint8 lane) internal pure returns (bytes1 value) {
+        value = bytes1(next(exec, lane, 1));
+    }
+
+    /// @notice Return the next two raw bytes from a decoder lane and advance it by two bytes.
+    function next2(Execution memory exec, uint8 lane) internal pure returns (bytes2 value) {
+        value = bytes2(next(exec, lane, 2));
+    }
+
+    /// @notice Return the next four raw bytes from a decoder lane and advance it by four bytes.
+    function next4(Execution memory exec, uint8 lane) internal pure returns (bytes4 value) {
+        value = bytes4(next(exec, lane, 4));
+    }
+
+    /// @notice Return the next eight raw bytes from a decoder lane and advance it by eight bytes.
+    function next8(Execution memory exec, uint8 lane) internal pure returns (bytes8 value) {
+        value = bytes8(next(exec, lane, 8));
+    }
+
+    /// @notice Return the next sixteen raw bytes from a decoder lane and advance it by sixteen bytes.
+    function next16(Execution memory exec, uint8 lane) internal pure returns (bytes16 value) {
+        value = bytes16(next(exec, lane, 16));
+    }
+
+    /// @notice Return the next raw calldata word from a decoder lane and advance it.
+    /// @param exec Execution whose selected decoder cursor advances by one word.
+    /// @param lane Execution decoder lane to select.
+    /// @return value Raw word at the selected lane's previous position.
+    function next32(Execution memory exec, uint8 lane) internal pure returns (bytes32 value) {
+        value = next(exec, lane, Sizes.Word);
+    }
 
     /// @notice Decode one fixed 32-byte payload from `lane`.
     /// @param exec Execution whose decoder is advanced.
@@ -1095,6 +1152,99 @@ library Executions {
         uint size = Sizes.B64 + Sizes.Header + bytes(body).length;
         uint i = reserve(exec, size);
         Blocks.writeSchema(exec.output, i, spec, body, name);
+    }
+
+    // -------------------------------------------------------------------------
+    // Calldata output copy helpers
+    // -------------------------------------------------------------------------
+
+    /// @notice Append a custom block to execution output by copying its payload from calldata.
+    function outputCopyBlock(Execution memory exec, uint spec, bytes calldata data) internal pure {
+        Specs.validate(spec, data.length);
+        uint size = Sizes.Header + data.length;
+        uint i = reserve(exec, size);
+        Blocks.copy(exec.output, i, Specs.key(spec), data);
+    }
+
+    /// @notice Append a LIST block to execution output by copying its payload from calldata.
+    function outputCopyList(Execution memory exec, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(exec, size);
+        Blocks.copyList(exec.output, i, value);
+    }
+
+    /// @notice Append an EVM block to execution output by copying its payload from calldata.
+    function outputCopyEvm(Execution memory exec, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(exec, size);
+        Blocks.copyEvm(exec.output, i, value);
+    }
+
+    /// @notice Append a BYTES block to execution output by copying its payload from calldata.
+    function outputCopyBytes(Execution memory exec, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(exec, size);
+        Blocks.copyBytes(exec.output, i, value);
+    }
+
+    /// @notice Append a STRING block to execution output by copying its payload from calldata.
+    function outputCopyString(Execution memory exec, string calldata value) internal pure {
+        uint size = Sizes.Header + bytes(value).length;
+        uint i = reserve(exec, size);
+        Blocks.copyString(exec.output, i, value);
+    }
+
+    /// @notice Append a STEP block to execution output by copying its nested input from calldata.
+    function outputCopyStep(Execution memory exec, uint cmd, uint resources, bytes calldata input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(exec, size);
+        Blocks.copyStep(exec.output, i, cmd, resources, input);
+    }
+
+    /// @notice Append a CALL block to execution output by copying its nested payload from calldata.
+    function outputCopyCall(Execution memory exec, uint target, uint resources, bytes calldata payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(exec, size);
+        Blocks.copyCall(exec.output, i, target, resources, payload);
+    }
+
+    /// @notice Append a RELAY block to execution output by copying its nested input from calldata.
+    function outputCopyRelay(Execution memory exec, uint portal, uint resources, bytes calldata input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(exec, size);
+        Blocks.copyRelay(exec.output, i, portal, resources, input);
+    }
+
+    /// @notice Append a DISPATCH block to execution output by copying its nested payload from calldata.
+    function outputCopyDispatch(Execution memory exec, uint portal, uint resources, bytes calldata payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(exec, size);
+        Blocks.copyDispatch(exec.output, i, portal, resources, payload);
+    }
+
+    /// @notice Append a CONTEXT block to execution output by copying its nested streams from calldata.
+    function outputCopyContext(
+        Execution memory exec,
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input
+    ) internal pure {
+        uint size = Sizes.B32 + 2 * Sizes.Header + state.length + input.length;
+        uint i = reserve(exec, size);
+        Blocks.copyContext(exec.output, i, account, state, input);
+    }
+
+    /// @notice Append a RECOVER block to execution output by copying its nested witness from calldata.
+    function outputCopyRecover(
+        Execution memory exec,
+        uint handler,
+        uint resources,
+        bytes32 recoverykey,
+        bytes calldata witness
+    ) internal pure {
+        uint size = Sizes.B96 + Sizes.Header + witness.length;
+        uint i = reserve(exec, size);
+        Blocks.copyRecover(exec.output, i, handler, resources, recoverykey, witness);
     }
 
     // -------------------------------------------------------------------------

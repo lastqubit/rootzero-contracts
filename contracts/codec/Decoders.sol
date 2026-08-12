@@ -62,6 +62,26 @@ library Decoders {
         cur.state = cur.state.seekAbs(end);
     }
 
+    /// @notice Validate and enter the payload of the next block in a cursor.
+    /// @dev The cursor remains in its existing frame so callers can decode child
+    /// blocks in place. Callers should prove complete payload consumption with
+    /// `cur.state.expectAbs(end)` after decoding the children.
+    /// @param cur Cursor advanced over the block header to its payload.
+    /// @param spec Expected parent block specification.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(Cur memory cur, uint spec) internal pure returns (uint abs, uint end) {
+        (abs, end) = Blocks.expect(cur.state.absolute(), spec);
+        cur.state = cur.state.seekAbs(abs);
+    }
+
+    /// @notice Require a decoder cursor to be at absolute position `abs`.
+    /// @param cur Cursor whose position is validated.
+    /// @param abs Expected absolute position.
+    function expectAbs(Cur memory cur, uint abs) internal pure {
+        cur.state.expectAbs(abs);
+    }
+
     /// @notice Create a child cursor over relative range `[from, to)`.
     /// @param cur Parent cursor.
     /// @param from Inclusive relative start.
@@ -225,6 +245,45 @@ library Decoders {
     // -------------------------------------------------------------------------
     // Execution-compatible fixed-width block decoding
     // -------------------------------------------------------------------------
+
+    /// @dev Return the next raw calldata word and advance by `size` bytes.
+    function next(Cur memory cur, uint size) private pure returns (bytes32 value) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(size);
+        value = Blocks.read32(abs);
+    }
+
+    /// @notice Return the next raw byte and advance the cursor by one byte.
+    function next1(Cur memory cur) internal pure returns (bytes1 value) {
+        value = bytes1(next(cur, 1));
+    }
+
+    /// @notice Return the next two raw bytes and advance the cursor by two bytes.
+    function next2(Cur memory cur) internal pure returns (bytes2 value) {
+        value = bytes2(next(cur, 2));
+    }
+
+    /// @notice Return the next four raw bytes and advance the cursor by four bytes.
+    function next4(Cur memory cur) internal pure returns (bytes4 value) {
+        value = bytes4(next(cur, 4));
+    }
+
+    /// @notice Return the next eight raw bytes and advance the cursor by eight bytes.
+    function next8(Cur memory cur) internal pure returns (bytes8 value) {
+        value = bytes8(next(cur, 8));
+    }
+
+    /// @notice Return the next sixteen raw bytes and advance the cursor by sixteen bytes.
+    function next16(Cur memory cur) internal pure returns (bytes16 value) {
+        value = bytes16(next(cur, 16));
+    }
+
+    /// @notice Return the next raw calldata word and advance the cursor.
+    /// @param cur Cursor advanced by one word.
+    /// @return value Raw word at the cursor's previous position.
+    function next32(Cur memory cur) internal pure returns (bytes32 value) {
+        value = next(cur, Sizes.Word);
+    }
 
     /// @notice Decode one fixed 32-byte payload described by `spec`.
     /// @param cur Cursor advanced past the block.

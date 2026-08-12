@@ -22,6 +22,7 @@ struct Writer {
 /// then lazily allocates and writes binary-encoded blocks sequentially.
 /// Physical allocation is rounded up to whole 32-byte words for scratch space,
 /// while the writer cursor length tracks logical capacity. Call `finish` to trim the buffer.
+/// `append*` helpers consume memory inputs; `copy*` helpers consume calldata inputs.
 library Writers {
     // -------------------------------------------------------------------------
     // Initialization helpers
@@ -495,6 +496,107 @@ library Writers {
         uint size = Sizes.B64 + Sizes.Header + bytes(body).length;
         uint i = reserve(writer, size);
         Blocks.writeSchema(writer.dst, i, spec, body, name);
+    }
+
+    // -------------------------------------------------------------------------
+    // Calldata copy helpers
+    // -------------------------------------------------------------------------
+
+    /// @notice Append arbitrary calldata bytes to the writer.
+    /// @param writer Destination writer; `i` is advanced by `data.length`.
+    /// @param data Calldata bytes to append.
+    function copy(Writer memory writer, bytes calldata data) internal pure {
+        uint i = reserve(writer, data.length, data.length);
+        Buffers.copy(writer.dst, i, data);
+    }
+
+    /// @notice Append a custom block by copying its payload from calldata.
+    function copyBlock(Writer memory writer, uint spec, bytes calldata data) internal pure {
+        Specs.validate(spec, data.length);
+        uint size = Sizes.Header + data.length;
+        uint i = reserve(writer, size);
+        Blocks.copy(writer.dst, i, Specs.key(spec), data);
+    }
+
+    /// @notice Append a LIST block by copying its payload from calldata.
+    function copyList(Writer memory writer, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.copyList(writer.dst, i, value);
+    }
+
+    /// @notice Append an EVM block by copying its payload from calldata.
+    function copyEvm(Writer memory writer, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.copyEvm(writer.dst, i, value);
+    }
+
+    /// @notice Append a BYTES block by copying its payload from calldata.
+    function copyBytes(Writer memory writer, bytes calldata value) internal pure {
+        uint size = Sizes.Header + value.length;
+        uint i = reserve(writer, size);
+        Blocks.copyBytes(writer.dst, i, value);
+    }
+
+    /// @notice Append a STRING block by copying its payload from calldata.
+    function copyString(Writer memory writer, string calldata value) internal pure {
+        uint size = Sizes.Header + bytes(value).length;
+        uint i = reserve(writer, size);
+        Blocks.copyString(writer.dst, i, value);
+    }
+
+    /// @notice Append a STEP block by copying its nested input from calldata.
+    function copyStep(Writer memory writer, uint cmd, uint resources, bytes calldata input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(writer, size);
+        Blocks.copyStep(writer.dst, i, cmd, resources, input);
+    }
+
+    /// @notice Append a CALL block by copying its nested payload from calldata.
+    function copyCall(Writer memory writer, uint target, uint resources, bytes calldata payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(writer, size);
+        Blocks.copyCall(writer.dst, i, target, resources, payload);
+    }
+
+    /// @notice Append a RELAY block by copying its nested input from calldata.
+    function copyRelay(Writer memory writer, uint portal, uint resources, bytes calldata input) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + input.length;
+        uint i = reserve(writer, size);
+        Blocks.copyRelay(writer.dst, i, portal, resources, input);
+    }
+
+    /// @notice Append a DISPATCH block by copying its nested payload from calldata.
+    function copyDispatch(Writer memory writer, uint portal, uint resources, bytes calldata payload) internal pure {
+        uint size = Sizes.B64 + Sizes.Header + payload.length;
+        uint i = reserve(writer, size);
+        Blocks.copyDispatch(writer.dst, i, portal, resources, payload);
+    }
+
+    /// @notice Append a CONTEXT block by copying its nested streams from calldata.
+    function copyContext(
+        Writer memory writer,
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input
+    ) internal pure {
+        uint size = Sizes.B32 + 2 * Sizes.Header + state.length + input.length;
+        uint i = reserve(writer, size);
+        Blocks.copyContext(writer.dst, i, account, state, input);
+    }
+
+    /// @notice Append a RECOVER block by copying its nested witness from calldata.
+    function copyRecover(
+        Writer memory writer,
+        uint handler,
+        uint resources,
+        bytes32 recoverykey,
+        bytes calldata witness
+    ) internal pure {
+        uint size = Sizes.B96 + Sizes.Header + witness.length;
+        uint i = reserve(writer, size);
+        Blocks.copyRecover(writer.dst, i, handler, resources, recoverykey, witness);
     }
 
     // -------------------------------------------------------------------------
