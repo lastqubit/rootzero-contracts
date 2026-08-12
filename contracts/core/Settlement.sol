@@ -69,7 +69,7 @@ abstract contract Settlement is PostHook, SettleHook, RepayHook, DebitAccountHoo
         bytes32 liability,
         uint debt
     ) internal virtual override {
+        repay(account, liability, debt);
         if (amount != 0) creditAccount(account, asset, amount);
-        if (debt != 0) debitAccount(account, liability, debt);
     }
 }
