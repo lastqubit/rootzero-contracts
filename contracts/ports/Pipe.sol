@@ -9,10 +9,10 @@ import {Budget} from "../execution/Budget.sol";
 
 using Executions for Execution;
 
-/// @title PortPipePayable
+/// @title PipePayablePort
 /// @notice Port that consumes CONTEXT blocks and executes each input as a step stream.
 /// Each context's input bytes are passed to the shared pipeline.
-abstract contract PortPipePayable is PortBase, Pipeline {
+abstract contract PipePayablePort is PortBase, Pipeline {
     uint private immutable descriptor;
 
     constructor() {

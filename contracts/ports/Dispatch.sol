@@ -8,9 +8,9 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortDispatchPayable
+/// @title DispatchPayablePort
 /// @notice Port endpoint that forwards DISPATCH blocks to a host-defined relay hook.
-abstract contract PortDispatchPayable is PortBase, RelayPayableHook {
+abstract contract DispatchPayablePort is PortBase, RelayPayableHook {
     uint private immutable descriptor;
 
     constructor() {
@@ -27,7 +27,7 @@ abstract contract PortDispatchPayable is PortBase, RelayPayableHook {
 
         while (exec.more()) {
             (uint portal, uint resources, bytes calldata payload) = exec.unpackDispatch(Lanes.Input);
-            relayTo(portal, resources, bytes(payload), exec);
+            relayTo(portal, resources, payload, exec);
         }
         
         return "";

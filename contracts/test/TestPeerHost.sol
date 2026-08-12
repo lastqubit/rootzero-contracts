@@ -2,18 +2,18 @@
 pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
-import { PortAllowance } from "../ports/Allowance.sol";
-import { PortRedeemBalance } from "../ports/Redeem.sol";
-import { PortCreditAccount } from "../ports/Credit.sol";
-import { PortDebitAccount } from "../ports/Debit.sol";
-import { PortPipePayable } from "../ports/Pipe.sol";
-import { PortDispatchPayable } from "../ports/Dispatch.sol";
-import { PortPost } from "../ports/Post.sol";
+import { AllowancePort } from "../ports/Allowance.sol";
+import { RedeemBalancePort } from "../ports/Redeem.sol";
+import { CreditAccountPort } from "../ports/Credit.sol";
+import { DebitAccountPort } from "../ports/Debit.sol";
+import { PipePayablePort } from "../ports/Pipe.sol";
+import { DispatchPayablePort } from "../ports/Dispatch.sol";
+import { PostPort } from "../ports/Post.sol";
 import { Settlement } from "../core/Settlement.sol";
 import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, Settlement, PortAllowance, PortRedeemBalance, PortCreditAccount, PortDebitAccount, PortPost, PortPipePayable, PortDispatchPayable {
+contract TestPortHost is Host, Settlement, AllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, PipePayablePort, DispatchPayablePort {
     event PortAllowanceCalled(uint peer, bytes32 asset, uint amount);
     event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
