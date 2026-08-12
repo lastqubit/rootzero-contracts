@@ -8,10 +8,10 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortAllowAssets
+/// @title AllowAssetsPort
 /// @notice Port that permits a list of assets on behalf of a peer host.
 /// Each ASSET block in the input calls `allowAsset`. Restricted to trusted peers.
-abstract contract PortAllowAssets is PortBase, AllowAssetsHook {
+abstract contract AllowAssetsPort is PortBase, AllowAssetsHook {
     uint private immutable descriptor;
 
     constructor() {

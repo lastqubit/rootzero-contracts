@@ -401,6 +401,51 @@ contract TestCursorHelper {
         return cur.peek(i);
     }
 
+    function testEnterAmount(bytes calldata source, uint spec)
+        external
+        pure
+        returns (bytes32 asset, uint amount, uint i, uint end)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur = Decoders.wrap(source);
+        (, end) = cur.enter(spec);
+        (asset, amount) = cur.unpackAmount();
+        cur.expectAbs(end);
+        (i, , ) = cur.state.decode();
+        end -= sourceOffset;
+    }
+
+    function testEnterWords(bytes calldata source, uint spec)
+        external
+        pure
+        returns (bytes32 first, bytes32 second)
+    {
+        Cur memory cur = Decoders.wrap(source);
+        (, uint end) = cur.enter(spec);
+        first = cur.next32();
+        second = cur.next32();
+        cur.expectAbs(end);
+    }
+
+    function testEnterSized(bytes calldata source, uint spec)
+        external
+        pure
+        returns (bytes1 a, bytes2 b, bytes4 c, bytes8 d, bytes16 e, bytes32 f)
+    {
+        Cur memory cur = Decoders.wrap(source);
+        (, uint end) = cur.enter(spec);
+        a = cur.next1();
+        b = cur.next2();
+        c = cur.next4();
+        d = cur.next8();
+        e = cur.next16();
+        f = cur.next32();
+        cur.expectAbs(end);
+    }
+
     function testPastCurrent(bytes calldata source) external pure returns (uint) {
         Cur memory cur = Decoders.wrap(source);
         return cur.past();

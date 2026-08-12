@@ -301,6 +301,11 @@ bytes1 through bytes32
 `uint` means `uint256`; `int` means `int256`. Other integer widths, unsized
 `bytes`, `string`, and array syntax are not part of the core schema DSL.
 
+Restricting fixed bytes to the power-of-two widths `bytes1`, `bytes2`,
+`bytes4`, `bytes8`, `bytes16`, and `bytes32` is under consideration, but has
+not been decided. Until that decision is made, the schema DSL continues to
+allow every `bytesN` width from 1 through 32.
+
 Integers are encoded big-endian. Signed integers use two's-complement encoding
 for their declared width. `bool` is one byte: `0x00` for false and `0x01` for
 true. `bytesN` values are encoded as exactly `N` bytes with no padding.

@@ -15,7 +15,7 @@ import { Repay, RepayPayable } from "../commands/Repay.sol";
 import { InternalSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
-import { PortPost } from "../ports/Post.sol";
+import { PostPort } from "../ports/Post.sol";
 import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
@@ -49,7 +49,7 @@ contract TestHost is
     SettlePayable,
     Settlement,
     Pipeline,
-    PortPost,
+    PostPort,
     AllowAssets,
     DenyAssets,
     Allowance,

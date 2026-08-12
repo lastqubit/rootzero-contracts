@@ -6,6 +6,7 @@ import {Cursors} from "../utils/Cursors.sol";
 /// @title Buffers
 /// @notice Allocation and finalization helpers for mutable memory byte buffers.
 /// @dev Packed buffer positions use `Cursors`; flag bit 0 denotes growth policy.
+/// `write` copies from memory, while `copy` copies directly from calldata.
 library Buffers {
     using Cursors for uint;
 
@@ -96,6 +97,19 @@ library Buffers {
         if (next > buffer.length) revert BufferOverflow();
         assembly ("memory-safe") {
             mcopy(add(add(buffer, 0x20), i), add(value, 0x20), mload(value))
+        }
+    }
+
+    /// @notice Copy raw calldata bytes to byte offset `i`.
+    /// @param buffer Destination buffer.
+    /// @param i Destination byte offset.
+    /// @param value Calldata bytes to copy.
+    /// @return next Position immediately after the copied bytes.
+    function copy(bytes memory buffer, uint i, bytes calldata value) internal pure returns (uint next) {
+        next = i + value.length;
+        if (next > buffer.length) revert BufferOverflow();
+        assembly ("memory-safe") {
+            calldatacopy(add(add(buffer, 0x20), i), value.offset, value.length)
         }
     }
 

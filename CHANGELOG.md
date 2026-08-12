@@ -3,6 +3,63 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.19.0
+
+### Breaking Changes
+
+- Renamed port endpoint contracts from the `Port*` prefix convention to the
+  `*Port` postfix convention: `PortAllowAssets`, `PortAllowance`,
+  `PortCreditAccount`, `PortDebitAccount`, `PortDenyAssets`,
+  `PortDispatchPayable`, `PortPipePayable`, `PortPost`, and
+  `PortRedeemBalance` are now `AllowAssetsPort`, `AllowancePort`,
+  `CreditAccountPort`, `DebitAccountPort`, `DenyAssetsPort`,
+  `DispatchPayablePort`, `PipePayablePort`, `PostPort`, and
+  `RedeemBalancePort` respectively. Endpoint selectors are unchanged.
+- Removed `Blocks.readUint`; cast `uint(Blocks.read32(abs))` when an unchecked
+  absolute word read is required, or use the new cursor-consuming `next32`
+  helpers while decoding.
+- `Cursors.advance` and `Cursors.slice` now assume the documented packed-cursor
+  invariant `i <= len` instead of pre-validating manually constructed cursor
+  words. Invalid raw cursor words may now produce an arithmetic panic rather
+  than `Cursors.OutOfBounds`.
+
+### Added
+
+- Added `enter` and `expectAbs` to `Decoders` and `Executions` for entering a
+  parent payload, decoding its children in place, and proving exact final
+  consumption.
+- Added consuming `next1`, `next2`, `next4`, `next8`, `next16`, and `next32`
+  helpers to `Decoders` and `Executions` for compact fixed-width schema fields.
+- Added calldata-copy encoding across `Buffers`, `Blocks`, `Writers`, and
+  `Executions`. In-place helpers use `copy*`, execution helpers use
+  `outputCopy*`, and allocating block factories use the `*Copy` suffix.
+- Added allocating factories for LIST, EVM, CONTEXT, and RECOVER blocks, plus
+  memory and calldata factory pairs for dynamic leaf and composite blocks.
+
+### Changed
+
+- Block factories now allocate once and delegate to their canonical `write*`
+  or `copy*` encoder instead of assembling nested intermediate byte arrays.
+- Relay and dispatch paths preserve calldata slices until their destination
+  requires memory, avoiding unnecessary explicit calldata-to-memory casts.
+- `Settlement.settle` now implements its documented behavior by routing the
+  liability leg through the virtual `repay` primitive before crediting the
+  asset leg.
+- Documented that restricting schema `bytesN` fields to power-of-two widths is
+  under consideration; all widths from `bytes1` through `bytes32` remain valid.
+
+### Upgrade Compatibility
+
+- Update inherited port contract names and their imports to the new `*Port`
+  names. No endpoint selector or wire-format migration is required.
+- Replace `Blocks.readUint(abs)` with `uint(Blocks.read32(abs))`, or migrate
+  sequential custom decoders to `enter`, `next*`, and `expectAbs`.
+- Code that constructs packed cursors manually must establish `i <= len`
+  before calling navigation helpers. Normal cursor constructors and composition
+  helpers already preserve this invariant.
+- `Settlement` subclasses that override `repay` will now have that override
+  invoked by `settle`, matching the documented extension point.
+
 ## 1.18.0
 
 ### Added

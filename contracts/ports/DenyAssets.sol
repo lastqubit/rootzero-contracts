@@ -8,10 +8,10 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortDenyAssets
+/// @title DenyAssetsPort
 /// @notice Port that blocks a list of assets on behalf of a peer host.
 /// Each ASSET block in the input calls `denyAsset`. Restricted to trusted peers.
-abstract contract PortDenyAssets is PortBase, DenyAssetsHook {
+abstract contract DenyAssetsPort is PortBase, DenyAssetsHook {
     uint private immutable descriptor;
 
     constructor() {

@@ -8,10 +8,10 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortDebitAccount
+/// @title DebitAccountPort
 /// @notice Port that lets a trusted peer debit supplied accounts directly.
 /// Each ACCOUNT_AMOUNT block calls `debitAccount` for its account.
-abstract contract PortDebitAccount is PortBase, DebitAccountHook {
+abstract contract DebitAccountPort is PortBase, DebitAccountHook {
     uint private immutable descriptor;
 
     constructor() {

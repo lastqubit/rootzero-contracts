@@ -68,7 +68,7 @@ describe("Cursors", () => {
       const source = concat(prefix, word);
 
       expect(await blocksHelper.read32(source, 3)).to.equal(word);
-      expect(await blocksHelper.readUint(source, 3)).to.equal(amount);
+      expect(await blocksHelper.read32AsUint(source, 3)).to.equal(amount);
     });
 
     it("writeBalanceBlock round-trips", async () => {
@@ -451,6 +451,77 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InvalidLane");
     });
 
+    it("enters a parent on one execution lane and preserves the paired lane", async () => {
+      const stateAsset = ethers.zeroPadValue("0x31", 32);
+      const inputAsset = ethers.zeroPadValue("0x32", 32);
+      const state = encodeBalanceBlock(stateAsset, 41n);
+      const input = encodeListBlock(encodeAmountBlock(inputAsset, 42n));
+
+      expect(await blocksHelper.executionEnterAmount(state, input))
+        .to.deep.equal([stateAsset, 41n, inputAsset, 42n]);
+    });
+
+    it("next32 consumes raw words from an entered execution parent", async () => {
+      const first = ethers.zeroPadValue("0x41", 32);
+      const second = ethers.zeroPadValue("0x42", 32);
+      const input = encodeListBlock(first, second);
+
+      expect(await blocksHelper.executionEnterWords(input)).to.deep.equal([first, second]);
+    });
+
+    it("consumes power-of-two byte widths from an entered execution parent", async () => {
+      const fields = [
+        "0x01",
+        "0x0203",
+        "0x04050607",
+        "0x08090a0b0c0d0e0f",
+        "0x101112131415161718191a1b1c1d1e1f",
+        "0x202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      ];
+      const input = encodeListBlock(...fields);
+
+      expect(await blocksHelper.executionEnterSized(input)).to.deep.equal(fields);
+    });
+
+    it("copies calldata payloads through factories, writers, and executions", async () => {
+      for (const value of ["0x", "0x123456"]) {
+        const expected = concat(
+          encodeBlock(localKey(1), value),
+          encodeListBlock(value),
+          encodeEvmBlock(value),
+          encodeBytesBlock(value),
+          encodeStepBlock(1n, 2n, value),
+          encodeCallBlock(3n, 4n, value),
+          encodeRelayBlock(5n, 6n, value),
+          encodeDispatchBlock(7n, 8n, value),
+          encodeContextBlock(ethers.zeroPadValue("0x09", 32), value, value),
+          encodeRecoverBlock(10n, 11n, ethers.zeroPadValue("0x0c", 32), value),
+        );
+
+        expect(await blocksHelper.factoryCopies(value)).to.equal(expected);
+        expect(await blocksHelper.writerCopies(value)).to.equal(expected);
+        expect(await blocksHelper.executionCopies(value)).to.equal(expected);
+      }
+    });
+
+    it("copies raw calldata into buffers and writers", async () => {
+      for (const value of ["0x", "0x123456"]) {
+        expect(await blocksHelper.writerCopy(value)).to.equal(concat("0xaa", value, "0xbb"));
+      }
+
+      expect(await blocksHelper.bufferCopy(7, 2, "0x123456"))
+        .to.deep.equal(["0x00001234560000", 5n]);
+      await expect(blocksHelper.bufferCopy(4, 2, "0x123456"))
+        .to.be.revertedWithCustomError(blocksHelper, "BufferOverflow");
+    });
+
+    it("copies calldata strings through factories, writers, and executions", async () => {
+      for (const value of ["", "rootzero ⚡"]) {
+        const expected = encodeStringBlock(value);
+        expect(await blocksHelper.stringCopies(value)).to.deep.equal([expected, expected, expected]);
+      }
+    });
+
     it("reserves grouped transaction capacity plus one refund slot", async () => {
       const transactions = await blocksHelper.executionTransactions(2, 3, 7);
       expect(ethers.getBytes(transactions).length).to.equal(7 * 136);
@@ -797,6 +868,51 @@ describe("Cursors", () => {
     it("peek returns the next key and payload length", async () => {
       const source = encodeBalanceBlock(asset, amount);
       expect(await helper.testPeek(source, 0n)).to.deep.equal([Keys.Balance, 64n]);
+    });
+
+    it("enter advances into a parent payload so child blocks can be unpacked", async () => {
+      const child = encodeAmountBlock(asset, amount);
+      const source = encodeListBlock(child);
+
+      expect(await helper.testEnterAmount(source, exactSpec(Keys.List, ethers.getBytes(child).length)))
+        .to.deep.equal([
+          asset,
+          amount,
+          BigInt(ethers.getBytes(source).length),
+          BigInt(ethers.getBytes(source).length),
+        ]);
+    });
+
+    it("next32 consumes raw words from an entered decoder parent", async () => {
+      const first = ethers.zeroPadValue("0x51", 32);
+      const second = ethers.zeroPadValue("0x52", 32);
+      const source = encodeListBlock(first, second);
+
+      expect(await helper.testEnterWords(source, exactSpec(Keys.List, 64)))
+        .to.deep.equal([first, second]);
+    });
+
+    it("consumes power-of-two byte widths from an entered decoder parent", async () => {
+      const fields = [
+        "0x01",
+        "0x0203",
+        "0x04050607",
+        "0x08090a0b0c0d0e0f",
+        "0x101112131415161718191a1b1c1d1e1f",
+        "0x202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      ];
+      const source = encodeListBlock(...fields);
+
+      expect(await helper.testEnterSized(source, exactSpec(Keys.List, 63)))
+        .to.deep.equal(fields);
+    });
+
+    it("enter validates the parent specification", async () => {
+      const child = encodeAmountBlock(asset, amount);
+      const source = encodeListBlock(child);
+
+      await expect(helper.testEnterAmount(source, exactSpec(Keys.Bytes, ethers.getBytes(child).length)))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("past returns the offset immediately past the current block without advancing", async () => {

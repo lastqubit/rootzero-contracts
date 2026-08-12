@@ -149,6 +149,128 @@ contract TestBlocksHelper is Action {
         return Executions.unpackPosition(exec, Lanes.State);
     }
 
+    function executionEnterAmount(
+        bytes calldata state,
+        bytes calldata input
+    ) external view returns (bytes32 stateAsset, uint stateAmount, bytes32 inputAsset, uint inputAmount) {
+        uint descriptor = Descriptors.create(Specs.Balance, Specs.List, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.open(state, input, descriptor, 1);
+        (, uint end) = Executions.enter(exec, Lanes.Input, Specs.List);
+        (stateAsset, stateAmount) = Executions.unpackBalance(exec, Lanes.State);
+        (inputAsset, inputAmount) = Executions.unpackAmount(exec, Lanes.Input);
+        Executions.expectAbs(exec, end);
+    }
+
+    function executionEnterWords(bytes calldata input) external view returns (bytes32 first, bytes32 second) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        (, uint end) = Executions.enter(exec, Lanes.Input, Specs.List);
+        first = Executions.next32(exec, Lanes.Input);
+        second = Executions.next32(exec, Lanes.Input);
+        Executions.expectAbs(exec, end);
+    }
+
+    function executionEnterSized(bytes calldata input)
+        external
+        view
+        returns (bytes1 a, bytes2 b, bytes4 c, bytes8 d, bytes16 e, bytes32 f)
+    {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        (, uint end) = Executions.enter(exec, Lanes.Input, Specs.List);
+        a = Executions.next1(exec, Lanes.Input);
+        b = Executions.next2(exec, Lanes.Input);
+        c = Executions.next4(exec, Lanes.Input);
+        d = Executions.next8(exec, Lanes.Input);
+        e = Executions.next16(exec, Lanes.Input);
+        f = Executions.next32(exec, Lanes.Input);
+        Executions.expectAbs(exec, end);
+    }
+
+    function writerCopies(bytes calldata value) external pure returns (bytes memory) {
+        Writer memory writer = Writers.init(0, true);
+        writer.copyBlock(Specs.create(TestKey, 0, 0, 0), value);
+        writer.copyList(value);
+        writer.copyEvm(value);
+        writer.copyBytes(value);
+        writer.copyStep(1, 2, value);
+        writer.copyCall(3, 4, value);
+        writer.copyRelay(5, 6, value);
+        writer.copyDispatch(7, 8, value);
+        writer.copyContext(bytes32(uint(9)), value, value);
+        writer.copyRecover(10, 11, bytes32(uint(12)), value);
+        return writer.finish();
+    }
+
+    function writerCopy(bytes calldata value) external pure returns (bytes memory) {
+        Writer memory writer = Writers.init(0, true);
+        writer.append32(bytes32(uint(0xaa) << 248), 1);
+        writer.copy(value);
+        writer.append32(bytes32(uint(0xbb) << 248), 1);
+        return writer.finish();
+    }
+
+    function stringCopies(
+        string calldata value
+    ) external view returns (bytes memory factory, bytes memory written, bytes memory output) {
+        factory = Blocks.textCopy(value);
+
+        Writer memory writer = Writers.init(Specs.String, 1);
+        writer.copyString(value);
+        written = writer.finish();
+
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.String, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputCopyString(exec, value);
+        output = Executions.finish(exec);
+    }
+
+    function bufferCopy(
+        uint capacity,
+        uint offset,
+        bytes calldata value
+    ) external pure returns (bytes memory buffer, uint next) {
+        buffer = new bytes(capacity);
+        next = Buffers.copy(buffer, offset, value);
+    }
+
+    function factoryCopies(bytes calldata value) external pure returns (bytes memory) {
+        bytes memory leaves = bytes.concat(
+            Blocks.createCopy(TestKey, value),
+            Blocks.listCopy(value),
+            Blocks.evmCopy(value),
+            Blocks.dataCopy(value)
+        );
+        bytes memory composites = bytes.concat(
+            Blocks.stepCopy(1, 2, value),
+            Blocks.callCopy(3, 4, value),
+            Blocks.relayCopy(5, 6, value),
+            Blocks.dispatchCopy(7, 8, value)
+        );
+        return bytes.concat(
+            leaves,
+            composites,
+            Blocks.contextCopy(bytes32(uint(9)), value, value),
+            Blocks.recoverCopy(10, 11, bytes32(uint(12)), value)
+        );
+    }
+
+    function executionCopies(bytes calldata value) external view returns (bytes memory) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Bytes, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputCopyBlock(exec, Specs.create(TestKey, 0, 0, 0), value);
+        Executions.outputCopyList(exec, value);
+        Executions.outputCopyEvm(exec, value);
+        Executions.outputCopyBytes(exec, value);
+        Executions.outputCopyStep(exec, 1, 2, value);
+        Executions.outputCopyCall(exec, 3, 4, value);
+        Executions.outputCopyRelay(exec, 5, 6, value);
+        Executions.outputCopyDispatch(exec, 7, 8, value);
+        Executions.outputCopyContext(exec, bytes32(uint(9)), value, value);
+        Executions.outputCopyRecover(exec, 10, 11, bytes32(uint(12)), value);
+        return Executions.finish(exec);
+    }
+
     function lazyBalance(bytes32 asset, uint amount) external pure returns (bytes memory) {
         Writer memory writer = Writers.init(Specs.Balance, 1);
         writer.appendBalance(asset, amount);
@@ -256,8 +378,8 @@ contract TestBlocksHelper is Action {
         return Blocks.read32(position(source) + i);
     }
 
-    function readUint(bytes calldata source, uint i) external pure returns (uint) {
-        return Blocks.readUint(position(source) + i);
+    function read32AsUint(bytes calldata source, uint i) external pure returns (uint) {
+        return uint(Blocks.read32(position(source) + i));
     }
 
     function expectAbsolute(

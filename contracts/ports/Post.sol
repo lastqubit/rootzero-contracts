@@ -10,10 +10,10 @@ import {Actions} from "../utils/Actions.sol";
 
 using Executions for Execution;
 
-/// @title PortPost
+/// @title PostPort
 /// @notice Port that posts peer-supplied TRANSACTION blocks through debit and credit hooks.
 /// Each TRANSACTION block calls `debitAccount` for `from` and `creditAccount` for `to`.
-abstract contract PortPost is PortBase, PostHook, Action {
+abstract contract PostPort is PortBase, PostHook, Action {
     uint private immutable descriptor;
 
     constructor() {

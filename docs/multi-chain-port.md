@@ -414,7 +414,7 @@ Implementation guidance:
 When a target chain cannot express the Solidity structure directly, adapt the implementation shape but keep the protocol shape. For example, Solidity uses inheritance to compose contracts:
 
 ```solidity
-abstract contract PortPipePayable is PortBase, Pipeline
+abstract contract PipePayablePort is PortBase, Pipeline
 ```
 
 Most non-EVM chains do not have Solidity-style contract inheritance. A port can use Rust traits, modules, helper functions, account structs, or explicit composition instead. The important part is that the resulting host still has the same responsibilities and behavior as the EVM composition.

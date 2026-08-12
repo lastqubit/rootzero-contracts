@@ -16,11 +16,11 @@ abstract contract RedeemBalanceHook {
     function redeemBalance(uint peer, bytes32 asset, uint amount) internal virtual;
 }
 
-/// @title PortRedeemBalance
+/// @title RedeemBalancePort
 /// @notice Port that redeems balance state from a peer host into local assets.
 /// Each BALANCE block in the input calls `redeemBalance(peer, asset, amount)`.
 /// Restricted to trusted peers.
-abstract contract PortRedeemBalance is PortBase, RedeemBalanceHook {
+abstract contract RedeemBalancePort is PortBase, RedeemBalanceHook {
     uint private immutable descriptor;
 
     constructor() {

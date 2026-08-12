@@ -8,10 +8,10 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortCreditAccount
+/// @title CreditAccountPort
 /// @notice Port that lets a trusted peer credit supplied accounts directly.
 /// Each ACCOUNT_AMOUNT block calls `creditAccount` for its account.
-abstract contract PortCreditAccount is PortBase, CreditAccountHook {
+abstract contract CreditAccountPort is PortBase, CreditAccountHook {
     uint private immutable descriptor;
 
     constructor() {

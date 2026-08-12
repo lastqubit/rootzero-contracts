@@ -36,6 +36,11 @@ struct Cur {
 /// to marks. A zero mark identifies the empty cursor at position zero; `before`
 /// therefore treats it as already reached.
 ///
+/// Cursor navigation assumes packed cursor inputs satisfy `i <= len`.
+/// Constructors and composition helpers establish this invariant, and navigation
+/// helpers preserve it. Manually constructing or modifying packed cursor words
+/// may cause arithmetic panics instead of cursor-specific errors.
+///
 /// The zero word represents an absent cursor.
 library Cursors {
     /// @dev A cursor position exceeds its logical length.
@@ -214,11 +219,12 @@ library Cursors {
     }
 
     /// @notice Advance the current position of the lower cursor.
+    /// @dev Assumes `cur` satisfies the cursor invariant `i <= len`.
     /// @param cur Packed cursor or cursor pair.
     /// @param amount Number of bytes to advance.
     /// @return updated Cursor advanced by `amount`.
     function advance(uint cur, uint amount) internal pure returns (uint updated) {
-        uint i = uint32(validate(cur));
+        uint i = uint32(cur);
         uint len = uint32(cur >> 64);
         if (amount > len - i) revert OutOfBounds();
         updated = cur + amount;
@@ -236,14 +242,15 @@ library Cursors {
 
     /// @notice Create a child cursor over `[start, end)` within the lower cursor.
     /// @dev The child starts at position zero, has no recorded count, and uses the
-    /// supplied tag. Any higher cursor is omitted.
+    /// supplied tag. Any higher cursor is omitted. Assumes `cur` satisfies the
+    /// cursor invariant `i <= len`.
     /// @param cur Parent cursor or cursor pair.
     /// @param start Child start relative to the parent base.
     /// @param end Child exclusive end relative to the parent base.
     /// @param tag Child identity tag.
     /// @return child Packed child cursor.
     function slice(uint cur, uint start, uint end, uint8 tag) internal pure returns (uint child) {
-        (, uint offset, uint len) = decode(validate(cur));
+        (, uint offset, uint len) = decode(cur);
         if (start > end || end > len) revert OutOfBounds();
         child = create(offset + start, end - start, 0, 0, tag);
     }

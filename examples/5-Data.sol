@@ -10,7 +10,7 @@ pragma solidity ^0.8.33;
 // fixed `host` ID followed by an
 // AMOUNT child block in its tail.
 
-import {Blocks, CommandBase, Execution, Executions, HostAmount, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
+import {CommandBase, Execution, Executions, HostAmount, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 
@@ -32,12 +32,12 @@ abstract contract MyCommand is CommandBase {
         Execution memory exec,
         uint8 lane
     ) private view returns (uint peer, bytes32 asset, uint amount) {
-        (uint abs, ) = exec.consume(lane, inputSpec);
+        (, uint end) = exec.enter(lane, inputSpec);
 
-        peer = Blocks.readUint(abs);
-        (asset, amount) = Blocks.unpackAmount(abs + 32);
+        peer = uint(exec.next32(lane));
+        (asset, amount) = exec.unpackAmount(lane);
 
-        exec.expectAbs(abs + 32 + Sizes.Amount);
+        exec.expectAbs(end);
     }
 
     function myCommand(

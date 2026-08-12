@@ -8,11 +8,11 @@ import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title PortAllowance
+/// @title AllowancePort
 /// @notice Port that lets a trusted peer host input or refresh its own allowance.
 /// Each AMOUNT block in the input is scoped to the peer host and passed to the
 /// shared allowance hook as a host-scoped allowance. Restricted to trusted peers.
-abstract contract PortAllowance is PortBase, AllowanceHook {
+abstract contract AllowancePort is PortBase, AllowanceHook {
     uint private immutable descriptor;
 
     constructor() {
