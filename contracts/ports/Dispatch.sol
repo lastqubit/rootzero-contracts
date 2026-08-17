@@ -2,23 +2,34 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {RelayPayableHook} from "../commands/Relay.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
+/// @notice Hook implemented by hosts that forward funded dispatch payloads.
+abstract contract DispatchPayableHook {
+    /// @notice Override to dispatch an encoded payload to `portal`.
+    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param resources Chain-specific destination resources. EVM adapters
+    /// may interpret this as packed execution gas and destination value.
+    /// @param payload Encoded payload ready for the transport layer.
+    /// @param funds Execution used for source value available for transport fees
+    /// and destination resource funding.
+    function dispatchTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal virtual;
+}
+
 /// @title DispatchPayablePort
-/// @notice Port endpoint that forwards DISPATCH blocks to a host-defined relay hook.
-abstract contract DispatchPayablePort is PortBase, RelayPayableHook {
+/// @notice Port endpoint that forwards DISPATCH blocks to a host-defined dispatch hook.
+abstract contract DispatchPayablePort is PortBase, DispatchPayableHook {
     uint private immutable descriptor;
 
     constructor() {
         (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, true);
     }
 
-    /// @notice Forward peer-supplied dispatches to the host-defined relay hook.
-    /// @dev Relay hooks receive the shared top-level source value
+    /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.
+    /// @dev Dispatch hooks receive the shared top-level source value
     ///      budget. Any `msg.value` not spent by the hook remains on this host.
     /// @param data DISPATCH block stream supplied by the trusted peer.
     /// @return Empty response bytes.
@@ -27,7 +38,7 @@ abstract contract DispatchPayablePort is PortBase, RelayPayableHook {
 
         while (exec.more()) {
             (uint portal, uint resources, bytes calldata payload) = exec.unpackDispatch(Lanes.Input);
-            relayTo(portal, resources, payload, exec);
+            dispatchTo(portal, resources, payload, exec);
         }
         
         return "";

@@ -187,7 +187,7 @@ Each chain gets its own `ids` module:
 
 | Chain | Local constructor examples |
 |-------|----------------------------|
-| EVM | `toHost(address)`, `toCommand(selector, address)` |
+| EVM | `toHost(address)`, `toCommand(name, address)` |
 | Solana | `to_host(program_id)`, `to_command(discriminator, program_id)` |
 | CosmWasm | `to_host(contract_addr)`, `to_command(message_tag, contract_addr)` |
 | NEAR | `to_host(account_id)`, `to_command(method_tag, account_id)` |

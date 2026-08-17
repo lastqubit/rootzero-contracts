@@ -45,11 +45,11 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     }
 }
 
-/// @title InternalCreditAccount
+/// @title CreditAccountInternal
 /// @notice Extends the advertised credit-account command with memory-state pipeline dispatch.
 /// @dev This adapter is not a separate command. It uses the command ID and account hook
 /// inherited from `CreditAccount` while accepting the state location used by `Pipeline`.
-abstract contract InternalCreditAccount is CreditAccount {
+abstract contract CreditAccountInternal is CreditAccount {
     /// @notice Execute the inherited credit-account command from an internal pipeline.
     /// @param account Account credited by each balance.
     /// @param state BALANCE block stream held in pipeline memory.

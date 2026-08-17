@@ -5,7 +5,6 @@ import {InputEndpointBase} from "../core/Endpoint.sol";
 import {GuardianAccess} from "../core/Access.sol";
 import {Specs} from "../codec/Specs.sol";
 import {Nodes} from "../utils/Nodes.sol";
-import {Selectors} from "../utils/Selectors.sol";
 
 /// @title GuardBase
 /// @notice Abstract base for guardian-only direct host actions.
@@ -27,7 +26,7 @@ abstract contract GuardBase is GuardianAccess, InputEndpointBase {
         string memory name,
         uint input
     ) internal returns (uint id, uint descriptor) {
-        id = Nodes.toGuard(Selectors.guard(name), address(this));
+        id = Nodes.toGuard(name, address(this));
         descriptor = endpoint(id, name, Specs.Empty, input, Specs.Empty, 0, 0);
     }
 }

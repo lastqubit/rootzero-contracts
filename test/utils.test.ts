@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { deploy, getSigner, getProvider } from "./helpers/setup.js";
-import { commandSelector, encodeTxBlock, encodeUserAccount, guardSelector, portSelector } from "./helpers/blocks.js";
+import { encodeTxBlock, encodeUserAccount } from "./helpers/blocks.js";
 
 async function expectCustomError(promise: Promise<unknown>, name: string) {
   try {
@@ -64,19 +64,6 @@ describe("Utils", () => {
 
       expect(await utils.testMatchKeccak(id, preimage)).to.equal(id);
       await expectCustomError(utils.testMatchKeccak(ethers.ZeroHash, preimage), "InvalidId");
-    });
-  });
-
-  describe("Selectors", () => {
-    it("derives canonical selectors for every endpoint type", async () => {
-      const direct = ethers.dataSlice(ethers.id("example(bytes)"), 0, 4);
-
-      expect(await utils.testCommandSelector("example")).to.equal(
-        ethers.dataSlice(ethers.id("example(bytes32,bytes,bytes)"), 0, 4),
-      );
-      expect(await utils.testPortSelector("example")).to.equal(direct);
-      expect(await utils.testQuerySelector("example")).to.equal(direct);
-      expect(await utils.testGuardSelector("example")).to.equal(direct);
     });
   });
 
@@ -318,9 +305,24 @@ describe("Utils", () => {
       expect(await utils.testIsHost(id)).to.be.true;
     });
 
+    it("endpoint IDs derive canonical selectors from names", async () => {
+      const command: bigint = await utils.testToCommandId("example", signerAddress);
+      const port: bigint = await utils.testToPortId("example", signerAddress);
+      const query: bigint = await utils.testToQueryId("example", signerAddress);
+      const guard: bigint = await utils.testToGuardId("example", signerAddress);
+      const embeddedSelector = (node: bigint) => (node >> 160n) & 0xffffffffn;
+      const commandSelector = BigInt(ethers.dataSlice(ethers.id("example(bytes32,bytes,bytes)"), 0, 4));
+      const directSelector = BigInt(ethers.dataSlice(ethers.id("example(bytes)"), 0, 4));
+
+      expect(embeddedSelector(command)).to.equal(commandSelector);
+      expect(embeddedSelector(port)).to.equal(directSelector);
+      expect(embeddedSelector(query)).to.equal(directSelector);
+      expect(embeddedSelector(guard)).to.equal(directSelector);
+    });
+
     it("EVM node helpers accept supported EVM nodes", async () => {
       const host: bigint = await utils.testToHostId(signerAddress);
-      const command: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+      const command: bigint = await utils.testToCommandId("deposit", signerAddress);
 
       expect(await utils.testIsEvmNode(host)).to.be.true;
       expect(await utils.testIsEvmNode(command)).to.be.true;
@@ -359,7 +361,7 @@ describe("Utils", () => {
     });
 
     it("isHost returns false for command ID", async () => {
-      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+      const cid: bigint = await utils.testToCommandId("deposit", signerAddress);
       expect(await utils.testIsHost(cid)).to.be.false;
     });
 
@@ -370,7 +372,7 @@ describe("Utils", () => {
     });
 
     it("isCommand returns true for command ID", async () => {
-      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+      const cid: bigint = await utils.testToCommandId("deposit", signerAddress);
       expect(await utils.testIsCommand(cid)).to.be.true;
     });
 
@@ -380,12 +382,12 @@ describe("Utils", () => {
     });
 
     it("isPort returns true for port ID", async () => {
-      const pid: bigint = await utils.testToPortId(portSelector("portAllowance"), signerAddress);
+      const pid: bigint = await utils.testToPortId("portAllowance", signerAddress);
       expect(await utils.testIsPort(pid)).to.be.true;
     });
 
     it("isGuard returns true for guard ID", async () => {
-      const gid: bigint = await utils.testToGuardId(guardSelector("revoke"), signerAddress);
+      const gid: bigint = await utils.testToGuardId("revoke", signerAddress);
       expect(await utils.testIsGuard(gid)).to.be.true;
     });
 
@@ -428,19 +430,19 @@ describe("Utils", () => {
     });
 
     it("command succeeds for command ID", async () => {
-      const cid: bigint = await utils.testToCommandId(commandSelector("deposit"), signerAddress);
+      const cid: bigint = await utils.testToCommandId("deposit", signerAddress);
       const result: bigint = await utils.testCommandNode(cid);
       expect(result).to.equal(cid);
     });
 
     it("port succeeds for port ID", async () => {
-      const pid: bigint = await utils.testToPortId(portSelector("portAllowance"), signerAddress);
+      const pid: bigint = await utils.testToPortId("portAllowance", signerAddress);
       const result: bigint = await utils.testPortNode(pid);
       expect(result).to.equal(pid);
     });
 
     it("guard succeeds for guard ID", async () => {
-      const gid: bigint = await utils.testToGuardId(guardSelector("revoke"), signerAddress);
+      const gid: bigint = await utils.testToGuardId("revoke", signerAddress);
       const result: bigint = await utils.testGuardNode(gid);
       expect(result).to.equal(gid);
     });

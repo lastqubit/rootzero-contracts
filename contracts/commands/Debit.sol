@@ -49,11 +49,11 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     }
 }
 
-/// @title InternalDebitAccount
+/// @title DebitAccountInternal
 /// @notice Extends the advertised debit-account command with memory-state pipeline dispatch.
 /// @dev This adapter is not a separate command. It uses the command ID and account hook
 /// inherited from `DebitAccount` while accepting the state location used by `Pipeline`.
-abstract contract InternalDebitAccount is DebitAccount {
+abstract contract DebitAccountInternal is DebitAccount {
     /// @notice Execute the inherited debit-account command from an internal pipeline.
     /// @param account Account whose funds are debited.
     /// @param state Empty pipeline state required by the command schema.

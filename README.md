@@ -378,8 +378,8 @@ command batching — and `resources` is a chain-specific word interpreted by the
 portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
 shared budget), so the same pipeline bytes are meaningful to every port.
 
-Hosts that implement a pipeline locally can inherit `InternalDebitAccount`,
-`InternalCreditAccount`, and `InternalSettle` to advertise the canonical command
+Hosts that implement a pipeline locally can inherit `DebitAccountInternal`,
+`CreditAccountInternal`, and `SettleInternal` to advertise the canonical command
 endpoints while routing their local command IDs through `executeDebitAccount`,
 `executeCreditAccount`, and `executeSettle`. These adapters consume the
 memory-backed pipeline state directly and avoid an external self-call. Pass the

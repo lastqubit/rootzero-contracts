@@ -45,7 +45,7 @@ contract TestPortHost is Host, Settlement, AllowancePort, RedeemBalancePort, Cre
         settle(account, position.asset, position.amount, position.liability, position.debt);
     }
 
-    function relayTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {
+    function dispatchTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {
         emit PortDispatchCalled(portal, payload, resources, funds.budget);
     }
 

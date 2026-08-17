@@ -5,7 +5,6 @@ import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { Selectors } from "../utils/Selectors.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
 import { CommanderAccess } from "../core/Access.sol";
@@ -36,22 +35,6 @@ contract TestUtils is CommandBase, CommanderAccess {
 
     function testMatchKeccak(bytes32 id, bytes memory preimage) external pure returns (bytes32) {
         return Ids.matchKeccak(id, preimage);
-    }
-
-    function testCommandSelector(string memory name) external pure returns (bytes4) {
-        return Selectors.command(name);
-    }
-
-    function testPortSelector(string memory name) external pure returns (bytes4) {
-        return Selectors.port(name);
-    }
-
-    function testQuerySelector(string memory name) external pure returns (bytes4) {
-        return Selectors.query(name);
-    }
-
-    function testGuardSelector(string memory name) external pure returns (bytes4) {
-        return Selectors.guard(name);
     }
 
     function testToAdminAccount(address addr) external view returns (bytes32) {
@@ -166,16 +149,20 @@ contract TestUtils is CommandBase, CommanderAccess {
         return Nodes.localChain();
     }
 
-    function testToCommandId(bytes4 selector, address addr) external view returns (uint) {
-        return Nodes.toCommand(selector, addr);
+    function testToCommandId(string memory name, address addr) external view returns (uint) {
+        return Nodes.toCommand(name, addr);
     }
 
-    function testToPortId(bytes4 selector, address addr) external view returns (uint) {
-        return Nodes.toPort(selector, addr);
+    function testToPortId(string memory name, address addr) external view returns (uint) {
+        return Nodes.toPort(name, addr);
     }
 
-    function testToGuardId(bytes4 selector, address addr) external view returns (uint) {
-        return Nodes.toGuard(selector, addr);
+    function testToQueryId(string memory name, address addr) external view returns (uint) {
+        return Nodes.toQuery(name, addr);
+    }
+
+    function testToGuardId(string memory name, address addr) external view returns (uint) {
+        return Nodes.toGuard(name, addr);
     }
 
     function testIsHost(uint node) external pure returns (bool) {

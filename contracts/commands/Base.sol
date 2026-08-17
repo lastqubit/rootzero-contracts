@@ -11,7 +11,6 @@ import {ReceivedEvent} from "../events/Received.sol";
 import {Actions} from "../utils/Actions.sol";
 import {Descriptors} from "../codec/Descriptors.sol";
 import {Nodes} from "../utils/Nodes.sol";
-import {Selectors} from "../utils/Selectors.sol";
 import {Cursors} from "../utils/Cursors.sol";
 
 using Executions for Execution;
@@ -72,7 +71,7 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
     /// @return id Command node ID.
     /// @return published Published endpoint descriptor.
     function command(string memory name, uint descriptor) internal returns (uint id, uint published) {
-        id = Nodes.toCommand(Selectors.command(name), address(this));
+        id = Nodes.toCommand(name, address(this));
         published = endpoint(id, name, descriptor);
     }
 

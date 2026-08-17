@@ -5,9 +5,9 @@ pragma solidity ^0.8.33;
 // their package barrels.
 import {
     CommandBase,
-    InternalCreditAccount,
-    InternalDebitAccount,
-    InternalSettle,
+    CreditAccountInternal,
+    DebitAccountInternal,
+    SettleInternal,
     Repay,
     RepayHook,
     RepayPayable,
