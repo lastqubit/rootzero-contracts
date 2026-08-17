@@ -3,6 +3,45 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.20.0
+
+### Breaking Changes
+
+- `Nodes.toCommand`, `toPort`, `toQuery`, and `toGuard` now take an endpoint
+  name instead of a precomputed selector. The `Selectors` library was removed;
+  endpoint node IDs now derive their canonical selectors internally.
+- Renamed the memory-backed pipeline adapters from `InternalDebitAccount`,
+  `InternalCreditAccount`, and `InternalSettle` to `DebitAccountInternal`,
+  `CreditAccountInternal`, and `SettleInternal`.
+- Replaced `RelayPayableHook.relayTo(portal, resources, payload, funds)` with
+  `relay(portal, resources, account, state, input, funds)`. Relay commands now
+  pass their semantic context fields to the host instead of encoding a
+  `CONTEXT` payload before invoking the hook.
+- `DispatchPayablePort` now uses the dedicated
+  `DispatchPayableHook.dispatchTo(portal, resources, payload, funds)` hook
+  instead of sharing `RelayPayableHook`.
+
+### Added
+
+- Added `RelayEvent`, with account, portal, resources, correlation key, and
+  digest fields for recording outbound relay references.
+
+### Changed
+
+- Relay hooks retain state and nested relay input as calldata until an
+  implementation chooses to encode or otherwise consume the destination
+  context.
+
+### Upgrade Compatibility
+
+- Pass endpoint names directly to the `Nodes.to*` helpers and remove imports of
+  `Selectors`.
+- Update inherited internal adapter names and imports to the new postfix
+  convention.
+- Implement the structured `RelayPayableHook.relay` hook for relay commands and
+  `DispatchPayableHook.dispatchTo` for opaque dispatch payloads. Hosts that
+  support both surfaces must implement both hooks.
+
 ## 1.19.0
 
 ### Breaking Changes
