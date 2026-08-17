@@ -13,6 +13,7 @@ import { DispatchEvent } from "./events/Dispatch.sol";
 import { EndpointEvent } from "./events/Endpoint.sol";
 import { ReceivedEvent } from "./events/Received.sol";
 import { RecoveredEvent } from "./events/Recovered.sol";
+import { RelayEvent } from "./events/Relay.sol";
 import { EventEmitter } from "./events/Emitter.sol";
 import { GuardianEvent } from "./events/Guardian.sol";
 import { IntroductionEvent } from "./events/Introduction.sol";

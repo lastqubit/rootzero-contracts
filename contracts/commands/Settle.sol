@@ -97,11 +97,11 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
     }
 }
 
-/// @title InternalSettle
+/// @title SettleInternal
 /// @notice Extends the advertised settle command with memory-state pipeline dispatch.
 /// @dev This adapter is not a separate command. It uses the command ID and settlement hook
 /// inherited from `Settle` while accepting the state location used by `Pipeline`.
-abstract contract InternalSettle is Settle {
+abstract contract SettleInternal is Settle {
     /// @notice Execute the inherited settle command from an internal pipeline.
     /// @param account Account for which each position is settled.
     /// @param state POSITION block stream held in pipeline memory.

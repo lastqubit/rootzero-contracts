@@ -192,40 +192,45 @@ library Nodes {
         return toLocalBase(Host) | uint(uint160(target));
     }
 
-    /// @notice Build a chain-local command ID for the given selector and contract.
-    /// @param selector 4-byte ABI selector of the command entry point.
+    /// @notice Build a chain-local command ID for the given endpoint name and contract.
+    /// @param name Command function name.
     /// @param target Command contract address.
     /// @return node Command node ID embedding both the selector and address.
-    function toCommand(bytes4 selector, address target) internal view returns (uint node) {
+    function toCommand(string memory name, address target) internal view returns (uint node) {
         node = toLocalBase(Command) | uint(uint160(target));
-        node |= uint(uint32(selector)) << 160;
+        node |= uint(uint32(toSelector(name, "(bytes32,bytes,bytes)"))) << 160;
     }
 
-    /// @notice Build a chain-local port ID for the given selector and contract.
-    /// @param selector 4-byte ABI selector of the port entry point.
+    /// @notice Build a chain-local port ID for the given endpoint name and contract.
+    /// @param name Port function name.
     /// @param target Port contract address.
     /// @return node Port node ID embedding both the selector and address.
-    function toPort(bytes4 selector, address target) internal view returns (uint node) {
+    function toPort(string memory name, address target) internal view returns (uint node) {
         node = toLocalBase(Port) | uint(uint160(target));
-        node |= uint(uint32(selector)) << 160;
+        node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
-    /// @notice Build a chain-local query ID for the given selector and contract.
-    /// @param selector 4-byte ABI selector of the query entry point.
+    /// @notice Build a chain-local query ID for the given endpoint name and contract.
+    /// @param name Query function name.
     /// @param target Query contract address.
     /// @return node Query node ID embedding both the selector and address.
-    function toQuery(bytes4 selector, address target) internal view returns (uint node) {
+    function toQuery(string memory name, address target) internal view returns (uint node) {
         node = toLocalBase(Query) | uint(uint160(target));
-        node |= uint(uint32(selector)) << 160;
+        node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
-    /// @notice Build a chain-local guard action ID for the given selector and contract.
-    /// @param selector 4-byte ABI selector of the guard action entry point.
+    /// @notice Build a chain-local guard action ID for the given endpoint name and contract.
+    /// @param name Guard action function name.
     /// @param target Guard action contract address.
     /// @return node Guard action node ID embedding both the selector and address.
-    function toGuard(bytes4 selector, address target) internal view returns (uint node) {
+    function toGuard(string memory name, address target) internal view returns (uint node) {
         node = toLocalBase(Guard) | uint(uint160(target));
-        node |= uint(uint32(selector)) << 160;
+        node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
+    }
+
+    /// @dev Derive an ABI selector from an endpoint name and argument signature.
+    function toSelector(string memory name, string memory args) private pure returns (bytes4) {
+        return bytes4(keccak256(bytes(string.concat(name, args))));
     }
 
     /// @notice Derive an opaque node ID from a keccak preimage.

@@ -5,7 +5,6 @@ import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Descriptors } from "../codec/Descriptors.sol";
 import { Specs } from "../codec/Specs.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { Selectors } from "../utils/Selectors.sol";
 
 /// @title QueryBase
 /// @notice Abstract base for rootzero query contracts.
@@ -39,7 +38,7 @@ abstract contract QueryBase is InputEndpointBase {
         string memory name,
         uint descriptor
     ) internal returns (uint id, uint published) {
-        id = Nodes.toQuery(Selectors.query(name), address(this));
+        id = Nodes.toQuery(name, address(this));
         published = endpoint(id, name, descriptor);
     }
 }

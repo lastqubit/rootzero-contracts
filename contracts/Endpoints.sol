@@ -11,15 +11,15 @@ import {CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} fr
 import {CommandBase} from "./commands/Base.sol";
 import {Allocate, AllocateHook} from "./commands/Allocate.sol";
 import {Burn, BurnHook} from "./commands/Burn.sol";
-import {CreditAccount, InternalCreditAccount} from "./commands/Credit.sol";
-import {DebitAccount, InternalDebitAccount} from "./commands/Debit.sol";
+import {CreditAccount, CreditAccountInternal} from "./commands/Credit.sol";
+import {DebitAccount, DebitAccountInternal} from "./commands/Debit.sol";
 import {Deposit, DepositHook, DepositPayable, DepositPayableHook} from "./commands/Deposit.sol";
 import {Payout, PayoutHook} from "./commands/Payout.sol";
 import {Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook} from "./commands/Provision.sol";
 import {RecoverPayable, RecoverPayableHook} from "./commands/Recover.sol";
 import {Repay, RepayPayable, RepayPayableHook} from "./commands/Repay.sol";
 import {RelayPayable, RelayBalancePayable, RelayPayableHook} from "./commands/Relay.sol";
-import {Settle, SettlePayable, SettlePayableHook, InternalSettle} from "./commands/Settle.sol";
+import {Settle, SettlePayable, SettlePayableHook, SettleInternal} from "./commands/Settle.sol";
 import {Withdraw, WithdrawHook} from "./commands/Withdraw.sol";
 
 // Admin commands
@@ -43,7 +43,7 @@ import {CreditAccountPort} from "./ports/Credit.sol";
 import {DebitAccountPort} from "./ports/Debit.sol";
 import {DenyAssetsPort} from "./ports/DenyAssets.sol";
 import {PipePayablePort} from "./ports/Pipe.sol";
-import {DispatchPayablePort} from "./ports/Dispatch.sol";
+import {DispatchPayablePort, DispatchPayableHook} from "./ports/Dispatch.sol";
 import {PostPort} from "./ports/Post.sol";
 
 // Guard endpoints

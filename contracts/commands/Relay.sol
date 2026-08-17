@@ -1,20 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Blocks, Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
-/// @notice Hook implemented by hosts that forward funded relay payloads.
+/// @notice Hook implemented by hosts that relay command contexts.
 abstract contract RelayPayableHook {
-    /// @notice Override to relay an encoded payload to `portal`.
+    /// @notice Override to relay a command context to `portal`.
     /// @param portal Destination portal identifier, often the destination host ID.
     /// @param resources Chain-specific destination resources. EVM adapters
     /// may interpret this as packed execution gas and destination value.
-    /// @param payload Encoded payload ready for the transport layer.
+    /// @param account Destination command account.
+    /// @param state State forwarded into the destination context.
+    /// @param input Input forwarded into the destination context.
     /// @param funds Execution used for source value available for transport fees
     /// and destination resource funding.
-    function relayTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal virtual;
+    function relay(
+        uint portal,
+        uint resources,
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input,
+        Execution memory funds
+    ) internal virtual;
 }
 
 /// @title RelayPayable
@@ -33,10 +42,8 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
         bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
         Execution memory exec = openCommand(state, input, descriptor, 1);
-        (uint portal, uint resources, bytes calldata payload) = exec.unpackRelay(Lanes.Input);
-        bytes memory context = Blocks.contextCopy(account, state, payload);
-
-        relayTo(portal, resources, context, exec);
+        (uint portal, uint resources, bytes calldata relayInput) = exec.unpackRelay(Lanes.Input);
+        relay(portal, resources, account, state, relayInput, exec);
 
         return close(exec, account);
     }
@@ -65,10 +72,8 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
         bytes calldata input
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
         Execution memory exec = openCommand(state, input, descriptor, 1);
-        (uint portal, uint resources, bytes calldata payload) = exec.unpackRelay(Lanes.Input);
-        bytes memory context = Blocks.contextCopy(account, state, payload);
-
-        relayTo(portal, resources, context, exec);
+        (uint portal, uint resources, bytes calldata relayInput) = exec.unpackRelay(Lanes.Input);
+        relay(portal, resources, account, state, relayInput, exec);
 
         return close(exec, account);
     }

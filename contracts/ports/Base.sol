@@ -6,7 +6,6 @@ import { NodeAccess } from "../core/Access.sol";
 import { Specs } from "../codec/Specs.sol";
 import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { Selectors } from "../utils/Selectors.sol";
 import { Descriptors } from "../codec/Descriptors.sol";
 
 /// @title PortBase
@@ -56,7 +55,7 @@ abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
         string memory name,
         uint descriptor
     ) internal returns (uint id, uint published) {
-        id = Nodes.toPort(Selectors.port(name), address(this));
+        id = Nodes.toPort(name, address(this));
         published = endpoint(id, name, descriptor);
     }
 }

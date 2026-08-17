@@ -829,20 +829,18 @@ describe("Commands", () => {
         .withArgs(await cmd("relayPayable"), encodeLabelBlock(ethers.ZeroHash, "relayPayable"));
     });
 
-    it("relays the input as a destination context with empty state", async () => {
+    it("passes the destination context fields to the relay hook", async () => {
       const portal = portalNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
       const input = encodeRelayBlock(portal, resources, steps);
-      const context = encodeContextBlock(userAccount, "0x", steps);
-
       const [result, transactions] = await host.relayPayable.staticCall(...ctx({ input }));
       expect(result).to.equal("0x");
       expect(transactions).to.equal("0x");
 
       const tx = await callAs(0, "relayPayable", ctx({ input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, resources, context);
+        .withArgs(portal, resources, userAccount, "0x", steps);
     });
 
     it("reverts when state is supplied", async () => {
@@ -881,21 +879,19 @@ describe("Commands", () => {
         .withArgs(await cmd("relayBalancePayable"), encodeLabelBlock(ethers.ZeroHash, "relayBalancePayable"));
     });
 
-    it("passes the RELAY block as an encoded destination context to the hook", async () => {
+    it("passes account, state, and RELAY input separately to the hook", async () => {
       const state = encodeBalanceBlock(relayAsset, 12n);
       const portal = portalNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
       const input = encodeRelayBlock(portal, resources, steps);
-      const context = encodeContextBlock(userAccount, state, steps);
-
       const [result, transactions] = await host.relayBalancePayable.staticCall(...ctx({ state, input: input }));
       expect(result).to.equal("0x");
       expect(transactions).to.equal("0x");
 
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input: input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, resources, context);
+        .withArgs(portal, resources, userAccount, state, steps);
     });
 
     it("reverts EmptyRun when input has no RELAY block", async () => {
@@ -977,11 +973,9 @@ describe("Commands", () => {
       const steps = encodeStepBlock(0n, 0n, "0x");
       const input = encodeRelayBlock(portal, 2n, steps);
       const state = encodeBalanceBlock(relayAsset, 1n);
-      const context = encodeContextBlock(userAccount, state, steps);
-
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, 2n, context);
+        .withArgs(portal, 2n, userAccount, state, steps);
     });
 
     it("returns unspent command value after relay dispatch as a transaction", async () => {

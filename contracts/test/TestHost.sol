@@ -5,14 +5,14 @@ import { Host } from "../core/Host.sol";
 import { Allocate } from "../commands/Allocate.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
-import { InternalCreditAccount } from "../commands/Credit.sol";
-import { InternalDebitAccount } from "../commands/Debit.sol";
+import { CreditAccountInternal } from "../commands/Credit.sol";
+import { DebitAccountInternal } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
 import { Repay, RepayPayable } from "../commands/Repay.sol";
-import { InternalSettle, SettlePayable } from "../commands/Settle.sol";
+import { SettleInternal, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
 import { PostPort } from "../ports/Post.sol";
@@ -35,8 +35,8 @@ contract TestHost is
     Deposit,
     DepositPayable,
     Withdraw,
-    InternalCreditAccount,
-    InternalDebitAccount,
+    CreditAccountInternal,
+    DebitAccountInternal,
     Payout,
     Provision,
     ProvisionPayable,
@@ -45,7 +45,7 @@ contract TestHost is
     RecoverPayable,
     Repay,
     RepayPayable,
-    InternalSettle,
+    SettleInternal,
     SettlePayable,
     Settlement,
     Pipeline,
@@ -65,7 +65,7 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
-    event RelayCalled(uint portal, uint resources, bytes context);
+    event RelayCalled(uint portal, uint resources, bytes32 account, bytes state, bytes input);
     event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint128 value);
     event SettleCalled(
         bytes32 account,
@@ -176,9 +176,16 @@ contract TestHost is
         );
     }
 
-    function relayTo(uint portal, uint resources, bytes memory context, Execution memory funds) internal override {
+    function relay(
+        uint portal,
+        uint resources,
+        bytes32 account,
+        bytes calldata state,
+        bytes calldata input,
+        Execution memory funds
+    ) internal override {
         funds;
-        emit RelayCalled(portal, resources, context);
+        emit RelayCalled(portal, resources, account, state, input);
     }
 
     function recover(
