@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
+import {Flags} from "../codec/Descriptors.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
@@ -25,7 +26,7 @@ abstract contract DispatchPayablePort is PortBase, DispatchPayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, true);
+        (, descriptor) = port("portDispatchPayable", Specs.Dispatch, Specs.Empty, Flags.Funded);
     }
 
     /// @notice Forward peer-supplied dispatches to the host-defined dispatch hook.

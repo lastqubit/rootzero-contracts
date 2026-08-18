@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {CommandBase, Execution, Executions, Lanes, Specs} from "../Base.sol";
+import {CommandBase, Execution, Executions, Flags, Lanes, Specs} from "../Base.sol";
 import {NodeAccess} from "../../core/Access.sol";
 
 /// @title AdminBase

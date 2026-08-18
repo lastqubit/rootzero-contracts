@@ -9,7 +9,7 @@ import {HostAmount, Position} from "../core/Types.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {ReceivedEvent} from "../events/Received.sol";
 import {Actions} from "../utils/Actions.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
+import {Descriptors, Flags} from "../codec/Descriptors.sol";
 import {Nodes} from "../utils/Nodes.sol";
 import {Cursors} from "../utils/Cursors.sol";
 
@@ -44,8 +44,7 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
     /// @param input Input block specification.
     /// @param output Output block specification.
     /// @param transactions Number of transaction blocks produced per batch, or zero for none.
-    /// @param funded Whether the command accepts nonzero native value.
-    /// @param admin Whether the command is restricted to the admin account.
+    /// @param flags Packed command behavior flags.
     /// @return id Command node ID.
     /// @return descriptor Packed endpoint lane metadata and flags.
     function command(
@@ -54,12 +53,8 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         uint input,
         uint output,
         uint8 transactions,
-        bool funded,
-        bool admin
+        uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        uint8 flags = 0;
-        if (funded) flags |= Descriptors.Funded;
-        if (admin) flags |= Descriptors.Admin;
         descriptor = Descriptors.create(state, input, output, transactions, flags);
         return command(name, descriptor);
     }

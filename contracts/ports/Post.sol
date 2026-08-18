@@ -18,7 +18,7 @@ abstract contract PostPort is PortBase, PostHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = port("portPost", Specs.Transaction, Specs.Empty, false);
+        (id, descriptor) = port("portPost", Specs.Transaction, Specs.Empty, 0);
         action(id, Actions.Post);
     }
 

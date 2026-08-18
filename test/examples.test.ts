@@ -9,7 +9,6 @@ import {
   encodeBalanceBlock,
   encodeBlock,
   encodeCustodyBlock,
-  encodeListBlock,
   encodeStatusBlock,
   encodeTxBlock,
   encodeUserAccount,
@@ -76,16 +75,17 @@ describe("Examples", () => {
         .withArgs(target, asset, 30n);
     });
 
-    it("builds and runs the nested-list command example", async () => {
+    it("builds and runs the custom-keyed top-level list example", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
       const host = await deploy("TestListCommandExampleHost", commander);
       const account = encodeUserAccount(commander);
       const first = ethers.zeroPadValue("0x44", 32);
       const second = ethers.zeroPadValue("0x55", 32);
+      const listKey = localKey(1);
       const input = concat(
-        encodeListBlock(concat(encodeAssetBlock(first), encodeAssetBlock(second))),
-        encodeListBlock(encodeAssetBlock(first)),
+        encodeBlock(listKey, concat(encodeAssetBlock(first), encodeAssetBlock(second))),
+        encodeBlock(listKey, encodeAssetBlock(first)),
       );
 
       const tx = host.myCommand(account, "0x", input);
@@ -93,6 +93,7 @@ describe("Examples", () => {
       await expect(tx).to.emit(host, "AssetSeen").withArgs(0n, second);
       await expect(tx).to.emit(host, "AssetSeen").withArgs(1n, first);
     });
+
   });
 
   describe("7-CustomInput", () => {

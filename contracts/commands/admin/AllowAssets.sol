@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, Execution, Executions, Lanes, Specs } from "./Base.sol";
+import { AdminBase, Execution, Executions, Flags, Lanes, Specs } from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that allow assets.
@@ -19,7 +19,7 @@ abstract contract AllowAssets is AdminBase, AllowAssetsHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allowAssets", Specs.Empty, Specs.Asset, Specs.Empty, 0, false, true);
+        (, descriptor) = command("allowAssets", Specs.Empty, Specs.Asset, Specs.Empty, 0, Flags.Admin);
     }
 
     /// @notice Allow each ASSET block in the admin input.

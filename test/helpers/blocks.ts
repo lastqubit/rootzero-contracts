@@ -21,21 +21,8 @@ export function rangedSpec(key: string, min: number, max: number, hint: number):
     | (BigInt(hint) << 136n);
 }
 
-export function manyKey(item: string): string {
-  return ethers.hexlify(ethers.concat([Keys.List, item]));
-}
-
-function laneValue(lane: string): bigint {
-  const bytes = ethers.getBytes(lane);
-  if (bytes.length === 4) return BigInt(lane) << 32n;
-  if (bytes.length === 8) return BigInt(lane);
-  if (bytes.length === 9) return BigInt(lane) >> 8n;
-  throw new Error(`invalid endpoint lane length: ${lane}`);
-}
-
 function laneStride(lane: string, stride?: number): number {
-  const bytes = ethers.getBytes(lane);
-  const value = stride ?? (bytes.length === 9 ? bytes[8] : 0);
+  const value = stride ?? 0;
   return value === 0 && BigInt(lane) !== 0n ? 1 : value;
 }
 
@@ -74,12 +61,12 @@ export function endpointDescriptor({
     ? 1
     : encodedOutputStride;
   const stateLane = (BigInt(state) << 8n) | BigInt(stateLaneStride);
-  const inputLane = (laneValue(input) << 8n) | BigInt(inputLaneStride);
+  const inputLane = (BigInt(input) << 8n) | BigInt(inputLaneStride);
   const outputLane = ((outputSpec >> 128n) & ~0xffn) | BigInt(outputLaneStride);
   const descriptor =
     (stateLane << 216n) |
-    (inputLane << 144n) |
-    (outputLane << 16n) |
+    (inputLane << 176n) |
+    (outputLane << 48n) |
     (BigInt(transactions) << 8n) |
     flags;
 

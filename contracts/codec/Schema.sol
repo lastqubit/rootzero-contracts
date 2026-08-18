@@ -8,7 +8,7 @@ pragma solidity ^0.8.33;
 //
 // Schema:
 // - block aliases are published separately from payload schemas
-// - payload schemas are written as `{ fields }`
+// - payload schemas are `""`, `{ fields }`, or a top-level `many #x`
 // - an empty schema string means the block has no structured payload
 // - commas separate siblings at every level
 // - braces define the current block payload body
@@ -16,10 +16,10 @@ pragma solidity ^0.8.33;
 // - command state is a single active state run without trailing globals
 // - run items may repeat at top level for batching
 // - `maybe #x` marks an optional block item
-// - `many #x` emits one generic list block containing repeated `#x` items
-// - endpoint descriptor lanes are `[key bytes4][item bytes4]`; normal keys widen to `[key][0]`
-// - descriptor lanes for `many #x` use `[Keys.List][keyOfX]`; bare `[Keys.List][0]`
-//   is incomplete discovery metadata and should be rejected by tooling
+// - nested `many #x` emits one generic list block containing repeated `#x` items
+// - a custom schema consisting of top-level `many #x` uses its custom key for
+//   the outer list block and contains repeated `#x` items directly
+// - endpoint descriptor lanes identify their top-level block key directly
 // - `portal` fields are routing identifiers, often destination host IDs
 // - `resources` fields are chain-specific resource words. A portal adapter
 //   interprets them for the destination runtime. EVM resources use the low

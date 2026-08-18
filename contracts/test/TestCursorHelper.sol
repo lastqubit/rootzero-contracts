@@ -559,6 +559,23 @@ contract TestCursorHelper {
         return (offset - sourceOffset, itemsI, itemsLen, inputI);
     }
 
+    function testListSpec(bytes calldata source, uint spec)
+        external
+        pure
+        returns (uint itemsOffset, uint itemsI, uint itemsLen, uint inputI)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur = Decoders.wrap(source);
+        Cur memory items = cur.list(spec);
+        uint offset;
+        (itemsI, offset, itemsLen) = Cursors.decode(items.state);
+        (inputI, , ) = Cursors.decode(cur.state);
+        return (offset - sourceOffset, itemsI, itemsLen, inputI);
+    }
+
     function testTake(bytes calldata source, bytes4 key)
         external
         pure

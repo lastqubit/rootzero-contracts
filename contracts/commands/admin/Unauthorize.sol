@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @title Unauthorize
@@ -13,7 +13,7 @@ abstract contract Unauthorize is AdminBase {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("unauthorize", Specs.Empty, Specs.Node, Specs.Empty, 0, false, true);
+        (id, descriptor) = command("unauthorize", Specs.Empty, Specs.Node, Specs.Empty, 0, Flags.Admin);
     }
 
     /// @notice Return the registered UNAUTHORIZE command ID.

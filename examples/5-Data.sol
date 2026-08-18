@@ -22,7 +22,7 @@ abstract contract MyCommand is CommandBase {
     constructor() {
         uint32 size = uint32(32 + Sizes.Amount);
         inputSpec = schema(1, size, INPUT, bytes32(0));
-        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0, 0);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.

@@ -34,16 +34,18 @@ event Endpoint(uint indexed host, uint id, uint descriptor)
 ```
 
 - `descriptor` packs `[state key:4][group:1]`,
-  `[input key:4][item:4][group:1]`,
-  `[output key:4][min:4][max:4][hint:4][group:1]`, and one flags byte.
-  Input containers such as `many #asset` use `[Keys.List][Keys.Asset]`;
-  state and output lanes cannot be containers. A zero group byte means group
-  size 1 for a non-empty lane; `group(lane, size)` supplies an explicit size.
+  `[input key:4][group:1]`,
+  `[output key:4][min:4][max:4][hint:3][group:1]`, four reserved bytes,
+  one transaction-count byte, and one flags byte.
+  A zero group byte means group size 1 for a non-empty lane;
+  `group(lane, size)` supplies an explicit size.
   The output bounds and hint allow a writer to be initialized directly from
   the descriptor. The Solidity output decoder returns a left-aligned spec with
-  its encoded group retained and its container and reserved fields cleared.
+  its encoded group retained and its reserved fields cleared.
   `Specs.group` returns the effective group, including the zero-to-one default
   for non-empty specs.
+  A top-level list uses a context-local input key whose published schema body is
+  `many #item`; nested lists continue to use the generic `#list` key.
 - Command, port, query, and guard endpoints all share `Endpoint`; admin commands
   are marked by the descriptor's admin flag.
 - Block schema strings are published as `#schema` blocks in `Annotation` events.

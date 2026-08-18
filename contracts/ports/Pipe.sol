@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
+import {Flags} from "../codec/Descriptors.sol";
 import {Pipeline} from "../core/Pipeline.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
@@ -16,7 +17,7 @@ abstract contract PipePayablePort is PortBase, Pipeline {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portPipePayable", Specs.Context, Specs.Empty, true);
+        (, descriptor) = port("portPipePayable", Specs.Context, Specs.Empty, Flags.Funded);
     }
 
     /// @notice Execute peer-supplied contexts through the shared payable pipe.

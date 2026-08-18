@@ -416,22 +416,11 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InvalidLane");
     });
 
-    it("derives a grouped container descriptor lane from a spec", async () => {
-      expect(await blocksHelper.listAssetDescriptor()).to.deep.equal([Keys.List, Keys.Asset, 3n]);
-    });
-
     it("retains the complete output writer spec in its descriptor lane", async () => {
       expect(await blocksHelper.balanceOutputDescriptor())
         .to.equal(exactSpec(Keys.Balance, 64) | (1n << 128n));
       expect(await blocksHelper.groupedBalanceOutputDescriptor())
         .to.deep.equal([exactSpec(Keys.Balance, 64) | (3n << 128n), 3n]);
-    });
-
-    it("rejects containers on state and output descriptor lanes", async () => {
-      await expect(blocksHelper.rejectLaneContainer(false))
-        .to.be.revertedWithCustomError(blocksHelper, "InvalidContainer");
-      await expect(blocksHelper.rejectLaneContainer(true))
-        .to.be.revertedWithCustomError(blocksHelper, "InvalidContainer");
     });
 
     it("packs and checks composable descriptor flags", async () => {
@@ -443,7 +432,7 @@ describe("Cursors", () => {
     });
 
     it("returns the effective key for every descriptor lane", async () => {
-      expect(await blocksHelper.descriptorKey(1)).to.equal(Keys.List);
+      expect(await blocksHelper.descriptorKey(1)).to.equal(Keys.Asset);
       expect(await blocksHelper.descriptorKey(2)).to.equal(Keys.Balance);
       expect(await blocksHelper.descriptorKey(3)).to.equal(Keys.Amount);
       expect(await blocksHelper.descriptorKey(4)).to.equal(Keys.Transaction);
@@ -1055,6 +1044,23 @@ describe("Cursors", () => {
       expect(itemsI).to.equal(0n);
       expect(itemsLen).to.equal(BigInt(ethers.getBytes(item1).length + ethers.getBytes(item2).length));
       expect(inputI).to.equal(BigInt(ethers.getBytes(list).length));
+    });
+
+    it("list accepts custom keyed list specifications", async () => {
+      const key = localKey(77);
+      const item1 = encodeAssetBlock(asset);
+      const item2 = encodeAssetBlock(otherAsset);
+      const payload = concat(item1, item2);
+      const list = encodeBlock(key, payload);
+      const spec = exactSpec(key, ethers.getBytes(payload).length);
+
+      const [itemsOffset, itemsI, itemsLen, inputI] = await helper.testListSpec(list, spec);
+      expect(itemsOffset).to.equal(8n);
+      expect(itemsI).to.equal(0n);
+      expect(itemsLen).to.equal(BigInt(ethers.getBytes(payload).length));
+      expect(inputI).to.equal(BigInt(ethers.getBytes(list).length));
+      expect(await blocksHelper.executionList(list, spec))
+        .to.deep.equal([BigInt(ethers.getBytes(payload).length), true]);
     });
 
     it("custom local blocks carry merged payload fields without child headers", async () => {

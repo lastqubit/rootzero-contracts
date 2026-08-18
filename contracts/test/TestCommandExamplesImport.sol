@@ -36,7 +36,7 @@ contract TestDataCommandExampleHost is Host, DataCommandExample {
     }
 }
 
-/// @notice Concrete host used to exercise the nested-list command example.
+/// @notice Concrete wrapper ensuring the custom-keyed list example compiles.
 contract TestListCommandExampleHost is ListExampleHost {
     constructor(address rootzero) ListExampleHost(rootzero) {}
 }

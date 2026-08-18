@@ -24,7 +24,7 @@ abstract contract RedeemBalancePort is PortBase, RedeemBalanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portRedeemBalance", Specs.Balance, Specs.Empty, false);
+        (, descriptor) = port("portRedeemBalance", Specs.Balance, Specs.Empty, 0);
     }
 
     /// @notice Execute the balance redemption port call.

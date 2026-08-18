@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Keys} from "./Keys.sol";
-import {max24, replace8, replace32} from "../utils/Utils.sol";
+import {max24, replace8} from "../utils/Utils.sol";
 
 /// @title Sizes
 /// @notice Total byte sizes for fixed-width block types, including the 8-byte header (4-byte key + 4-byte payloadLen).
@@ -39,15 +39,13 @@ library Sizes {
 
 /// @title Specs
 /// @notice Word-aligned block specifications encoded as
-/// `[key:4][min:4][max:4][hint:3][stride:1][container:4][reserved:12]`.
+/// `[key:4][min:4][max:4][hint:3][stride:1][reserved:16]`.
 /// The upper eight bytes of a fixed-layout spec are its encoded block header,
 /// allowing the entire spec word to be written directly as that header.
 /// A maximum of zero means unbounded and requires a growable writer.
 library Specs {
     /// @dev A payload is incompatible with its block specification.
     error InvalidSpec();
-    /// @dev A direct specification cannot contain a wrapper block.
-    error InvalidContainer();
     uint private constant SizeFields = (uint(1) << 192) | (uint(1) << 160) | (uint(1) << 136);
 
     // Reusable field shapes keep public specs readable while remaining valid
@@ -156,29 +154,20 @@ library Specs {
 
     /// @notice Return the canonical form of `spec` with implicit defaults resolved.
     /// @param spec Packed block specification.
-    /// @param direct Whether the specification must not contain a wrapper block.
     /// @dev A present spec with an encoded zero stride receives stride one;
     /// the empty spec remains unchanged.
     /// @return Canonical specification.
-    function normalize(uint spec, bool direct) internal pure returns (uint) {
-        if (direct && uint32(spec >> 96) != 0) revert InvalidContainer();
+    function normalize(uint spec) internal pure returns (uint) {
         if (stride(spec) == 0 && key(spec) != bytes4(0)) spec |= uint(1) << 128;
         return spec;
     }
 
-    /// @notice Return the effective outer block key and optional wrapped child key.
-    /// @dev A direct spec returns its own key as `outer` and a zero `child`.
+    /// @notice Return the canonical descriptor lane metadata for `spec`.
     /// @param spec Packed block specification.
-    /// @return outer Effective outer block key.
-    /// @return child Wrapped child key, or zero for a direct specification.
-    function keys(uint spec) internal pure returns (bytes4 outer, bytes4 child) {
-        child = key(spec);
-        outer = bytes4(uint32(spec >> 96));
-
-        if (outer == bytes4(0)) {
-            outer = child;
-            child = bytes4(0);
-        }
+    /// @return Packed `[key:4][stride:1]` lane metadata.
+    function lane(uint spec) internal pure returns (uint40) {
+        spec = normalize(spec);
+        return (uint40(uint32(key(spec))) << 8) | stride(spec);
     }
 
     /// @notice Return whether a payload size lies within a specification's bounds.
@@ -213,7 +202,7 @@ library Specs {
     /// @param groups Number of groups.
     /// @return Number of blocks across all groups.
     function count(uint spec, uint groups) internal pure returns (uint) {
-        return groups * stride(normalize(spec, false));
+        return groups * stride(normalize(spec));
     }
 
     /// @notice Return the buffer configuration for `groups` of `spec`.
@@ -225,13 +214,6 @@ library Specs {
     function allocation(uint spec, uint groups) internal pure returns (uint capacity, bool growable) {
         capacity = count(spec, groups) * (Sizes.Header + uint24(spec >> 136));
         growable = uint32(spec >> 160) == 0;
-    }
-
-    /// @notice Return `spec` annotated as a generic LIST item.
-    /// @param spec Child block specification.
-    /// @return Specification wrapped in a LIST container.
-    function many(uint spec) internal pure returns (uint) {
-        return replace32(spec, 96, uint32(key(List)));
     }
 
     /// @notice Return `spec` grouped with an explicit stride.

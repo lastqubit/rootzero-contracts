@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @title Annotate
@@ -12,7 +12,7 @@ abstract contract Annotate is AdminBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("annotate", Specs.Empty, Specs.Annotation, Specs.Empty, 0, false, true);
+        (, descriptor) = command("annotate", Specs.Empty, Specs.Annotation, Specs.Empty, 0, Flags.Admin);
     }
 
     /// @notice Publish each ANNOTATION block in the admin input.

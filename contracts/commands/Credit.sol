@@ -17,7 +17,7 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("creditAccount", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+        (id, descriptor) = command("creditAccount", Specs.Balance, Specs.Empty, Specs.Empty, 0, 0);
     }
 
     /// @notice Return the registered CREDIT_ACCOUNT command ID.

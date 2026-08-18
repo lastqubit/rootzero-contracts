@@ -5,6 +5,7 @@ pragma solidity ^0.8.33;
 // Import this file for both standard Execution-based commands and custom decoders.
 
 import {CommandBase} from "./commands/Base.sol";
+import {Flags} from "./codec/Descriptors.sol";
 import {Execution, Executions} from "./execution/Execution.sol";
 import {Lanes} from "./utils/Lanes.sol";
 import {Blocks} from "./codec/Blocks.sol";

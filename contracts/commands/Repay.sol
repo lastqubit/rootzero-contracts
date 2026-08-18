@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
 import {RepayHook} from "../core/Settlement.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
@@ -25,7 +25,7 @@ abstract contract Repay is CommandBase, RepayHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("repay", Specs.Position, Specs.Empty, Specs.Balance, 0, false, false);
+        (id, descriptor) = command("repay", Specs.Position, Specs.Empty, Specs.Balance, 0, 0);
         action(id, Actions.Settle);
     }
 
@@ -57,7 +57,7 @@ abstract contract RepayPayable is CommandBase, RepayPayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("repayPayable", Specs.Position, Specs.Empty, Specs.Balance, 0, true, false);
+        (id, descriptor) = command("repayPayable", Specs.Position, Specs.Empty, Specs.Balance, 0, Flags.Funded);
         action(id, Actions.Settle);
     }
 

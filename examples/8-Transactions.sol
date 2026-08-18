@@ -17,7 +17,7 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         // Each AMOUNT input batch produces one TRANSACTION block and no regular output.
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Empty, 1, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Empty, 1, 0);
     }
 
     function myCommand(

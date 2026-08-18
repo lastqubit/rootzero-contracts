@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that configure peer asset allowances.
@@ -23,7 +23,7 @@ abstract contract Allowance is AdminBase, AllowanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allowance", Specs.Empty, Specs.Allowance, Specs.Empty, 0, false, true);
+        (, descriptor) = command("allowance", Specs.Empty, Specs.Allowance, Specs.Empty, 0, Flags.Admin);
     }
 
     /// @notice Apply each ALLOWANCE block in the admin input.

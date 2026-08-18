@@ -3,6 +3,40 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.21.0
+
+### Breaking Changes
+
+- Repacked endpoint descriptors as `[state key:4][stride:1]`,
+  `[input key:4][stride:1]`,
+  `[output key:4][min:4][max:4][hint:3][stride:1]`, four reserved bytes,
+  one transaction-count byte, and one flags byte. The input child-key field was
+  removed; indexers and request builders must decode the new layout.
+- Removed container metadata and the `many` and `keys` helpers from `Specs`.
+  Top-level lists are now emitted custom schemas whose context-local key is the
+  endpoint input key; nested lists continue to use the generic `#list` key.
+- Replaced the `funded` and `admin` boolean parameters on command helpers and
+  the `funded` boolean parameter on port helpers with a packed `uint8 flags`
+  argument. Endpoint flags now live in the dedicated `Flags` library.
+- Renamed the portal lifecycle events from `Undelivered` and `Recovered` to
+  `Unresolved` and `Resolved`, and renamed `Portal.retry` to `Portal.resolve`.
+  `Portal` now composes the node-access, runtime, and lifecycle-event
+  capabilities; concrete implementations remain responsible for explicitly
+  emitting lifecycle events.
+
+### Added
+
+- Added custom-spec overloads for `Decoders.list(cur, spec)` and
+  `Executions.list(exec, spec, lane)` so custom-keyed top-level lists can use
+  the same cursor model as generic nested lists.
+- Added `Specs.lane` for canonical descriptor lane packing and exported
+  `Flags` from the codec, command, and endpoint package entry points.
+
+### Changed
+
+- Updated schema and indexing documentation and the list example for the
+  custom-keyed top-level list convention.
+
 ## 1.20.0
 
 ### Breaking Changes

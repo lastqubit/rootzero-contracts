@@ -15,7 +15,7 @@ abstract contract DenyAssetsPort is PortBase, DenyAssetsHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portDenyAssets", Specs.Asset, Specs.Empty, false);
+        (, descriptor) = port("portDenyAssets", Specs.Asset, Specs.Empty, 0);
     }
 
     /// @notice Execute the deny-assets peer call.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
 import {SettleHook} from "../core/Settlement.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
@@ -37,7 +37,7 @@ abstract contract Settle is CommandBase, SettleHook, Action {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("settle", Specs.Position, Specs.Empty, Specs.Empty, 0, false, false);
+        (id, descriptor) = command("settle", Specs.Position, Specs.Empty, Specs.Empty, 0, 0);
         action(id, Actions.Settle);
     }
 
@@ -73,7 +73,7 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("settlePayable", Specs.Position, Specs.Empty, Specs.Empty, 0, true, false);
+        (id, descriptor) = command("settlePayable", Specs.Position, Specs.Empty, Specs.Empty, 0, Flags.Funded);
         action(id, Actions.Settle);
     }
 

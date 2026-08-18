@@ -50,8 +50,16 @@ overloaded in the relevant host/schema context.
 
 ## Block Syntax
 
-A block definition has an event alias and a schema body. Fixed fields are
-written in braces:
+A block definition has an event alias and a schema body. A schema body is one
+of three forms:
+
+```txt
+""                 empty or raw payload
+{ fields }         structured payload
+many #item         top-level custom list payload
+```
+
+Fixed fields are written in braces:
 
 ```txt
 alias:  amount
@@ -66,9 +74,11 @@ A block body can reference another block alias as a child item with `#`:
 
 The empty schema string `""` means the block has no structured payload. This is
 used for zero-payload blocks such as `#unit` and raw dynamic blocks such as
-`#bytes`.
+`#bytes`. A root `many #item` body is reserved for an emitted custom schema
+whose own key identifies the outer list block.
 
-A schema body is a comma-separated list of items. Order is significant.
+A structured schema body is a comma-separated list of items. Order is
+significant.
 
 ```txt
 { #amount, maybe #account as recipient }
@@ -110,11 +120,30 @@ maybe many #balance
 
 - no prefix: one required item
 - `maybe`: optional item
-- `many`: one generic `#list` block whose payload contains repeated items
+- `many`: a list whose payload contains repeated items
 - `maybe many`: optional `#list` block
 
-`maybe` emits no placeholder when absent. `many` wraps repeated items in one
-generic list block; it does not repeat the item in place.
+`maybe` emits no placeholder when absent. Inside a structured schema body,
+`many` wraps repeated items in one generic `#list` block; it does not repeat the
+item in place:
+
+```txt
+{ uint id, many #asset as assets }
+```
+
+When an emitted custom schema consists entirely of a top-level `many` item, the
+custom schema key identifies the outer list block instead. Its payload contains
+the repeated items directly:
+
+```txt
+schema key: 0x00000001
+schema body: many #asset
+wire value: [0x00000001][length][ASSET][ASSET]...
+```
+
+This convention gives a top-level list a discoverable, context-local type while
+retaining the generic `#list` key for lists whose type is supplied by an
+enclosing schema.
 
 ## Endpoint Lanes
 
@@ -128,33 +157,28 @@ The packed descriptor uses these lane layouts:
 
 ```txt
 state   [key:4][group:1]
-input   [key:4][item:4][group:1]
-output  [key:4][min:4][max:4][hint:4][group:1]
+input   [key:4][group:1]
+output  [key:4][min:4][max:4][hint:3][group:1]
+reserve [reserved:4]
+tx      [transactions:1]
+flags   [flags:1]
 ```
 
-Containers are exclusive to input. A plain input spec is compressed into
-`[spec.key][0]`. A spec with a nonzero container is compressed into
-`[spec.container][spec.key]`: the container is the top-level wire key and the
-item is its contained block key. The built-in `many(spec)` helper annotates the
-spec with `Specs.List` as its container, matching the DSL form `many #item`.
-Output lanes retain their size bounds and allocation hint so execution can
-reconstruct the output spec and initialize its writer directly. The Solidity
-output decoder returns this as a left-aligned, writer-ready spec that retains
-its encoded group. Its container and reserved fields are cleared. `Specs.group`
-returns the effective group, interpreting an encoded zero as one for a
-non-empty spec.
+Each lane directly identifies its top-level block key. Output lanes retain their
+size bounds and allocation hint so execution can reconstruct the output spec and
+initialize its writer directly. Four descriptor-level bytes are reserved after
+the lane metadata. The Solidity output decoder returns a left-aligned,
+writer-ready spec that retains its encoded group and clears its reserved fields.
+`Specs.group` returns the effective group, interpreting an encoded zero as one
+for a non-empty spec.
 
 Any non-empty lane resolves its key to a block alias and schema body through the
-active schema context. If the item slot is nonzero, tooling also resolves that
-item key in the same context. A bare list lane, `[Keys.List][0]`, is incomplete
-discovery metadata because it does not say what the list contains; indexers
-should reject it for self-describing endpoints.
+active schema context. A top-level list lane uses the key of its emitted custom
+`many` schema; the descriptor treats it like every other direct lane spec.
 
 The lane key is the prime item. Prime items may repeat at the top level for
-batching. When the lane is `many #item`, the repeated prime item is the generic
-LIST block and each LIST payload contains repeated `item` blocks. Later
-top-level items are globals for the whole batch and are not counted as
-per-operation prime blocks.
+batching. Later top-level items are globals for the whole batch and are not
+counted as per-operation prime blocks.
 
 The prime item cannot be optional. If an endpoint needs a per-operation marker
 with no payload, use a zero-payload block such as `#unit`.
@@ -369,7 +393,7 @@ invalid in any path segment.
 
 - `#bytes`: raw dynamic bytes, written without a body
 - `#string`: UTF-8 string bytes, written without a body
-- `#list`: generic list wrapper emitted by `many`
+- `#list`: generic list wrapper emitted by nested `many`
 
 Custom input shapes should define their own context-local block spec and publish
 it with a `#schema` annotation. Endpoint contracts can use `schema(...)` to
