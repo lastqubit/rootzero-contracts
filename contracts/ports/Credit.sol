@@ -15,7 +15,7 @@ abstract contract CreditAccountPort is PortBase, CreditAccountHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portCreditAccount", Specs.AccountAmount, Specs.Empty, false);
+        (, descriptor) = port("portCreditAccount", Specs.AccountAmount, Specs.Empty, 0);
     }
 
     /// @notice Execute the port-credit call.

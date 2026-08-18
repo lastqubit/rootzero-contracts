@@ -25,7 +25,7 @@ abstract contract Burn is CommandBase, BurnHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("burn", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+        (id, descriptor) = command("burn", Specs.Balance, Specs.Empty, Specs.Empty, 0, 0);
         action(id, Actions.Burn);
     }
 

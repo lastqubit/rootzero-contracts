@@ -25,7 +25,7 @@ abstract contract Withdraw is CommandBase, WithdrawHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("withdraw", Specs.Balance, Specs.Empty, Specs.Empty, 0, false, false);
+        (id, descriptor) = command("withdraw", Specs.Balance, Specs.Empty, Specs.Empty, 0, 0);
         action(id, Actions.Withdraw);
     }
 

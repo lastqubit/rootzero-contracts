@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
 import {RawNodeCalls} from "../../core/Calls.sol";
 
 using Executions for Execution;
@@ -15,7 +15,7 @@ abstract contract ExecutePayable is RawNodeCalls, AdminBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("executePayable", Specs.Empty, Specs.Call, Specs.Empty, 0, true, true);
+        (, descriptor) = command("executePayable", Specs.Empty, Specs.Call, Specs.Empty, 0, Flags.AdminFunded);
     }
 
     /// @notice Execute each CALL block in the admin input.

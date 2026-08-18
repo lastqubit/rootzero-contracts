@@ -29,7 +29,7 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         inputSpec = schema(1, 64, 0, uint32(64 + Sizes.Status), INPUT, bytes32(0));
-        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, 0);
     }
 
     function unpackPayment(

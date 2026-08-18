@@ -32,16 +32,16 @@ abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
     /// match the Solidity port function name used by the canonical ABI.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param funded Whether the port accepts nonzero native value.
+    /// @param flags Packed port behavior flags.
     /// @return id Port node ID.
     /// @return descriptor Packed endpoint lane metadata and flags.
     function port(
         string memory name,
         uint input,
         uint output,
-        bool funded
+        uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(Specs.Empty, input, output, 0, funded ? Descriptors.Funded : 0);
+        descriptor = Descriptors.create(Specs.Empty, input, output, 0, flags);
         return port(name, descriptor);
     }
 

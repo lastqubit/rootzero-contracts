@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, HostAmount, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, HostAmount, Lanes, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Shared provision hook used by `Provision`.
@@ -32,7 +32,7 @@ abstract contract Provision is CommandBase, ProvisionHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("provision", Specs.Empty, Specs.Allocation, Specs.Custody, 0, false, false);
+        (, descriptor) = command("provision", Specs.Empty, Specs.Allocation, Specs.Custody, 0, 0);
     }
 
     /// @notice Provision ALLOCATION input blocks and output matching CUSTODY state blocks.
@@ -64,7 +64,7 @@ abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("provisionPayable", Specs.Empty, Specs.Allocation, Specs.Custody, 0, true, false);
+        (, descriptor) = command("provisionPayable", Specs.Empty, Specs.Allocation, Specs.Custody, 0, Flags.Funded);
     }
 
     /// @notice Provision ALLOCATION input blocks with access to a mutable native-value budget.

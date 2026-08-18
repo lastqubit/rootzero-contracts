@@ -17,7 +17,7 @@ abstract contract MyCommand is CommandBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
     }
 
     function myCommand(

@@ -121,17 +121,18 @@ on the wire. The full schema language is specified in
 `Schemas` and their runtime keys in `Keys` (both via
 `@rootzero/contracts/Codec.sol`).
 
+A rare top-level list is published as a custom schema such as `many #asset`.
+Its context-local schema key becomes the outer block key accepted by the
+endpoint; nested lists continue to use the generic `#list` key.
+
 ## Batches
 
 A input is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
 The descriptor lane key is the prime item: it is the block type that may repeat
-for batching. Plain lanes are encoded as `[key][0]`; readers interpret the zero
-group byte as group size 1 when the lane is non-empty. Generic list lanes such
-as `many #asset` are encoded as
-`[Keys.List][Keys.Asset]`, so indexers can see both the top-level LIST container
-and the item type inside it.
+for batching. Readers interpret a zero group byte as group size 1 when the lane
+is non-empty.
 
 Off-chain, building a batch is concatenation. Using the reference encoders from
 [`test/helpers/blocks.ts`](test/helpers/blocks.ts):
@@ -308,7 +309,7 @@ abstract contract MyCommand is CommandBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
     }
 
     function myCommand(
@@ -326,6 +327,10 @@ abstract contract MyCommand is CommandBase {
     }
 }
 ```
+
+The final argument is a packed flags byte. Pass `0` for an ordinary endpoint,
+or compose values such as `Flags.Funded`, `Flags.Admin`, and
+`Flags.AdminFunded` from the command or endpoint package entry point.
 
 The standard commands cover the common ledger movements: `deposit` and
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
@@ -466,12 +471,13 @@ Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
   `Settlement`, `Pipeline`, `Portal`, validator
-- `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, codec
-  helpers, and shared value types for authoring custom commands
+- `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
+  codec helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
-  mixins and their hooks
+  mixins, their hooks, and `Flags`
 - `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
-  `Reader`/`Readers`, `Writers`, `Schemas`, `Keys`, and `Specs`
+  `Reader`/`Readers`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
+  `Specs`
 - `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
   layout and value helpers
 - `@rootzero/contracts/Events.sol` — protocol event contracts

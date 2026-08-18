@@ -15,7 +15,7 @@ abstract contract DebitAccountPort is PortBase, DebitAccountHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portDebitAccount", Specs.AccountAmount, Specs.Empty, false);
+        (, descriptor) = port("portDebitAccount", Specs.AccountAmount, Specs.Empty, 0);
     }
 
     /// @notice Execute the port-debit call.

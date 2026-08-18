@@ -20,7 +20,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("debitAccount", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        (id, descriptor) = command("debitAccount", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
     }
 
     /// @notice Return the registered DEBIT_ACCOUNT command ID.

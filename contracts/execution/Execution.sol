@@ -227,7 +227,16 @@ library Executions {
     /// @param lane Decoder lane containing the LIST block.
     /// @return items Cursor over the nested list items.
     function list(Execution memory exec, uint8 lane) internal pure returns (Cur memory items) {
-        (uint abs, uint end) = consume(exec, lane, Specs.List);
+        return list(exec, Specs.List, lane);
+    }
+
+    /// @notice Consume a list block described by `spec` and return a cursor scoped to its payload.
+    /// @param exec Execution whose decoder is advanced.
+    /// @param spec Custom list block specification.
+    /// @param lane Decoder lane containing the list block.
+    /// @return items Cursor over the nested list items.
+    function list(Execution memory exec, uint spec, uint8 lane) internal pure returns (Cur memory items) {
+        (uint abs, uint end) = consume(exec, lane, spec);
         items.state = Cursors.create(abs, end - abs, 0, 0, 0);
     }
 

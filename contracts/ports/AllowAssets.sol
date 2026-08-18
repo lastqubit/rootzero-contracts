@@ -15,7 +15,7 @@ abstract contract AllowAssetsPort is PortBase, AllowAssetsHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portAllowAssets", Specs.Asset, Specs.Empty, false);
+        (, descriptor) = port("portAllowAssets", Specs.Asset, Specs.Empty, 0);
     }
 
     /// @notice Execute the allow-assets peer call.

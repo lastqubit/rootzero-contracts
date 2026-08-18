@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AdminBase, Execution, Executions, Lanes, Specs } from "./Base.sol";
+import { AdminBase, Execution, Executions, Flags, Lanes, Specs } from "./Base.sol";
 import { GuardianAccess } from "../../core/Access.sol";
 using Executions for Execution;
 
@@ -13,7 +13,7 @@ abstract contract Appoint is GuardianAccess, AdminBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("appoint", Specs.Empty, Specs.Account, Specs.Empty, 0, false, true);
+        (, descriptor) = command("appoint", Specs.Empty, Specs.Account, Specs.Empty, 0, Flags.Admin);
     }
 
     /// @notice Appoint each user ACCOUNT block in the admin input as a guardian.

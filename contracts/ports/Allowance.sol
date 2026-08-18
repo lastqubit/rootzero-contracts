@@ -16,7 +16,7 @@ abstract contract AllowancePort is PortBase, AllowanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portAllowance", Specs.Amount, Specs.Empty, false);
+        (, descriptor) = port("portAllowance", Specs.Amount, Specs.Empty, 0);
     }
 
     /// @notice Execute the allowance port call.

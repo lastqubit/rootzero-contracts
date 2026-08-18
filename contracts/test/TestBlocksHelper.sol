@@ -6,8 +6,8 @@ import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
 import {Writer, Writers} from "../codec/Writers.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
-import {Cursors} from "../utils/Cursors.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
+import {Cursors, Cur} from "../utils/Cursors.sol";
+import {Descriptors, Flags} from "../codec/Descriptors.sol";
 import {Budget, Budgets} from "../execution/Budget.sol";
 import {Action} from "../annotations/Action.sol";
 
@@ -44,42 +44,27 @@ contract TestBlocksHelper is Action {
         return capacity;
     }
 
-    function listAssetDescriptor() external pure returns (bytes4 key, bytes4 item, uint8 stride) {
-        uint input = Specs.group(Specs.many(Specs.Asset), 3);
-        uint descriptor = Descriptors.create(Specs.Empty, input, Specs.Empty, 0, 0);
-        key = Descriptors.key(descriptor, Lanes.Input);
-        item = bytes4(uint32(descriptor >> 152));
-        stride = Descriptors.stride(descriptor, Lanes.Input);
-    }
-
     function balanceOutputDescriptor()
         external
         pure
         returns (uint spec)
     {
         uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Balance, 0, 0);
-        return uint(uint128(descriptor >> 16)) << 128;
+        return uint(uint128(descriptor >> 48)) << 128;
     }
 
     function groupedBalanceOutputDescriptor() external pure returns (uint spec, uint stride) {
         uint output = Specs.group(Specs.Balance, 3);
         uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, output, 0, 0);
-        spec = uint(uint128(descriptor >> 16)) << 128;
+        spec = uint(uint128(descriptor >> 48)) << 128;
         stride = Specs.count(spec, 1);
     }
 
-    function rejectLaneContainer(bool output) external pure returns (uint) {
-        uint wrapped = Specs.many(Specs.Balance);
-        return output
-            ? Descriptors.create(Specs.Empty, Specs.Empty, wrapped, 0, 0)
-            : Descriptors.create(wrapped, Specs.Empty, Specs.Empty, 0, 0);
-    }
-
     function descriptorFlags() external pure returns (bool funded, bool admin) {
-        uint8 flags = Descriptors.Funded | Descriptors.Admin;
+        uint8 flags = Flags.AdminFunded;
         uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Empty, 0, flags);
-        funded = Descriptors.flagged(descriptor, Descriptors.Funded);
-        admin = Descriptors.flagged(descriptor, Descriptors.Admin);
+        funded = Descriptors.flagged(descriptor, Flags.Funded);
+        admin = Descriptors.flagged(descriptor, Flags.Admin);
     }
 
     function descriptorTransactions() external pure returns (uint8) {
@@ -90,7 +75,7 @@ contract TestBlocksHelper is Action {
     function descriptorKey(uint8 lane) external pure returns (bytes4) {
         uint descriptor = Descriptors.create(
             Specs.Balance,
-            Specs.many(Specs.Asset),
+            Specs.Asset,
             Specs.Amount,
             1,
             0
@@ -159,6 +144,14 @@ contract TestBlocksHelper is Action {
         (stateAsset, stateAmount) = Executions.unpackBalance(exec, Lanes.State);
         (inputAsset, inputAmount) = Executions.unpackAmount(exec, Lanes.Input);
         Executions.expectAbs(exec, end);
+    }
+
+    function executionList(bytes calldata input, uint spec) external view returns (uint itemsLen, bool complete) {
+        uint descriptor = Descriptors.create(Specs.Empty, spec, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        Cur memory items = Executions.list(exec, spec, Lanes.Input);
+        (, , itemsLen) = Cursors.decode(items.state);
+        complete = !Executions.more(exec);
     }
 
     function executionEnterWords(bytes calldata input) external view returns (bytes32 first, bytes32 second) {

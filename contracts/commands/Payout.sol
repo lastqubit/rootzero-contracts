@@ -26,7 +26,7 @@ abstract contract Payout is CommandBase, PayoutHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0, false, false);
+        (id, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0, 0);
         action(id, Actions.Payout);
     }
 

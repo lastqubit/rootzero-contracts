@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
@@ -32,7 +32,7 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("relayPayable", Specs.Empty, Specs.Relay, Specs.Empty, 0, true, false);
+        (, descriptor) = command("relayPayable", Specs.Empty, Specs.Relay, Specs.Empty, 0, Flags.Funded);
     }
 
     /// @notice Relay one RELAY input block with the command account and empty state.
@@ -58,7 +58,7 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("relayBalancePayable", Specs.Balance, Specs.Relay, Specs.Empty, 0, true, false);
+        (, descriptor) = command("relayBalancePayable", Specs.Balance, Specs.Relay, Specs.Empty, 0, Flags.Funded);
     }
 
     /// @notice Relay one RELAY input block with the command account and current state.

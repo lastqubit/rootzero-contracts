@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { Execution, Executions, CommandBase, Lanes, Specs } from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 
@@ -39,7 +39,7 @@ abstract contract Deposit is CommandBase, DepositHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        (id, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
         action(id, Actions.Deposit);
     }
 
@@ -72,7 +72,7 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, true, false);
+        (id, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, Flags.Funded);
         action(id, Actions.Deposit);
     }
 
@@ -96,10 +96,3 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
         return close(exec, account);
     }
 }
-
-
-
-
-
-
-

@@ -24,7 +24,7 @@ abstract contract Allocate is CommandBase, AllocateHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0, false, false);
+        (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0, 0);
     }
 
     /// @notice Allocate BALANCE state blocks to matching NODE input blocks.

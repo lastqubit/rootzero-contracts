@@ -22,7 +22,7 @@ abstract contract MyCommand is CommandBase {
     constructor() {
         // Announce this command to the rootzero protocol.
         // Args: label, state, input, output, selector override, funded.
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, false, false);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
     }
 
     function myCommand(

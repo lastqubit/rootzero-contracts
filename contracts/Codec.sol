@@ -7,7 +7,7 @@ pragma solidity ^0.8.33;
 import { AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Position, Tx } from "./core/Types.sol";
 import { Keys } from "./codec/Keys.sol";
 import { Sizes, Specs } from "./codec/Specs.sol";
-import { Descriptors } from "./codec/Descriptors.sol";
+import { Descriptors, Flags } from "./codec/Descriptors.sol";
 import { Schemas } from "./codec/Schema.sol";
 import { Decoders } from "./codec/Decoders.sol";
 import { Cursors, Cur } from "./utils/Cursors.sol";

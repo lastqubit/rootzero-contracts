@@ -194,7 +194,15 @@ library Decoders {
     /// @param cur Cursor advanced past the list.
     /// @return items Cursor spanning the list payload.
     function list(Cur memory cur) internal pure returns (Cur memory items) {
-        (uint abs, uint end) = consume(cur, Specs.List);
+        return list(cur, Specs.List);
+    }
+
+    /// @notice Consume a list block described by `spec` and return a cursor over its items.
+    /// @param cur Cursor advanced past the list.
+    /// @param spec Custom list block specification.
+    /// @return items Cursor spanning the list payload.
+    function list(Cur memory cur, uint spec) internal pure returns (Cur memory items) {
+        (uint abs, uint end) = consume(cur, spec);
         items.state = Cursors.create(abs, end - abs, 0, 0, 0);
     }
 
