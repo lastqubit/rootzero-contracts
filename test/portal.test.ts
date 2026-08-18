@@ -31,7 +31,7 @@ describe("Portal", () => {
     return portId(host.interface.getFunction("portDispatchPayable(bytes)")!.selector, host);
   }
 
-  it("forwards messages to the configured handler without recording undelivered state", async () => {
+  it("forwards messages to the configured handler without recording unresolved state", async () => {
     const target = await deployPortHost();
     const handler = await dispatchPort(target);
     const portal = await deployPortal();
@@ -51,7 +51,7 @@ describe("Portal", () => {
       .to.be.revertedWithCustomError(portal, "BadWitness");
   });
 
-  it("records undelivered messages when forwarding fails", async () => {
+  it("records unresolved messages when forwarding fails", async () => {
     const target = await deployPortHost();
     const handler = await dispatchPort(target);
     const portal = await deployPortal();
@@ -64,7 +64,7 @@ describe("Portal", () => {
 
     const tx = await portal.testForward(handler, key, message, 0n);
 
-    await expect(tx).to.emit(portal, "Undelivered").withArgs(await portal.host(), key, digest);
+    await expect(tx).to.emit(portal, "Unresolved").withArgs(await portal.host(), key, digest);
   });
 
   it("recovers a matching witness through the supplied handler and resolves the key", async () => {
@@ -86,6 +86,7 @@ describe("Portal", () => {
     const tx = await portal.recoverPayable(...await commandCtx(portal, input), { value: 5n });
 
     await expect(tx).to.emit(recoveryTarget, "PortDispatchCalled").withArgs(0n, "0xcafe", 9n, 5n);
+    await expect(tx).to.emit(portal, "Resolved").withArgs(await portal.host(), key);
 
     const second = encodeRecoverBlock(recoveryHandler, 0n, key, witness);
     await expect(portal.recoverPayable(...await commandCtx(portal, second)))

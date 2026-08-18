@@ -2,13 +2,16 @@
 pragma solidity ^0.8.33;
 
 import {PortCalls} from "./Calls.sol";
+import {NodeAccess} from "./Access.sol";
+import {ResolvedEvent} from "../events/Resolved.sol";
+import {UnresolvedEvent} from "../events/Unresolved.sol";
 
 /// @title Portal
 /// @notice Base contract for hosts that route payloads through portal adapters.
-abstract contract Portal is PortCalls {
+abstract contract Portal is PortCalls, NodeAccess, UnresolvedEvent, ResolvedEvent {
     error BadWitness();
 
-    mapping(bytes32 key => bytes32 digest) internal undelivered;
+    mapping(bytes32 key => bytes32 digest) internal unresolved;
 
     /// @notice Try to forward `message` to `port`.
     /// @dev Records and returns `keccak256(message)` under `key` only when forwarding fails.
@@ -21,19 +24,19 @@ abstract contract Portal is PortCalls {
         if (tryCallPort(port, value, message)) return bytes32(0);
 
         miss = keccak256(message);
-        undelivered[key] = miss;
+        unresolved[key] = miss;
     }
 
-    /// @notice Retry a previously undelivered witness through `port`.
+    /// @notice Resolve a previously unresolved witness through `port`.
     /// @dev The witness must hash to the digest stored under `key`.
     /// @param port Port that should attempt recovery.
     /// @param key Recovery lookup key.
     /// @param witness Witness payload used to prove and replay recovery.
-    /// @param value Native EVM value assigned to the recovery attempt.
-    function retry(uint port, bytes32 key, bytes calldata witness, uint128 value) internal virtual {
-        if (undelivered[key] != keccak256(witness)) revert BadWitness();
+    /// @param value Native EVM value assigned to the resolution attempt.
+    function resolve(uint port, bytes32 key, bytes calldata witness, uint128 value) internal virtual {
+        if (unresolved[key] != keccak256(witness)) revert BadWitness();
 
-        delete undelivered[key];
+        delete unresolved[key];
         callPort(port, value, witness);
     }
 }
