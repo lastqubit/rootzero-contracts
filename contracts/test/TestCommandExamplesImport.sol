@@ -9,6 +9,7 @@ import {MyCommand as BasicCommandExample} from "../../examples/3-Command.sol";
 import {MyCommand as BatchCommandExample} from "../../examples/4-Batch.sol";
 import {MyCommand as DataCommandExample} from "../../examples/5-Data.sol";
 import {ExampleHost as ListExampleHost} from "../../examples/6-List.sol";
+import {ExampleHost as SwapExampleHost} from "../../examples/9-Swap.sol";
 
 /// @notice Concrete wrapper ensuring the minimal command-host example compiles.
 contract TestMinimalHostExample is MinimalHostExample {
@@ -39,4 +40,9 @@ contract TestDataCommandExampleHost is Host, DataCommandExample {
 /// @notice Concrete wrapper ensuring the custom-keyed list example compiles.
 contract TestListCommandExampleHost is ListExampleHost {
     constructor(address rootzero) ListExampleHost(rootzero) {}
+}
+
+/// @notice Concrete wrapper ensuring the nested swap example compiles.
+contract TestSwapExampleHost is SwapExampleHost {
+    constructor(address rootzero) SwapExampleHost(rootzero) {}
 }

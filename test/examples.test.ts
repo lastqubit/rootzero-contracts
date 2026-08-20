@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
+  Keys,
   concat,
   encodeAssetBlock,
   encodeAmountBlock,
@@ -10,6 +11,9 @@ import {
   encodeBlock,
   encodeCustodyBlock,
   encodeStatusBlock,
+  encodeBytesBlock,
+  encodeListBlock,
+  encodePositionBlock,
   encodeTxBlock,
   encodeUserAccount,
   localKey,
@@ -17,6 +21,16 @@ import {
 } from "./helpers/blocks.js";
 
 const Payment = localKey(1);
+const Swap = localKey(1);
+const SwapHop = localKey(2);
+
+function uint32(value: bigint): string {
+  return ethers.toBeHex(value, 4);
+}
+
+function int32(value: bigint): string {
+  return ethers.toBeHex(ethers.toTwos(value, 32), 4);
+}
 
 describe("Examples", () => {
   describe("Commands barrel", () => {
@@ -97,7 +111,7 @@ describe("Examples", () => {
   });
 
   describe("7-CustomInput", () => {
-    it("decodes a data input with the custom unpack helper", async () => {
+    it("decodes populated and empty child blocks with the custom unpack helper", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
       const host = await deploy("TestFrameExampleHost", commander);
@@ -111,6 +125,15 @@ describe("Examples", () => {
       await expect(host.myCommand(account, "0x", input))
         .to.emit(host, "PaymentSeen")
         .withArgs(asset, amount, status);
+
+      const emptyStatus = encodeBlock(Payment, concat(asset, pad32(amount), encodeBlock(Keys.Status, "0x")));
+      await expect(host.myCommand(account, "0x", emptyStatus))
+        .to.emit(host, "PaymentSeen")
+        .withArgs(asset, amount, 0n);
+
+      const missingStatus = encodeBlock(Payment, concat(asset, pad32(amount)));
+      await expect(host.myCommand(account, "0x", missingStatus))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 
@@ -135,6 +158,49 @@ describe("Examples", () => {
         encodeTxBlock(ethers.ZeroHash, account, firstAsset, 10n),
         encodeTxBlock(ethers.ZeroHash, account, secondAsset, 20n),
       ));
+    });
+  });
+
+  describe("9-Swap", () => {
+    it("decodes swap configuration and its nested hop list", async () => {
+      const signer = await getSigner(0);
+      const commander = await signer.getAddress();
+      const host = await deploy("TestSwapExampleHost", commander);
+      const account = encodeUserAccount(commander);
+
+      const asset = ethers.zeroPadValue("0x10", 32);
+      const liability = ethers.zeroPadValue("0x20", 32);
+      const firstHopAsset = ethers.zeroPadValue("0x30", 32);
+      const secondHopAsset = ethers.zeroPadValue("0x40", 32);
+      const hookData = "0xaabb";
+      const firstHopData = "0xcc";
+
+      const firstHop = encodeBlock(SwapHop, concat(
+        firstHopAsset,
+        uint32(500n),
+        int32(-10n),
+        pad32(11n),
+        encodeBytesBlock(firstHopData),
+      ));
+      const secondHop = encodeBlock(SwapHop, concat(
+        secondHopAsset,
+        uint32(3000n),
+        int32(60n),
+        pad32(12n),
+        encodeBytesBlock("0x"),
+      ));
+      const input = encodeBlock(Swap, concat(
+        uint32(100n),
+        int32(-5n),
+        pad32(9n),
+        encodeBytesBlock(hookData),
+        encodePositionBlock(asset, 100n, liability, 25n),
+        encodeListBlock(firstHop, secondHop),
+      ));
+
+      const [output, transactions] = await host.swap.staticCall(account, "0x", input);
+      expect(output).to.equal("0x");
+      expect(transactions).to.equal("0x");
     });
   });
 });
