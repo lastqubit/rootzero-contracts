@@ -73,6 +73,14 @@ library Writers {
     // Append helpers
     // -------------------------------------------------------------------------
 
+    /// @notice Append an empty block.
+    /// @param writer Destination writer.
+    /// @param key Block key.
+    function appendEmpty(Writer memory writer, bytes4 key) internal pure {
+        uint i = reserve(writer, Sizes.Header);
+        Blocks.writeEmpty(writer.dst, i, key);
+    }
+
     /// @notice Append arbitrary bytes to the writer.
     /// @param writer Destination writer; `i` is advanced by `data.length`.
     /// @param data Bytes to append.

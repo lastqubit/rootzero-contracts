@@ -52,6 +52,13 @@ library Decoders {
         return cur.state.more();
     }
 
+    /// @notice Return the cursor's current absolute calldata position.
+    /// @param cur Cursor to inspect.
+    /// @return Current absolute calldata position.
+    function absolute(Cur memory cur) internal pure returns (uint) {
+        return cur.state.absolute();
+    }
+
     /// @notice Validate and consume the next block from a cursor.
     /// @param cur Cursor advanced over the complete block.
     /// @param spec Expected block specification.
@@ -60,6 +67,18 @@ library Decoders {
     function consume(Cur memory cur, uint spec) internal pure returns (uint abs, uint end) {
         (abs, end) = Blocks.expect(cur.state.absolute(), spec);
         cur.state = cur.state.seekAbs(end);
+    }
+
+    /// @notice Consume a matching empty block from a cursor when present.
+    /// @param cur Cursor advanced only when the matching block is empty.
+    /// @param key Expected block key.
+    /// @return Whether an empty block was consumed.
+    function tryConsumeEmpty(Cur memory cur, bytes4 key) internal pure returns (bool) {
+        (uint i, uint offset, uint size) = cur.state.decode();
+        (bytes4 current, uint len) = Blocks.peek(offset + i, offset + size);
+        if (current != key || len != 0) return false;
+        cur.state = cur.state.seek(i + Sizes.Header);
+        return true;
     }
 
     /// @notice Validate and enter the payload of the next block in a cursor.
@@ -71,8 +90,38 @@ library Decoders {
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function enter(Cur memory cur, uint spec) internal pure returns (uint abs, uint end) {
+        return enter(cur, spec, 0);
+    }
+
+    /// @notice Validate a parent block and advance over a fixed payload prefix.
+    /// @dev `amount` is relative to the payload start and cannot exceed the
+    /// current parent payload. The returned `abs` remains the payload start.
+    /// @param cur Cursor advanced over the block header and fixed prefix.
+    /// @param spec Expected parent block specification.
+    /// @param amount Number of initial payload bytes to advance over.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(Cur memory cur, uint spec, uint amount) internal pure returns (uint abs, uint end) {
         (abs, end) = Blocks.expect(cur.state.absolute(), spec);
-        cur.state = cur.state.seekAbs(abs);
+        if (amount > end - abs) revert Blocks.InvalidBlock();
+        cur.state = cur.state.seekAbs(abs + amount);
+    }
+
+    /// @notice Advance a cursor by a raw byte count.
+    /// @dev No block header or schema is validated.
+    /// @param cur Cursor advanced by `amount` bytes.
+    /// @param amount Number of bytes to advance.
+    function advance(Cur memory cur, uint amount) internal pure {
+        cur.state = cur.state.advance(amount);
+    }
+
+    /// @notice Take a raw byte range from the cursor.
+    /// @dev No block header or schema is validated.
+    /// @param cur Cursor advanced by `amount` bytes.
+    /// @param amount Number of bytes to take.
+    /// @return abs Absolute position of the first taken byte.
+    function take(Cur memory cur, uint amount) internal pure returns (uint abs) {
+        (cur.state, abs) = cur.state.consume(amount);
     }
 
     /// @notice Require a decoder cursor to be at absolute position `abs`.
@@ -128,9 +177,7 @@ library Decoders {
     /// @return len Payload length.
     function peek(Cur memory cur, uint i) internal pure returns (bytes4 key, uint len) {
         (, uint offset, uint size) = cur.state.decode();
-        if (i > size || Sizes.Header > size - i) revert Blocks.MalformedBlocks();
-        (key, len) = Blocks.header(offset + i);
-        if (len > size - i - Sizes.Header) revert Blocks.MalformedBlocks();
+        return Blocks.peek(offset + i, offset + size);
     }
 
     /// @notice Return the relative position immediately after the current block.
@@ -159,6 +206,15 @@ library Decoders {
     function isAt(Cur memory cur, bytes4 key) internal pure returns (bool) {
         (uint i, uint offset, uint len) = cur.state.decode();
         return Blocks.hasAt(offset + i, offset + len, key);
+    }
+
+    /// @notice Return whether the current block has `key` and an empty payload.
+    /// @param cur Cursor positioned at a block.
+    /// @param key Expected block key.
+    /// @return Whether a complete matching empty block header occurs at the current position.
+    function isEmpty(Cur memory cur, bytes4 key) internal pure returns (bool) {
+        (uint i, uint offset, uint len) = cur.state.decode();
+        return Blocks.isEmpty(offset + i, offset + len, key);
     }
 
     /// @notice Find `key` at or after relative position `i`.
@@ -210,7 +266,7 @@ library Decoders {
     /// @param cur Cursor advanced past the block.
     /// @param key Expected block key.
     /// @return out Cursor spanning the complete encoded block.
-    function take(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
+    function takeBlock(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
         uint abs = cur.state.absolute();
         (, uint end) = consume(cur, Specs.create(key, 0, 0, 0));
         out.state = Cursors.create(abs, end - abs, 0, 0, 0);
@@ -256,9 +312,7 @@ library Decoders {
 
     /// @dev Return the next raw calldata word and advance by `size` bytes.
     function next(Cur memory cur, uint size) private pure returns (bytes32 value) {
-        uint abs;
-        (cur.state, abs) = cur.state.consume(size);
-        value = Blocks.read32(abs);
+        value = Blocks.read32(take(cur, size));
     }
 
     /// @notice Return the next raw byte and advance the cursor by one byte.

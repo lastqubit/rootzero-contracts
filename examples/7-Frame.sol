@@ -13,9 +13,14 @@ pragma solidity ^0.8.33;
 // the encoded input item is:
 //
 //   PAYMENT(asset | amount | STATUS(status))
+//
+// or, when the command should use its default status:
+//
+//   PAYMENT(asset | amount | STATUS())
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, Execution, Executions, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
+import {Blocks, CommandBase, Execution, Executions, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
+import {Keys} from "../contracts/Codec.sol";
 
 using Executions for Execution;
 
@@ -28,7 +33,7 @@ abstract contract MyCommand is CommandBase {
     event PaymentSeen(bytes32 asset, uint amount, uint status);
 
     constructor() {
-        inputSpec = schema(1, 64, 0, uint32(64 + Sizes.Status), INPUT, bytes32(0));
+        inputSpec = schema(1, uint32(64 + Sizes.Header), uint32(64 + Sizes.Status), uint32(64 + Sizes.Status), INPUT);
         (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, 0);
     }
 
@@ -36,15 +41,13 @@ abstract contract MyCommand is CommandBase {
         Execution memory exec,
         uint8 lane
     ) private view returns (bytes32 asset, uint amount, uint status) {
-        (uint abs, uint end) = exec.enter(lane, inputSpec);
+        (uint abs, uint end) = exec.enter(lane, inputSpec, 64);
 
-        asset = exec.next32(lane);
-        amount = uint(exec.next32(lane));
-        abs += 64;
+        asset = Blocks.read32(abs);
+        amount = uint(Blocks.read32(abs + 32));
 
-        if (abs < end) {
+        if (!exec.tryConsumeEmpty(lane, Keys.Status)) {
             status = uint(exec.unpack32(lane, Specs.Status));
-            abs += Sizes.Status;
         }
 
         exec.expectAbs(end);

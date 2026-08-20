@@ -44,8 +44,9 @@ event Endpoint(uint indexed host, uint id, uint descriptor)
   its encoded group retained and its reserved fields cleared.
   `Specs.group` returns the effective group, including the zero-to-one default
   for non-empty specs.
-  A top-level list uses a context-local input key whose published schema body is
-  `many #item`; nested lists continue to use the generic `#list` key.
+  A top-level list uses a context-local input key whose published schema body
+  consists of one `many #item`, optionally wrapped in braces; nested lists in a
+  body with sibling items continue to use the generic `#list` key.
 - Command, port, query, and guard endpoints all share `Endpoint`; admin commands
   are marked by the descriptor's admin flag.
 - Block schema strings are published as `#schema` blocks in `Annotation` events.

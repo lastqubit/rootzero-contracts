@@ -8,24 +8,34 @@ pragma solidity ^0.8.33;
 //
 // Schema:
 // - block aliases are published separately from payload schemas
-// - payload schemas are `""`, `{ fields }`, or a top-level `many #x`
+// - payload schemas are `""` or a comma-separated item sequence; one optional
+//   pair of outer braces may wrap a non-empty sequence without changing meaning
 // - an empty schema string means the block has no structured payload
 // - commas separate siblings at every level
-// - braces define the current block payload body
+// - braces are presentation-only and do not change payload layout
 // - command inputs are a single run when the input schema is non-empty
 // - command state is a single active state run without trailing globals
 // - run items may repeat at top level for batching
-// - `maybe #x` marks an optional block item
-// - nested `many #x` emits one generic list block containing repeated `#x` items
-// - a custom schema consisting of top-level `many #x` uses its custom key for
-//   the outer list block and contains repeated `#x` items directly
+// - every declared child block header is present when its parent is non-empty
+// - any block may use a zero-length payload as its empty form
+// - `maybe #x` hints that the onchain consumer accepts the empty form of `#x`
+//   when emptiness is not already intrinsic to the referenced block type
+// - `many #x` alongside other items emits one generic list block containing
+//   zero or more repeated `#x` items; the list header is always present
+// - a custom schema consisting of exactly one `many #x` item uses its custom
+//   key for the outer list block and contains repeated `#x` items directly,
+//   whether or not the item is wrapped in braces
 // - endpoint descriptor lanes identify their top-level block key directly
-// - `portal` fields are routing identifiers, often destination host IDs
+// - `portal` fields identify destination portal hosts. By convention the value
+//   is the portal implementation's host ID; core passes it through unchanged
+//   and hooks may validate or resolve it for their transport
 // - `resources` fields are chain-specific resource words. A portal adapter
 //   interprets them for the destination runtime. EVM resources use the low
 //   128 bits as native value.
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
+// - `at N` assigns an offchain presentation position to one sibling; explicit
+//   positions are reserved first and unannotated siblings retain relative order
 // - child blocks resolve by alias in the active schema context; unresolved aliases are invalid
 // - schema strings describe the payload body only; the `Block` event carries the alias
 // - items are encoded in declaration order
@@ -63,7 +73,6 @@ pragma solidity ^0.8.33;
 library Schemas {
     // Empty and reserved payloads
 
-    string constant Unit = "";
     string constant Bytes = "";
     string constant String = "";
     string constant List = "";
@@ -71,47 +80,47 @@ library Schemas {
 
     // One-word payloads
 
-    string constant Node = "{ uint id }";
-    string constant Account = "{ bytes32 account }";
-    string constant Asset = "{ bytes32 asset }";
-    string constant Status = "{ uint code }";
+    string constant Node = "uint node";
+    string constant Account = "bytes32 account";
+    string constant Asset = "bytes32 asset";
+    string constant Status = "uint code";
 
     // Two-word payloads
 
-    string constant Amount = "{ bytes32 asset, uint amount }";
-    string constant Balance = "{ bytes32 asset, uint amount }";
-    string constant AccountAsset = "{ bytes32 account, bytes32 asset }";
-    string constant HostAsset = "{ uint host, bytes32 asset }";
+    string constant Amount = "bytes32 asset, uint amount";
+    string constant Balance = "bytes32 asset, uint amount";
+    string constant AccountAsset = "bytes32 account, bytes32 asset";
+    string constant HostAsset = "uint host, bytes32 asset";
 
     // Three-word payloads
 
-    string constant Allocation = "{ uint host, bytes32 asset, uint amount }";
-    string constant Allowance = "{ uint host, bytes32 asset, uint amount }";
-    string constant Custody = "{ uint host, bytes32 asset, uint amount }";
-    string constant AccountAmount = "{ bytes32 account, bytes32 asset, uint amount }";
-    string constant HostAmount = "{ uint host, bytes32 asset, uint amount }";
-    string constant HostAccountAsset = "{ uint host, bytes32 account, bytes32 asset }";
+    string constant Allocation = "uint host, bytes32 asset, uint amount";
+    string constant Allowance = "uint host, bytes32 asset, uint amount";
+    string constant Custody = "uint host, bytes32 asset, uint amount";
+    string constant AccountAmount = "bytes32 account, bytes32 asset, uint amount";
+    string constant HostAmount = "uint host, bytes32 asset, uint amount";
+    string constant HostAccountAsset = "uint host, bytes32 account, bytes32 asset";
 
     // Four-word payloads
 
-    string constant Position = "{ bytes32 asset, uint amount, bytes32 liability, uint debt }";
-    string constant Transaction = "{ bytes32 from, bytes32 to, bytes32 asset, uint amount }";
-    string constant HostAccountAmount = "{ uint host, bytes32 account, bytes32 asset, uint amount }";
+    string constant Position = "bytes32 asset, uint amount, bytes32 liability, uint debt";
+    string constant Transaction = "bytes32 from, bytes32 to, bytes32 asset, uint amount";
+    string constant HostAccountAmount = "uint host, bytes32 account, bytes32 asset, uint amount";
 
     // Composite payloads
 
-    string constant Call = "{ uint target, uint resources, #bytes as payload }";
-    string constant Step = "{ uint cmd, uint resources, #bytes as input }";
-    string constant Relay = "{ uint portal, uint resources, #bytes as input }";
-    string constant Dispatch = "{ uint portal, uint resources, #bytes as payload }";
-    string constant Context = "{ bytes32 account, #bytes as state, #bytes as input }";
-    string constant Recover = "{ uint handler, uint resources, bytes32 key, #bytes as witness }";
-    string constant Annotation = "{ uint entity, #bytes as data }";
+    string constant Call = "uint target, uint resources, #bytes as payload";
+    string constant Step = "uint cmd, uint resources, #bytes as input";
+    string constant Relay = "uint portal, uint resources, #bytes as input";
+    string constant Dispatch = "uint portal, uint resources, #bytes as payload";
+    string constant Context = "bytes32 account, #bytes as state, #bytes as input";
+    string constant Recover = "uint handler, uint resources, bytes32 key, #bytes as witness";
+    string constant Annotation = "uint entity, #bytes as data";
 
     // Annotation payloads
 
-    string constant Action = "{ uint action }";
-    string constant Label = "{ bytes32 namespace, #string as name }";
-    string constant Schema = "{ uint spec, #string as body, bytes32 name }";
+    string constant Action = "uint action";
+    string constant Label = "bytes32 namespace, #string as name";
+    string constant Schema = "uint spec, #string as body, bytes32 name";
 }
 

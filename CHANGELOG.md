@@ -3,6 +3,63 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.22.0
+
+### Breaking Changes
+
+- Declared child blocks are now structurally present whenever their parent is
+  non-empty. A child without a value uses its zero-payload block form instead
+  of being omitted. The `maybe` modifier now hints that onchain code accepts
+  that empty form; it no longer describes an absent item. Lists likewise keep
+  their header and represent no items with an empty payload.
+- Removed `Schemas.Unit`. Use the empty form of the block key that carries the
+  relevant semantic meaning instead of a generic unit marker.
+- Renamed `Decoders.take(cur, key)` to `takeBlock(cur, key)`. The `take` name is
+  now used by raw cursor navigation and returns the absolute start of a
+  bounds-checked byte range while advancing the cursor.
+- Normalized standard schema bodies by removing their presentation-only outer
+  braces, and renamed the standard node field from `id` to `node`. Published
+  schema annotation bytes therefore change even though their wire layouts do
+  not.
+
+### Added
+
+- Added empty-block inspection, conditional consumption, encoding, writing,
+  and execution-output helpers across `Blocks`, `Decoders`, `Readers`,
+  `Writers`, and `Executions`.
+- Added `absolute`, `advance`, and raw `take` cursor helpers, plus `enter`
+  overloads that advance over a validated fixed payload prefix in one cursor
+  update.
+- Added unnamed `schema` overloads for context-local specifications and an
+  unnamed `Blocks.schema` factory overload.
+- Added the offchain-only `at N` schema projection hint. Explicit positions are
+  reserved first, then unannotated siblings fill the remaining positions in
+  declaration order; wire encoding and onchain decoding remain unchanged.
+
+### Changed
+
+- Clarified that one optional pair of outer braces is presentation-only for all
+  non-empty schema bodies, including custom top-level `many` schemas.
+- Updated custom input examples to group fixed-width fields for direct calldata
+  reads, demonstrate empty child blocks, and separate top-level and nested swap
+  decoding.
+- Excluded repository documentation and examples from the prepared npm package;
+  the package continues to contain Solidity sources, the README, changelog, and
+  license.
+
+### Upgrade Compatibility
+
+- Emit every declared child header in schema order. When a `maybe` child has no
+  value, emit that child's key with a zero payload length and call
+  `tryConsumeEmpty` before its strict semantic unpacker.
+- Replace `Schemas.Unit` markers with an empty block carrying the key expected
+  by the receiving schema.
+- Replace `cur.take(key)` with `cur.takeBlock(key)`. Use `cur.take(amount)` only
+  for raw fixed-width ranges.
+- Indexers should accept braced and unbraced schema bodies, treat `maybe` as an
+  empty-value hint, and apply `at N` only after decoding declaration-order wire
+  data.
+
 ## 1.21.0
 
 ### Breaking Changes

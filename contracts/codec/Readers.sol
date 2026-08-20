@@ -45,6 +45,45 @@ library Readers {
         return cur.i != cur.source.length;
     }
 
+    /// @notice Return whether the current block has `key` and an empty payload.
+    /// @param cur Reader inspected without advancing.
+    /// @param key Expected block key.
+    /// @return Whether a complete matching empty block header occurs at the current position.
+    function isEmpty(Reader memory cur, bytes4 key) internal pure returns (bool) {
+        bytes memory source = cur.source;
+        uint i = cur.i;
+        if (i > source.length || source.length - i < Sizes.Header) return false;
+
+        uint header;
+        assembly ("memory-safe") {
+            header := mload(add(add(source, 0x20), i))
+        }
+        return bytes4(uint32(header >> 224)) == key && uint32(header >> 192) == 0;
+    }
+
+    /// @notice Consume a matching empty block from the reader when present.
+    /// @param cur Reader advanced only when the matching block is empty.
+    /// @param key Expected block key.
+    /// @return Whether an empty block was consumed.
+    function tryConsumeEmpty(Reader memory cur, bytes4 key) internal pure returns (bool) {
+        bytes memory source = cur.source;
+        uint i = cur.i;
+        if (i > source.length || source.length - i < Sizes.Header) revert InvalidBlock();
+
+        bytes4 current;
+        uint len;
+        assembly ("memory-safe") {
+            let header := mload(add(add(source, 0x20), i))
+            current := header
+            len := and(shr(192, header), 0xffffffff)
+        }
+
+        if (len > source.length - i - Sizes.Header) revert InvalidBlock();
+        if (current != key || len != 0) return false;
+        cur.i += Sizes.Header;
+        return true;
+    }
+
     /// @notice Validate and consume the current block, advancing `cur.i` past it.
     /// @param cur Reader to advance.
     /// @param key Expected block key.

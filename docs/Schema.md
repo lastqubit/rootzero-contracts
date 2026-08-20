@@ -51,20 +51,28 @@ overloaded in the relevant host/schema context.
 ## Block Syntax
 
 A block definition has an event alias and a schema body. A schema body is one
-of three forms:
+of these forms:
 
 ```txt
-""                 empty or raw payload
-{ fields }         structured payload
-many #item         top-level custom list payload
+""                  empty or raw payload
+fields              structured payload
+{ fields }          equivalent braced structured payload
+many #item          top-level custom list payload
+{ many #item }      equivalent braced top-level list payload
 ```
 
-Fixed fields are written in braces:
+One optional pair of outer braces may wrap any non-empty schema body. The
+braces are presentation-only and never change its wire layout:
 
 ```txt
 alias:  amount
-schema: { bytes32 asset, uint amount }
+schema: bytes32 asset, uint amount
+also valid: { bytes32 asset, uint amount }
 ```
+
+Consumers must remove one matching pair of outer braces, when present, before
+parsing the comma-separated item sequence. Unmatched braces and additional
+outer brace layers are invalid.
 
 A block body can reference another block alias as a child item with `#`:
 
@@ -73,9 +81,18 @@ A block body can reference another block alias as a child item with `#`:
 ```
 
 The empty schema string `""` means the block has no structured payload. This is
-used for zero-payload blocks such as `#unit` and raw dynamic blocks such as
-`#bytes`. A root `many #item` body is reserved for an emitted custom schema
-whose own key identifies the outer list block.
+used for raw dynamic blocks such as `#bytes`.
+
+Every block key also has an empty wire form consisting of its header with a
+zero payload length. Empty blocks are structurally present but contain no body
+to decode. Existing semantic decoders remain strict: for example,
+`unpackBalance` rejects an empty `#balance` unless its caller detects and
+consumes the empty form first.
+
+When a parent block is non-empty, every child block declared by its schema is
+represented by a header in declaration order. A child without a value uses its
+empty form rather than being omitted. An empty parent is terminal, so its body
+and nested child headers are not present.
 
 A structured schema body is a comma-separated list of items. Order is
 significant.
@@ -109,35 +126,42 @@ alias to give those bytes a presentation name:
 
 ## Modifiers
 
-Cardinality is expressed with prefix keywords:
+Empty-value acceptance and repeated items are expressed with prefix keywords:
 
 ```txt
 #balance
 maybe #balance
 many #balance
-maybe many #balance
 ```
 
-- no prefix: one required item
-- `maybe`: optional item
-- `many`: a list whose payload contains repeated items
-- `maybe many`: optional `#list` block
+- no prefix: one required item whose ordinary value rules determine whether its
+  payload may be empty
+- `maybe`: one required header whose payload may be empty
+- `many`: one required list header containing zero or more repeated items
 
-`maybe` emits no placeholder when absent. Inside a structured schema body,
-`many` wraps repeated items in one generic `#list` block; it does not repeat the
-item in place:
+These modifiers are offchain hints describing the forms accepted by the
+onchain consumer; they do not change runtime validation. `#bytes`, `#string`,
+and lists accept empty payloads as ordinary values, so applying `maybe` to them
+has no additional meaning and tooling may normalize it away.
+
+A `many` item alongside any sibling items wraps its repeated values in one
+generic `#list` block; it does not repeat the item in place. The list header
+remains present when it has no items and carries a zero payload length:
 
 ```txt
 { uint id, many #asset as assets }
 ```
 
-When an emitted custom schema consists entirely of a top-level `many` item, the
-custom schema key identifies the outer list block instead. Its payload contains
-the repeated items directly:
+When the item sequence of an emitted custom schema consists of exactly one
+`many` item, the custom schema key identifies the outer list block instead. Its
+payload contains the repeated items directly. Optional outer braces and an
+item alias do not affect this rule:
 
 ```txt
 schema key: 0x00000001
 schema body: many #asset
+equivalent body: { many #asset }
+also equivalent: many #asset as assets
 wire value: [0x00000001][length][ASSET][ASSET]...
 ```
 
@@ -180,8 +204,9 @@ The lane key is the prime item. Prime items may repeat at the top level for
 batching. Later top-level items are globals for the whole batch and are not
 counted as per-operation prime blocks.
 
-The prime item cannot be optional. If an endpoint needs a per-operation marker
-with no payload, use a zero-payload block such as `#unit`.
+An endpoint may accept the empty form of its prime block as a per-operation
+marker. The header remains present, so empty prime blocks still participate in
+run counting and batching.
 
 Endpoint descriptors currently use a narrower convention than the full block
 grammar: each state, input, or output lane is a single run of blocks, without
@@ -311,6 +336,61 @@ The same rule applies to field aliases:
 maybe #account as recipient.account
 ```
 
+## Presentation Order
+
+An item may use `at N` to select its zero-based position in the offchain
+presentation of its enclosing item sequence. This is projection metadata only:
+it does not change wire order, payload offsets, block keys, encoding, or onchain
+decoding.
+
+```txt
+{
+  uint32 fee,
+  int32 tickSpacing,
+  uint hook,
+  #bytes as hookData,
+  #position at 0,
+  many #swapHop
+}
+```
+
+The wire order remains:
+
+```txt
+fee, tickSpacing, hook, hookData, position, swapHop
+```
+
+The offchain presentation order is:
+
+```txt
+position, fee, tickSpacing, hook, hookData, swapHop
+```
+
+To construct the presentation order, tooling first reserves every position
+named by `at`, then fills the remaining positions with unannotated items in
+their original declaration order. This permits one item to be repositioned
+without annotating every sibling. Multiple `at` annotations may be used when
+more positions need to be fixed explicitly.
+
+An `at` position must be less than the number of sibling items, and two siblings
+must not select the same position. Tooling must reject duplicate or out-of-range
+positions. An item without `at` retains its order relative to the other
+unannotated items. Each nested schema body applies presentation ordering
+independently; a `many` declaration occupies one position in its enclosing body.
+
+`at` follows the complete item, including any field alias:
+
+```txt
+uint amount at 0
+#bytes as hookData at 2
+maybe #account as recipient at 1
+many #swapHop at 3
+```
+
+Encoders and decoders must always process items in declaration order. Consumers
+may apply `at` only after decoding when constructing an offchain object, tuple,
+table, or user interface.
+
 ## Field Types
 
 Supported field types are chain-neutral:
@@ -336,8 +416,10 @@ true. `bytesN` values are encoded as exactly `N` bytes with no padding.
 
 ## Chain Resources
 
-Fields named `portal` are routing identifiers; they are often the destination
-host ID, but a transport adapter may define a different stable handle.
+Fields named `portal` identify destination portal hosts. By convention, the
+value is the host ID of the destination portal implementation. Core encoding
+and dispatch pass the value through unchanged; transport hooks are responsible
+for any validation or route resolution they require.
 
 Fields named `resources` are chain-specific resource words. A portal adapter
 interprets them for the destination runtime. Different runtimes may pack these
@@ -385,7 +467,7 @@ asset.
 .asset
 ```
 
-Reserved words include `maybe`, `many`, `as`, all field type names, and the
+Reserved words include `maybe`, `many`, `as`, `at`, all field type names, and the
 reserved block aliases `bytes` and `list`. For dotted paths, reserved words are
 invalid in any path segment.
 

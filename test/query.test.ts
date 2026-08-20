@@ -44,7 +44,7 @@ describe("Queries", () => {
       );
     await expect(tx!)
       .to.emit(query, "Annotation")
-      .withArgs(await query.host(), encodeSchemaBlock(ValueSpec, "{ uint value }", ethers.ZeroHash));
+      .withArgs(await query.host(), encodeSchemaBlock(ValueSpec, "uint value", ethers.ZeroHash));
     await expect(tx!)
       .to.emit(query, "Annotation")
       .withArgs(await qry("incrementQuery"), encodeLabelBlock(ethers.ZeroHash, "incrementQuery"));

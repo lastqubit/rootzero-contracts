@@ -79,6 +79,13 @@ describe("Cursors", () => {
       expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
     });
 
+    it("encodes empty blocks through factories, writers, and executions", async () => {
+      const expected = encodeBlock(Keys.Balance, "0x");
+      expect(await helper.testToEmptyBlock(Keys.Balance)).to.equal(expected);
+      expect(await helper.testWriteEmptyBlock(Keys.Balance)).to.equal(expected);
+      expect(await blocksHelper.executionOutputEmpty(Keys.Balance)).to.equal(expected);
+    });
+
     it("position block round-trips through writers and decoders", async () => {
       const liability = ethers.zeroPadValue("0x02", 32);
       const positionAmount = 500n;
@@ -387,8 +394,10 @@ describe("Cursors", () => {
     it("schema factory matches the canonical SCHEMA encoding", async () => {
       const spec = exactSpec(Keys.Asset, 32);
       const name = pad32("0x55");
-      expect(await helper.testToSchemaBlock(spec, "bytes32 asset", name))
+      expect(await helper["testToSchemaBlock(uint256,string,bytes32)"](spec, "bytes32 asset", name))
         .to.equal(encodeSchemaBlock(spec, "bytes32 asset", name));
+      expect(await helper["testToSchemaBlock(uint256,string)"](spec, "bytes32 asset"))
+        .to.equal(encodeSchemaBlock(spec, "bytes32 asset", ethers.ZeroHash));
     });
 
     it("creates exact specs from a numeric key and size", async () => {
@@ -620,6 +629,21 @@ describe("Cursors", () => {
         72n,
         true,
       ]);
+    });
+
+    it("detects and conditionally consumes empty blocks", async () => {
+      const empty = encodeBlock(Keys.Balance, "0x");
+      const balance = encodeBalanceBlock(asset, 123n);
+      expect(await helper.testReaderIsEmpty(empty, Keys.Balance)).to.equal(true);
+      expect(await helper.testReaderIsEmpty(empty, Keys.Amount)).to.equal(false);
+      expect(await helper.testReaderIsEmpty(balance, Keys.Balance)).to.equal(false);
+      expect(await helper.testReaderTryConsumeEmpty(empty, Keys.Balance)).to.deep.equal([true, 8n, true]);
+      expect(await helper.testReaderTryConsumeEmpty(empty, Keys.Amount)).to.deep.equal([false, 0n, false]);
+      expect(await helper.testReaderTryConsumeEmpty(balance, Keys.Balance)).to.deep.equal([false, 0n, false]);
+
+      const malformed = "0x" + Keys.Balance.slice(2) + "00000040";
+      await expect(helper.testReaderTryConsumeEmpty(malformed, Keys.Balance))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("unpacks a transaction and advances to the end", async () => {
@@ -904,6 +928,42 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
+    it("enter advances over a fixed parent prefix without crossing its payload", async () => {
+      const parent = encodeListBlock(ethers.hexlify(ethers.randomBytes(64)));
+      const source = concat(parent, encodeAssetBlock(asset));
+      const spec = exactSpec(Keys.List, 64);
+
+      expect(await helper.testEnterAdvance(source, spec, 32n)).to.deep.equal([8n, 40n, 72n]);
+      await expect(helper.testEnterAdvance(source, spec, 65n))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("reports the absolute position separately from advancing over raw bytes", async () => {
+      const first = ethers.zeroPadValue("0x41", 32);
+      const second = ethers.zeroPadValue("0x42", 32);
+
+      expect(await helper.testAdvance(concat(first, second), 32n)).to.deep.equal([0n, 32n, first]);
+      await expect(helper.testAdvance(first, 33n)).to.be.revertedWithCustomError(helper, "OutOfBounds");
+
+      const input = encodeListBlock(first, second);
+      expect(await blocksHelper.executionAdvance(input, 64n)).to.deep.equal([8n, first, true]);
+      await expect(blocksHelper.executionAdvance(input, 65n))
+        .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
+    });
+
+    it("takes raw bytes and returns their starting absolute position", async () => {
+      const first = ethers.zeroPadValue("0x41", 32);
+      const second = ethers.zeroPadValue("0x42", 32);
+
+      expect(await helper.testTakeRaw(concat(first, second), 32n)).to.deep.equal([0n, 32n, first]);
+      await expect(helper.testTakeRaw(first, 33n)).to.be.revertedWithCustomError(helper, "OutOfBounds");
+
+      const input = encodeListBlock(first, second);
+      expect(await blocksHelper.executionTake(input, 64n)).to.deep.equal([8n, first, true]);
+      await expect(blocksHelper.executionTake(input, 65n))
+        .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
+    });
+
     it("past returns the offset immediately past the current block without advancing", async () => {
       const source = encodeBalanceBlock(asset, amount);
       expect(await helper.testPastCurrent(source)).to.equal(72n);
@@ -922,6 +982,45 @@ describe("Cursors", () => {
     it("isAt returns true for a truncated block when the current header key matches", async () => {
       const source = "0x" + Keys.Balance.slice(2) + "00000040";
       expect(await helper.testIsAtCurrent(source, Keys.Balance)).to.equal(true);
+    });
+
+    it("detects an empty block without consuming it", async () => {
+      const empty = encodeBlock(Keys.Balance, "0x");
+      expect(await helper.testIsEmptyCurrent(empty, Keys.Balance)).to.equal(true);
+      expect(await helper.testIsEmptyCurrent(empty, Keys.Amount)).to.equal(false);
+      expect(await helper.testIsEmptyCurrent(encodeBalanceBlock(asset, amount), Keys.Balance)).to.equal(false);
+      expect(await helper.testIsEmptyCurrent(Keys.Balance, Keys.Balance)).to.equal(false);
+    });
+
+    it("conditionally consumes an empty block header", async () => {
+      const empty = encodeBlock(Keys.Balance, "0x");
+      const balance = encodeBalanceBlock(asset, amount);
+      expect(await helper.testTryConsumeEmpty(empty, Keys.Balance)).to.deep.equal([true, 8n, false]);
+      expect(await helper.testTryConsumeEmpty(empty, Keys.Amount)).to.deep.equal([false, 0n, true]);
+      expect(await helper.testTryConsumeEmpty(balance, Keys.Balance)).to.deep.equal([false, 0n, true]);
+
+      const malformed = "0x" + Keys.Balance.slice(2) + "00000040";
+      await expect(helper.testTryConsumeEmpty(malformed, Keys.Balance))
+        .to.be.revertedWithCustomError(helper, "MalformedBlocks");
+      await expect(helper.testUnpackBalance(empty))
+        .to.be.revertedWithCustomError(helper, "OutOfBounds");
+    });
+
+    it("detects and consumes empty blocks through execution lanes", async () => {
+      const empty = encodeBlock(Keys.Balance, "0x");
+      expect(await blocksHelper.executionIsEmpty(empty, exactSpec(Keys.Balance, 64), Keys.Balance))
+        .to.equal(true);
+      expect(await blocksHelper.executionTryConsumeEmpty(empty, exactSpec(Keys.Balance, 64), Keys.Balance))
+        .to.deep.equal([true, false]);
+      expect(await blocksHelper.executionTryConsumeEmpty(empty, exactSpec(Keys.Balance, 64), Keys.Amount))
+        .to.deep.equal([false, true]);
+      expect(
+        await blocksHelper.executionTryConsumeEmpty(
+          encodeBalanceBlock(asset, amount),
+          exactSpec(Keys.Balance, 64),
+          Keys.Balance,
+        ),
+      ).to.deep.equal([false, true]);
     });
 
     it("hasAt checks a block key at an arbitrary source position", async () => {
@@ -1046,6 +1145,12 @@ describe("Cursors", () => {
       expect(inputI).to.equal(BigInt(ethers.getBytes(list).length));
     });
 
+    it("treats an empty list block as a present list with no items", async () => {
+      const list = encodeListBlock();
+      const [itemsOffset, itemsI, itemsLen, inputI] = await helper.testList(list);
+      expect([itemsOffset, itemsI, itemsLen, inputI]).to.deep.equal([8n, 0n, 0n, 8n]);
+    });
+
     it("list accepts custom keyed list specifications", async () => {
       const key = localKey(77);
       const item1 = encodeAssetBlock(asset);
@@ -1079,21 +1184,21 @@ describe("Cursors", () => {
       expect(data).to.not.include(Keys.Amount.slice(2));
     });
 
-    it("take returns a sliced cursor over the full matching block and advances the source cursor", async () => {
+    it("takeBlock returns a cursor over the full matching block and advances the source cursor", async () => {
       const custom = localKey(1);
       const payload = encodeAccountBlock(encodeUserAccount("0x12"));
       const data = encodeBlock(custom, payload);
-      const [outOffset, outI, outLen, inputI] = await helper.testTake(data, custom);
+      const [outOffset, outI, outLen, inputI] = await helper.testTakeBlock(data, custom);
       expect(outOffset).to.equal(0n);
       expect(outI).to.equal(0n);
       expect(outLen).to.equal(BigInt(ethers.getBytes(data).length));
       expect(inputI).to.equal(BigInt(ethers.getBytes(data).length));
     });
 
-    it("take reverts when the current block key does not match", async () => {
+    it("takeBlock reverts when the current block key does not match", async () => {
       const custom = localKey(1);
       const source = encodeBalanceBlock(asset, amount);
-      await expect(helper.testTake(source, custom))
+      await expect(helper.testTakeBlock(source, custom))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 

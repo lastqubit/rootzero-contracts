@@ -73,6 +73,17 @@ library Blocks {
         len = uint32(head >> 192);
     }
 
+    /// @notice Decode a complete block header within an absolute calldata region.
+    /// @param abs Absolute position of the header.
+    /// @param end Absolute region boundary.
+    /// @return key Decoded block key.
+    /// @return len Decoded payload length.
+    function peek(uint abs, uint end) internal pure returns (bytes4 key, uint len) {
+        if (abs > end || Sizes.Header > end - abs) revert MalformedBlocks();
+        (key, len) = header(abs);
+        if (len > end - abs - Sizes.Header) revert MalformedBlocks();
+    }
+
     /// @notice Validate a block header at an absolute calldata position.
     /// @dev DANGER: This performs an unchecked calldata read and does not ensure `end`
     /// lies within the caller's logical calldata region. Only the key, minimum,
@@ -101,6 +112,17 @@ library Blocks {
         end = body + size;
     }
 
+    /// @notice Validate an empty block at an absolute calldata position.
+    /// @dev DANGER: This performs an unchecked calldata read. The caller must
+    /// validate the returned end against its logical calldata region.
+    /// @param abs Absolute position of the block header.
+    /// @param key Expected block key.
+    /// @return end Absolute position immediately after the empty block header.
+    function expectEmpty(uint abs, bytes4 key) internal pure returns (uint end) {
+        if (header(abs, key) != 0) revert InvalidBlock();
+        return abs + Sizes.Header;
+    }
+
     /// @notice Return whether `abs` identifies a header with `key` before an absolute end.
     /// @param abs Absolute calldata position to inspect.
     /// @param end Absolute region boundary.
@@ -109,6 +131,16 @@ library Blocks {
     function hasAt(uint abs, uint end, bytes4 key) internal pure returns (bool) {
         if (abs > end || Sizes.Header > end - abs) return false;
         return bytes4(read32(abs)) == key;
+    }
+
+    /// @notice Return whether `abs` identifies a complete empty block header.
+    /// @param abs Absolute position to inspect.
+    /// @param end Absolute region boundary.
+    /// @param key Expected block key.
+    /// @return Whether the expected key occurs with a zero-length payload.
+    function isEmpty(uint abs, uint end, bytes4 key) internal pure returns (bool) {
+        if (!hasAt(abs, end, key)) return false;
+        return uint32(uint(read32(abs)) >> 192) == 0;
     }
 
     /// @notice Find the first block with `key` at or after absolute position `abs`.
@@ -159,6 +191,18 @@ library Blocks {
     }
 
     // Generic block writes
+
+    /// @notice Write an empty block header at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Header` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param key Block key.
+    function writeEmpty(bytes memory dst, uint i, bytes4 key) internal pure {
+        uint head = uint(uint32(key)) << 224;
+        assembly ("memory-safe") {
+            mstore(add(add(dst, 0x20), i), head)
+        }
+    }
 
     /// @notice Write a custom block with one payload word at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B32` bytes first.
@@ -1729,6 +1773,14 @@ library Blocks {
 
     // Generic factories
 
+    /// @notice Encode an empty block.
+    /// @param key Block type key.
+    /// @return value Encoded empty block header.
+    function empty(bytes4 key) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Header);
+        writeEmpty(value, 0, key);
+    }
+
     /// @notice Encode a block with a raw payload.
     /// @param key Block type key.
     /// @param payload Raw payload bytes.
@@ -1831,6 +1883,14 @@ library Blocks {
     /// @notice Encode a SCHEMA block.
     /// @param spec Block specification.
     /// @param body Schema body.
+    /// @return value Encoded SCHEMA block bytes.
+    function schema(uint spec, string memory body) internal pure returns (bytes memory value) {
+        return schema(spec, body, bytes32(0));
+    }
+
+    /// @notice Encode a named SCHEMA block.
+    /// @param spec Block specification.
+    /// @param body Schema body.
     /// @param name Schema name.
     /// @return value Encoded SCHEMA block bytes.
     function schema(uint spec, string memory body, bytes32 name) internal pure returns (bytes memory value) {
@@ -1931,7 +1991,8 @@ library Blocks {
     }
 
     /// @notice Encode a RELAY block.
-    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param portal Destination portal implementation's host ID, passed through
+    /// without semantic validation.
     /// @param resources Chain-specific resources for the destination context.
     /// @param input Nested input block stream.
     /// @return value Encoded RELAY block bytes.
@@ -1949,7 +2010,8 @@ library Blocks {
     }
 
     /// @notice Encode a DISPATCH block.
-    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param portal Destination portal implementation's host ID, passed through
+    /// without semantic validation.
     /// @param resources Chain-specific resources for the destination dispatch.
     /// @param payload Encoded payload.
     /// @return value Encoded DISPATCH block bytes.

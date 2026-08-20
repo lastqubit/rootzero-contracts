@@ -187,6 +187,25 @@ library Executions {
         return exec.decoders.any();
     }
 
+    /// @notice Return a decoder lane's current absolute calldata position.
+    /// @param exec Execution whose decoder is inspected.
+    /// @param lane Decoder lane to select.
+    /// @return Current absolute calldata position of the selected lane.
+    function absolute(Execution memory exec, uint8 lane) internal pure returns (uint) {
+        return exec.decoders.select(lane).absolute();
+    }
+
+    /// @notice Return whether the next block on `lane` has `key` and an empty payload.
+    /// @param exec Execution whose decoder is inspected without advancing.
+    /// @param lane Decoder lane to inspect.
+    /// @param key Expected block key.
+    /// @return Whether a complete matching empty block header occurs next.
+    function isEmpty(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (bool) {
+        uint cur = exec.decoders.select(lane);
+        (uint i, uint offset, uint len) = cur.decode();
+        return Blocks.isEmpty(offset + i, offset + len, key);
+    }
+
     /// @notice Validate and consume the next block from an execution decoder lane.
     /// @param exec Execution whose selected decoder cursor is advanced over the complete block.
     /// @param lane Execution decoder lane to select.
@@ -199,6 +218,20 @@ library Executions {
         exec.decoders = cur.seekAbs(end);
     }
 
+    /// @notice Consume a matching empty block from an execution decoder lane when present.
+    /// @param exec Execution whose selected decoder advances only for a matching empty block.
+    /// @param lane Decoder lane to consume.
+    /// @param key Expected block key.
+    /// @return Whether an empty block was consumed.
+    function tryConsumeEmpty(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (bool) {
+        uint cur = exec.decoders.select(lane);
+        (uint i, uint offset, uint size) = cur.decode();
+        (bytes4 current, uint len) = Blocks.peek(offset + i, offset + size);
+        if (current != key || len != 0) return false;
+        exec.decoders = cur.seek(i + Sizes.Header);
+        return true;
+    }
+
     /// @notice Validate and enter the payload of the next block in an execution decoder lane.
     /// @dev The selected lane remains in its existing frame so callers can decode
     /// child blocks in place. Callers should prove complete payload consumption
@@ -209,9 +242,48 @@ library Executions {
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function enter(Execution memory exec, uint8 lane, uint spec) internal pure returns (uint abs, uint end) {
+        return enter(exec, lane, spec, 0);
+    }
+
+    /// @notice Validate a parent block and advance over a fixed payload prefix.
+    /// @dev `amount` is relative to the payload start and cannot exceed the
+    /// current parent payload. The returned `abs` remains the payload start.
+    /// @param exec Execution whose selected decoder advances over the header and fixed prefix.
+    /// @param lane Execution decoder lane to select.
+    /// @param spec Expected parent block specification.
+    /// @param amount Number of initial payload bytes to advance over.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(
+        Execution memory exec,
+        uint8 lane,
+        uint spec,
+        uint amount
+    ) internal pure returns (uint abs, uint end) {
         uint cur = exec.decoders.select(lane);
         (abs, end) = Blocks.expect(cur.absolute(), spec);
-        exec.decoders = cur.seekAbs(abs);
+        if (amount > end - abs) revert Blocks.InvalidBlock();
+        exec.decoders = cur.seekAbs(abs + amount);
+    }
+
+    /// @notice Advance an execution decoder lane by a raw byte count.
+    /// @dev No block header or schema is validated.
+    /// @param exec Execution whose selected decoder cursor is advanced.
+    /// @param lane Decoder lane to select.
+    /// @param amount Number of bytes to advance.
+    function advance(Execution memory exec, uint8 lane, uint amount) internal pure {
+        uint cur = exec.decoders.select(lane);
+        exec.decoders = cur.advance(amount);
+    }
+
+    /// @notice Take a raw byte range from an execution decoder lane.
+    /// @dev No block header or schema is validated.
+    /// @param exec Execution whose selected decoder cursor is advanced.
+    /// @param lane Decoder lane to select.
+    /// @param amount Number of bytes to take.
+    /// @return abs Absolute position of the first taken byte.
+    function take(Execution memory exec, uint8 lane, uint amount) internal pure returns (uint abs) {
+        (exec.decoders, abs) = exec.decoders.consume(lane, amount);
     }
 
     /// @notice Require the active execution decoder to be at absolute position `abs`.
@@ -246,9 +318,7 @@ library Executions {
 
     /// @dev Return the next raw calldata word from `lane` and advance by `size` bytes.
     function next(Execution memory exec, uint8 lane, uint size) private pure returns (bytes32 value) {
-        uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, size);
-        value = Blocks.read32(abs);
+        value = Blocks.read32(take(exec, lane, size));
     }
 
     /// @notice Return the next raw byte from a decoder lane and advance it by one byte.
@@ -804,6 +874,14 @@ library Executions {
     /// @return i Relative output offset reserved for the write.
     function reserve(Execution memory exec, uint size) private pure returns (uint i) {
         return reserve(exec, size, size);
+    }
+
+    /// @notice Append an empty block to execution output.
+    /// @param exec Execution receiving the block.
+    /// @param key Block key.
+    function outputEmpty(Execution memory exec, bytes4 key) internal pure {
+        uint i = reserve(exec, Sizes.Header);
+        Blocks.writeEmpty(exec.output, i, key);
     }
 
     /// @notice Append an ACCOUNT block to execution output.

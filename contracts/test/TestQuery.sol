@@ -17,13 +17,13 @@ function output32(Execution memory exec, uint spec, bytes32 value) pure {
 
 contract TestQuery is QueryBase {
     uint private immutable ValueSpec;
-    string private constant INPUT = "{ uint value }";
+    string private constant INPUT = "uint value";
 
     uint private immutable descriptor;
 
     constructor() {
         uint32 size = uint32(Sizes.B32 - Sizes.Header);
-        uint valueSpec = schema(1, size, size, size, INPUT, bytes32(0));
+        uint valueSpec = schema(1, size, size, size, INPUT);
         ValueSpec = valueSpec;
         (, descriptor) = query("incrementQuery", valueSpec, valueSpec);
     }
@@ -49,7 +49,7 @@ contract TestKeyedLocalQuery is QueryBase {
 
     constructor() {
         uint32 size = uint32(Sizes.B32 - Sizes.Header);
-        uint valueSpec = schema(2, size, size, size, INPUT, bytes32(0));
+        uint valueSpec = schema(2, size, size, size, INPUT);
         ValueSpec = valueSpec;
         (, descriptor) = query("keyedLocalQuery", valueSpec, valueSpec);
     }
