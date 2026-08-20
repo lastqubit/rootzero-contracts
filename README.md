@@ -114,16 +114,20 @@ identifiers inside, never how the bytes are laid out.
 
 Schemas can express more than flat fields: a block may contain any number of
 nested child blocks (`#bytes as payload` names raw dynamic bytes), items can be
-marked `maybe` (optional) or `many` (a list), and aliases and dotted field
-paths give off-chain tooling presentation names without changing a single byte
-on the wire. The full schema language is specified in
-[`docs/Schema.md`](docs/Schema.md). The standard block schemas live in
+marked `maybe` when their empty form is accepted or `many` when they form a
+list, and aliases and dotted field paths give off-chain tooling presentation
+names without changing a single byte on the wire. Declared child headers are
+always present; a zero payload length represents an empty block. An `at N` hint
+can reposition one field in off-chain presentation without changing its wire
+position. The full schema language is specified in
+[`docs/Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md). The standard block schemas live in
 `Schemas` and their runtime keys in `Keys` (both via
 `@rootzero/contracts/Codec.sol`).
 
-A rare top-level list is published as a custom schema such as `many #asset`.
-Its context-local schema key becomes the outer block key accepted by the
-endpoint; nested lists continue to use the generic `#list` key.
+A rare top-level list is published as a custom schema consisting of one item,
+such as `many #asset` or `{ many #asset }`. Its context-local schema key becomes
+the outer block key accepted by the endpoint; a list alongside sibling items
+continues to use the generic `#list` key.
 
 ## Batches
 
@@ -492,7 +496,7 @@ Repo layout:
 - `contracts/blocks` — block schema, cursor parsing, writers
 - `contracts/utils` — ids, nodes, assets, accounts, layout, ECDSA
 - `contracts/events` — event contracts and emitters
-- `docs` — [`Schema.md`](docs/Schema.md) (wire format and schema DSL)
+- `docs` — [`Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md) (wire format and schema DSL)
 
 Use this library to create a new rootzero host, implement a command, or reuse
 the protocol's block format in tooling. It is the shared protocol foundation,

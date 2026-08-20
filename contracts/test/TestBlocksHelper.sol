@@ -119,6 +119,13 @@ contract TestBlocksHelper is Action {
         output = Executions.finish(exec);
     }
 
+    function executionOutputEmpty(bytes4 key) external view returns (bytes memory output) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Balance, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputEmpty(exec, key);
+        output = Executions.finish(exec);
+    }
+
     function executionOutputHostAsset(uint host, bytes32 asset) external view returns (bytes memory output) {
         uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.HostAsset, 0, 0);
         Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
@@ -132,6 +139,23 @@ contract TestBlocksHelper is Action {
         uint descriptor = Descriptors.create(Specs.Position, Specs.Empty, Specs.Empty, 0, 0);
         Execution memory exec = Executions.openState(state, descriptor, 1);
         return Executions.unpackPosition(exec, Lanes.State);
+    }
+
+    function executionIsEmpty(bytes calldata input, uint spec, bytes4 key) external view returns (bool) {
+        uint descriptor = Descriptors.create(Specs.Empty, spec, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        return Executions.isEmpty(exec, Lanes.Input, key);
+    }
+
+    function executionTryConsumeEmpty(
+        bytes calldata input,
+        uint spec,
+        bytes4 key
+    ) external view returns (bool empty, bool more) {
+        uint descriptor = Descriptors.create(Specs.Empty, spec, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        empty = Executions.tryConsumeEmpty(exec, Lanes.Input, key);
+        return (empty, Executions.more(exec));
     }
 
     function executionEnterAmount(
@@ -161,6 +185,43 @@ contract TestBlocksHelper is Action {
         first = Executions.next32(exec, Lanes.Input);
         second = Executions.next32(exec, Lanes.Input);
         Executions.expectAbs(exec, end);
+    }
+
+    function executionAdvance(
+        bytes calldata input,
+        uint amount
+    ) external view returns (uint abs, bytes32 value, bool complete) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := input.offset
+        }
+
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        (, uint end) = Executions.enter(exec, Lanes.Input, Specs.List);
+        abs = Executions.absolute(exec, Lanes.Input);
+        Executions.advance(exec, Lanes.Input, amount);
+        value = Blocks.read32(abs);
+        complete = amount == end - abs;
+        return (abs - offset, value, complete);
+    }
+
+    function executionTake(
+        bytes calldata input,
+        uint amount
+    ) external view returns (uint abs, bytes32 value, bool complete) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := input.offset
+        }
+
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        (, uint end) = Executions.enter(exec, Lanes.Input, Specs.List);
+        abs = Executions.take(exec, Lanes.Input, amount);
+        value = Blocks.read32(abs);
+        complete = amount == end - abs;
+        return (abs - offset, value, complete);
     }
 
     function executionEnterSized(bytes calldata input)

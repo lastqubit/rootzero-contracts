@@ -147,6 +147,12 @@ contract TestCursorHelper {
         return w.finish();
     }
 
+    function testWriteEmptyBlock(bytes4 key) external pure returns (bytes memory) {
+        Writer memory w = Writers.init(Specs.Balance, 1);
+        w.appendEmpty(key);
+        return w.finish();
+    }
+
     function testWriteCustodyBlock(
         uint host_,
         bytes32 asset,
@@ -209,6 +215,10 @@ contract TestCursorHelper {
         return Blocks.balance(asset, amount);
     }
 
+    function testToEmptyBlock(bytes4 key) external pure returns (bytes memory) {
+        return Blocks.empty(key);
+    }
+
     function testToLabelBlock(bytes32 namespace, string memory name) external pure returns (bytes memory) {
         return Blocks.label(namespace, name);
     }
@@ -219,6 +229,10 @@ contract TestCursorHelper {
 
     function testToSchemaBlock(uint spec, string memory body, bytes32 name) external pure returns (bytes memory) {
         return Blocks.schema(spec, body, name);
+    }
+
+    function testToSchemaBlock(uint spec, string memory body) external pure returns (bytes memory) {
+        return Blocks.schema(spec, body);
     }
 
     function testToCustodyBlock(
@@ -292,6 +306,20 @@ contract TestCursorHelper {
         Reader memory cur = Readers.open(bytes(source));
         (asset, amount) = cur.unpackBalance();
         return (asset, amount, cur.i, cur.done());
+    }
+
+    function testReaderIsEmpty(bytes calldata source, bytes4 key) external pure returns (bool) {
+        Reader memory cur = Readers.open(bytes(source));
+        return cur.isEmpty(key);
+    }
+
+    function testReaderTryConsumeEmpty(
+        bytes calldata source,
+        bytes4 key
+    ) external pure returns (bool empty, uint i, bool done) {
+        Reader memory cur = Readers.open(bytes(source));
+        empty = cur.tryConsumeEmpty(key);
+        return (empty, cur.i, cur.done());
     }
 
     function testReaderUnpackHostAsset(
@@ -430,6 +458,55 @@ contract TestCursorHelper {
         cur.expectAbs(end);
     }
 
+    function testEnterAdvance(
+        bytes calldata source,
+        uint spec,
+        uint advance
+    ) external pure returns (uint abs, uint i, uint end) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := source.offset
+        }
+
+        Cur memory cur = Decoders.wrap(source);
+        (abs, end) = cur.enter(spec, advance);
+        (i, , ) = cur.state.decode();
+        return (abs - offset, i, end - offset);
+    }
+
+    function testAdvance(
+        bytes calldata source,
+        uint amount
+    ) external pure returns (uint abs, uint i, bytes32 value) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := source.offset
+        }
+
+        Cur memory cur = Decoders.wrap(source);
+        abs = cur.absolute();
+        cur.advance(amount);
+        (i, , ) = cur.state.decode();
+        value = Blocks.read32(abs);
+        return (abs - offset, i, value);
+    }
+
+    function testTakeRaw(
+        bytes calldata source,
+        uint amount
+    ) external pure returns (uint abs, uint i, bytes32 value) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := source.offset
+        }
+
+        Cur memory cur = Decoders.wrap(source);
+        abs = cur.take(amount);
+        (i, , ) = cur.state.decode();
+        value = Blocks.read32(abs);
+        return (abs - offset, i, value);
+    }
+
     function testEnterSized(bytes calldata source, uint spec)
         external
         pure
@@ -454,6 +531,21 @@ contract TestCursorHelper {
     function testIsAtCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
         Cur memory cur = Decoders.wrap(source);
         return cur.isAt(key);
+    }
+
+    function testIsEmptyCurrent(bytes calldata source, bytes4 key) external pure returns (bool) {
+        Cur memory cur = Decoders.wrap(source);
+        return cur.isEmpty(key);
+    }
+
+    function testTryConsumeEmpty(
+        bytes calldata source,
+        bytes4 key
+    ) external pure returns (bool empty, uint i, bool more) {
+        Cur memory cur = Decoders.wrap(source);
+        empty = cur.tryConsumeEmpty(key);
+        (i, , ) = cur.state.decode();
+        more = cur.more();
     }
 
     function testHasAt(bytes calldata source, uint i, bytes4 key) external pure returns (bool) {
@@ -576,7 +668,7 @@ contract TestCursorHelper {
         return (offset - sourceOffset, itemsI, itemsLen, inputI);
     }
 
-    function testTake(bytes calldata source, bytes4 key)
+    function testTakeBlock(bytes calldata source, bytes4 key)
         external
         pure
         returns (uint outOffset, uint outI, uint outLen, uint inputI)
@@ -586,7 +678,7 @@ contract TestCursorHelper {
             sourceOffset := source.offset
         }
         Cur memory cur = Decoders.wrap(source);
-        Cur memory out = cur.take(key);
+        Cur memory out = cur.takeBlock(key);
         uint offset;
         (outI, offset, outLen) = Cursors.decode(out.state);
         (inputI, , ) = Cursors.decode(cur.state);
