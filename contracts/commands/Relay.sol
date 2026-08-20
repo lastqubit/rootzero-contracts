@@ -8,7 +8,8 @@ using Executions for Execution;
 /// @notice Hook implemented by hosts that relay command contexts.
 abstract contract RelayPayableHook {
     /// @notice Override to relay a command context to `portal`.
-    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param portal Destination portal implementation's host ID. Implementations
+    /// may validate or resolve it for their transport.
     /// @param resources Chain-specific destination resources. EVM adapters
     /// may interpret this as packed execution gas and destination value.
     /// @param account Destination command account.

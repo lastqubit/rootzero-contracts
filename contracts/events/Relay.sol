@@ -8,7 +8,7 @@ abstract contract RelayEvent is EventEmitter {
     string private constant ABI = "event Relay(bytes32 indexed account, uint portal, uint resources, bytes32 key, bytes32 digest)";
 
     /// @param account Account that owns the relayed context.
-    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param portal Destination portal implementation's host ID.
     /// @param resources Chain-specific resources assigned to the relay.
     /// @param key Relay correlation or recovery lookup key.
     /// @param digest Digest of the relayed payload or canonical envelope.

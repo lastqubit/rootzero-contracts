@@ -61,16 +61,19 @@ abstract contract CommandHost is CommanderAccess, CallerAccess, HostIntroduction
     function enforceCaller(address caller) internal view virtual override returns (address) {
         return enforceCommander(caller);
     }
-
 }
 
 /// @title Admins
 /// @notice Optional bundle of the default host administration commands.
-abstract contract Admins is Annotate, ExecutePayable, Authorize, Unauthorize {}
+abstract contract Admins is Annotate, ExecutePayable, Authorize, Unauthorize {
+
+}
 
 /// @title Guardians
 /// @notice Optional bundle for guardian management and the default revoke guard.
-abstract contract Guardians is Appoint, Dismiss, Revoke {}
+abstract contract Guardians is Appoint, Dismiss, Revoke {
+
+}
 
 /// @title Host
 /// @notice Abstract base contract for rootzero host implementations.
@@ -78,13 +81,7 @@ abstract contract Guardians is Appoint, Dismiss, Revoke {}
 /// guardian management, the default guardian revoke action, and
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.
-abstract contract Host is
-    Admins,
-    Guardians,
-    HostIntroduction,
-    IntroductionEvent,
-    IHostIntroduction
-{
+abstract contract Host is Admins, Guardians, HostIntroduction, IntroductionEvent, IHostIntroduction {
     /// @param cmdr Commander address; used by the composed access capabilities.
     ///        If `cmdr` is a deployed contract, the host calls `introduce`
     ///        on it during construction.

@@ -11,7 +11,8 @@ using Executions for Execution;
 /// @notice Hook implemented by hosts that forward funded dispatch payloads.
 abstract contract DispatchPayableHook {
     /// @notice Override to dispatch an encoded payload to `portal`.
-    /// @param portal Destination portal identifier, often the destination host ID.
+    /// @param portal Destination portal implementation's host ID. Implementations
+    /// may validate or resolve it for their transport.
     /// @param resources Chain-specific destination resources. EVM adapters
     /// may interpret this as packed execution gas and destination value.
     /// @param payload Encoded payload ready for the transport layer.
