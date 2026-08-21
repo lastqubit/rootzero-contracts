@@ -3,6 +3,74 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+## 1.23.0
+
+### Breaking Changes
+
+- Changed every command entrypoint from
+  `(bytes32 account, bytes state, bytes input)` to one `bytes context` argument
+  containing exactly one encoded `CONTEXT` block. Canonical command selectors
+  now use `(bytes)`, so every command node ID changes. Existing command callers,
+  cached IDs, and deployed host graphs are not compatible with this release.
+- Added the acting account to `Execution`. `CommandBase.openCommand` and
+  `AdminBase.openAdminCommand` now accept the encoded context and return only
+  the initialized execution, and command implementations close with
+  `closeCommand(exec)` instead of `close(exec, account)`.
+- Removed the separate state argument from `RelayPayableHook.relay`. Relay
+  implementations can obtain the complete validated state with
+  `exec.rawState()` while the explicit account and nested relay input arguments
+  remain unchanged.
+- Consolidated `AllowAssetsPort` and `DenyAssetsPort` into
+  `ports/Assets.sol`; update direct source imports to the new path.
+- Renamed the peer `AllowancePort` and `portAllowance` selector to
+  `RequestAllowancePort` and `portRequestAllowance`. The peer port now uses a
+  distinct `RequestAllowanceHook.requestAllowance` hook; the admin `Allowance`
+  command and its authoritative `AllowanceHook.allowance` hook are unchanged.
+- Removed the `Commander` event declaration. Commander addresses and chain
+  context are off-chain configuration; host, native-asset, and admin IDs are
+  deterministic from that information.
+- Prefixed every typed `Blocks` factory with `create`, including calldata-copy
+  variants; for example, use `createBalance`, `createStepCopy`, `createBytes`,
+  and `createString` instead of `balance`, `stepCopy`, `data`, and `text`.
+- Changed the `max8`, `max16`, `max24`, `max32`, `max40`, `max64`, `max96`,
+  `max128`, and `max160` bounds helpers to return their corresponding narrowed
+  integer types instead of `uint`.
+
+### Added
+
+- Added `PositionedEvent`, which publishes asset and liability sides together
+  with the semantic action that produced the observed position.
+- Added `RequestAssetPort`, which passes trusted peers' batched asset and amount
+  requests to a host hook for validation and fulfillment.
+- Added `Executions.takeBlock`, which validates and consumes a block from a
+  selected decoder lane and returns its complete calldata encoding.
+- Added `Executions.rawState` and `Executions.rawInput` for retrieving complete
+  validated calldata lanes independently of current cursor progress.
+- Added `Blocks.createAmount` for constructing canonical `AMOUNT` blocks.
+
+### Changed
+
+- Command pipeline hops now construct `command(bytes)` calldata and the nested
+  `CONTEXT` block directly in one allocation, copying memory state and calldata
+  input into the final call buffer.
+- Added memory `callPort`/`tryCallPort` helpers and calldata-copy
+  `callPortCopy`/`tryCallPortCopy` counterparts, matching the block factory
+  naming convention. Portal forwarding and recovery use the copy variants.
+
+### Upgrade Compatibility
+
+- Rebuild command IDs from the new `(bytes)` selectors, redeploy command hosts,
+  and update pipeline builders and other callers to pass one encoded `CONTEXT`
+  block. Do not mix 1.22 command IDs or callers with 1.23 deployments.
+- Update custom commands to read the acting account from `exec.account`, use
+  `openCommand(context, descriptor, batches)`, and return
+  `closeCommand(exec)`.
+- Update relay hook implementations to remove the state parameter and use
+  `exec.rawState()` when the forwarded state is required.
+- Update direct port imports, renamed request-allowance endpoints and hooks,
+  typed `Blocks` factory calls, and any assignments that relied on `max*`
+  returning `uint`.
+
 ## 1.22.0
 
 ### Breaking Changes
