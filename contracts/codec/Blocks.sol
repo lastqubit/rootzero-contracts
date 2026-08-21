@@ -1776,7 +1776,7 @@ library Blocks {
     /// @notice Encode an empty block.
     /// @param key Block type key.
     /// @return value Encoded empty block header.
-    function empty(bytes4 key) internal pure returns (bytes memory value) {
+    function createEmpty(bytes4 key) internal pure returns (bytes memory value) {
         value = allocate(Sizes.Header);
         writeEmpty(value, 0, key);
     }
@@ -1801,28 +1801,28 @@ library Blocks {
     // Dynamic leaf factories
 
     /// @notice Encode a LIST block.
-    function list(bytes memory value) internal pure returns (bytes memory blockdata) {
+    function createList(bytes memory value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         writeList(blockdata, 0, value);
     }
 
     /// @notice Encode a LIST block by copying its payload from calldata.
-    function listCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
+    function createListCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         copyList(blockdata, 0, value);
     }
 
     /// @notice Encode an EVM block.
-    function evm(bytes memory value) internal pure returns (bytes memory blockdata) {
+    function createEvm(bytes memory value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         writeEvm(blockdata, 0, value);
     }
 
     /// @notice Encode an EVM block by copying its payload from calldata.
-    function evmCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
+    function createEvmCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         copyEvm(blockdata, 0, value);
@@ -1831,14 +1831,14 @@ library Blocks {
     /// @notice Encode a BYTES block with a raw payload.
     /// @param value Raw payload bytes.
     /// @return blockdata Encoded BYTES block bytes.
-    function data(bytes memory value) internal pure returns (bytes memory blockdata) {
+    function createBytes(bytes memory value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         writeBytes(blockdata, 0, value);
     }
 
     /// @notice Encode a BYTES block by copying its payload from calldata.
-    function dataCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
+    function createBytesCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         copyBytes(blockdata, 0, value);
@@ -1847,14 +1847,14 @@ library Blocks {
     /// @notice Encode a STRING block with a UTF-8 payload.
     /// @param value String payload.
     /// @return blockdata Encoded STRING block bytes.
-    function text(string memory value) internal pure returns (bytes memory blockdata) {
+    function createString(string memory value) internal pure returns (bytes memory blockdata) {
         uint len = max32(bytes(value).length);
         blockdata = allocate(Sizes.Header + len);
         writeString(blockdata, 0, value);
     }
 
     /// @notice Encode a STRING block by copying its payload from calldata.
-    function textCopy(string calldata value) internal pure returns (bytes memory blockdata) {
+    function createStringCopy(string calldata value) internal pure returns (bytes memory blockdata) {
         uint len = max32(bytes(value).length);
         blockdata = allocate(Sizes.Header + len);
         copyString(blockdata, 0, value);
@@ -1866,7 +1866,7 @@ library Blocks {
     /// @param namespace Label namespace.
     /// @param name Label text.
     /// @return value Encoded LABEL block bytes.
-    function label(bytes32 namespace, string memory name) internal pure returns (bytes memory value) {
+    function createLabel(bytes32 namespace, string memory name) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B32 + bytes(name).length);
         value = allocate(Sizes.Header + len);
         writeLabel(value, 0, namespace, name);
@@ -1875,7 +1875,7 @@ library Blocks {
     /// @notice Encode an ACTION annotation block.
     /// @param actionid Canonical semantic action identifier.
     /// @return value Encoded ACTION block bytes.
-    function action(uint actionid) internal pure returns (bytes memory value) {
+    function createAction(uint actionid) internal pure returns (bytes memory value) {
         value = allocate(Sizes.B32);
         write32(value, 0, Keys.Action, bytes32(actionid));
     }
@@ -1884,8 +1884,8 @@ library Blocks {
     /// @param spec Block specification.
     /// @param body Schema body.
     /// @return value Encoded SCHEMA block bytes.
-    function schema(uint spec, string memory body) internal pure returns (bytes memory value) {
-        return schema(spec, body, bytes32(0));
+    function createSchema(uint spec, string memory body) internal pure returns (bytes memory value) {
+        return createSchema(spec, body, bytes32(0));
     }
 
     /// @notice Encode a named SCHEMA block.
@@ -1893,7 +1893,7 @@ library Blocks {
     /// @param body Schema body.
     /// @param name Schema name.
     /// @return value Encoded SCHEMA block bytes.
-    function schema(uint spec, string memory body, bytes32 name) internal pure returns (bytes memory value) {
+    function createSchema(uint spec, string memory body, bytes32 name) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + bytes(body).length);
         value = allocate(Sizes.Header + len);
         writeSchema(value, 0, spec, body, name);
@@ -1901,11 +1901,20 @@ library Blocks {
 
     // Fixed-width factories
 
+    /// @notice Encode an AMOUNT block.
+    /// @param asset Asset identifier.
+    /// @param amount Token amount.
+    /// @return value Encoded AMOUNT block bytes.
+    function createAmount(bytes32 asset, uint amount) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Amount);
+        writeAmount(value, 0, asset, amount);
+    }
+
     /// @notice Encode a BALANCE block.
     /// @param asset Asset identifier.
     /// @param amount Token amount.
     /// @return value Encoded BALANCE block bytes.
-    function balance(bytes32 asset, uint amount) internal pure returns (bytes memory value) {
+    function createBalance(bytes32 asset, uint amount) internal pure returns (bytes memory value) {
         value = allocate(Sizes.Balance);
         writeBalance(value, 0, asset, amount);
     }
@@ -1915,7 +1924,7 @@ library Blocks {
     /// @param asset Asset identifier.
     /// @param amount Token amount.
     /// @return value Encoded CUSTODY block bytes.
-    function custody(uint host, bytes32 asset, uint amount) internal pure returns (bytes memory value) {
+    function createCustody(uint host, bytes32 asset, uint amount) internal pure returns (bytes memory value) {
         value = allocate(Sizes.B96);
         writeCustody(value, 0, host, asset, amount);
     }
@@ -1926,7 +1935,7 @@ library Blocks {
     /// @param liability Identifier for the liability side.
     /// @param debt Quantity owed on the liability side.
     /// @return value Encoded POSITION block bytes.
-    function position(
+    function createPosition(
         bytes32 asset,
         uint amount,
         bytes32 liability,
@@ -1942,7 +1951,7 @@ library Blocks {
     /// @param asset Asset identifier.
     /// @param amount Transfer amount.
     /// @return value Encoded TRANSACTION block bytes.
-    function transaction(
+    function createTransaction(
         bytes32 from,
         bytes32 to,
         bytes32 asset,
@@ -1959,14 +1968,14 @@ library Blocks {
     /// @param resources Packed resources assigned to the step.
     /// @param input Raw nested input payload.
     /// @return value Encoded STEP block bytes.
-    function step(uint cmd, uint resources, bytes memory input) internal pure returns (bytes memory value) {
+    function createStep(uint cmd, uint resources, bytes memory input) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + input.length);
         value = allocate(len);
         writeStep(value, 0, cmd, resources, input);
     }
 
     /// @notice Encode a STEP block by copying its nested input from calldata.
-    function stepCopy(uint cmd, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
+    function createStepCopy(uint cmd, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + input.length);
         value = allocate(len);
         copyStep(value, 0, cmd, resources, input);
@@ -1977,14 +1986,14 @@ library Blocks {
     /// @param resources Packed resources assigned to the call.
     /// @param payload Raw calldata payload for the target.
     /// @return value Encoded CALL block bytes.
-    function call(uint target, uint resources, bytes memory payload) internal pure returns (bytes memory value) {
+    function createCall(uint target, uint resources, bytes memory payload) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + payload.length);
         value = allocate(len);
         writeCall(value, 0, target, resources, payload);
     }
 
     /// @notice Encode a CALL block by copying its nested payload from calldata.
-    function callCopy(uint target, uint resources, bytes calldata payload) internal pure returns (bytes memory value) {
+    function createCallCopy(uint target, uint resources, bytes calldata payload) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + payload.length);
         value = allocate(len);
         copyCall(value, 0, target, resources, payload);
@@ -1996,14 +2005,14 @@ library Blocks {
     /// @param resources Chain-specific resources for the destination context.
     /// @param input Nested input block stream.
     /// @return value Encoded RELAY block bytes.
-    function relay(uint portal, uint resources, bytes memory input) internal pure returns (bytes memory value) {
+    function createRelay(uint portal, uint resources, bytes memory input) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + input.length);
         value = allocate(len);
         writeRelay(value, 0, portal, resources, input);
     }
 
     /// @notice Encode a RELAY block by copying its nested input from calldata.
-    function relayCopy(uint portal, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
+    function createRelayCopy(uint portal, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + input.length);
         value = allocate(len);
         copyRelay(value, 0, portal, resources, input);
@@ -2015,14 +2024,14 @@ library Blocks {
     /// @param resources Chain-specific resources for the destination dispatch.
     /// @param payload Encoded payload.
     /// @return value Encoded DISPATCH block bytes.
-    function dispatch(uint portal, uint resources, bytes memory payload) internal pure returns (bytes memory value) {
+    function createDispatch(uint portal, uint resources, bytes memory payload) internal pure returns (bytes memory value) {
         uint len = max32(Sizes.B64 + Sizes.Header + payload.length);
         value = allocate(len);
         writeDispatch(value, 0, portal, resources, payload);
     }
 
     /// @notice Encode a DISPATCH block by copying its nested payload from calldata.
-    function dispatchCopy(
+    function createDispatchCopy(
         uint portal,
         uint resources,
         bytes calldata payload
@@ -2033,7 +2042,7 @@ library Blocks {
     }
 
     /// @notice Encode a CONTEXT block.
-    function context(
+    function createContext(
         bytes32 account,
         bytes memory state,
         bytes memory input
@@ -2044,7 +2053,7 @@ library Blocks {
     }
 
     /// @notice Encode a CONTEXT block by copying its nested streams from calldata.
-    function contextCopy(
+    function createContextCopy(
         bytes32 account,
         bytes calldata state,
         bytes calldata input
@@ -2055,7 +2064,7 @@ library Blocks {
     }
 
     /// @notice Encode a RECOVER block.
-    function recover(
+    function createRecover(
         uint handler,
         uint resources,
         bytes32 recoverykey,
@@ -2067,7 +2076,7 @@ library Blocks {
     }
 
     /// @notice Encode a RECOVER block by copying its nested witness from calldata.
-    function recoverCopy(
+    function createRecoverCopy(
         uint handler,
         uint resources,
         bytes32 recoverykey,

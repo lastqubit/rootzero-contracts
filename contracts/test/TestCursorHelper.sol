@@ -208,31 +208,35 @@ contract TestCursorHelper {
     }
 
     function testToDispatchBlock(uint portal, uint resources, bytes memory payload) external pure returns (bytes memory) {
-        return Blocks.dispatch(portal, resources, payload);
+        return Blocks.createDispatch(portal, resources, payload);
     }
 
     function testToBalanceBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
-        return Blocks.balance(asset, amount);
+        return Blocks.createBalance(asset, amount);
+    }
+
+    function testToAmountBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
+        return Blocks.createAmount(asset, amount);
     }
 
     function testToEmptyBlock(bytes4 key) external pure returns (bytes memory) {
-        return Blocks.empty(key);
+        return Blocks.createEmpty(key);
     }
 
     function testToLabelBlock(bytes32 namespace, string memory name) external pure returns (bytes memory) {
-        return Blocks.label(namespace, name);
+        return Blocks.createLabel(namespace, name);
     }
 
     function testToActionBlock(uint value) external pure returns (bytes memory) {
-        return Blocks.action(value);
+        return Blocks.createAction(value);
     }
 
     function testToSchemaBlock(uint spec, string memory body, bytes32 name) external pure returns (bytes memory) {
-        return Blocks.schema(spec, body, name);
+        return Blocks.createSchema(spec, body, name);
     }
 
     function testToSchemaBlock(uint spec, string memory body) external pure returns (bytes memory) {
-        return Blocks.schema(spec, body);
+        return Blocks.createSchema(spec, body);
     }
 
     function testToCustodyBlock(
@@ -240,7 +244,7 @@ contract TestCursorHelper {
         bytes32 asset,
         uint amount
     ) external pure returns (bytes memory) {
-        return Blocks.custody(host_, asset, amount);
+        return Blocks.createCustody(host_, asset, amount);
     }
 
     function testToPositionBlock(
@@ -249,7 +253,7 @@ contract TestCursorHelper {
         bytes32 liability,
         uint debt
     ) external pure returns (bytes memory) {
-        return Blocks.position(asset, amount, liability, debt);
+        return Blocks.createPosition(asset, amount, liability, debt);
     }
 
     function testToTransactionBlock(
@@ -258,7 +262,7 @@ contract TestCursorHelper {
         bytes32 asset,
         uint amount
     ) external pure returns (bytes memory) {
-        return Blocks.transaction(from_, to_, asset, amount);
+        return Blocks.createTransaction(from_, to_, asset, amount);
     }
 
     function testWriterFinishEmpty() external pure returns (bytes memory) {

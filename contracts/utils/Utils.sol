@@ -11,76 +11,76 @@ error NotDivisible();
 /// @dev Thrown when an ID claims to carry an address but the embedded address is zero.
 error ZeroAddress();
 
-/// @notice Assert that `value` fits in uint8 and return it unchanged.
-function max8(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint8 and return it as uint8.
+function max8(uint value) pure returns (uint8) {
     if (value > type(uint8).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint8(value);
 }
 
-/// @notice Assert that `value` fits in uint16 and return it unchanged.
-function max16(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint16 and return it as uint16.
+function max16(uint value) pure returns (uint16) {
     if (value > type(uint16).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint16(value);
 }
 
-/// @notice Assert that `value` fits in uint24 and return it unchanged.
-function max24(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint24 and return it as uint24.
+function max24(uint value) pure returns (uint24) {
     if (value > type(uint24).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint24(value);
 }
 
-/// @notice Assert that `value` fits in uint32 and return it unchanged.
-function max32(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint32 and return it as uint32.
+function max32(uint value) pure returns (uint32) {
     if (value > type(uint32).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint32(value);
 }
 
-/// @notice Assert that `value` fits in uint40 and return it unchanged.
-function max40(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint40 and return it as uint40.
+function max40(uint value) pure returns (uint40) {
     if (value > type(uint40).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint40(value);
 }
 
-/// @notice Assert that `value` fits in uint64 and return it unchanged.
-function max64(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint64 and return it as uint64.
+function max64(uint value) pure returns (uint64) {
     if (value > type(uint64).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint64(value);
 }
 
-/// @notice Assert that `value` fits in uint96 and return it unchanged.
-function max96(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint96 and return it as uint96.
+function max96(uint value) pure returns (uint96) {
     if (value > type(uint96).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint96(value);
 }
 
-/// @notice Assert that `value` fits in uint128 and return it unchanged.
-function max128(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint128 and return it as uint128.
+function max128(uint value) pure returns (uint128) {
     if (value > type(uint128).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint128(value);
 }
 
-/// @notice Assert that `value` fits in uint160 and return it unchanged.
-function max160(uint value) pure returns (uint) {
+/// @notice Assert that `value` fits in uint160 and return it as uint160.
+function max160(uint value) pure returns (uint160) {
     if (value > type(uint160).max) {
         revert ValueOverflow();
     }
-    return value;
+    return uint160(value);
 }
 
 // Packed fields
@@ -108,25 +108,25 @@ function clear64(uint value, uint shift) pure returns (uint) {
 /// @notice Replace the 8-bit field beginning at `shift` with `field`.
 /// @dev Reverts when `field` does not fit in 8 bits.
 function replace8(uint value, uint shift, uint field) pure returns (uint) {
-    return clear8(value, shift) | (max8(field) << shift);
+    return clear8(value, shift) | (uint(max8(field)) << shift);
 }
 
 /// @notice Replace the 16-bit field beginning at `shift` with `field`.
 /// @dev Reverts when `field` does not fit in 16 bits.
 function replace16(uint value, uint shift, uint field) pure returns (uint) {
-    return clear16(value, shift) | (max16(field) << shift);
+    return clear16(value, shift) | (uint(max16(field)) << shift);
 }
 
 /// @notice Replace the 32-bit field beginning at `shift` with `field`.
 /// @dev Reverts when `field` does not fit in 32 bits.
 function replace32(uint value, uint shift, uint field) pure returns (uint) {
-    return clear32(value, shift) | (max32(field) << shift);
+    return clear32(value, shift) | (uint(max32(field)) << shift);
 }
 
 /// @notice Replace the 64-bit field beginning at `shift` with `field`.
 /// @dev Reverts when `field` does not fit in 64 bits.
 function replace64(uint value, uint shift, uint field) pure returns (uint) {
-    return clear64(value, shift) | (max64(field) << shift);
+    return clear64(value, shift) | (uint(max64(field)) << shift);
 }
 
 /// @notice Assert that `n` is evenly divisible by `divisor`.

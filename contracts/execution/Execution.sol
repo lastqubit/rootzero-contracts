@@ -15,6 +15,7 @@ import {max16} from "../utils/Utils.sol";
 /// @dev `decoders` contains tagged input and state cursor lanes. Cursor operations
 /// select one logical lane by swapping it into the lower 128 bits.
 struct Execution {
+    bytes32 account;
     uint budget;
     uint decoders;
     uint writers;
@@ -195,6 +196,33 @@ library Executions {
         return exec.decoders.select(lane).absolute();
     }
 
+    /// @dev Return the complete validated calldata source for a decoder lane.
+    /// @dev Does not consume or depend on the lane's current position. A lane
+    /// absent because its descriptor is EMPTY returns an empty calldata slice.
+    /// @param exec Execution whose input or state source is requested.
+    /// @param lane Input or state decoder lane.
+    /// @return data Complete calldata region represented by the lane.
+    function raw(Execution memory exec, uint8 lane) private pure returns (bytes calldata data) {
+        if (!exec.decoders.contains(lane)) return msg.data[0:0];
+
+        uint cur = exec.decoders.select(lane);
+        (, uint offset, uint len) = cur.decode();
+        if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
+        return msg.data[offset:offset + len];
+    }
+
+    /// @notice Return the complete validated command state without consuming it.
+    /// @dev Remains the complete original state after the state cursor advances.
+    function rawState(Execution memory exec) internal pure returns (bytes calldata) {
+        return raw(exec, Lanes.State);
+    }
+
+    /// @notice Return the complete validated endpoint input without consuming it.
+    /// @dev Remains the complete original input after the input cursor advances.
+    function rawInput(Execution memory exec) internal pure returns (bytes calldata) {
+        return raw(exec, Lanes.Input);
+    }
+
     /// @notice Return whether the next block on `lane` has `key` and an empty payload.
     /// @param exec Execution whose decoder is inspected without advancing.
     /// @param lane Decoder lane to inspect.
@@ -216,6 +244,20 @@ library Executions {
         uint cur = exec.decoders.select(lane);
         (abs, end) = Blocks.expect(cur.absolute(), spec);
         exec.decoders = cur.seekAbs(end);
+    }
+
+    /// @notice Validate and consume one block from a decoder lane, returning its complete encoding.
+    /// @param exec Execution whose selected decoder cursor is advanced past the block.
+    /// @param lane Execution decoder lane to select.
+    /// @param key Expected block key.
+    /// @return data Calldata view of the complete block, including its header.
+    function takeBlock(
+        Execution memory exec,
+        uint8 lane,
+        bytes4 key
+    ) internal pure returns (bytes calldata data) {
+        (uint abs, uint end) = consume(exec, lane, Specs.create(key, 0, 0, 0));
+        data = msg.data[abs - Sizes.Header:end];
     }
 
     /// @notice Consume a matching empty block from an execution decoder lane when present.

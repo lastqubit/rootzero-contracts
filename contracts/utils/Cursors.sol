@@ -65,9 +65,9 @@ library Cursors {
     /// @param tag Cursor identity tag.
     /// @return cur Packed cursor.
     function create(uint offset, uint len, uint items, uint8 flags, uint8 tag) internal pure returns (uint cur) {
-        cur |= max32(offset) << 32;
-        cur |= max32(len) << 64;
-        cur |= max16(items) << 96;
+        cur |= uint(max32(offset)) << 32;
+        cur |= uint(max32(len)) << 64;
+        cur |= uint(max16(items)) << 96;
         cur |= uint(flags) << 112;
         cur |= uint(tag) << 120;
     }

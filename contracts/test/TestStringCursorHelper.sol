@@ -16,7 +16,7 @@ contract TestStringCursorHelper {
     }
 
     function testToStringBlock(string memory data) external pure returns (bytes memory) {
-        return Blocks.text(data);
+        return Blocks.createString(data);
     }
 
     function testUnpackString(bytes calldata source) external pure returns (string memory data, uint i) {

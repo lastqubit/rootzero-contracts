@@ -178,6 +178,40 @@ contract TestBlocksHelper is Action {
         complete = !Executions.more(exec);
     }
 
+    function executionTakeBlock(
+        bytes calldata state,
+        bytes calldata input,
+        bytes4 inputKey,
+        bytes4 expectedKey
+    ) external view returns (bytes calldata data, bytes32 asset, uint amount, bool complete) {
+        uint inputSpec = Specs.create(inputKey, 0, 0, 0);
+        uint descriptor = Descriptors.create(Specs.Balance, inputSpec, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.open(state, input, descriptor, 1);
+        data = Executions.takeBlock(exec, Lanes.Input, expectedKey);
+        (asset, amount) = Executions.unpackBalance(exec, Lanes.State);
+        complete = !Executions.more(exec);
+    }
+
+    function executionRaw(
+        bytes calldata state,
+        bytes calldata input
+    ) external view returns (bytes calldata beforeState, bytes calldata afterState, bytes calldata rawInput) {
+        uint descriptor = Descriptors.create(Specs.Balance, Specs.Amount, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.open(state, input, descriptor, 1);
+        beforeState = Executions.rawState(exec);
+        Executions.unpackBalance(exec, Lanes.State);
+        afterState = Executions.rawState(exec);
+        rawInput = Executions.rawInput(exec);
+    }
+
+    function executionRawEmptyState(
+        bytes calldata input
+    ) external view returns (bytes calldata state) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Amount, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openInput(input, descriptor, 1);
+        return Executions.rawState(exec);
+    }
+
     function executionEnterWords(bytes calldata input) external view returns (bytes32 first, bytes32 second) {
         uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0, 0);
         Execution memory exec = Executions.openInput(input, descriptor, 1);
@@ -267,7 +301,7 @@ contract TestBlocksHelper is Action {
     function stringCopies(
         string calldata value
     ) external view returns (bytes memory factory, bytes memory written, bytes memory output) {
-        factory = Blocks.textCopy(value);
+        factory = Blocks.createStringCopy(value);
 
         Writer memory writer = Writers.init(Specs.String, 1);
         writer.copyString(value);
@@ -291,21 +325,21 @@ contract TestBlocksHelper is Action {
     function factoryCopies(bytes calldata value) external pure returns (bytes memory) {
         bytes memory leaves = bytes.concat(
             Blocks.createCopy(TestKey, value),
-            Blocks.listCopy(value),
-            Blocks.evmCopy(value),
-            Blocks.dataCopy(value)
+            Blocks.createListCopy(value),
+            Blocks.createEvmCopy(value),
+            Blocks.createBytesCopy(value)
         );
         bytes memory composites = bytes.concat(
-            Blocks.stepCopy(1, 2, value),
-            Blocks.callCopy(3, 4, value),
-            Blocks.relayCopy(5, 6, value),
-            Blocks.dispatchCopy(7, 8, value)
+            Blocks.createStepCopy(1, 2, value),
+            Blocks.createCallCopy(3, 4, value),
+            Blocks.createRelayCopy(5, 6, value),
+            Blocks.createDispatchCopy(7, 8, value)
         );
         return bytes.concat(
             leaves,
             composites,
-            Blocks.contextCopy(bytes32(uint(9)), value, value),
-            Blocks.recoverCopy(10, 11, bytes32(uint(12)), value)
+            Blocks.createContextCopy(bytes32(uint(9)), value, value),
+            Blocks.createRecoverCopy(10, 11, bytes32(uint(12)), value)
         );
     }
 

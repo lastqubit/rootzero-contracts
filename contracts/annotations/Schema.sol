@@ -80,7 +80,7 @@ abstract contract Schema is Runtime, AnnotationEvent {
     /// @param name Schema alias name, or zero for unnamed schemas.
     /// @return The published block specification.
     function schema(uint spec, string memory body, bytes32 name) internal returns (uint) {
-        emit Annotation(host, Blocks.schema(spec, body, name));
+        emit Annotation(host, Blocks.createSchema(spec, body, name));
         return spec;
     }
 }

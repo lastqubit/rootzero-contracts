@@ -14,6 +14,6 @@ abstract contract Label is AnnotationEvent {
     /// @param namespace Label namespace.
     /// @param name Human-readable name within the namespace.
     function label(uint entity, bytes32 namespace, string memory name) internal virtual {
-        emit Annotation(entity, Blocks.label(namespace, name));
+        emit Annotation(entity, Blocks.createLabel(namespace, name));
     }
 }

@@ -188,6 +188,11 @@ describe("Cursors", () => {
       expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
     });
 
+    it("amount returns a valid encoded AMOUNT block", async () => {
+      const data: string = await helper.testToAmountBlock(asset, amount);
+      expect(data).to.equal(encodeAmountBlock(asset, amount));
+    });
+
     it("writeBalance writes the specialized encoding at the requested offset", async () => {
       const offset = 5n;
       const data = await blocksHelper.writeBalance(offset, asset, amount);
@@ -1200,6 +1205,34 @@ describe("Cursors", () => {
       const source = encodeBalanceBlock(asset, amount);
       await expect(helper.testTakeBlock(source, custom))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("execution takeBlock returns the full block and preserves the other decoder lane", async () => {
+      const custom = localKey(1);
+      const input = encodeBlock(custom, encodeAccountBlock(encodeUserAccount("0x12")));
+      const state = encodeBalanceBlock(asset, amount);
+
+      expect(await blocksHelper.executionTakeBlock(state, input, custom, custom))
+        .to.deep.equal([input, asset, amount, true]);
+    });
+
+    it("execution takeBlock reverts when the current block key does not match", async () => {
+      const custom = localKey(1);
+      const other = localKey(2);
+      const input = encodeBlock(custom, "0x1234");
+      const state = encodeBalanceBlock(asset, amount);
+
+      await expect(blocksHelper.executionTakeBlock(state, input, custom, other))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("execution raw returns complete lanes independent of cursor progress", async () => {
+      const state = encodeBalanceBlock(asset, amount);
+      const input = encodeAmountBlock(asset, 7n);
+
+      expect(await blocksHelper.executionRaw(state, input))
+        .to.deep.equal([state, state, input]);
+      expect(await blocksHelper.executionRawEmptyState(input)).to.equal("0x");
     });
 
     it("unpackStep consumes the block and returns the trailing input", async () => {

@@ -12,6 +12,6 @@ abstract contract Action is AnnotationEvent {
     /// @param entity Entity receiving the action annotation.
     /// @param value Canonical action identifier, such as a value from `Actions`.
     function action(uint entity, uint value) internal virtual {
-        emit Annotation(entity, Blocks.action(value));
+        emit Annotation(entity, Blocks.createAction(value));
     }
 }

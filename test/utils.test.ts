@@ -311,7 +311,7 @@ describe("Utils", () => {
       const query: bigint = await utils.testToQueryId("example", signerAddress);
       const guard: bigint = await utils.testToGuardId("example", signerAddress);
       const embeddedSelector = (node: bigint) => (node >> 160n) & 0xffffffffn;
-      const commandSelector = BigInt(ethers.dataSlice(ethers.id("example(bytes32,bytes,bytes)"), 0, 4));
+      const commandSelector = BigInt(ethers.dataSlice(ethers.id("example(bytes)"), 0, 4));
       const directSelector = BigInt(ethers.dataSlice(ethers.id("example(bytes)"), 0, 4));
 
       expect(embeddedSelector(command)).to.equal(commandSelector);
@@ -382,7 +382,7 @@ describe("Utils", () => {
     });
 
     it("isPort returns true for port ID", async () => {
-      const pid: bigint = await utils.testToPortId("portAllowance", signerAddress);
+      const pid: bigint = await utils.testToPortId("portRequestAllowance", signerAddress);
       expect(await utils.testIsPort(pid)).to.be.true;
     });
 
@@ -436,7 +436,7 @@ describe("Utils", () => {
     });
 
     it("port succeeds for port ID", async () => {
-      const pid: bigint = await utils.testToPortId("portAllowance", signerAddress);
+      const pid: bigint = await utils.testToPortId("portRequestAllowance", signerAddress);
       const result: bigint = await utils.testPortNode(pid);
       expect(result).to.equal(pid);
     });
