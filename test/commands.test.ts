@@ -38,9 +38,11 @@ describe("Commands", () => {
 
   function ctx(overrides: Partial<{ account: string; state: string; input: string }> = {}) {
     return [
-      overrides.account ?? userAccount,
-      overrides.state ?? "0x",
-      overrides.input ?? "0x",
+      encodeContextBlock(
+        overrides.account ?? userAccount,
+        overrides.state ?? "0x",
+        overrides.input ?? "0x",
+      ),
     ] as const;
   }
 
@@ -120,7 +122,7 @@ describe("Commands", () => {
     it("accepts an ordinary command call from an authorized node", async () => {
       const caller = await deploy("TestExecuteTarget");
       const node = await utils.testToHostId(await caller.getAddress());
-      await host.authorize(adminAccount, "0x", encodeNodeBlock(node));
+      await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(node)));
 
       const asset = ethers.zeroPadValue("0x03", 32);
       const input = encodeAmountBlock(asset, 25n);
@@ -149,6 +151,14 @@ describe("Commands", () => {
       await expect(
         callAs(0, "deposit", ctx({ input: "0xdeadbeef" }))
       ).to.be.revertedWithCustomError(host, "MalformedBlocks");
+    });
+
+    it("rejects more than one context block", async () => {
+      const input = encodeAmountBlock(ethers.zeroPadValue("0x01", 32), 1n);
+      const context = ctx({ input })[0];
+
+      await expect(callAs(0, "deposit", [concat(context, context)]))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
     it("rejects state when the command declares an empty state lane", async () => {

@@ -17,21 +17,19 @@ abstract contract Appoint is GuardianAccess, AdminBase {
     }
 
     /// @notice Appoint each user ACCOUNT block in the admin input as a guardian.
-    /// @param input ACCOUNT block stream.
+    /// @param context Admin command context carrying the ACCOUNT input stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function appoint(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
-    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        bytes calldata context
+    ) external returns (bytes memory, bytes memory) {
+        Execution memory exec = openAdminCommand(context, descriptor, 0);
 
         while (exec.more()) {
             bytes32 guardian = exec.unpackAccount(Lanes.Input);
             setGuardian(guardian, true);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

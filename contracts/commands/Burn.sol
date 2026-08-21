@@ -30,22 +30,20 @@ abstract contract Burn is CommandBase, BurnHook, Action {
     }
 
     /// @notice Burn each BALANCE block from the command state.
-    /// @param state BALANCE block stream.
+    /// @param context Command context carrying the BALANCE state stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function burn(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
-            burn(account, asset, amount);
+            burn(exec.account, asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

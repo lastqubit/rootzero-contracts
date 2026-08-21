@@ -28,23 +28,20 @@ abstract contract Allocate is CommandBase, AllocateHook {
     }
 
     /// @notice Allocate BALANCE state blocks to matching NODE input blocks.
-    /// @param state BALANCE block stream.
-    /// @param input Matching NODE block stream.
+    /// @param context Command context carrying BALANCE state and matching NODE input.
     /// @return CUSTODY block stream matching the allocated balances.
     /// @return Empty transaction stream.
     function allocate(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             HostAmount memory custody = exec.unpackBalanceForHost(Lanes.State, exec.unpackNode(Lanes.Input));
-            allocate(account, custody);
+            allocate(exec.account, custody);
             exec.outputCustody(custody);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

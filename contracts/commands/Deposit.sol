@@ -44,23 +44,21 @@ abstract contract Deposit is CommandBase, DepositHook, Action {
     }
 
     /// @notice Deposit AMOUNT input blocks into the command account and output matching BALANCE blocks.
-    /// @param input AMOUNT block stream.
+    /// @param context Command context carrying the AMOUNT input stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Empty transaction stream.
     function deposit(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
-            deposit(account, asset, amount);
+            deposit(exec.account, asset, amount);
             exec.outputBalance(asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
@@ -77,22 +75,20 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
     }
 
     /// @notice Deposit AMOUNT input blocks with access to a mutable native-value budget.
-    /// @param input AMOUNT block stream.
+    /// @param context Command context carrying the AMOUNT input stream.
     /// @return BALANCE block stream matching the deposited amounts.
     /// @return Remaining native value as a refund transaction stream.
     function depositPayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
-            deposit(account, asset, amount, exec);
+            deposit(exec.account, asset, amount, exec);
             exec.outputBalance(asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

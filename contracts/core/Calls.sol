@@ -3,6 +3,9 @@ pragma solidity ^0.8.33;
 
 import {TrustAccess} from "./Access.sol";
 import {Nodes} from "../utils/Nodes.sol";
+import {Keys} from "../codec/Keys.sol";
+import {Sizes} from "../codec/Specs.sol";
+import {max32} from "../utils/Utils.sol";
 
 /// @dev Emitted when a trusted inter-node call fails.
 /// @param addr Contract address that was called.
@@ -81,6 +84,50 @@ abstract contract NodeCalls is RawNodeCalls, TrustAccess {
 /// @title CommandCalls
 /// @notice Trusted command-call helpers for contracts that route command nodes.
 abstract contract CommandCalls is NodeCalls {
+    /// @dev Build `command(bytes)` calldata and its nested CONTEXT block in one allocation.
+    /// Threaded state is copied from memory and step input directly from calldata.
+    function encodeCommandCall(
+        bytes4 selector,
+        bytes32 account,
+        bytes memory state,
+        bytes calldata input
+    ) internal pure returns (bytes memory data) {
+        uint contextLen = max32(Sizes.B32 + 2 * Sizes.Header + state.length + input.length);
+        uint paddedContextLen = (contextLen + 31) & ~uint(31);
+        uint dataLen = 4 + 64 + paddedContextLen;
+
+        // Reserve one scratch word because the final eight-byte block header is
+        // written with mstore. Exclude that word from the returned calldata.
+        data = new bytes(dataLen + 32);
+
+        uint contextKey = uint32(Keys.Context);
+        uint bytesKey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            mstore(data, dataLen)
+            let out := add(data, 0x20)
+
+            // ABI envelope for command(bytes).
+            mstore(out, selector)
+            mstore(add(out, 0x04), 0x20)
+            mstore(add(out, 0x24), contextLen)
+
+            // CONTEXT(account, BYTES(state), BYTES(input)).
+            let context := add(out, 0x44)
+            mstore(context, or(shl(224, contextKey), shl(192, sub(contextLen, 8))))
+            mstore(add(context, 0x08), account)
+
+            let stateBlock := add(context, 0x28)
+            let stateLen := mload(state)
+            mstore(stateBlock, or(shl(224, bytesKey), shl(192, stateLen)))
+            mcopy(add(stateBlock, 0x08), add(state, 0x20), stateLen)
+
+            let inputBlock := add(add(stateBlock, 0x08), stateLen)
+            let inputLen := input.length
+            mstore(inputBlock, or(shl(224, bytesKey), shl(192, inputLen)))
+            calldatacopy(add(inputBlock, 0x08), input.offset, inputLen)
+        }
+    }
+
     /// @notice Encode and call a trusted command node.
     /// @param command Command node ID embedding the target selector.
     /// @param value Native value to forward in wei.
@@ -97,7 +144,7 @@ abstract contract CommandCalls is NodeCalls {
         bytes calldata input
     ) internal returns (bytes memory nextState, bytes memory transactions) {
         bytes4 selector = Nodes.commandSelector(command);
-        bytes memory data = abi.encodeWithSelector(selector, account, state, input);
+        bytes memory data = encodeCommandCall(selector, account, state, input);
         return abi.decode(trustedCall(command, value, data), (bytes, bytes));
     }
 }
@@ -110,7 +157,18 @@ abstract contract PortCalls is NodeCalls {
     /// @param value Native value to forward in wei.
     /// @param input Port input block stream.
     /// @return success True if the low-level port call succeeded.
-    function tryCallPort(uint port, uint128 value, bytes calldata input) internal returns (bool success) {
+    function tryCallPort(uint port, uint128 value, bytes memory input) internal returns (bool success) {
+        bytes4 selector = Nodes.portSelector(port);
+        bytes memory data = abi.encodeWithSelector(selector, input);
+        return tryTrustedCall(port, value, data);
+    }
+
+    /// @notice Try to encode and call a trusted port node by copying input from calldata.
+    /// @param port Port node ID embedding the target selector.
+    /// @param value Native value to forward in wei.
+    /// @param input Port input block stream.
+    /// @return success True if the low-level port call succeeded.
+    function tryCallPortCopy(uint port, uint128 value, bytes calldata input) internal returns (bool success) {
         bytes4 selector = Nodes.portSelector(port);
         bytes memory data = abi.encodeWithSelector(selector, input);
         return tryTrustedCall(port, value, data);
@@ -121,7 +179,18 @@ abstract contract PortCalls is NodeCalls {
     /// @param value Native value to forward in wei.
     /// @param input Port input block stream.
     /// @return Decoded port output block stream.
-    function callPort(uint port, uint128 value, bytes calldata input) internal returns (bytes memory) {
+    function callPort(uint port, uint128 value, bytes memory input) internal returns (bytes memory) {
+        bytes4 selector = Nodes.portSelector(port);
+        bytes memory data = abi.encodeWithSelector(selector, input);
+        return abi.decode(trustedCall(port, value, data), (bytes));
+    }
+
+    /// @notice Encode and call a trusted port node by copying input from calldata.
+    /// @param port Port node ID embedding the target selector.
+    /// @param value Native value to forward in wei.
+    /// @param input Port input block stream.
+    /// @return Decoded port output block stream.
+    function callPortCopy(uint port, uint128 value, bytes calldata input) internal returns (bytes memory) {
         bytes4 selector = Nodes.portSelector(port);
         bytes memory data = abi.encodeWithSelector(selector, input);
         return abi.decode(trustedCall(port, value, data), (bytes));

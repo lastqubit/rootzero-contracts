@@ -16,21 +16,19 @@ abstract contract Annotate is AdminBase {
     }
 
     /// @notice Publish each ANNOTATION block in the admin input.
-    /// @param input ANNOTATION block stream.
+    /// @param context Admin command context carrying the ANNOTATION input stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function annotate(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
-    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        bytes calldata context
+    ) external returns (bytes memory, bytes memory) {
+        Execution memory exec = openAdminCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (uint entity, bytes calldata data) = exec.unpackAnnotation(Lanes.Input);
             emit Annotation(entity, data);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

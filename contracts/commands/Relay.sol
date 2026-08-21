@@ -13,17 +13,15 @@ abstract contract RelayPayableHook {
     /// @param resources Chain-specific destination resources. EVM adapters
     /// may interpret this as packed execution gas and destination value.
     /// @param account Destination command account.
-    /// @param state State forwarded into the destination context.
     /// @param input Input forwarded into the destination context.
-    /// @param funds Execution used for source value available for transport fees
-    /// and destination resource funding.
+    /// @param exec Execution carrying the source state and value available for
+    /// transport fees and destination resource funding.
     function relay(
         uint portal,
         uint resources,
         bytes32 account,
-        bytes calldata state,
         bytes calldata input,
-        Execution memory funds
+        Execution memory exec
     ) internal virtual;
 }
 
@@ -38,15 +36,13 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
 
     /// @notice Relay one RELAY input block with the command account and empty state.
     function relayPayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 1);
-        (uint portal, uint resources, bytes calldata relayInput) = exec.unpackRelay(Lanes.Input);
-        relay(portal, resources, account, state, relayInput, exec);
+        Execution memory exec = openCommand(context, descriptor, 1);
+        (uint portal, uint resources, bytes calldata input) = exec.unpackRelay(Lanes.Input);
+        relay(portal, resources, exec.account, input, exec);
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
@@ -63,19 +59,16 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
     }
 
     /// @notice Relay one RELAY input block with the command account and current state.
-    /// @param state State forwarded into the destination context.
-    /// @param input Exactly one RELAY block.
+    /// @param context Command context carrying state and exactly one RELAY input block.
     /// @return Empty output state.
     /// @return Remaining native value as a refund transaction stream.
     function relayBalancePayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 1);
-        (uint portal, uint resources, bytes calldata relayInput) = exec.unpackRelay(Lanes.Input);
-        relay(portal, resources, account, state, relayInput, exec);
+        Execution memory exec = openCommand(context, descriptor, 1);
+        (uint portal, uint resources, bytes calldata input) = exec.unpackRelay(Lanes.Input);
+        relay(portal, resources, exec.account, input, exec);
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

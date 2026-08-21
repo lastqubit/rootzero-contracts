@@ -105,18 +105,16 @@ abstract contract SwapCommand is CommandBase, SwapHopInput, SwapInput {
     }
 
     function swap(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata commandContext
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(commandContext, descriptor, 0);
 
         while (exec.more()) {
             (Position memory position, SwapContext memory context, Cur memory hops) = unpackSwap(exec, Lanes.Input);
             swap(position, context, hops);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

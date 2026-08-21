@@ -6,6 +6,7 @@ import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/se
 import {
   encodeAccountBlock,
   encodeAssetBlock,
+  encodeContextBlock,
   encodeHostAssetBlock,
   encodeLabelBlock,
   encodeNodeBlock,
@@ -36,7 +37,7 @@ describe("Guard Actions", () => {
   });
 
   function adminCtx(input: string) {
-    return [adminAccount, "0x", input] as const;
+    return [encodeContextBlock(adminAccount, "0x", input)] as const;
   }
 
   async function hostIdFor(addr: string) {

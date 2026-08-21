@@ -41,11 +41,9 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (uint targetHost, bytes32 asset, uint amount) = unpackInput(exec, Lanes.Input);
@@ -57,6 +55,6 @@ abstract contract MyCommand is CommandBase {
             exec.outputCustody(HostAmount({host: targetHost, asset: asset, amount: amount}));
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

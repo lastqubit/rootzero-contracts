@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { deploy, getSigner, portId } from "./helpers/setup.js";
 import {
   encodeDispatchBlock,
+  encodeContextBlock,
   encodeNodeBlock,
   encodeRecoverBlock,
 } from "./helpers/blocks.js";
@@ -10,7 +11,7 @@ import "./helpers/matchers.js";
 
 describe("Portal", () => {
   async function commandCtx(host: any, input: string) {
-    return [await host.getAdminAccount(), "0x", input] as const;
+    return [encodeContextBlock(await host.getAdminAccount(), "0x", input)] as const;
   }
 
   async function authorize(host: any, node: bigint) {
@@ -49,6 +50,20 @@ describe("Portal", () => {
     const input = encodeRecoverBlock(handler, 0n, key, message);
     await expect(portal.recoverPayable(...await commandCtx(portal, input)))
       .to.be.revertedWithCustomError(portal, "BadWitness");
+  });
+
+  it("calls ports from memory input", async () => {
+    const target = await deployPortHost();
+    const handler = await dispatchPort(target);
+    const portal = await deployPortal();
+
+    await authorize(portal, handler);
+    await authorize(target, await portal.host());
+
+    const message = encodeDispatchBlock(0n, 2n, "0x1234");
+    const result: string = await portal.testCallPortMemory.staticCall(handler, message, 0n);
+
+    expect(result).to.equal("0x");
   });
 
   it("records unresolved messages when forwarding fails", async () => {

@@ -27,21 +27,19 @@ abstract contract Allowance is AdminBase, AllowanceHook {
     }
 
     /// @notice Apply each ALLOWANCE block in the admin input.
-    /// @param input ALLOWANCE block stream.
+    /// @param context Admin command context carrying the ALLOWANCE input stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function allowance(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
-    ) external onlyAdmin(account) returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        bytes calldata context
+    ) external returns (bytes memory, bytes memory) {
+        Execution memory exec = openAdminCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (uint peer, bytes32 asset, uint amount) = exec.unpackAllowance(Lanes.Input);
             allowance(peer, asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

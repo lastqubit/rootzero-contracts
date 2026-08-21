@@ -21,12 +21,10 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
         // Open and validate both descriptor lanes and initialize the output buffer.
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         // Walk every AMOUNT block in the current input run.
         while (exec.more()) {
@@ -37,7 +35,7 @@ abstract contract MyCommand is CommandBase {
             exec.outputBalance(asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

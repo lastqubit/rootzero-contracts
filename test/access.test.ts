@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
 import { deploy, getProvider, getSigner, getSigners } from "./helpers/setup.js";
-import { encodeAccountBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
+import { encodeAccountBlock, encodeContextBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
 
 describe("Access Control", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
@@ -42,7 +42,7 @@ describe("Access Control", () => {
     // Commander can call trusted-only functions without reverting.
     // We test by calling authorize with zero input from commander (should revert EmptyRun, not Unauthorized).
     const adminAccount: string = await host.getAdminAccount();
-    const ctx = [adminAccount, "0x", "0x"] as const;
+    const ctx = [encodeContextBlock(adminAccount, "0x", "0x")] as const;
     const signers = await getSigners(1);
     await expect(
       host.connect(signers[0]).authorize(...ctx)
@@ -51,7 +51,7 @@ describe("Access Control", () => {
 
   it("stranger is not trusted and gets AccessDenied", async () => {
     const adminAccount: string = await host.getAdminAccount();
-    const ctx = [adminAccount, "0x", "0x"] as const;
+    const ctx = [encodeContextBlock(adminAccount, "0x", "0x")] as const;
     const signers = await getSigners(2);
     await expect(
       host.connect(signers[1]).authorize(...ctx)
@@ -63,7 +63,7 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0xdeadbeefn << 192n; // some non-zero node id
     const nodeBlock = encodeNodeBlock(dummyNode);
-    const ctx = [adminAccount, "0x", nodeBlock] as const;
+    const ctx = [encodeContextBlock(adminAccount, "0x", nodeBlock)] as const;
 
     await expect(host.connect(signers[0]).authorize(...ctx))
       .to.emit(host, "Node")
@@ -75,7 +75,7 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0xcafebaben << 192n;
     const nodeBlock = encodeNodeBlock(dummyNode);
-    const ctx = [adminAccount, "0x", nodeBlock] as const;
+    const ctx = [encodeContextBlock(adminAccount, "0x", nodeBlock)] as const;
     await host.connect(signers[0]).authorize(...ctx);
     expect(await host.isAuthorized(dummyNode)).to.be.true;
   });
@@ -85,10 +85,10 @@ describe("Access Control", () => {
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0x11111111n << 192n;
     // First authorize
-    await host.connect(signers[0]).authorize(adminAccount, "0x", encodeNodeBlock(dummyNode));
+    await host.connect(signers[0]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
     // Then unauthorize
     await expect(
-      host.connect(signers[0]).unauthorize(adminAccount, "0x", encodeNodeBlock(dummyNode))
+      host.connect(signers[0]).unauthorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)))
     ).to.emit(host, "Node").withArgs(await host.host(), dummyNode, false);
   });
 
@@ -96,8 +96,8 @@ describe("Access Control", () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
     const dummyNode = 0x22222222n << 192n;
-    await host.connect(signers[0]).authorize(adminAccount, "0x", encodeNodeBlock(dummyNode));
-    await host.connect(signers[0]).unauthorize(adminAccount, "0x", encodeNodeBlock(dummyNode));
+    await host.connect(signers[0]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
+    await host.connect(signers[0]).unauthorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
     expect(await host.isAuthorized(dummyNode)).to.be.false;
   });
 
@@ -216,11 +216,11 @@ describe("Host feature bundles", () => {
     const network = await (await getProvider()).getNetwork();
     const peerNode = (0x01200202n << 224n) | (network.chainId << 192n) | BigInt(peer);
 
-    await host.authorize(adminAccount, "0x", encodeNodeBlock(peerNode));
+    await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode)));
 
-    await expect(host.connect(signers[1]).unauthorize(adminAccount, "0x", encodeNodeBlock(peerNode)))
+    await expect(host.connect(signers[1]).unauthorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode))))
       .to.be.revertedWithCustomError(host, "AccessDenied");
-    await expect(host.connect(signers[2]).authorize(adminAccount, "0x", encodeNodeBlock(peerNode)))
+    await expect(host.connect(signers[2]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode))))
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
@@ -249,12 +249,12 @@ describe("Host feature bundles", () => {
     await expect(host.connect(signers[2]).revoke(encodeNodeBlock(node)))
       .to.be.revertedWithCustomError(host, "AccessDenied");
 
-    await host.appoint(adminAccount, "0x", encodeAccountBlock(guardianAccount));
+    await host.appoint(encodeContextBlock(adminAccount, "0x", encodeAccountBlock(guardianAccount)));
     await expect(host.connect(signers[1]).revoke(encodeNodeBlock(node)))
       .to.emit(host, "Node")
       .withArgs(await host.host(), node, false);
 
-    await host.dismiss(adminAccount, "0x", encodeAccountBlock(guardianAccount));
+    await host.dismiss(encodeContextBlock(adminAccount, "0x", encodeAccountBlock(guardianAccount)));
     await expect(host.connect(signers[1]).revoke(encodeNodeBlock(node)))
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });

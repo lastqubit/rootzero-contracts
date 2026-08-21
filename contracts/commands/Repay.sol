@@ -30,23 +30,21 @@ abstract contract Repay is CommandBase, RepayHook, Action {
     }
 
     /// @notice Repay each POSITION liability and return its asset as BALANCE state.
-    /// @param state POSITION block stream.
+    /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
     /// @return Empty transaction stream.
     function repay(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
-            repay(account, liability, debt);
+            repay(exec.account, liability, debt);
             exec.outputBalance(asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
@@ -62,22 +60,20 @@ abstract contract RepayPayable is CommandBase, RepayPayableHook, Action {
     }
 
     /// @notice Repay each POSITION liability and return its asset as BALANCE state.
-    /// @param state POSITION block stream.
+    /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
     /// @return Remaining native value as a refund transaction stream.
     function repayPayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
-            repay(account, liability, debt, exec);
+            repay(exec.account, liability, debt, exec);
             exec.outputBalance(asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }

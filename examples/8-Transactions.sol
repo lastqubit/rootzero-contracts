@@ -21,18 +21,16 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
-            exec.queueCredit(account, asset, amount);
+            exec.queueCredit(exec.account, asset, amount);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

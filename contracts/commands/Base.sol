@@ -70,40 +70,56 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         published = endpoint(id, name, descriptor);
     }
 
-    /// @notice Open and validate both command lanes, including lanes declared EMPTY.
+    /// @notice Decode the command ABI argument as exactly one complete CONTEXT block.
+    /// @dev Rejects empty input, trailing bytes, and additional context blocks.
+    function unpackCommandContext(
+        bytes calldata context
+    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input) {
+        uint abs;
+        assembly ("memory-safe") {
+            abs := context.offset
+        }
+
+        uint end;
+        (account, state, input, end) = Blocks.unpackContext(abs);
+        if (end != abs + context.length) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode one command context and validate both lanes, including lanes declared EMPTY.
     /// Batches are derived from the input and state lanes. A non-empty stream for
     /// a lane whose descriptor has zero stride reverts instead of being ignored.
     /// Commands must account for the complete validated state by consuming it,
     /// transforming and returning it, forwarding it intact, or reverting.
-    /// @param state Current command state block stream.
-    /// @param input Command input block stream.
+    /// @param context Exactly one CONTEXT block carrying the account, state, and input.
     /// @param descriptor Packed command endpoint descriptor.
     /// @param batches Required batch count, or zero to reconcile the lane counts.
     /// @return exec Execution with its output buffer metadata initialized for the reconciled batch count.
     function openCommand(
-        bytes calldata state,
-        bytes calldata input,
+        bytes calldata context,
         uint descriptor,
         uint batches
     ) internal view returns (Execution memory exec) {
-        return Executions.open(state, input, descriptor, batches);
+        bytes32 account;
+        bytes calldata state;
+        bytes calldata input;
+        (account, state, input) = unpackCommandContext(context);
+        exec = Executions.open(state, input, descriptor, batches);
+        exec.account = account;
     }
 
-    /// @notice Close a command execution and refund unspent value to `account`.
+    /// @notice Close a command execution and refund unspent value to its account.
     /// @param exec Command execution to close.
-    /// @param account Account that should receive any unspent value.
     /// @return output Final encoded output block stream.
     /// @return transactions Final encoded transaction block stream.
-    function close(
-        Execution memory exec,
-        bytes32 account
+    function closeCommand(
+        Execution memory exec
     ) internal returns (bytes memory output, bytes memory transactions) {
         if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
 
         output = close(exec);
-        uint amount = exec.refundValue(account, nativeAsset);
+        uint amount = exec.refundValue(exec.account, nativeAsset);
         if (amount != 0) {
-            emit Received(account, nativeAsset, amount, Actions.Refund, 0);
+            emit Received(exec.account, nativeAsset, amount, Actions.Refund, 0);
         }
 
         transactions = exec.finishTransactions();

@@ -198,7 +198,7 @@ library Nodes {
     /// @return node Command node ID embedding both the selector and address.
     function toCommand(string memory name, address target) internal view returns (uint node) {
         node = toLocalBase(Command) | uint(uint160(target));
-        node |= uint(uint32(toSelector(name, "(bytes32,bytes,bytes)"))) << 160;
+        node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
     /// @notice Build a chain-local port ID for the given endpoint name and contract.

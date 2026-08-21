@@ -10,6 +10,7 @@ import {
   encodeBalanceBlock,
   encodeBlock,
   encodeCustodyBlock,
+  encodeContextBlock,
   encodeStatusBlock,
   encodeBytesBlock,
   encodeListBlock,
@@ -42,9 +43,7 @@ describe("Examples", () => {
       const asset = ethers.zeroPadValue("0x01", 32);
 
       const [output, transactions] = await host.myCommand.staticCall(
-        account,
-        "0x",
-        encodeAmountBlock(asset, 12n),
+        encodeContextBlock(account, "0x", encodeAmountBlock(asset, 12n)),
       );
 
       expect(output).to.equal(encodeBalanceBlock(asset, 12n));
@@ -60,9 +59,11 @@ describe("Examples", () => {
       const second = ethers.zeroPadValue("0x22", 32);
 
       const [output, transactions] = await host.myCommand.staticCall(
-        account,
-        "0x",
-        concat(encodeAmountBlock(first, 10n), encodeAmountBlock(second, 20n)),
+        encodeContextBlock(
+          account,
+          "0x",
+          concat(encodeAmountBlock(first, 10n), encodeAmountBlock(second, 20n)),
+        ),
       );
 
       expect(output).to.equal(concat(
@@ -81,10 +82,11 @@ describe("Examples", () => {
       const target = 77n;
       const input = encodeBlock(Payment, concat(pad32(target), encodeAmountBlock(asset, 30n)));
 
-      const [output, transactions] = await host.myCommand.staticCall(account, "0x", input);
+      const context = encodeContextBlock(account, "0x", input);
+      const [output, transactions] = await host.myCommand.staticCall(context);
       expect(output).to.equal(encodeCustodyBlock(target, asset, 30n));
       expect(transactions).to.equal("0x");
-      await expect(host.myCommand(account, "0x", input))
+      await expect(host.myCommand(context))
         .to.emit(host, "SentToHost")
         .withArgs(target, asset, 30n);
     });
@@ -102,7 +104,7 @@ describe("Examples", () => {
         encodeBlock(listKey, encodeAssetBlock(first)),
       );
 
-      const tx = host.myCommand(account, "0x", input);
+      const tx = host.myCommand(encodeContextBlock(account, "0x", input));
       await expect(tx).to.emit(host, "AssetSeen").withArgs(0n, first);
       await expect(tx).to.emit(host, "AssetSeen").withArgs(0n, second);
       await expect(tx).to.emit(host, "AssetSeen").withArgs(1n, first);
@@ -122,17 +124,17 @@ describe("Examples", () => {
       const status = 4n;
       const input = encodeBlock(Payment, concat(asset, pad32(amount), encodeStatusBlock(status)));
 
-      await expect(host.myCommand(account, "0x", input))
+      await expect(host.myCommand(encodeContextBlock(account, "0x", input)))
         .to.emit(host, "PaymentSeen")
         .withArgs(asset, amount, status);
 
       const emptyStatus = encodeBlock(Payment, concat(asset, pad32(amount), encodeBlock(Keys.Status, "0x")));
-      await expect(host.myCommand(account, "0x", emptyStatus))
+      await expect(host.myCommand(encodeContextBlock(account, "0x", emptyStatus)))
         .to.emit(host, "PaymentSeen")
         .withArgs(asset, amount, 0n);
 
       const missingStatus = encodeBlock(Payment, concat(asset, pad32(amount)));
-      await expect(host.myCommand(account, "0x", missingStatus))
+      await expect(host.myCommand(encodeContextBlock(account, "0x", missingStatus)))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
@@ -151,7 +153,9 @@ describe("Examples", () => {
         encodeAmountBlock(secondAsset, 20n),
       );
 
-      const [output, transactions] = await host.myCommand.staticCall(account, "0x", input);
+      const [output, transactions] = await host.myCommand.staticCall(
+        encodeContextBlock(account, "0x", input),
+      );
 
       expect(output).to.equal("0x");
       expect(transactions).to.equal(concat(
@@ -198,7 +202,9 @@ describe("Examples", () => {
         encodeListBlock(firstHop, secondHop),
       ));
 
-      const [output, transactions] = await host.swap.staticCall(account, "0x", input);
+      const [output, transactions] = await host.swap.staticCall(
+        encodeContextBlock(account, "0x", input),
+      );
       expect(output).to.equal("0x");
       expect(transactions).to.equal("0x");
     });

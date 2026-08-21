@@ -47,22 +47,20 @@ abstract contract Settle is CommandBase, SettleHook, Action {
     }
 
     /// @notice Settle each POSITION block from the command state.
-    /// @param state POSITION block stream.
+    /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
     /// @return Empty transaction stream.
     function settle(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
-            settle(account, asset, amount, liability, debt);
+            settle(exec.account, asset, amount, liability, debt);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
@@ -78,22 +76,20 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
     }
 
     /// @notice Settle each POSITION block with access to a shared native-value budget.
-    /// @param state POSITION block stream.
+    /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
     /// @return Remaining native value as a refund transaction stream.
     function settlePayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
-            settle(account, asset, amount, liability, debt, exec);
+            settle(exec.account, asset, amount, liability, debt, exec);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

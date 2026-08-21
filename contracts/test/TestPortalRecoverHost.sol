@@ -16,6 +16,11 @@ contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
         if (miss != bytes32(0)) emit Unresolved(host, key, miss);
     }
 
+    function testCallPortMemory(uint port, bytes calldata input, uint128 value) external payable returns (bytes memory) {
+        bytes memory data = input;
+        return callPort(port, value, data);
+    }
+
     function getAdminAccount() external view returns (bytes32) {
         return admin;
     }

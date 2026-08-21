@@ -1,13 +1,13 @@
 ﻿import { expect } from "chai";
 import { ethers } from "ethers";
 import { commandId, deploy, getSigner } from "./helpers/setup.js";
-import { concat, encodeActionBlock, encodeBalanceBlock } from "./helpers/blocks.js";
+import { concat, encodeActionBlock, encodeBalanceBlock, encodeContextBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
 describe("Burn", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
   let userAccount: string;
-  const burnMethod = "burn(bytes32,bytes,bytes)";
+  const burnMethod = "burn(bytes)";
 
   before(async () => {
     const signer = await getSigner(0);
@@ -23,9 +23,11 @@ describe("Burn", () => {
 
   function ctx(overrides: Partial<{ account: string; state: string; input: string }> = {}) {
     return [
-      overrides.account ?? userAccount,
-      overrides.state ?? "0x",
-      overrides.input ?? "0x",
+      encodeContextBlock(
+        overrides.account ?? userAccount,
+        overrides.state ?? "0x",
+        overrides.input ?? "0x",
+      ),
     ] as const;
   }
 

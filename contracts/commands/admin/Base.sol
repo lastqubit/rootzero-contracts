@@ -7,9 +7,18 @@ import {NodeAccess} from "../../core/Access.sol";
 /// @title AdminBase
 /// @notice Shared base for admin commands.
 abstract contract AdminBase is NodeAccess, CommandBase {
-    /// @dev Restrict execution to the commander using the host's admin account.
-    modifier onlyAdmin(bytes32 account) {
+    /// @notice Decode, authorize, and open one admin command context.
+    function openAdminCommand(
+        bytes calldata context,
+        uint descriptor,
+        uint batches
+    ) internal view returns (Execution memory exec) {
+        bytes32 account;
+        bytes calldata state;
+        bytes calldata input;
+        (account, state, input) = unpackCommandContext(context);
         enforceAdmin(account, msg.sender);
-        _;
+        exec = Executions.open(state, input, descriptor, batches);
+        exec.account = account;
     }
 }

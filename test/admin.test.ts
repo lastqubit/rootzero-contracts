@@ -7,7 +7,7 @@ import {
   endpointDescriptor,
   exactSpec,
   encodeNodeBlock, encodeAccountBlock, encodeAssetBlock, encodeAllowanceBlock,
-  encodeCallBlock, encodeLabelBlock, encodeAnnotationBlock, encodeSchemaBlock, concat
+  encodeCallBlock, encodeContextBlock, encodeLabelBlock, encodeAnnotationBlock, encodeSchemaBlock, concat
 } from "./helpers/blocks.js";
 
 describe("Admin Commands", () => {
@@ -25,11 +25,11 @@ describe("Admin Commands", () => {
   });
 
   function adminCtx(input: string) {
-    return [adminAccount, "0x", input] as const;
+    return [encodeContextBlock(adminAccount, "0x", input)] as const;
   }
 
   function userCtx(userAcc: string, input: string) {
-    return [userAcc, "0x", input] as const;
+    return [encodeContextBlock(userAcc, "0x", input)] as const;
   }
 
   async function callAs(signerIndex: number, method: string, ...args: unknown[]) {
@@ -359,11 +359,11 @@ describe("Admin Commands", () => {
       const target = await deploy("TestHost", await source.getAddress());
 
       const asset = ethers.zeroPadValue("0x123456", 32);
-      const targetArgs = [await target.getAdminAccount(), "0x", encodeAssetBlock(asset)];
+      const targetArgs = [encodeContextBlock(await target.getAdminAccount(), "0x", encodeAssetBlock(asset))];
       const calldata = target.interface.encodeFunctionData("allowAssets", targetArgs);
       const input = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
 
-      await expect(source.executePayable(sourceAdminAccount, "0x", input))
+      await expect(source.executePayable(encodeContextBlock(sourceAdminAccount, "0x", input)))
         .to.emit(target, "AllowAssetCalled")
         .withArgs(asset);
     });
@@ -378,17 +378,17 @@ describe("Admin Commands", () => {
 
       const calldataA = targetA.interface.encodeFunctionData(
         "allowAssets",
-        [await targetA.getAdminAccount(), "0x", encodeAssetBlock(assetA)]
+        [encodeContextBlock(await targetA.getAdminAccount(), "0x", encodeAssetBlock(assetA))]
       );
       const calldataB = targetB.interface.encodeFunctionData(
         "denyAssets",
-        [await targetB.getAdminAccount(), "0x", encodeAssetBlock(assetB)]
+        [encodeContextBlock(await targetB.getAdminAccount(), "0x", encodeAssetBlock(assetB))]
       );
 
-      const tx = await source.executePayable(sourceAdminAccount, "0x", concat(
+      const tx = await source.executePayable(encodeContextBlock(sourceAdminAccount, "0x", concat(
         encodeCallBlock(await hostIdFor(await targetA.getAddress()), 0n, calldataA),
         encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
-      ));
+      )));
 
       await expect(tx).to.emit(targetA, "AllowAssetCalled").withArgs(assetA);
       await expect(tx).to.emit(targetB, "DenyAssetCalled").withArgs(assetB);

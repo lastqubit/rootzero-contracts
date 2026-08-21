@@ -266,8 +266,9 @@ contract TestUtils is CommandBase, CommanderAccess {
         bytes32 account
     ) external returns (bytes memory transaction, uint remainingAfter) {
         Execution memory exec;
+        exec.account = account;
         exec.budget = remaining;
-        (, transaction) = close(exec, account);
+        (, transaction) = closeCommand(exec);
         remainingAfter = exec.budget;
     }
 

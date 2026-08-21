@@ -180,12 +180,10 @@ contract TestHost is
         uint portal,
         uint resources,
         bytes32 account,
-        bytes calldata state,
         bytes calldata input,
-        Execution memory funds
+        Execution memory exec
     ) internal override {
-        funds;
-        emit RelayCalled(portal, resources, account, state, input);
+        emit RelayCalled(portal, resources, account, exec.rawState(), input);
     }
 
     function recover(
@@ -233,11 +231,12 @@ contract TestHost is
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
         Execution memory exec = Executions.open();
+        exec.account = account;
         Budget memory budget = exec.takeBudget();
         pipe(account, state, steps, budget);
         exec.budget = budget.drain();
         Reader memory txs;
-        (, txs.source) = close(exec, account);
+        (, txs.source) = closeCommand(exec);
         while (txs.more()) {
             (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
             post(from, to, asset, amount);

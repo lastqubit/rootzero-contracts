@@ -36,23 +36,21 @@ abstract contract Provision is CommandBase, ProvisionHook {
     }
 
     /// @notice Provision ALLOCATION input blocks and output matching CUSTODY state blocks.
-    /// @param input ALLOCATION block stream.
+    /// @param context Command context carrying the ALLOCATION input stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Empty transaction stream.
     function provision(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);
-            provision(account, allocation);
+            provision(exec.account, allocation);
             exec.outputCustody(allocation);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
@@ -68,23 +66,21 @@ abstract contract ProvisionPayable is CommandBase, ProvisionPayableHook {
     }
 
     /// @notice Provision ALLOCATION input blocks with access to a mutable native-value budget.
-    /// @param input ALLOCATION block stream.
+    /// @param context Command context carrying the ALLOCATION input stream.
     /// @return CUSTODY block stream matching the provisioned allocations.
     /// @return Remaining native value as a refund transaction stream.
     function provisionPayable(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
 
         while (exec.more()) {
             HostAmount memory allocation = exec.unpackAllocationValue(Lanes.Input);
-            provision(account, allocation, exec);
+            provision(exec.account, allocation, exec);
             exec.outputCustody(allocation);
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 

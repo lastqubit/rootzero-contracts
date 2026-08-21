@@ -267,7 +267,7 @@ export function concat(...parts: string[]): string {
 }
 
 // Command args suffix appended when computing command selectors
-const COMMAND_ARGS = "(bytes32,bytes,bytes)";
+const COMMAND_ARGS = "(bytes)";
 const PORT_ARGS = "(bytes)";
 const GUARD_ARGS = "(bytes)";
 

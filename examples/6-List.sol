@@ -25,11 +25,9 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
         uint batch;
 
         while (exec.more()) {
@@ -44,7 +42,7 @@ abstract contract MyCommand is CommandBase {
             }
         }
 
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 
