@@ -2,35 +2,41 @@
 pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
-import { AllowancePort } from "../ports/Allowance.sol";
+import { RequestAllowancePort } from "../ports/Allowance.sol";
 import { RedeemBalancePort } from "../ports/Redeem.sol";
 import { CreditAccountPort } from "../ports/Credit.sol";
 import { DebitAccountPort } from "../ports/Debit.sol";
 import { PipePayablePort } from "../ports/Pipe.sol";
 import { DispatchPayablePort } from "../ports/Dispatch.sol";
 import { PostPort } from "../ports/Post.sol";
+import { RequestAssetPort } from "../ports/Assets.sol";
 import { Settlement } from "../core/Settlement.sol";
 import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, Settlement, AllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, PipePayablePort, DispatchPayablePort {
-    event PortAllowanceCalled(uint peer, bytes32 asset, uint amount);
+contract TestPortHost is Host, Settlement, RequestAllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
+    event PortRequestAllowanceCalled(uint peer, bytes32 asset, uint amount);
     event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
+    event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
     event StepDispatched(uint cid, uint stepIndex, uint128 value);
 
     uint public stepCount;
 
     constructor(address cmdr) Host(cmdr) {}
 
-    function allowance(uint peer, bytes32 asset, uint amount) internal override {
-        emit PortAllowanceCalled(peer, asset, amount);
+    function requestAllowance(uint peer, bytes32 asset, uint amount) internal override {
+        emit PortRequestAllowanceCalled(peer, asset, amount);
     }
 
     function redeemBalance(uint peer, bytes32 asset, uint amount) internal override {
         emit PortRedeemBalanceCalled(peer, asset, amount);
+    }
+
+    function requestAsset(uint peer, bytes32 asset, uint amount) internal override {
+        emit PortRequestAssetCalled(peer, asset, amount);
     }
 
     function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {

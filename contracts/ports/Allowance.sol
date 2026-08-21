@@ -2,35 +2,45 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {AllowanceHook} from "../commands/admin/Allowance.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-/// @title AllowancePort
-/// @notice Port that lets a trusted peer host input or refresh its own allowance.
-/// Each AMOUNT block in the input is scoped to the peer host and passed to the
-/// shared allowance hook as a host-scoped allowance. Restricted to trusted peers.
-abstract contract AllowancePort is PortBase, AllowanceHook {
+/// @notice Hook implemented by hosts that handle allowance requests from peers.
+abstract contract RequestAllowanceHook {
+    /// @notice Override to handle one allowance request from a peer host.
+    /// @dev The implementation is responsible for validating the request and
+    /// deciding what allowance, if any, to grant.
+    /// @param peer Peer host node ID requesting the allowance.
+    /// @param asset Asset identifier supplied by the peer.
+    /// @param amount Allowance amount requested in the asset's native units.
+    function requestAllowance(uint peer, bytes32 asset, uint amount) internal virtual;
+}
+
+/// @title RequestAllowancePort
+/// @notice Port that lets trusted peers request their own asset allowances.
+/// Each AMOUNT block is scoped to the caller and passed unchanged to
+/// `requestAllowance(peer, asset, amount)`.
+abstract contract RequestAllowancePort is PortBase, RequestAllowanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = port("portAllowance", Specs.Amount, Specs.Empty, 0);
+        (, descriptor) = port("portRequestAllowance", Specs.Amount, Specs.Empty, 0);
     }
 
-    /// @notice Execute the allowance port call.
-    /// @param data AMOUNT block stream requested by the trusted peer.
+    /// @notice Request asset allowances for the calling peer.
+    /// @param data AMOUNT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
-    function portAllowance(bytes calldata data) external onlyPeer returns (bytes memory) {
+    function portRequestAllowance(bytes calldata data) external onlyPeer returns (bytes memory) {
         Execution memory exec = openInput(data, descriptor, 0);
         uint peer = caller();
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
-            allowance(peer, asset, amount);
+            requestAllowance(peer, asset, amount);
         }
-        
+
         return "";
     }
 }

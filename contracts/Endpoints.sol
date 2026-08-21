@@ -37,12 +37,11 @@ import {Unauthorize} from "./commands/admin/Unauthorize.sol";
 
 // Port endpoints
 import {PortBase} from "./ports/Base.sol";
-import {AllowAssetsPort} from "./ports/AllowAssets.sol";
-import {AllowancePort} from "./ports/Allowance.sol";
+import {AllowAssetsPort, DenyAssetsPort, RequestAssetPort, RequestAssetHook} from "./ports/Assets.sol";
+import {RequestAllowancePort, RequestAllowanceHook} from "./ports/Allowance.sol";
 import {RedeemBalancePort, RedeemBalanceHook} from "./ports/Redeem.sol";
 import {CreditAccountPort} from "./ports/Credit.sol";
 import {DebitAccountPort} from "./ports/Debit.sol";
-import {DenyAssetsPort} from "./ports/DenyAssets.sol";
 import {PipePayablePort} from "./ports/Pipe.sol";
 import {DispatchPayablePort, DispatchPayableHook} from "./ports/Dispatch.sol";
 import {PostPort} from "./ports/Post.sol";

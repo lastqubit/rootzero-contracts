@@ -116,8 +116,8 @@ keccak256. The remaining bytes are host/domain-specific for now.
 
 ### Cold-Start Recipe
 
-1. Start from the chain's commander host (announced via `Chain`, below, or a
-   known address). Replay its deployment logs: `EventAbi` gives the event ABIs,
+1. Start from the chain's configured commander host address. Replay its
+   deployment logs: `EventAbi` gives the event ABIs,
    the discovery events give the endpoint catalog, and `Annotation` label blocks
    give names.
 2. Follow `Introduction` events on the commander to enumerate hosts. The `peer`
@@ -146,8 +146,8 @@ TRANSACTION block. The `create-rootzero` template
 host conventions.
 
 ```txt
-event Commander(uint indexed host, uint chain, bytes32 native, bytes32 admin)
 event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change, uint access)
+event Positioned(bytes32 indexed account, bytes32 asset, uint amount, bytes32 liability, uint debt, uint32 action)
 event Received(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
 event Spent(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
 event Locked(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
@@ -164,18 +164,22 @@ host that omits them still works on-chain, but its ledger is invisible to
 log-based tooling - there is no fallback channel, because both command outputs
 (`state` and `transactions`) are return data and inputs are calldata.
 
-**Announcement.** A root (commander) host emits `Commander` once at construction
-with its host ID, the local chain ID, native asset, and its admin account,
-and labels itself with an `Annotation` containing a `#label` block. This closes the
-cold-start problem: `commander`, `admin`, and `nativeAsset` are constructor
-immutables that appear in no library event on the host itself. Child hosts need
-no announcement - they are discovered through `Introduction` on their
-commander.
+**Root identity.** The trusted commander address and chain context are off-chain
+configuration. Indexers derive its host ID from that address and chain ID, and
+derive the native asset ID from the chain ID. A root host labels itself with an
+`Annotation` containing a `#label` block. Child hosts are discovered through
+`Introduction` on their commander.
 
 **Balances.** Every ledger mutation emits `Balance` with the resulting total,
 the signed change, and `access` set to the node ID of the endpoint that
 performed the change. Hosts using the built-in `Balances` ledger key balances
 directly by `(account, asset)`, so query results and events agree.
+
+**Positions.** An action that exposes a resulting live position may emit
+`Positioned` with both the asset and liability sides and the primary `Actions`
+code that produced them. The event records the emitting host's observation of
+the transient pipeline position; it does not by itself prove that either side
+was persisted or settled.
 
 **Flows.** Operations that move value emit one flow event per affected amount,
 with the matching `Actions` code:

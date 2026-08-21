@@ -28,7 +28,7 @@ describe("Port Entrypoints", () => {
     host = await deploy("TestPortHost", commander);
     const trustedPeer = await callerHost(1);
     const adminAccount: string = await host.getAdminAccount();
-    await host.authorize(adminAccount, "0x", encodeNodeBlock(trustedPeer));
+    await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(trustedPeer)));
   });
 
   async function port(method: string) {
@@ -43,12 +43,12 @@ describe("Port Entrypoints", () => {
       .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await port("portAllowance(bytes)"),
+        await port("portRequestAllowance(bytes)"),
         endpointDescriptor({ input: Keys.Amount }),
       );
     await expect(tx!)
       .to.emit(host, "Annotation")
-      .withArgs(await port("portAllowance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portAllowance"));
+      .withArgs(await port("portRequestAllowance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portRequestAllowance"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -60,6 +60,17 @@ describe("Port Entrypoints", () => {
     await expect(tx!)
       .to.emit(host, "Annotation")
       .withArgs(await port("portRedeemBalance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portRedeemBalance"));
+
+    await expect(tx!)
+      .to.emit(host, "Endpoint")
+      .withArgs(
+        await host.host(),
+        await port("portRequestAsset(bytes)"),
+        endpointDescriptor({ input: Keys.Amount }),
+      );
+    await expect(tx!)
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portRequestAsset(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portRequestAsset"));
 
     await expect(tx!)
       .to.emit(host, "Endpoint")
@@ -114,11 +125,12 @@ describe("Port Entrypoints", () => {
   async function callAs(
     signerIndex: number,
     method:
-      | "portAllowance(bytes)"
+      | "portRequestAllowance(bytes)"
       | "portRedeemBalance(bytes)"
       | "portCreditAccount(bytes)"
       | "portDebitAccount(bytes)"
       | "portPost(bytes)"
+      | "portRequestAsset(bytes)"
       | "portPipePayable(bytes)"
       | "portDispatchPayable(bytes)",
     input = "0x",
@@ -141,17 +153,17 @@ describe("Port Entrypoints", () => {
     return port("portDispatchPayable(bytes)");
   }
 
-  describe("portAllowance", () => {
-    const method = "portAllowance(bytes)";
+  describe("portRequestAllowance", () => {
+    const method = "portRequestAllowance(bytes)";
     const asset = ethers.zeroPadValue("0xa0", 32);
 
-    it("emits PortAllowanceCalled for a single AMOUNT block scoped to the caller host", async () => {
+    it("passes one allowance request to the hook scoped to the caller host", async () => {
       const peer = await callerHost(1);
       const tx = await callAs(1, method, encodeAmountBlock(asset, 123n));
-      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortRequestAllowanceCalled").withArgs(peer, asset, 123n);
     });
 
-    it("emits PortAllowanceCalled for each AMOUNT block when multiple are present", async () => {
+    it("passes each allowance request in a batch to the hook", async () => {
       const peer = await callerHost(1);
       const asset2 = ethers.zeroPadValue("0xc0", 32);
       const tx = await callAs(
@@ -162,8 +174,8 @@ describe("Port Entrypoints", () => {
           encodeAmountBlock(asset2, 456n),
         )
       );
-      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset, 123n);
-      await expect(tx).to.emit(host, "PortAllowanceCalled").withArgs(peer, asset2, 456n);
+      await expect(tx).to.emit(host, "PortRequestAllowanceCalled").withArgs(peer, asset, 123n);
+      await expect(tx).to.emit(host, "PortRequestAllowanceCalled").withArgs(peer, asset2, 456n);
     });
 
     it("returns empty bytes after processing amount blocks", async () => {
@@ -226,6 +238,55 @@ describe("Port Entrypoints", () => {
 
     it("reverts AccessDenied for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeBalanceBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("reverts EmptyRun when input is empty", async () => {
+      await expect(callAs(1, method))
+        .to.be.revertedWithCustomError(host, "EmptyRun");
+    });
+  });
+
+  describe("portRequestAsset", () => {
+    const method = "portRequestAsset(bytes)";
+    const suppliedAsset = ethers.zeroPadValue("0xd1", 32);
+
+    it("passes the peer, supplied asset, and amount to the hook", async () => {
+      const peer = await callerHost(1);
+      const tx = await callAs(1, method, encodeAmountBlock(suppliedAsset, 123n));
+
+      await expect(tx)
+        .to.emit(host, "PortRequestAssetCalled")
+        .withArgs(peer, suppliedAsset, 123n);
+    });
+
+    it("passes each request in a batch to the hook", async () => {
+      const peer = await callerHost(1);
+      const secondAsset = ethers.zeroPadValue("0xd2", 32);
+      const tx = await callAs(1, method, concat(
+        encodeAmountBlock(suppliedAsset, 123n),
+        encodeAmountBlock(secondAsset, 456n),
+      ));
+
+      await expect(tx).to.emit(host, "PortRequestAssetCalled").withArgs(peer, suppliedAsset, 123n);
+      await expect(tx).to.emit(host, "PortRequestAssetCalled").withArgs(peer, secondAsset, 456n);
+    });
+
+    it("returns empty bytes after processing requests", async () => {
+      const signer = await getSigner(1);
+      const result: string = await (host.connect(signer) as any)[method].staticCall(
+        encodeAmountBlock(suppliedAsset, 123n),
+      );
+      expect(result).to.equal("0x");
+    });
+
+    it("reverts CommanderNotAllowed for the commander", async () => {
+      await expect(callAs(0, method, encodeAmountBlock(suppliedAsset, 123n)))
+        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+    });
+
+    it("reverts AccessDenied for an untrusted caller", async () => {
+      await expect(callAs(2, method, encodeAmountBlock(suppliedAsset, 123n)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 

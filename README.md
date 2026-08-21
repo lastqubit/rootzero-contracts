@@ -288,19 +288,17 @@ command lanes, loop the batch, call the hook, and write the output run:
 
 ```solidity
 function deposit(
-    bytes32 account,
-    bytes calldata state,
-    bytes calldata input
+    bytes calldata context
 ) external onlyCommand returns (bytes memory, bytes memory) {
-    Execution memory exec = openCommand(state, input, descriptor, 0);
+    Execution memory exec = openCommand(context, descriptor, 0);
 
     while (exec.more()) {
         (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
-        deposit(account, asset, amount); // host policy hook
+        deposit(exec.account, asset, amount); // host policy hook
         exec.outputBalance(asset, amount);
     }
 
-    return close(exec, account);
+    return closeCommand(exec);
 }
 ```
 
@@ -317,17 +315,15 @@ abstract contract MyCommand is CommandBase {
     }
 
     function myCommand(
-        bytes32 account,
-        bytes calldata state,
-        bytes calldata input
+        bytes calldata context
     ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(state, input, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor, 0);
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
             // Apply command-specific behavior for this group.
             exec.outputBalance(asset, amount);
         }
-        return close(exec, account);
+        return closeCommand(exec);
     }
 }
 ```
@@ -435,6 +431,12 @@ central ones are batches all the way down:
 - `portPost` consumes `transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
   block — how two hosts post transactions between their ledgers.
+- `portRequestAsset` consumes `amount { bytes32 asset, uint amount }` blocks and
+  passes the authenticated peer, asset, and amount to a host hook. The hook
+  validates asset support and applies the host's request and transfer policy.
+- `portRequestAllowance` consumes the same amount blocks and lets the
+  authenticated peer request an asset allowance. The hook decides what
+  allowance, if any, to grant.
 - `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
