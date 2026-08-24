@@ -3,6 +3,45 @@
 Until the protocol reaches integration-stable status, minor versions may include
 breaking API changes. Breaking changes are called out explicitly.
 
+Add all changes made after a release to `Unreleased`. Published version
+sections are immutable and must continue to describe the tagged release.
+
+## Unreleased
+
+## 1.24.0
+
+### Breaking Changes
+
+- Renamed the existing `Position`-consuming `repay` and `repayPayable`
+  commands to `repayPosition` and `repayPositionPayable`. Their state
+  transition remains `Position` to `Balance`; the new commands using the old
+  names consume `Debt` and return empty state. Command selectors and node IDs
+  for position repayment therefore change.
+
+### Added
+
+- Added the standalone `Debt { liability, debt }` pipeline state, its standard
+  block key and schema, and codec support across blocks, readers, writers,
+  decoders, and execution helpers.
+- Added `repay` and `repayPayable` commands that consume `Debt` state and return
+  empty state.
+- Added `RepayInternal` for dispatching the non-funded `repay` command directly
+  against memory-backed pipeline state.
+- Added unchecked `Blocks.read1`, `read2`, `read8`, and `read16` absolute
+  calldata helpers, completing the power-of-two family alongside `read4` and
+  `read32`.
+- Added the standalone `ensureContract` utility and shared `InvalidContract`
+  error for uniformly requiring addresses with deployed bytecode.
+- Added the free `enforceSender` access helper for requiring an exact
+  `msg.sender` with the shared `AccessDenied` error.
+- Documented descriptor flag bits 6 and 7 as endpoint-defined custom flags;
+  bits 2 through 5 remain reserved for future protocol flags.
+
+### Changed
+
+- Repayment commands now publish the canonical `Actions.Repay` annotation
+  instead of `Actions.Settle`.
+
 ## 1.23.0
 
 ### Breaking Changes
