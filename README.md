@@ -366,13 +366,15 @@ running the next step. This is the core of `Pipeline.pipe`:
 ```solidity
 while (cur.more()) {
     (uint cmd, uint resources, bytes calldata input) = cur.unpackStep();
+    uint128 value;
+    (budget, value) = Budgets.useResourceValue(budget, resources);
     Reader memory transactions;
     (state, transactions.source) = dispatch(
         cmd,
         account,
         state,
         input,
-        budget.useResourceValue(resources)
+        value
     );
     while (transactions.more()) {
         (bytes32 from, bytes32 to, bytes32 asset, uint amount) = transactions.unpackTransaction();
@@ -381,6 +383,9 @@ while (cur.more()) {
 }
 if (state.length != 0) revert UnexpectedState();
 ```
+
+`Pipeline.pipe` takes the available native-value budget as a `uint` and returns
+the remaining budget after every step has executed.
 
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
 `#amount` input into `#balance` state, and `payout` consumes that state
@@ -482,11 +487,11 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Settlement`, `Pipeline`, `Portal`, validator
+  `Settlement`, `PipeHook`, `Pipeline`, `Portal`, validator
 - `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
   codec helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
-  mixins, their hooks, and `Flags`
+  mixins, their hooks (including `PipeHook`), and `Flags`
 - `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
   `Reader`/`Readers`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
   `Specs`

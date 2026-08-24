@@ -8,6 +8,45 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.25.0
+
+### Breaking Changes
+
+- Changed `Pipeline.pipe` to accept a scalar `uint` budget and return the
+  remaining scalar budget. The standalone mutable `Budget` type remains
+  available for other funded execution flows.
+- Split the pipeline hook from its standard implementation. `PipePayablePort`
+  now inherits only `PipeHook`; hosts that want the built-in pipeline must
+  compose `Pipeline` explicitly, while custom hosts may implement the hook
+  without inheriting the standard dispatch and posting implementation.
+- Changed `Decoders.open` to wrap the complete non-empty calldata source as an
+  ungrouped cursor. Code that needs the former counted first-homogeneous-run
+  behavior must use the new `Decoders.batch` helper.
+
+### Added
+
+- Added scalar `Budgets.useValue` and `Budgets.useResourceValue` overloads, and
+  `Executions.drainBudget` for transferring an execution budget as a `uint`.
+- Added `PipeHook` to the `Core.sol` and `Endpoints.sol` package barrels.
+- Added `Blocks.expectKey` and key-only `Decoders.consume` and
+  `Executions.consume` overloads for validating blocks whose payload shape is
+  established by specialized decoding logic.
+- Added `Blocks.require1`, `require2`, `require4`, `require8`, and `require16`,
+  completing the fixed-width validation family alongside `require32`.
+
+### Changed
+
+- Specialized built-in composite block unpackers to validate their known keys
+  directly instead of constructing and evaluating generic specifications.
+- Specialized fixed-width block validation, empty-block inspection, and
+  key-only `takeBlock` paths to avoid redundant specification and calldata
+  work.
+- Pipeline execution now validates the complete STEP source and rejects a
+  trailing block with a different key instead of silently stopping after the
+  first homogeneous run.
+- Simplified internal debit-account output allocation to use the fixed-width
+  input size directly.
+
 ## 1.24.0
 
 ### Breaking Changes

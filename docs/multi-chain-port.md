@@ -327,7 +327,8 @@ On the destination side:
 1. The bridge endpoint verifies the bridge message using its own security model.
 2. The bridge endpoint calls the destination host's port pipe entrypoint with the raw CONTEXT bytes.
 3. The host checks that the local caller is trusted, just like `PortBase.onlyPeer` does on EVM.
-4. The host unpacks each CONTEXT block and runs `pipe(account, state, input, budget)`.
+4. The host unpacks each CONTEXT block and threads the remaining budget through
+   `budget = pipe(account, state, input, budget)`.
 5. `pipe()` dispatches local STEP commands exactly like a same-chain pipeline.
 
 In EVM today, the entrypoint is:
@@ -411,10 +412,11 @@ Implementation guidance:
 - Discovery metadata must match the actual executable protocol surface.
 - Do not use commands like `deposit` as chain-specific funding shortcuts if the original protocol semantics define them as block transformations.
 
-When a target chain cannot express the Solidity structure directly, adapt the implementation shape but keep the protocol shape. For example, Solidity uses inheritance to compose contracts:
+When a target chain cannot express the Solidity structure directly, adapt the implementation shape but keep the protocol shape. For example, Solidity separates the port-facing hook from the standard pipeline implementation and composes both explicitly on a host:
 
 ```solidity
-abstract contract PipePayablePort is PortBase, Pipeline
+abstract contract PipePayablePort is PortBase, PipeHook
+contract ExampleHost is Pipeline, PipePayablePort
 ```
 
 Most non-EVM chains do not have Solidity-style contract inheritance. A port can use Rust traits, modules, helper functions, account structs, or explicit composition instead. The important part is that the resulting host still has the same responsibilities and behavior as the EVM composition.
@@ -538,13 +540,14 @@ Chain-specific dispatch:
 The `pipe()` loop is pure protocol logic:
 
 1. Iterate STEP blocks.
-2. Decode `(cmd, value, input)`.
+2. Decode `(cmd, resources, input)` and deduct its native-value lane from the
+   scalar budget.
 3. Dispatch `cmd` locally.
 4. Thread the returned state bytes into the next step, decode each returned transaction, and post it before dispatching the next step.
 5. Require the final state to be empty.
 
-After `pipe()` returns, its caller still owns the remaining native-value
-budget. If the entrypoint refunds that value, it encodes the refund as a
+`pipe()` returns the remaining native-value budget to its caller. If the
+entrypoint refunds that value, it encodes the refund as a
 TRANSACTION block and passes it through the same posting path.
 
 Dispatch should not extract a target chain ID. It should only validate that `cmd` is a trusted local command and resolve it through the local chain's dispatch table.

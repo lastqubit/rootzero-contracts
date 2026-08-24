@@ -349,18 +349,19 @@ fn pipe(
     account: AccountId,
     state: Vec<u8>,
     steps: &[u8],
-    budget: NativeBudget,
-) -> Result<(), ContractError> {
+    mut budget: NativeBudget,
+) -> Result<NativeBudget, ContractError> {
     // iterate STEP blocks
     // dispatch each local command and receive (state, transactions)
     // thread returned state into the next step
     // post each non-empty returned TRANSACTION stream before the next step
     // require final state is empty
+    // return the remaining native budget
 }
 ```
 
-After `pipe` returns, the entrypoint still owns the remaining native budget. If
-that value should be refunded, encode it as a TRANSACTION block and pass it
+`pipe` returns the remaining native budget to the entrypoint. If that value
+should be refunded, encode it as a TRANSACTION block and pass it
 through the same posting path; do not add a separate per-command refund
 hook.
 
@@ -398,7 +399,7 @@ Internal behavior:
 1. Enforce trusted peer/bridge caller.
 2. Parse `input` as one or more CONTEXT blocks.
 3. For each CONTEXT block, unpack `(account, state, input)`.
-4. Run `pipe(account, state, input, budget)`.
+4. Thread the remaining budget through `budget = pipe(account, state, input, budget)`.
 5. Return an empty response payload unless the EVM behavior being ported returns data.
 
 The bridge should deliver raw CONTEXT bytes. The bridge route, source chain, source sender, nonce, and proof are bridge adapter data, not Rootzero core data.
