@@ -88,6 +88,21 @@ describe("Cursors", () => {
       expect(thirtyTwo).to.equal(word);
     });
 
+    it("requires every power-of-two byte width at absolute calldata positions", async () => {
+      const prefix = "0xaabbcc";
+      const word = ethers.hexlify(Uint8Array.from({ length: 32 }, (_, i) => i + 1));
+      const source = concat(prefix, word);
+      const mismatch = `0xff${word.slice(4)}`;
+
+      for (const width of [1, 2, 4, 8, 16, 32]) {
+        await blocksHelper.requireWidth(source, 3, width, word);
+        await expect(blocksHelper.requireWidth(source, 3, width, mismatch)).to.be.revertedWithCustomError(
+          blocksHelper,
+          "UnexpectedValue",
+        );
+      }
+    });
+
     it("writeBalanceBlock round-trips", async () => {
       const data: string = await helper.testWriteBalanceBlock(asset, amount);
       expect(ethers.getBytes(data).length).to.equal(72);
@@ -640,6 +655,8 @@ describe("Cursors", () => {
         .to.deep.equal([5n, 0n]);
       expect(await blocksHelper.takeBudget.staticCall({ value: 5n }))
         .to.deep.equal([0n, 5n]);
+      expect(await blocksHelper.drainBudget.staticCall({ value: 5n }))
+        .to.deep.equal([0n, 5n]);
       await expect(blocksHelper.budgetUseResourceValue.staticCall(6n, { value: 5n }))
         .to.be.revertedWithCustomError(blocksHelper, "InsufficientValue");
       await expect(blocksHelper.budgetUseValue.staticCall(1n << 128n))
@@ -910,21 +927,37 @@ describe("Cursors", () => {
       expect(len).to.equal(BigInt(ethers.getBytes(b).length));
     });
 
-    it("open(source) creates a counted cursor over the matching first run", async () => {
+    it("open(source) creates an ungrouped cursor over the complete non-empty source", async () => {
       const a = encodeAmountBlock(asset, 1n);
-      const b = encodeAmountBlock(asset, 2n);
-      const c = encodeBalanceBlock(asset, 3n);
-      const source = concat(a, b, c);
-      const run = concat(a, b);
+      const b = encodeBalanceBlock(asset, 2n);
+      const source = concat(a, b);
       const [offset, cursorI, len, count] = await helper.testOpen(source);
       expect(offset).to.equal(0n);
       expect(cursorI).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(run).length));
-      expect(count).to.equal(2n);
+      expect(len).to.equal(BigInt(ethers.getBytes(source).length));
+      expect(count).to.equal(0n);
     });
 
     it("open(source) reverts EmptyRun for an empty source", async () => {
       await expect(helper.testOpen("0x"))
+        .to.be.revertedWithCustomError(helper, "EmptyRun");
+    });
+
+    it("batch(source) creates a counted cursor over the matching first run", async () => {
+      const a = encodeAmountBlock(asset, 1n);
+      const b = encodeAmountBlock(asset, 2n);
+      const c = encodeBalanceBlock(asset, 3n);
+      const source = concat(a, b, c);
+      const batch = concat(a, b);
+      const [offset, cursorI, len, count] = await helper.testBatch(source);
+      expect(offset).to.equal(0n);
+      expect(cursorI).to.equal(0n);
+      expect(len).to.equal(BigInt(ethers.getBytes(batch).length));
+      expect(count).to.equal(2n);
+    });
+
+    it("batch(source) reverts EmptyRun for an empty source", async () => {
+      await expect(helper.testBatch("0x"))
         .to.be.revertedWithCustomError(helper, "EmptyRun");
     });
 

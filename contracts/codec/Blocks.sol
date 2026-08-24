@@ -100,16 +100,33 @@ library Blocks {
         end = body + len;
     }
 
+    /// @notice Validate a known block key and return its payload bounds.
+    /// @dev DANGER: This performs an unchecked calldata read and validates only
+    /// the key. The caller must validate the known payload shape and returned end.
+    /// @param abs Absolute calldata position of the header.
+    /// @param key Expected block key.
+    /// @return body Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function expectKey(uint abs, bytes4 key) internal pure returns (uint body, uint end) {
+        uint len = header(abs, key);
+        unchecked {
+            body = abs + Sizes.Header;
+            end = body + len;
+        }
+    }
+
     /// @dev Validate the key and exact payload size of a fixed-width block.
     /// @param abs Absolute calldata position of the header.
-    /// @param spec Expected block specification.
+    /// @param key Expected block key.
     /// @param size Expected payload length.
     /// @return body Absolute position of the payload.
     /// @return end Absolute position after the payload.
-    function expectFixed(uint abs, uint spec, uint size) private pure returns (uint body, uint end) {
-        if (header(abs, Specs.key(spec)) != size) revert InvalidBlock();
-        body = abs + Sizes.Header;
-        end = body + size;
+    function expectFixed(uint abs, bytes4 key, uint size) private pure returns (uint body, uint end) {
+        if (header(abs, key) != size) revert InvalidBlock();
+        unchecked {
+            body = abs + Sizes.Header;
+            end = body + size;
+        }
     }
 
     /// @notice Validate an empty block at an absolute calldata position.
@@ -139,8 +156,9 @@ library Blocks {
     /// @param key Expected block key.
     /// @return Whether the expected key occurs with a zero-length payload.
     function isEmpty(uint abs, uint end, bytes4 key) internal pure returns (bool) {
-        if (!hasAt(abs, end, key)) return false;
-        return uint32(uint(read32(abs)) >> 192) == 0;
+        if (abs > end || Sizes.Header > end - abs) return false;
+        uint head = uint(read32(abs));
+        return uint32(head >> 224) == uint32(key) && uint32(head >> 192) == 0;
     }
 
     /// @notice Find the first block with `key` at or after absolute position `abs`.
@@ -1080,6 +1098,46 @@ library Blocks {
         }
     }
 
+    /// @notice Require the byte at an absolute calldata position to match `expected`.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @param expected Expected byte.
+    function require1(uint abs, bytes1 expected) internal pure {
+        if (read1(abs) != expected) revert UnexpectedValue();
+    }
+
+    /// @notice Require the two bytes at an absolute calldata position to match `expected`.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @param expected Expected two-byte value.
+    function require2(uint abs, bytes2 expected) internal pure {
+        if (read2(abs) != expected) revert UnexpectedValue();
+    }
+
+    /// @notice Require the four bytes at an absolute calldata position to match `expected`.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @param expected Expected four-byte value.
+    function require4(uint abs, bytes4 expected) internal pure {
+        if (read4(abs) != expected) revert UnexpectedValue();
+    }
+
+    /// @notice Require the eight bytes at an absolute calldata position to match `expected`.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @param expected Expected eight-byte value.
+    function require8(uint abs, bytes8 expected) internal pure {
+        if (read8(abs) != expected) revert UnexpectedValue();
+    }
+
+    /// @notice Require the sixteen bytes at an absolute calldata position to match `expected`.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @param expected Expected sixteen-byte value.
+    function require16(uint abs, bytes16 expected) internal pure {
+        if (read16(abs) != expected) revert UnexpectedValue();
+    }
+
     /// @notice Require the word at an absolute calldata position to match `expected`.
     /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
     /// @param abs Absolute calldata position.
@@ -1106,7 +1164,7 @@ library Blocks {
     /// @return a First payload word.
     /// @return end Absolute position after the block.
     function unpack32(uint abs, uint spec) internal pure returns (bytes32 a, uint end) {
-        (abs, end) = expectFixed(abs, spec, 32);
+        (abs, end) = expectFixed(abs, Specs.key(spec), 32);
         a = read32(abs);
     }
 
@@ -1117,7 +1175,7 @@ library Blocks {
     /// @return b Second payload word.
     /// @return end Absolute position after the block.
     function unpack64(uint abs, uint spec) internal pure returns (bytes32 a, bytes32 b, uint end) {
-        (abs, end) = expectFixed(abs, spec, 64);
+        (abs, end) = expectFixed(abs, Specs.key(spec), 64);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -1135,7 +1193,7 @@ library Blocks {
         uint abs,
         uint spec
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, uint end) {
-        (abs, end) = expectFixed(abs, spec, 96);
+        (abs, end) = expectFixed(abs, Specs.key(spec), 96);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -1155,7 +1213,7 @@ library Blocks {
         uint abs,
         uint spec
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, uint end) {
-        (abs, end) = expectFixed(abs, spec, 128);
+        (abs, end) = expectFixed(abs, Specs.key(spec), 128);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -1177,7 +1235,7 @@ library Blocks {
         uint abs,
         uint spec
     ) internal pure returns (bytes32 a, bytes32 b, bytes32 c, bytes32 d, bytes32 e, uint end) {
-        (abs, end) = expectFixed(abs, spec, 160);
+        (abs, end) = expectFixed(abs, Specs.key(spec), 160);
         assembly ("memory-safe") {
             a := calldataload(abs)
             b := calldataload(add(abs, 0x20))
@@ -1653,7 +1711,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint entity, bytes calldata stream, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Annotation);
+        (abs, limit) = expectKey(abs, Keys.Annotation);
         assembly ("memory-safe") {
             entity := calldataload(abs)
         }
@@ -1671,7 +1729,7 @@ library Blocks {
         uint abs
     ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Context);
+        (abs, limit) = expectKey(abs, Keys.Context);
         assembly ("memory-safe") {
             account := calldataload(abs)
         }
@@ -1692,7 +1750,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint cmd, uint resources, bytes calldata input, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Step);
+        (abs, limit) = expectKey(abs, Keys.Step);
         assembly ("memory-safe") {
             cmd := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1711,7 +1769,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint target, uint resources, bytes calldata payload, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Call);
+        (abs, limit) = expectKey(abs, Keys.Call);
         assembly ("memory-safe") {
             target := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1730,7 +1788,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint portal, uint resources, bytes calldata input, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Relay);
+        (abs, limit) = expectKey(abs, Keys.Relay);
         assembly ("memory-safe") {
             portal := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1749,7 +1807,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint portal, uint resources, bytes calldata payload, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Dispatch);
+        (abs, limit) = expectKey(abs, Keys.Dispatch);
         assembly ("memory-safe") {
             portal := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1765,7 +1823,7 @@ library Blocks {
     /// @return end Absolute position after the block.
     function unpackLabel(uint abs) internal pure returns (bytes32 namespace, string memory name, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Label);
+        (abs, limit) = expectKey(abs, Keys.Label);
         assembly ("memory-safe") {
             namespace := calldataload(abs)
         }
@@ -1783,7 +1841,7 @@ library Blocks {
     /// @return end Absolute position after the block.
     function unpackSchema(uint abs) internal pure returns (uint spec, string memory body, bytes32 name, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Schema);
+        (abs, limit) = expectKey(abs, Keys.Schema);
         assembly ("memory-safe") {
             spec := calldataload(abs)
         }
@@ -1810,7 +1868,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness, uint end) {
         uint limit;
-        (abs, limit) = expect(abs, Specs.Recover);
+        (abs, limit) = expectKey(abs, Keys.Recover);
         assembly ("memory-safe") {
             handler := calldataload(abs)
             resources := calldataload(add(abs, 0x20))

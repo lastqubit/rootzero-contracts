@@ -1407,6 +1407,16 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "EmptyRun");
     });
 
+    it("rejects a non-STEP block trailing the STEP stream", async () => {
+      const input = concat(
+        encodeStepBlock(0n, 0n, "0x"),
+        encodeAmountBlock(ethers.ZeroHash, 1n),
+      );
+
+      await expect(callAs(0, "testPipe", userAccount, "0x", input))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
 
     it("tracks ETH value budget — reverts InsufficientValue when step requests too much", async () => {
       const largeValue = ethers.parseEther("1000");

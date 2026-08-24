@@ -6,6 +6,7 @@ pragma solidity ^0.8.33;
 
 // Shared endpoint hooks
 import {Flags} from "./codec/Descriptors.sol";
+import {PipeHook} from "./core/Pipeline.sol";
 import {CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} from "./core/Settlement.sol";
 
 // Commands

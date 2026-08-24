@@ -32,10 +32,18 @@ library Decoders {
         cur.state = Cursors.wrap(source[i:], 0, 0);
     }
 
-    /// @notice Open the first homogeneous run in `source`.
-    /// @param source Calldata block stream to open.
-    /// @return cur Cursor spanning the first homogeneous run.
+    /// @notice Open a non-empty calldata source as an ungrouped cursor.
+    /// @param source Calldata region to open.
+    /// @return cur Cursor spanning the complete source.
     function open(bytes calldata source) internal pure returns (Cur memory cur) {
+        if (source.length == 0) revert Blocks.EmptyRun();
+        cur.state = Cursors.wrap(source, 0, 0);
+    }
+
+    /// @notice Open the first homogeneous batch in `source`.
+    /// @param source Calldata block stream to open.
+    /// @return cur Counted cursor spanning the first homogeneous batch.
+    function batch(bytes calldata source) internal pure returns (Cur memory cur) {
         (uint abs, uint limit) = Cursors.bounds(source);
         if (abs == limit) revert Blocks.EmptyRun();
 
@@ -66,6 +74,18 @@ library Decoders {
     /// @return end Absolute position immediately after the payload.
     function consume(Cur memory cur, uint spec) internal pure returns (uint abs, uint end) {
         (abs, end) = Blocks.expect(cur.state.absolute(), spec);
+        cur.state = cur.state.seekAbs(end);
+    }
+
+    /// @notice Validate a known key and consume the next block from a cursor.
+    /// @dev Validates no payload-size constraint beyond proving the complete block
+    /// lies within the cursor's logical region.
+    /// @param cur Cursor advanced over the complete block.
+    /// @param key Expected block key.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function consume(Cur memory cur, bytes4 key) internal pure returns (uint abs, uint end) {
+        (abs, end) = Blocks.expectKey(cur.state.absolute(), key);
         cur.state = cur.state.seekAbs(end);
     }
 
@@ -268,7 +288,7 @@ library Decoders {
     /// @return out Cursor spanning the complete encoded block.
     function takeBlock(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
         uint abs = cur.state.absolute();
-        (, uint end) = consume(cur, Specs.create(key, 0, 0, 0));
+        (, uint end) = consume(cur, key);
         out.state = Cursors.create(abs, end - abs, 0, 0, 0);
     }
 

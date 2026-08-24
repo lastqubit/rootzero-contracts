@@ -67,11 +67,8 @@ abstract contract DebitAccountInternal is DebitAccount {
     ) internal returns (bytes memory, bytes memory) {
         if (value != 0) revert ValueNotAllowed();
         if (state.length != 0) revert Executions.ZeroStride();
-        if (input.length == 0) revert Blocks.EmptyRun();
-
-        Cur memory cur = Decoders.wrap(input);
-        uint count = input.length / Sizes.Amount;
-        bytes memory output = new bytes(count * Sizes.Balance);
+        Cur memory cur = Decoders.open(input);
+        bytes memory output = new bytes(input.length);
         uint i;
 
         while (cur.more()) {

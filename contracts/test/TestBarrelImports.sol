@@ -7,6 +7,7 @@ import {
     CommandBase,
     CreditAccountInternal,
     DebitAccountInternal,
+    PipeHook as EndpointPipeHook,
     SettleInternal,
     Repay,
     RepayInternal,
@@ -38,6 +39,7 @@ import {ResolvedEvent, UnresolvedEvent} from "../Events.sol";
 import {
     AccessDenied,
     CommanderNotAllowed,
+    PipeHook as CorePipeHook,
     enforceSender,
     InputEndpointBase
 } from "../Core.sol";

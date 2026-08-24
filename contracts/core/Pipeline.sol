@@ -3,15 +3,25 @@ pragma solidity ^0.8.33;
 
 import {Decoders, Cur, Readers, Reader} from "../Codec.sol";
 import {PostHook} from "./Settlement.sol";
-import {Budget, Budgets} from "../execution/Budget.sol";
+import {Budgets} from "../execution/Budget.sol";
 
 using Decoders for Cur;
 using Readers for Reader;
-using Budgets for Budget;
+
+/// @notice Hook implemented by hosts that execute encoded step streams.
+abstract contract PipeHook {
+    /// @notice Execute a step stream and return its remaining native-value budget.
+    function pipe(
+        bytes32 account,
+        bytes memory state,
+        bytes calldata steps,
+        uint budget
+    ) internal virtual returns (uint remaining);
+}
 
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
-abstract contract Pipeline is PostHook {
+abstract contract Pipeline is PipeHook, PostHook {
     /// @dev Thrown when the pipeline finishes with non-empty threaded state.
     error UnexpectedState();
 
@@ -36,18 +46,26 @@ abstract contract Pipeline is PostHook {
 
     /// @notice Execute a STEP block stream through the pipeline.
     /// @dev Reverts with `UnexpectedState` if the final threaded state is non-empty.
-    /// Callers remain responsible for settling any unspent value in `budget`.
+    /// Callers remain responsible for settling the returned unspent value.
     /// @param account Account identifier used for each dispatched step.
     /// @param state Initial state block stream passed to the first step.
     /// @param steps STEP block stream to execute.
-    /// @param budget Mutable native-value budget shared across all steps.
-    function pipe(bytes32 account, bytes memory state, bytes calldata steps, Budget memory budget) internal {
+    /// @param budget Native-value budget shared across all steps.
+    /// @return remaining Native value remaining after every step executes.
+    function pipe(
+        bytes32 account,
+        bytes memory state,
+        bytes calldata steps,
+        uint budget
+    ) internal virtual override returns (uint remaining) {
         Cur memory cur = Decoders.open(steps);
 
         while (cur.more()) {
             (uint cmd, uint resources, bytes calldata input) = cur.unpackStep();
+            uint128 value;
+            (budget, value) = Budgets.useResourceValue(budget, resources);
             Reader memory txs;
-            (state, txs.source) = dispatch(cmd, account, state, input, budget.useResourceValue(resources));
+            (state, txs.source) = dispatch(cmd, account, state, input, value);
 
             while (txs.more()) {
                 (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
@@ -56,5 +74,6 @@ abstract contract Pipeline is PostHook {
         }
 
         if (state.length != 0) revert UnexpectedState();
+        return budget;
     }
 }

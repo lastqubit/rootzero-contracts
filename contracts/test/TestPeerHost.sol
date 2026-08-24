@@ -11,10 +11,11 @@ import { DispatchPayablePort } from "../ports/Dispatch.sol";
 import { PostPort } from "../ports/Post.sol";
 import { RequestAssetPort } from "../ports/Assets.sol";
 import { Settlement } from "../core/Settlement.sol";
+import { Pipeline } from "../core/Pipeline.sol";
 import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, Settlement, RequestAllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
+contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
     event PortRequestAllowanceCalled(uint peer, bytes32 asset, uint amount);
     event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);

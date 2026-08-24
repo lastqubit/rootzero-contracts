@@ -3,17 +3,16 @@ pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
 import {Flags} from "../codec/Descriptors.sol";
-import {Pipeline} from "../core/Pipeline.sol";
+import {PipeHook} from "../core/Pipeline.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
-import {Budget} from "../execution/Budget.sol";
 
 using Executions for Execution;
 
 /// @title PipePayablePort
 /// @notice Port that consumes CONTEXT blocks and executes each input as a step stream.
 /// Each context's input bytes are passed to the shared pipeline.
-abstract contract PipePayablePort is PortBase, Pipeline {
+abstract contract PipePayablePort is PortBase, PipeHook {
     uint private immutable descriptor;
 
     constructor() {
@@ -27,11 +26,11 @@ abstract contract PipePayablePort is PortBase, Pipeline {
     /// @return Empty response bytes.
     function portPipePayable(bytes calldata data) external payable onlyPeer returns (bytes memory) {
         Execution memory exec = openInput(data, descriptor, 0);
-        Budget memory budget = exec.takeBudget();
+        uint budget = exec.drainBudget();
 
         while (exec.more()) {
             (bytes32 account, bytes calldata state, bytes calldata input) = exec.unpackContext(Lanes.Input);
-            pipe(account, state, input, budget);
+            budget = pipe(account, state, input, budget);
         }
         
         return "";

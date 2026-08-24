@@ -458,6 +458,13 @@ contract TestBlocksHelper is Action {
         detached = budget.remaining;
     }
 
+    /// @notice Drain an execution budget and expose both resulting values.
+    function drainBudget() external payable returns (uint execution, uint drained) {
+        Execution memory exec = Executions.open();
+        drained = Executions.drainBudget(exec);
+        execution = exec.budget;
+    }
+
     function rejectSecond32(bytes32 value) external pure returns (bytes memory) {
         uint spec = Specs.create(TestKey, 32, 32, 32);
         Writer memory writer = Writers.init(spec, 1);
@@ -497,6 +504,35 @@ contract TestBlocksHelper is Action {
             Blocks.read16(abs),
             Blocks.read32(abs)
         );
+    }
+
+    function requireWidth(bytes calldata source, uint i, uint width, bytes32 expected) external pure {
+        uint abs = position(source) + i;
+        if (width == 1) {
+            Blocks.require1(abs, bytes1(expected));
+            return;
+        }
+        if (width == 2) {
+            Blocks.require2(abs, bytes2(expected));
+            return;
+        }
+        if (width == 4) {
+            Blocks.require4(abs, bytes4(expected));
+            return;
+        }
+        if (width == 8) {
+            Blocks.require8(abs, bytes8(expected));
+            return;
+        }
+        if (width == 16) {
+            Blocks.require16(abs, bytes16(expected));
+            return;
+        }
+        if (width == 32) {
+            Blocks.require32(abs, expected);
+            return;
+        }
+        revert Blocks.UnexpectedValue();
     }
 
     function read32AsUint(bytes calldata source, uint i) external pure returns (uint) {

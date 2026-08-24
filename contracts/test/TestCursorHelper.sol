@@ -463,6 +463,22 @@ contract TestCursorHelper {
         return (offset, cursorI, len, count);
     }
 
+    function testBatch(bytes calldata source)
+        external
+        pure
+        returns (uint offset, uint cursorI, uint len, uint count)
+    {
+        uint sourceOffset;
+        assembly ("memory-safe") {
+            sourceOffset := source.offset
+        }
+        Cur memory cur = Decoders.batch(source);
+        (cursorI, offset, len) = Cursors.decode(cur.state);
+        count = Cursors.count(cur.state);
+        offset -= sourceOffset;
+        return (offset, cursorI, len, count);
+    }
+
     function testPeek(bytes calldata source, uint i) external pure returns (bytes4 key, uint len) {
         Cur memory cur = Decoders.wrap(source);
         return cur.peek(i);

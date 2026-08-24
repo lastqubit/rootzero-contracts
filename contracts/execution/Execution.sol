@@ -246,6 +246,20 @@ library Executions {
         exec.decoders = cur.seekAbs(end);
     }
 
+    /// @notice Validate a known key and consume the next block from an execution decoder lane.
+    /// @dev Validates no payload-size constraint beyond proving the complete block
+    /// lies within the selected lane's logical region.
+    /// @param exec Execution whose selected decoder cursor is advanced over the complete block.
+    /// @param lane Execution decoder lane to select.
+    /// @param key Expected block key.
+    /// @return abs Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function consume(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (uint abs, uint end) {
+        uint cur = exec.decoders.select(lane);
+        (abs, end) = Blocks.expectKey(cur.absolute(), key);
+        exec.decoders = cur.seekAbs(end);
+    }
+
     /// @notice Validate and consume one block from a decoder lane, returning its complete encoding.
     /// @param exec Execution whose selected decoder cursor is advanced past the block.
     /// @param lane Execution decoder lane to select.
@@ -256,7 +270,7 @@ library Executions {
         uint8 lane,
         bytes4 key
     ) internal pure returns (bytes calldata data) {
-        (uint abs, uint end) = consume(exec, lane, Specs.create(key, 0, 0, 0));
+        (uint abs, uint end) = consume(exec, lane, key);
         data = msg.data[abs - Sizes.Header:end];
     }
 
@@ -1403,13 +1417,20 @@ library Executions {
     // Value and transaction writing
     // -------------------------------------------------------------------------
 
+    /// @notice Remove and return the remaining execution value budget.
+    /// @param exec Execution whose budget is drained.
+    /// @return budget Native value removed from the execution.
+    function drainBudget(Execution memory exec) internal pure returns (uint budget) {
+        budget = exec.budget;
+        exec.budget = 0;
+    }
+
     /// @notice Transfer the remaining value budget out of an execution.
     /// @dev Clears `exec.budget` so the returned budget becomes its sole owner.
     /// @param exec Execution whose budget is detached.
     /// @return budget Detached budget containing the remaining value.
     function takeBudget(Execution memory exec) internal pure returns (Budget memory budget) {
-        budget.remaining = exec.budget;
-        exec.budget = 0;
+        budget.remaining = drainBudget(exec);
     }
 
     /// @notice Deduct an exact native value from the execution budget.

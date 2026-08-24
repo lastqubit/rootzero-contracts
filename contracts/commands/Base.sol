@@ -99,10 +99,7 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         uint descriptor,
         uint batches
     ) internal view returns (Execution memory exec) {
-        bytes32 account;
-        bytes calldata state;
-        bytes calldata input;
-        (account, state, input) = unpackCommandContext(context);
+        (bytes32 account, bytes calldata state, bytes calldata input) = unpackCommandContext(context);
         exec = Executions.open(state, input, descriptor, batches);
         exec.account = account;
     }

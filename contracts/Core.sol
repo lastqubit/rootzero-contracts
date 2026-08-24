@@ -14,7 +14,7 @@ import { NativeAsset, Runtime } from "./core/Runtime.sol";
 import { Admins, CommandHost, Guardians, Host, HostIntroduction, IHostIntroduction } from "./core/Host.sol";
 import { CommandCalls, FailedCall, NodeCalls, PortCalls, RawNodeCalls } from "./core/Calls.sol";
 import { EndpointBase, InputEndpointBase } from "./core/Endpoint.sol";
-import { Pipeline } from "./core/Pipeline.sol";
+import { PipeHook, Pipeline } from "./core/Pipeline.sol";
 import { Budget, Budgets } from "./execution/Budget.sol";
 import { CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook, Settlement } from "./core/Settlement.sol";
 import { Portal } from "./core/Portal.sol";

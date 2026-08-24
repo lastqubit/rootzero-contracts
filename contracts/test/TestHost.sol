@@ -23,11 +23,9 @@ import { RevokeAllowance, RevokeAsset } from "../guards/Revoke.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
-import {Budget, Budgets} from "../execution/Budget.sol";
 
 using Readers for Reader;
 using Executions for Execution;
-using Budgets for Budget;
 
 contract TestHost is
     Host,
@@ -237,9 +235,8 @@ contract TestHost is
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
         Execution memory exec = Executions.open();
         exec.account = account;
-        Budget memory budget = exec.takeBudget();
-        pipe(account, state, steps, budget);
-        exec.budget = budget.drain();
+        uint budget = exec.drainBudget();
+        exec.budget = pipe(account, state, steps, budget);
         Reader memory txs;
         (, txs.source) = closeCommand(exec);
         while (txs.more()) {
