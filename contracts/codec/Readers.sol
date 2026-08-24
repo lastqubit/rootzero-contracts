@@ -133,6 +133,18 @@ library Readers {
         }
     }
 
+    /// @notice Consume a DEBT block and return its fields.
+    /// @param cur Reader; advanced past the block.
+    /// @return liability Liability identifier.
+    /// @return debt Debt quantity.
+    function unpackDebt(Reader memory cur) internal pure returns (bytes32 liability, uint debt) {
+        uint abs = consume(cur, Keys.Debt, 64, 64);
+        assembly ("memory-safe") {
+            liability := mload(abs)
+            debt := mload(add(abs, 0x20))
+        }
+    }
+
     /// @notice Consume a HOST_ASSET block and return its fields.
     /// @param cur Reader; advanced past the block.
     /// @return host Host identifier.

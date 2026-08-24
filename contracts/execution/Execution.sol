@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Debt, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
@@ -528,6 +528,18 @@ library Executions {
         (value.asset, value.amount) = unpackBalance(exec, lane);
     }
 
+    /// @notice Decode and consume one DEBT block from `lane`.
+    function unpackDebt(Execution memory exec, uint8 lane) internal pure returns (bytes32 liability, uint debt) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Debt);
+        (liability, debt) = Blocks.unpackDebt(abs);
+    }
+
+    /// @notice Decode one DEBT block into its structured value.
+    function unpackDebtValue(Execution memory exec, uint8 lane) internal pure returns (Debt memory value) {
+        (value.liability, value.debt) = unpackDebt(exec, lane);
+    }
+
     /// @notice Decode and consume one POSITION block from `lane`.
     function unpackPosition(
         Execution memory exec,
@@ -988,6 +1000,17 @@ library Executions {
     /// @param value Structured asset balance to encode.
     function outputBalance(Execution memory exec, AssetAmount memory value) internal pure {
         outputBalance(exec, value.asset, value.amount);
+    }
+
+    /// @notice Append a DEBT block to execution output.
+    function outputDebt(Execution memory exec, bytes32 liability, uint debt) internal pure {
+        uint i = reserve(exec, Sizes.Debt);
+        Blocks.writeDebt(exec.output, i, liability, debt);
+    }
+
+    /// @notice Append a structured DEBT value to execution output.
+    function outputDebt(Execution memory exec, Debt memory value) internal pure {
+        outputDebt(exec, value.liability, value.debt);
     }
 
     /// @notice Append a POSITION block to execution output.

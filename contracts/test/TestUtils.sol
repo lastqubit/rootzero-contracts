@@ -5,9 +5,9 @@ import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
+import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, ensureContract, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
-import { CommanderAccess } from "../core/Access.sol";
+import { CommanderAccess, enforceSender } from "../core/Access.sol";
 import { Execution } from "../execution/Execution.sol";
 
 contract TestUtils is CommandBase, CommanderAccess {
@@ -19,6 +19,14 @@ contract TestUtils is CommandBase, CommanderAccess {
 
     function testAddrOr(address addr, address or_) external pure returns (address) {
         return addrOr(addr, or_);
+    }
+
+    function testEnsureContract(address target) external view returns (address) {
+        return ensureContract(target);
+    }
+
+    function testEnforceSender(address expected) external view returns (address) {
+        return enforceSender(expected);
     }
 
     function testIsOpaqueId(bytes32 id) external pure returns (bool) {

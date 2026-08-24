@@ -12,4 +12,4 @@ import {Blocks} from "./codec/Blocks.sol";
 import {Sizes, Specs} from "./codec/Specs.sol";
 import {Decoders} from "./codec/Decoders.sol";
 import {Cursors, Cur} from "./utils/Cursors.sol";
-import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Position, Tx} from "./core/Types.sol";
+import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, HostAccountAmount, Debt, Position, Tx} from "./core/Types.sol";

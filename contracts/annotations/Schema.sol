@@ -18,13 +18,7 @@ abstract contract Schema is Runtime, AnnotationEvent {
     /// @param hint Initial per-block payload capacity.
     /// @param body Schema DSL string describing the block payload body.
     /// @return spec The context-local block specification.
-    function schema(
-        uint32 key,
-        uint32 min,
-        uint32 max,
-        uint32 hint,
-        string memory body
-    ) internal returns (uint spec) {
+    function schema(uint32 key, uint32 min, uint32 max, uint32 hint, string memory body) internal returns (uint spec) {
         return schema(key, min, max, hint, body, bytes32(0));
     }
 

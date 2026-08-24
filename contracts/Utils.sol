@@ -12,7 +12,7 @@ import { ECDSA } from "./utils/ECDSA.sol";
 import { Ids } from "./utils/Ids.sol";
 import { Nodes } from "./utils/Nodes.sol";
 import { Layout } from "./utils/Layout.sol";
-import { addrOr, applyBps, beforeBps, bytes32ToInt, bytes32ToString, clear8, clear16, clear32, clear64, divisible, ensureAddr, hash32, intToBytes32, isFamily, matchesBase, MAX_BPS, max8, max16, max24, max32, max40, max64, max96, max128, max160, NotDivisible, replace8, replace16, replace32, replace64, retryTicket, toLocalBase, toUnspecifiedBase, ValueOverflow, ZeroAddress } from "./utils/Utils.sol";
+import { addrOr, applyBps, beforeBps, bytes32ToInt, bytes32ToString, clear8, clear16, clear32, clear64, divisible, ensureAddr, ensureContract, hash32, intToBytes32, InvalidContract, isFamily, matchesBase, MAX_BPS, max8, max16, max24, max32, max40, max64, max96, max128, max160, NotDivisible, replace8, replace16, replace32, replace64, retryTicket, toLocalBase, toUnspecifiedBase, ValueOverflow, ZeroAddress } from "./utils/Utils.sol";
 
 
 

@@ -58,6 +58,15 @@ describe("Access Control", () => {
     ).to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
+  it("enforces the expected message sender", async () => {
+    const signers = await getSigners(2);
+
+    expect(await utils.connect(signers[0]).testEnforceSender(commander))
+      .to.equal(commander);
+    await expect(utils.connect(signers[1]).testEnforceSender(commander))
+      .to.be.revertedWithCustomError(utils, "AccessDenied");
+  });
+
   it("authorize emits Node event with active=true", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();

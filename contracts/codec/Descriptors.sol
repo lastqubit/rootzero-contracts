@@ -6,6 +6,7 @@ import {Lanes} from "../utils/Lanes.sol";
 
 /// @title Flags
 /// @notice Packed endpoint behavior flags.
+/// @dev Bits 6 and 7 are reserved for endpoint-defined custom flags.
 library Flags {
     /// @dev Endpoint accepts nonzero native value.
     uint8 internal constant Funded = 1 << 0;
@@ -27,7 +28,8 @@ library Descriptors {
     /// `[output key:4][min:4][max:4][hint:3][stride:1]`
     /// `[reserved:4]`
     /// `[transactions:1]`
-    /// `[flags:1]`. Flag bits: funded = 0, admin = 1.
+    /// `[flags:1]`. Flag bits: funded = 0, admin = 1; bits 6 and 7 are
+    /// reserved for endpoint-defined custom flags.
     /// @param state State lane specification.
     /// @param input Direct input lane specification.
     /// @param output Output writer specification.

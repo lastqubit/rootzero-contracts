@@ -11,7 +11,7 @@ import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
-import { Repay, RepayPayable } from "../commands/Repay.sol";
+import { RepayInternal, RepayPayable, RepayPosition, RepayPositionPayable } from "../commands/Repay.sol";
 import { SettleInternal, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
@@ -43,8 +43,10 @@ contract TestHost is
     RelayPayable,
     RelayBalancePayable,
     RecoverPayable,
-    Repay,
+    RepayInternal,
     RepayPayable,
+    RepayPosition,
+    RepayPositionPayable,
     SettleInternal,
     SettlePayable,
     Settlement,
@@ -224,6 +226,9 @@ contract TestHost is
         }
         if (cid == settleId()) {
             return executeSettle(account, state, input, value);
+        }
+        if (cid == repayId()) {
+            return executeRepay(account, state, input, value);
         }
         if (cid == type(uint).max) return (state, input);
         return (state, "");

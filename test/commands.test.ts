@@ -7,7 +7,7 @@ import {
   endpointDescriptor,
   exactSpec,
   encodeAmountBlock,
-  encodeBalanceBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
+  encodeBalanceBlock, encodeDebtBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
   encodeActionBlock, encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeTxBlock, encodeLabelBlock,
   concat
@@ -72,8 +72,10 @@ describe("Commands", () => {
       ["payout", 2n],
       ["settle", 3n],
       ["settlePayable", 3n],
-      ["repay", 3n],
-      ["repayPayable", 3n],
+      ["repay", 11n],
+      ["repayPayable", 11n],
+      ["repayPosition", 11n],
+      ["repayPositionPayable", 11n],
     ] as const) {
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd(method), encodeActionBlock(action));
@@ -397,6 +399,102 @@ describe("Commands", () => {
   });
 
   describe("repay", () => {
+    const liability = ethers.zeroPadValue("0x2e", 32);
+
+    it("discovers a DEBT-to-empty command", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("repay"),
+          endpointDescriptor({ state: Keys.Debt }),
+        );
+    });
+
+    it("repays standalone DEBT state and returns empty state", async () => {
+      const state = encodeDebtBlock(liability, 40n);
+      const [output, transactions] = await host.repay.staticCall(...ctx({ state }));
+
+      expect(output).to.equal("0x");
+      expect(transactions).to.equal("0x");
+
+      const tx = await callAs(0, "repay", ctx({ state }));
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, liability, 40n, 40n);
+    });
+
+    it("repays a batch of standalone debts", async () => {
+      const secondLiability = ethers.zeroPadValue("0x2f", 32);
+      const state = concat(
+        encodeDebtBlock(liability, 40n),
+        encodeDebtBlock(secondLiability, 10n),
+      );
+
+      const [output] = await host.repay.staticCall(...ctx({ state }));
+      expect(output).to.equal("0x");
+
+      const tx = await callAs(0, "repay", ctx({ state }));
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, secondLiability, 10n, 10n);
+    });
+
+    it("rejects empty state, POSITION state, and non-empty input", async () => {
+      await expect(callAs(0, "repay", ctx()))
+        .to.be.revertedWithCustomError(host, "EmptyRun");
+
+      const position = encodePositionBlock(liability, 1n, liability, 40n);
+      await expect(callAs(0, "repay", ctx({ state: position })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+
+      const state = encodeDebtBlock(liability, 40n);
+      const input = encodeAmountBlock(liability, 1n);
+      await expect(callAs(0, "repay", ctx({ state, input })))
+        .to.be.revertedWithCustomError(host, "ZeroStride");
+    });
+  });
+
+  describe("repayPayable", () => {
+    const liability = ethers.zeroPadValue("0x2f", 32);
+
+    it("discovers a funded DEBT-to-empty command", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("repayPayable"),
+          endpointDescriptor({ state: Keys.Debt, funded: true }),
+        );
+    });
+
+    it("repays standalone DEBT state and returns only unused value", async () => {
+      const state = encodeDebtBlock(liability, 40n);
+      const [output, transactions] = await host.repayPayable.staticCall(
+        ...ctx({ state }),
+        { value: 50n },
+      );
+
+      expect(output).to.equal("0x");
+      expect(ethers.getBytes(transactions).length).to.equal(136);
+
+      const tx = await callAs(0, "repayPayable", ctx({ state }), { value: 50n });
+      await expect(tx).to.emit(host, "RepayPayableCalled")
+        .withArgs(userAccount, liability, 40n, 10n);
+    });
+
+    it("rejects insufficient value and empty state", async () => {
+      const state = encodeDebtBlock(liability, 40n);
+      await expect(callAs(0, "repayPayable", ctx({ state }), { value: 39n }))
+        .to.be.revertedWithCustomError(host, "InsufficientValue");
+      await expect(callAs(0, "repayPayable", ctx()))
+        .to.be.revertedWithCustomError(host, "EmptyRun");
+    });
+  });
+
+  describe("repayPosition", () => {
     const asset = ethers.zeroPadValue("0x30", 32);
     const liability = ethers.zeroPadValue("0x31", 32);
 
@@ -407,7 +505,7 @@ describe("Commands", () => {
       await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await cmd("repay"),
+          await cmd("repayPosition"),
           endpointDescriptor({
             state: Keys.Position,
             output: exactSpec(Keys.Balance, 64),
@@ -417,12 +515,12 @@ describe("Commands", () => {
 
     it("repays the liability and returns the asset as BALANCE state", async () => {
       const state = encodePositionBlock(asset, 100n, liability, 40n);
-      const [output, transactions] = await host.repay.staticCall(...ctx({ state }));
+      const [output, transactions] = await host.repayPosition.staticCall(...ctx({ state }));
 
       expect(output).to.equal(encodeBalanceBlock(asset, 100n));
       expect(transactions).to.equal("0x");
 
-      const tx = await callAs(0, "repay", ctx({ state }));
+      const tx = await callAs(0, "repayPosition", ctx({ state }));
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, liability, 40n, 40n);
     });
@@ -434,7 +532,7 @@ describe("Commands", () => {
         encodePositionBlock(asset, 100n, liability, 40n),
         encodePositionBlock(secondAsset, 20n, secondLiability, 10n),
       );
-      const [output] = await host.repay.staticCall(...ctx({ state }));
+      const [output] = await host.repayPosition.staticCall(...ctx({ state }));
 
       expect(output).to.equal(concat(
         encodeBalanceBlock(asset, 100n),
@@ -443,17 +541,17 @@ describe("Commands", () => {
     });
 
     it("rejects empty state and non-empty input", async () => {
-      await expect(callAs(0, "repay", ctx()))
+      await expect(callAs(0, "repayPosition", ctx()))
         .to.be.revertedWithCustomError(host, "EmptyRun");
 
       const state = encodePositionBlock(asset, 100n, liability, 40n);
       const input = encodeAmountBlock(asset, 1n);
-      await expect(callAs(0, "repay", ctx({ state, input })))
+      await expect(callAs(0, "repayPosition", ctx({ state, input })))
         .to.be.revertedWithCustomError(host, "ZeroStride");
     });
   });
 
-  describe("repayPayable", () => {
+  describe("repayPositionPayable", () => {
     const asset = ethers.zeroPadValue("0x34", 32);
     const liability = ethers.zeroPadValue("0x35", 32);
 
@@ -464,7 +562,7 @@ describe("Commands", () => {
       await expect(deployment!).to.emit(host, "Endpoint")
         .withArgs(
           await host.host(),
-          await cmd("repayPayable"),
+          await cmd("repayPositionPayable"),
           endpointDescriptor({
             state: Keys.Position,
             output: exactSpec(Keys.Balance, 64),
@@ -475,14 +573,14 @@ describe("Commands", () => {
 
     it("repays only the liability and returns the asset as BALANCE state", async () => {
       const state = encodePositionBlock(asset, 100n, liability, 40n);
-      const [output] = await host.repayPayable.staticCall(
+      const [output] = await host.repayPositionPayable.staticCall(
         ...ctx({ state }),
         { value: 40n },
       );
 
       expect(output).to.equal(encodeBalanceBlock(asset, 100n));
 
-      const tx = await callAs(0, "repayPayable", ctx({ state }), { value: 40n });
+      const tx = await callAs(0, "repayPositionPayable", ctx({ state }), { value: 40n });
       await expect(tx).to.emit(host, "RepayPayableCalled")
         .withArgs(userAccount, liability, 40n, 0n);
     });
@@ -494,7 +592,7 @@ describe("Commands", () => {
         encodePositionBlock(asset, 100n, liability, 40n),
         encodePositionBlock(secondAsset, 20n, secondLiability, 10n),
       );
-      const [output, transactions] = await host.repayPayable.staticCall(
+      const [output, transactions] = await host.repayPositionPayable.staticCall(
         ...ctx({ state }),
         { value: 60n },
       );
@@ -509,17 +607,17 @@ describe("Commands", () => {
     it("reverts InsufficientValue when liabilities exceed the budget", async () => {
       const state = encodePositionBlock(asset, 100n, liability, 40n);
 
-      await expect(callAs(0, "repayPayable", ctx({ state }), { value: 39n }))
+      await expect(callAs(0, "repayPositionPayable", ctx({ state }), { value: 39n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
     it("rejects empty state and non-empty input", async () => {
-      await expect(callAs(0, "repayPayable", ctx()))
+      await expect(callAs(0, "repayPositionPayable", ctx()))
         .to.be.revertedWithCustomError(host, "EmptyRun");
 
       const state = encodePositionBlock(asset, 100n, liability, 40n);
       const input = encodeAmountBlock(asset, 1n);
-      await expect(callAs(0, "repayPayable", ctx({ state, input }), { value: 40n }))
+      await expect(callAs(0, "repayPositionPayable", ctx({ state, input }), { value: 40n }))
         .to.be.revertedWithCustomError(host, "ZeroStride");
     });
   });
@@ -1076,6 +1174,19 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, amount, liability, debt);
     });
 
+    it("executes local repayment against memory-backed debt state", async () => {
+      const liability = ethers.zeroPadValue("0xb3", 32);
+      const debt = 25n;
+      const state = encodeDebtBlock(liability, debt);
+      const input = encodeStepBlock(await cmd("repay"), 0n, "0x");
+
+      const tx = await callAs(0, "testPipe", userAccount, state, input);
+
+      await expect(tx)
+        .to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, liability, debt, debt);
+    });
+
     it("rejects value assigned to every local non-funded command", async () => {
       const asset = ethers.zeroPadValue("0xc1", 32);
       const liability = ethers.zeroPadValue("0xc2", 32);
@@ -1093,6 +1204,11 @@ describe("Commands", () => {
         {
           command: "settle",
           state: encodePositionBlock(asset, 1n, liability, 1n),
+          input: "0x",
+        },
+        {
+          command: "repay",
+          state: encodeDebtBlock(liability, 1n),
           input: "0x",
         },
       ];

@@ -13,6 +13,8 @@ library Keys {
     bytes4 constant Amount = bytes4(keccak256("#amount"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)
     bytes4 constant Balance = bytes4(keccak256("#balance"));
+    /// @dev Liability-only debt state - (bytes32 liability, uint debt)
+    bytes4 constant Debt = bytes4(keccak256("#debt"));
     /// @dev Host-scoped input amount - (uint host, bytes32 asset, uint amount)
     bytes4 constant Allocation = bytes4(keccak256("#allocation"));
     /// @dev Host-scoped allowance cap - (uint host, bytes32 asset, uint amount)

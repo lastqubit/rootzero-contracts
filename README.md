@@ -265,22 +265,24 @@ and return it, forward it intact, or revert. A command must never succeed while
 silently ignoring or dropping supplied state. Commands that declare
 `Specs.Empty` state therefore reject any non-empty state, while commands that
 accept state validate the complete stream against their declared state schema.
-This is especially important for `#position`, because dropping a position could
-silently discard both live value and an outstanding debt requirement.
+This is especially important for `#debt` and `#position`, because dropping
+either could silently discard an outstanding debt requirement.
 
-The input carries instructions; the state carries live value. While a
-sequence of commands executes, `#balance`, `#custody`, and `#position` blocks
-in the state are the value being moved — produced by one command, consumed by
-the next. A position carries an asset-liability pair as
+The input carries instructions; the state carries live value. While a sequence
+of commands executes, `#balance`, `#debt`, `#custody`, and `#position` blocks in
+the state are the value being moved — produced by one command, consumed by the
+next. Balance carries `{ asset, amount }`, debt carries `{ liability, debt }`,
+and position carries their flat combination
 `{ asset, amount, liability, debt }`.
 
-`#position` is general live state rather than a lending-specific debt record.
-It pairs value acquired or controlled with value owed or required. A command
-may preserve or replace either side and return the resulting position for the
-next step; `settle` terminally consumes the pair. This supports swaps,
+`#debt` and `#position` are general live state rather than persisted
+lending-specific debt records. Debt carries value owed or required; position
+pairs that liability with value acquired or controlled. A command may preserve
+or replace either side and return the resulting state for the next step;
+`settle` terminally consumes a position pair. This supports swaps,
 borrowing, refinancing, collateral changes, callback obligations, cross-host
-claims, fees, netting, and other multi-step operations. A position is a
-transient representation and does not itself create or erase an obligation
+claims, fees, netting, and other multi-step operations. Debt and position are
+transient representations and do not themselves create or erase an obligation
 recorded by an external system.
 
 The standard `Deposit` mixin shows the canonical shape: open and validate both
@@ -330,7 +332,9 @@ abstract contract MyCommand is CommandBase {
 
 The final argument is a packed flags byte. Pass `0` for an ordinary endpoint,
 or compose values such as `Flags.Funded`, `Flags.Admin`, and
-`Flags.AdminFunded` from the command or endpoint package entry point.
+`Flags.AdminFunded` from the command or endpoint package entry point. Bits 6
+and 7 are reserved for endpoint-defined custom flags. Bits 2 through 5 remain
+reserved for future protocol flags.
 
 The standard commands cover the common ledger movements: `deposit` and
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
@@ -338,7 +342,9 @@ The standard commands cover the common ledger movements: `deposit` and
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
 state to other accounts), `allocate` (turn balance state into custody),
 `provision` (provision custody from an external allocation), `settle` (consume
-asset-liability position state), `relayPayable` (relay a pipeline without
+asset-liability position state), `repay` and `repayPayable` (consume standalone
+debt state), `repayPosition` and `repayPositionPayable` (repay a position's debt
+and return its asset as balance state), `relayPayable` (relay a pipeline without
 state), and `relayBalancePayable` (relay balance state and a pipeline to another
 portal).
 
@@ -384,12 +390,12 @@ portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
 shared budget), so the same pipeline bytes are meaningful to every port.
 
 Hosts that implement a pipeline locally can inherit `DebitAccountInternal`,
-`CreditAccountInternal`, and `SettleInternal` to advertise the canonical command
-endpoints while routing their local command IDs through `executeDebitAccount`,
-`executeCreditAccount`, and `executeSettle`. These adapters consume the
-memory-backed pipeline state directly and avoid an external self-call. Pass the
-step value into each adapter; all three reject nonzero value because the
-commands are non-funded.
+`CreditAccountInternal`, `SettleInternal`, and `RepayInternal` to advertise the
+canonical command endpoints while routing their local command IDs through
+`executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
+`executeRepay`. These adapters consume the memory-backed pipeline state directly
+and avoid an external self-call. Pass the step value into each adapter; all four
+reject nonzero value because the commands are non-funded.
 
 Positions also support backward-composed pipelines. In an exact-output route,
 the asset side can represent the desired result while the liability side

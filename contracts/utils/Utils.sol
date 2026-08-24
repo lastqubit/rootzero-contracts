@@ -10,6 +10,8 @@ error ValueOverflow();
 error NotDivisible();
 /// @dev Thrown when an ID claims to carry an address but the embedded address is zero.
 error ZeroAddress();
+/// @dev Thrown when an address does not contain deployed bytecode.
+error InvalidContract();
 
 /// @notice Assert that `value` fits in uint8 and return it as uint8.
 function max8(uint value) pure returns (uint8) {
@@ -144,6 +146,14 @@ function addrOr(address addr, address or) pure returns (address) {
 function ensureAddr(address addr) pure returns (address) {
     if (addr == address(0)) revert ZeroAddress();
     return addr;
+}
+
+/// @notice Assert that `target` contains deployed bytecode and return it unchanged.
+/// @dev Rejects EOAs, zero and future deployment addresses, contracts currently
+/// under construction, and precompiles whose code length is zero.
+function ensureContract(address target) view returns (address) {
+    if (target.code.length == 0) revert InvalidContract();
+    return target;
 }
 
 /// @notice Convert a signed integer to its 32-byte two's-complement representation.

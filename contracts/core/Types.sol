@@ -67,6 +67,14 @@ struct HostAccountAmount {
     uint amount;
 }
 
+/// @notice Liability and debt pair threaded as live pipeline state.
+struct Debt {
+    /// @dev Identifier for the liability side.
+    bytes32 liability;
+    /// @dev Quantity owed on the liability side.
+    uint debt;
+}
+
 /// @notice Asset and liability pair threaded as live pipeline state.
 struct Position {
     /// @dev Identifier for the asset side.

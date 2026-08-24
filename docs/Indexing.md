@@ -37,6 +37,9 @@ event Endpoint(uint indexed host, uint id, uint descriptor)
   `[input key:4][group:1]`,
   `[output key:4][min:4][max:4][hint:3][group:1]`, four reserved bytes,
   one transaction-count byte, and one flags byte.
+  Flag bits 0 and 1 mean `funded` and `admin`; bits 6 and 7 are reserved for
+  endpoint-defined custom flags, while bits 2 through 5 remain reserved for
+  future protocol flags.
   A zero group byte means group size 1 for a non-empty lane;
   `group(lane, size)` supplies an explicit size.
   The output bounds and hint allow a writer to be initialized directly from

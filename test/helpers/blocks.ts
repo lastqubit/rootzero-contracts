@@ -79,6 +79,7 @@ export const Keys = {
   Local: localKey(1),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
+  Debt: blockKey("#debt"),
   Allocation: blockKey("#allocation"),
   Allowance: blockKey("#allowance"),
   Custody: blockKey("#custody"),
@@ -142,6 +143,10 @@ export function encodeAmountBlock(asset: string, amount: bigint): string {
 
 export function encodeBalanceBlock(asset: string, amount: bigint): string {
   return encodeBlock(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
+}
+
+export function encodeDebtBlock(liability: string, debt: bigint): string {
+  return encodeBlock(Keys.Debt, ethers.concat([pad32(liability), pad32(debt)]));
 }
 
 export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string): string {

@@ -188,6 +188,10 @@ tx      [transactions:1]
 flags   [flags:1]
 ```
 
+Flag bits 0 and 1 are the protocol-defined `funded` and `admin` flags. Bits 6
+and 7 are reserved for endpoint-defined custom flags; bits 2 through 5 remain
+reserved for future protocol flags.
+
 Each lane directly identifies its top-level block key. Output lanes retain their
 size bounds and allocation hint so execution can reconstruct the output spec and
 initialize its writer directly. Four descriptor-level bytes are reserved after
@@ -228,23 +232,32 @@ remainder is invalid.
 
 ## Live Pipeline State
 
-`#balance`, `#custody`, and `#position` are live state carried between command
-steps for the active account. A position atomically pairs an asset side with a
-liability side:
+`#balance`, `#debt`, `#custody`, and `#position` are live state carried between
+command steps for the active account. Balance carries only the asset side, debt
+carries only the liability side, and position carries both:
 
 ```txt
+balance  { bytes32 asset, uint amount }
+debt     { bytes32 liability, uint debt }
 position { bytes32 asset, uint amount, bytes32 liability, uint debt }
 ```
 
-The pair is deliberately general. The asset side represents value acquired or
-controlled, and the liability side represents value owed or required. Commands
-may preserve or replace either side and return a new position. The terminal
-`settle` command consumes the pair. Position state is transient protocol state;
-rewriting it does not by itself create, discharge, or replace an obligation
-persisted by a host or external protocol. The responsible command hook must
-perform or verify those effects. A command must not ignore a supplied position:
-it must explicitly consume, transform, forward, or reject it, so neither its
-asset nor its debt can disappear accidentally.
+The position layout is deliberately the flat combination of the balance and
+debt layouts; it is not a nested Solidity struct. The asset side represents
+value acquired or controlled, and the liability side represents value owed or
+required. Commands may preserve or replace either side and return a new
+position. The terminal `settle` command consumes the pair. Debt and position
+state are transient protocol state; rewriting either does not by itself create,
+discharge, or replace an obligation persisted by a host or external protocol.
+The responsible command hook must perform or verify those effects. A command
+must not ignore supplied debt or position state: it must explicitly consume,
+transform, forward, or reject it, so an obligation cannot disappear
+accidentally.
+
+The repayment commands reflect the state shapes directly. `repay` and
+`repayPayable` consume `#debt` and return empty state. `repayPosition` and
+`repayPositionPayable` consume `#position`, repay its liability side, and return
+the released asset side as `#balance`.
 
 This representation supports ordinary forward transformations as well as
 backward composition. For example, an exact-output route can carry its desired

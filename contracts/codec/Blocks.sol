@@ -382,6 +382,22 @@ library Blocks {
         }
     }
 
+    /// @notice Write a DEBT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param liability Liability identifier to encode.
+    /// @param debt Debt quantity to encode.
+    function writeDebt(bytes memory dst, uint i, bytes32 liability, uint debt) internal pure {
+        uint spec = Specs.Debt;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), liability)
+            mstore(add(p, 0x28), debt)
+        }
+    }
+
     /// @notice Write a HOST_ASSET block at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
     /// @param dst Destination buffer.
@@ -1014,14 +1030,44 @@ library Blocks {
 
     // Raw reads
 
+    /// @notice Read one byte from an absolute calldata position.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @return value Decoded one-byte value.
+    function read1(uint abs) internal pure returns (bytes1 value) {
+        return bytes1(read32(abs));
+    }
+
+    /// @notice Read two bytes from an absolute calldata position.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @return value Decoded two-byte value.
+    function read2(uint abs) internal pure returns (bytes2 value) {
+        return bytes2(read32(abs));
+    }
+
     /// @notice Read four bytes from an absolute calldata position.
     /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
     /// @param abs Absolute calldata position.
     /// @return value Decoded four-byte value.
     function read4(uint abs) internal pure returns (bytes4 value) {
-        assembly ("memory-safe") {
-            value := calldataload(abs)
-        }
+        return bytes4(read32(abs));
+    }
+
+    /// @notice Read eight bytes from an absolute calldata position.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @return value Decoded eight-byte value.
+    function read8(uint abs) internal pure returns (bytes8 value) {
+        return bytes8(read32(abs));
+    }
+
+    /// @notice Read sixteen bytes from an absolute calldata position.
+    /// @dev DANGER: Unchecked calldata read. Values beyond calldata are zero-padded.
+    /// @param abs Absolute calldata position.
+    /// @return value Decoded sixteen-byte value.
+    function read16(uint abs) internal pure returns (bytes16 value) {
+        return bytes16(read32(abs));
     }
 
     /// @notice Read one word from an absolute calldata position.
@@ -1319,6 +1365,22 @@ library Blocks {
         assembly ("memory-safe") {
             asset := calldataload(add(abs, 0x08))
             amount := calldataload(add(abs, 0x28))
+        }
+    }
+
+    /// @notice Decode a low-level fixed-width DEBT block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return liability Decoded liability identifier.
+    /// @return debt Decoded debt quantity.
+    function unpackDebt(uint abs) internal pure returns (bytes32 liability, uint debt) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (head >> 192 != Specs.Debt >> 192) revert InvalidBlock();
+        assembly ("memory-safe") {
+            liability := calldataload(add(abs, 0x08))
+            debt := calldataload(add(abs, 0x28))
         }
     }
 
@@ -1917,6 +1979,15 @@ library Blocks {
     function createBalance(bytes32 asset, uint amount) internal pure returns (bytes memory value) {
         value = allocate(Sizes.Balance);
         writeBalance(value, 0, asset, amount);
+    }
+
+    /// @notice Encode a DEBT block.
+    /// @param liability Liability identifier.
+    /// @param debt Debt quantity.
+    /// @return value Encoded DEBT block bytes.
+    function createDebt(bytes32 liability, uint debt) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Debt);
+        writeDebt(value, 0, liability, debt);
     }
 
     /// @notice Encode a CUSTODY block.

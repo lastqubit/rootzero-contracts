@@ -18,7 +18,14 @@ import {Deposit, DepositHook, DepositPayable, DepositPayableHook} from "./comman
 import {Payout, PayoutHook} from "./commands/Payout.sol";
 import {Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook} from "./commands/Provision.sol";
 import {RecoverPayable, RecoverPayableHook} from "./commands/Recover.sol";
-import {Repay, RepayPayable, RepayPayableHook} from "./commands/Repay.sol";
+import {
+    Repay,
+    RepayInternal,
+    RepayPayable,
+    RepayPayableHook,
+    RepayPosition,
+    RepayPositionPayable
+} from "./commands/Repay.sol";
 import {RelayPayable, RelayBalancePayable, RelayPayableHook} from "./commands/Relay.sol";
 import {Settle, SettlePayable, SettlePayableHook, SettleInternal} from "./commands/Settle.sol";
 import {Withdraw, WithdrawHook} from "./commands/Withdraw.sol";

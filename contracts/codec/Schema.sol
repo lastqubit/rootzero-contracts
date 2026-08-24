@@ -53,12 +53,12 @@ pragma solidity ^0.8.33;
 // - command input and state streams are each a single run of blocks under the
 //   current protocol convention; the block format may support other shapes in
 //   future protocol surfaces
-// - `balance(...)`, `custody(...)`, and `position(...)` are live, linear state in the active command pipeline
+// - `balance(...)`, `debt(...)`, `custody(...)`, and `position(...)` are live, linear state in the active command pipeline
 // - pipeline state belongs to the active account while the pipeline is executing
-// - while a balance or custody is in-flight as pipeline state, it is not simultaneously persisted
+// - while a balance, debt, or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
-// - a position pairs live asset and liability sides; commands may transform either side
-// - position state is transient and does not itself create or erase an externally persisted obligation
+// - debt carries only a live liability side; position pairs live balance and debt sides
+// - debt and position state are transient and do not themselves create or erase an externally persisted obligation
 // - positions support backward composition, but pipeline steps always execute in encoded order
 // - commands must preserve, transform, settle, or intentionally consume pipeline state
 // - input blocks such as `amount(...)`, `allocation(...)`, and `allowance(...)`
@@ -89,6 +89,7 @@ library Schemas {
 
     string constant Amount = "bytes32 asset, uint amount";
     string constant Balance = "bytes32 asset, uint amount";
+    string constant Debt = "bytes32 liability, uint debt";
     string constant AccountAsset = "bytes32 account, bytes32 asset";
     string constant HostAsset = "uint host, bytes32 asset";
 

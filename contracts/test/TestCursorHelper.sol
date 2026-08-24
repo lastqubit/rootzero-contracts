@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { HostAmount, Position, Tx } from "../core/Types.sol";
+import { HostAmount, Debt, Position, Tx } from "../core/Types.sol";
 import { Specs } from "../codec/Specs.sol";
 import { Blocks, Cur, Decoders, Reader, Readers, Writer } from "../Codec.sol";
 import {Lanes} from "../execution/Execution.sol";
@@ -147,6 +147,18 @@ contract TestCursorHelper {
         return w.finish();
     }
 
+    function testWriteDebtBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
+        Writer memory w = Writers.init(Specs.Debt, 1);
+        w.appendDebt(liability, debt);
+        return w.finish();
+    }
+
+    function testWriteDebtStructBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
+        Writer memory w = Writers.init(Specs.Debt, 1);
+        w.appendDebt(Debt(liability, debt));
+        return w.finish();
+    }
+
     function testWriteEmptyBlock(bytes4 key) external pure returns (bytes memory) {
         Writer memory w = Writers.init(Specs.Balance, 1);
         w.appendEmpty(key);
@@ -215,6 +227,10 @@ contract TestCursorHelper {
         return Blocks.createBalance(asset, amount);
     }
 
+    function testToDebtBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
+        return Blocks.createDebt(liability, debt);
+    }
+
     function testToAmountBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         return Blocks.createAmount(asset, amount);
     }
@@ -281,6 +297,17 @@ contract TestCursorHelper {
         return cur.unpackBalance();
     }
 
+    function testUnpackDebt(bytes calldata source) external pure returns (bytes32 liability, uint debt) {
+        Cur memory cur = Decoders.wrap(source);
+        return cur.unpackDebt();
+    }
+
+    function testUnpackDebtValue(bytes calldata source) external pure returns (bytes32 liability, uint debt) {
+        Cur memory cur = Decoders.wrap(source);
+        Debt memory value = cur.unpackDebtValue();
+        return (value.liability, value.debt);
+    }
+
     function testUnpackPosition(
         bytes calldata source
     ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
@@ -310,6 +337,14 @@ contract TestCursorHelper {
         Reader memory cur = Readers.open(bytes(source));
         (asset, amount) = cur.unpackBalance();
         return (asset, amount, cur.i, cur.done());
+    }
+
+    function testReaderUnpackDebt(
+        bytes calldata source
+    ) external pure returns (bytes32 liability, uint debt, uint i, bool done) {
+        Reader memory cur = Readers.open(bytes(source));
+        (liability, debt) = cur.unpackDebt();
+        return (liability, debt, cur.i, cur.done());
     }
 
     function testReaderIsEmpty(bytes calldata source, bytes4 key) external pure returns (bool) {

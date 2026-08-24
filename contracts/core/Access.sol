@@ -12,6 +12,14 @@ import {addrOr} from "../utils/Utils.sol";
 error AccessDenied();
 error CommanderNotAllowed();
 
+/// @notice Assert that `msg.sender` equals `expected` and return it.
+/// @param expected Address required to be the current message sender.
+/// @return The validated sender address.
+function enforceSender(address expected) view returns (address) {
+    if (msg.sender != expected) revert AccessDenied();
+    return expected;
+}
+
 /// @title CallerAccess
 /// @notice Authorization capability required by command entrypoints.
 abstract contract CallerAccess is Runtime {

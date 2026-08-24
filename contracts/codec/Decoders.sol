@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Debt, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
@@ -427,6 +427,16 @@ library Decoders {
         (asset, amount) = Blocks.unpackBalance(abs);
     }
 
+    /// @notice Decode and consume one DEBT block.
+    /// @param cur Cursor advanced past the block.
+    /// @return liability Decoded liability identifier.
+    /// @return debt Decoded debt quantity.
+    function unpackDebt(Cur memory cur) internal pure returns (bytes32 liability, uint debt) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.Debt);
+        (liability, debt) = Blocks.unpackDebt(abs);
+    }
+
     /// @notice Decode one BALANCE block and associate it with `host`.
     /// @param cur Cursor advanced past the block.
     /// @param host Host identifier associated with the balance.
@@ -612,6 +622,13 @@ library Decoders {
     /// @return value Structured asset balance.
     function unpackBalanceValue(Cur memory cur) internal pure returns (AssetAmount memory value) {
         (value.asset, value.amount) = unpackBalance(cur);
+    }
+
+    /// @notice Decode one DEBT block into its structured value.
+    /// @param cur Cursor advanced past the block.
+    /// @return value Structured liability and debt.
+    function unpackDebtValue(Cur memory cur) internal pure returns (Debt memory value) {
+        (value.liability, value.debt) = unpackDebt(cur);
     }
 
     /// @notice Decode and consume one HOST_ACCOUNT_ASSET block.

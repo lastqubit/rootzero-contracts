@@ -119,6 +119,16 @@ contract TestBlocksHelper is Action {
         output = Executions.finish(exec);
     }
 
+    function executionOutputDebt(
+        bytes32 liability,
+        uint debt
+    ) external view returns (bytes memory output) {
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Debt, 0, 0);
+        Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
+        Executions.outputDebt(exec, liability, debt);
+        output = Executions.finish(exec);
+    }
+
     function executionOutputEmpty(bytes4 key) external view returns (bytes memory output) {
         uint descriptor = Descriptors.create(Specs.Empty, Specs.Empty, Specs.Balance, 0, 0);
         Execution memory exec = Executions.openInput(msg.data[0:0], descriptor, 1);
@@ -139,6 +149,14 @@ contract TestBlocksHelper is Action {
         uint descriptor = Descriptors.create(Specs.Position, Specs.Empty, Specs.Empty, 0, 0);
         Execution memory exec = Executions.openState(state, descriptor, 1);
         return Executions.unpackPosition(exec, Lanes.State);
+    }
+
+    function executionUnpackDebt(
+        bytes calldata state
+    ) external view returns (bytes32 liability, uint debt) {
+        uint descriptor = Descriptors.create(Specs.Debt, Specs.Empty, Specs.Empty, 0, 0);
+        Execution memory exec = Executions.openState(state, descriptor, 1);
+        return Executions.unpackDebt(exec, Lanes.State);
     }
 
     function executionIsEmpty(bytes calldata input, uint spec, bytes4 key) external view returns (bool) {
@@ -466,6 +484,21 @@ contract TestBlocksHelper is Action {
         return Blocks.read32(position(source) + i);
     }
 
+    function readWidths(
+        bytes calldata source,
+        uint i
+    ) external pure returns (bytes1, bytes2, bytes4, bytes8, bytes16, bytes32) {
+        uint abs = position(source) + i;
+        return (
+            Blocks.read1(abs),
+            Blocks.read2(abs),
+            Blocks.read4(abs),
+            Blocks.read8(abs),
+            Blocks.read16(abs),
+            Blocks.read32(abs)
+        );
+    }
+
     function read32AsUint(bytes calldata source, uint i) external pure returns (uint) {
         return uint(Blocks.read32(position(source) + i));
     }
@@ -495,6 +528,15 @@ contract TestBlocksHelper is Action {
     ) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.Balance);
         Blocks.writeBalance(dst, offset, asset, amount);
+    }
+
+    function writeDebt(
+        uint offset,
+        bytes32 liability,
+        uint debt
+    ) external pure returns (bytes memory dst) {
+        dst = new bytes(offset + Sizes.Debt);
+        Blocks.writeDebt(dst, offset, liability, debt);
     }
 
     function writePosition(
@@ -636,6 +678,10 @@ contract TestBlocksHelper is Action {
 
     function unpackBalance(bytes calldata source) external pure returns (bytes32, uint) {
         return Blocks.unpackBalance(position(source));
+    }
+
+    function unpackDebt(bytes calldata source) external pure returns (bytes32, uint) {
+        return Blocks.unpackDebt(position(source));
     }
 
     function unpackPosition(bytes calldata source) external pure returns (bytes32, uint, bytes32, uint) {

@@ -11,6 +11,7 @@ import {
   encodeAmountBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
+  encodeDebtBlock,
   encodePositionBlock,
   encodeBytesBlock,
   encodeCallBlock,
@@ -71,12 +72,55 @@ describe("Cursors", () => {
       expect(await blocksHelper.read32AsUint(source, 3)).to.equal(amount);
     });
 
+    it("reads every power-of-two byte width from absolute calldata positions", async () => {
+      const prefix = "0xaabbcc";
+      const word = ethers.hexlify(Uint8Array.from({ length: 32 }, (_, i) => i + 1));
+      const [one, two, four, eight, sixteen, thirtyTwo] = await blocksHelper.readWidths(
+        concat(prefix, word),
+        3,
+      );
+
+      expect(one).to.equal("0x01");
+      expect(two).to.equal("0x0102");
+      expect(four).to.equal("0x01020304");
+      expect(eight).to.equal("0x0102030405060708");
+      expect(sixteen).to.equal("0x0102030405060708090a0b0c0d0e0f10");
+      expect(thirtyTwo).to.equal(word);
+    });
+
     it("writeBalanceBlock round-trips", async () => {
       const data: string = await helper.testWriteBalanceBlock(asset, amount);
       expect(ethers.getBytes(data).length).to.equal(72);
       expect(data.slice(0, 10)).to.equal(Keys.Balance);
       expect(data.slice(10, 18)).to.equal("00000040");
       expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
+    });
+
+    it("debt block round-trips through every codec layer", async () => {
+      const liability = ethers.zeroPadValue("0x02", 32);
+      const debt = 300n;
+      const expected = encodeDebtBlock(liability, debt);
+
+      expect(ethers.getBytes(expected).length).to.equal(72);
+      expect(expected.slice(0, 10)).to.equal(Keys.Debt);
+      expect(expected.slice(10, 18)).to.equal("00000040");
+      expect(await helper.testWriteDebtBlock(liability, debt)).to.equal(expected);
+      expect(await helper.testWriteDebtStructBlock(liability, debt)).to.equal(expected);
+      expect(await helper.testToDebtBlock(liability, debt)).to.equal(expected);
+      expect(await blocksHelper.writeDebt(5n, liability, debt)).to.equal(
+        ethers.concat([new Uint8Array(5), expected]),
+      );
+      expect(await blocksHelper.unpackDebt(expected)).to.deep.equal([liability, debt]);
+      expect(await helper.testUnpackDebt(expected)).to.deep.equal([liability, debt]);
+      expect(await helper.testUnpackDebtValue(expected)).to.deep.equal([liability, debt]);
+      expect(await helper.testReaderUnpackDebt(expected)).to.deep.equal([liability, debt, 72n, true]);
+      expect(await blocksHelper.executionOutputDebt(liability, debt)).to.equal(expected);
+      expect(await blocksHelper.executionUnpackDebt(expected)).to.deep.equal([liability, debt]);
+    });
+
+    it("debt decoder rejects another two-word block", async () => {
+      await expect(blocksHelper.unpackDebt(encodeBalanceBlock(asset, amount)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
     it("encodes empty blocks through factories, writers, and executions", async () => {
@@ -223,6 +267,7 @@ describe("Cursors", () => {
 
       expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
+      expect(await blocksHelper.unpackDebt(encodeDebtBlock(other, 99n))).to.deep.equal([other, 99n]);
       expect(await blocksHelper.unpackAccountAsset(encodeAccountAssetBlock(account, asset)))
         .to.deep.equal([account, asset]);
       expect(await blocksHelper.unpackHostAsset(encodeHostAssetBlock(host, asset)))

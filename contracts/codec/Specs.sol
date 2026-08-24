@@ -27,6 +27,8 @@ library Sizes {
     uint constant Amount = B64;
     /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
     uint constant Balance = B64;
+    /// @dev DEBT block: 8 header + 32 liability + 32 debt = 72 bytes
+    uint constant Debt = B64;
     /// @dev HOST_ASSET block: 8 header + 32 host + 32 asset = 72 bytes
     uint constant HostAsset = B64;
     /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
@@ -63,6 +65,7 @@ library Specs {
     uint constant Empty = uint(bytes32(Keys.Empty));
     uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
     uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
+    uint constant Debt = uint(bytes32(Keys.Debt)) | Exact64;
     uint constant Allocation = uint(bytes32(Keys.Allocation)) | Exact96;
     uint constant Allowance = uint(bytes32(Keys.Allowance)) | Exact96;
     uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;

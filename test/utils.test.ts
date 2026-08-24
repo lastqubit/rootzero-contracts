@@ -83,6 +83,16 @@ describe("Utils", () => {
       expect(result.toLowerCase()).to.equal(addr.toLowerCase());
     });
 
+    it("ensureContract returns an address containing deployed bytecode", async () => {
+      const target = await utils.getAddress();
+      expect(await utils.testEnsureContract(target)).to.equal(target);
+    });
+
+    it("ensureContract rejects EOAs and the zero address", async () => {
+      await expectCustomError(utils.testEnsureContract(signerAddress), "InvalidContract");
+      await expectCustomError(utils.testEnsureContract(ethers.ZeroAddress), "InvalidContract");
+    });
+
     it("toAdminAccount encodes admin prefix, chainId and address", async () => {
       const result: string = await utils.testToAdminAccount(signerAddress);
       const val = BigInt(result);
