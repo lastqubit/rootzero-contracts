@@ -352,18 +352,19 @@ fn pipe(
     mut budget: NativeBudget,
 ) -> Result<NativeBudget, ContractError> {
     // iterate STEP blocks
-    // dispatch each local command and receive (state, transactions)
+    // dispatch each local command and receive (state, credit)
     // thread returned state into the next step
-    // post each non-empty returned TRANSACTION stream before the next step
+    // add the trusted native credit to the shared budget before the next step
     // require final state is empty
     // return the remaining native budget
 }
 ```
 
-`pipe` returns the remaining native budget to the entrypoint. If that value
-should be refunded, encode it as a TRANSACTION block and pass it
-through the same posting path; do not add a separate per-command refund
-hook.
+`pipe` returns the remaining native budget to the entrypoint. Each command also
+returns an unchecked native credit that replenishes the shared budget, allowing
+later commands to spend it. This credit is trusted command output and is not
+constrained by the value forwarded to the command. The entrypoint settles the
+final budget once.
 
 Do not parse a target chain ID from a STEP command. The command is already local to this CosmWasm host.
 
@@ -416,9 +417,9 @@ withdraw
 payout
 ```
 
-Command inputs and outputs remain Rootzero block streams. Every command returns
-two byte streams: `state` for the next pipeline step and `transactions` for the
-pipeline host to settle outside the state lane.
+Command inputs and state outputs remain Rootzero block streams. Every command
+returns `state` for the next pipeline step and a trusted scalar native `credit`
+for the shared execution budget.
 
 Treat incoming state as a linear value. Each command must validate and consume
 the complete state stream, transform and return it, forward it intact, or
@@ -436,7 +437,7 @@ pub struct CommandContext {
 
 pub struct CommandOutput {
     pub state: Vec<u8>,
-    pub transactions: Vec<u8>,
+    pub credit: Uint128,
 }
 ```
 

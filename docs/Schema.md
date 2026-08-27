@@ -183,8 +183,7 @@ The packed descriptor uses these lane layouts:
 state   [key:4][group:1]
 input   [key:4][group:1]
 output  [key:4][min:4][max:4][hint:3][group:1]
-reserve [reserved:4]
-tx      [transactions:1]
+reserve [reserved:5]
 flags   [flags:1]
 ```
 
@@ -212,23 +211,24 @@ An endpoint may accept the empty form of its prime block as a per-operation
 marker. The header remains present, so empty prime blocks still participate in
 run counting and batching.
 
-Endpoint descriptors currently use a narrower convention than the full block
-grammar: each state, input, or output lane is a single run of blocks, without
-additional global items. Endpoint decoder opening requires that run to consume
-the complete supplied lane; a trailing block with another key is invalid.
-Lower-level cursor scanning may still intentionally open only a prefix run.
-Those lower layers retain only the raw block count; descriptor strides are
-applied and lane groups reconciled once when an endpoint execution opens.
-Future protocol surfaces may use the more flexible top-level structure.
+Endpoint execution opening is constant-time: it wraps the supplied state and
+input calldata without consulting their descriptor keys or strides. Those
+fields remain discovery metadata. The output stride and allocation hint
+initialize a resizable writer for one group. Block schema and boundary checks
+happen when command code consumes each block, and execution finalization
+rejects any unread state or input bytes. Command decoding and loop structure
+are therefore the runtime source of truth for lane cardinality and whether an
+empty lane is accepted.
 
 For commands, complete-lane validation is also a state-safety rule. State is a
 linear value owned by the current pipeline step, not optional context that a
 command may disregard. Every command must account for the complete supplied
-state by consuming it, transforming and returning it, forwarding it intact, or
-reverting. A command whose descriptor declares an empty state lane must reject
-non-empty state. A command that accepts state must validate the complete stream
-against its declared schema; accepting only a prefix and silently dropping the
-remainder is invalid.
+state by consuming it, transforming and returning it, forwarding it intact with
+`takeRawState`, or reverting. Descriptor metadata alone does not reject a lane;
+a command that leaves supplied state unread rejects it when closing. Ordinary
+typed consumption validates blocks against the type requested by the command.
+Raw forwarding deliberately trusts the command and does not validate the
+forwarded lane against descriptor metadata.
 
 ## Live Pipeline State
 
@@ -440,6 +440,10 @@ words differently, but a given runtime must use one stable format everywhere.
 For EVM chains, the low 128 bits are native value / endowment in wei; higher
 bits are reserved for execution resources such as gas.
 
+STEP blocks are deliberately narrower: their `uint128 value` field is the
+native value drawn from the pipeline budget. STEP does not contain a
+chain-specific `resources` word.
+
 ## Protocol IDs
 
 Account, asset, and node ID fields use one 32-byte convention:
@@ -510,10 +514,11 @@ Common protocol schemas live in `contracts/codec/Schema.sol`:
 
 ```txt
 amount   { bytes32 asset, uint amount }
+budget   { uint amount }
 balance  { bytes32 asset, uint amount }
 custody  { uint host, bytes32 asset, uint amount }
+step     { uint cmd, uint128 value, #bytes as input }
 call     { uint target, uint resources, #bytes as payload }
-step     { uint cmd, uint resources, #bytes as input }
 context  { bytes32 account, #bytes as state, #bytes as input }
 recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
 schema   { uint spec, #string as body, bytes32 name }

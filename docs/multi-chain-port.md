@@ -514,11 +514,11 @@ Each command has:
 - a deterministic local ID
 - an announcement/registration record using the same logical event shape where the chain supports events
 - input: `CommandContext { account, state, input }`
-- output: two byte streams: the next Rootzero block stream state and a stream of TRANSACTION blocks to settle
+- output: the next Rootzero block stream state and a trusted native budget credit
 
-The `input`, `state`, and transaction output are always Rootzero block streams.
-The two outputs are separate lanes: only state is threaded into the next
-command, while the pipeline host posts each non-empty transaction output.
+The `input` and `state` are Rootzero block streams. Only state is threaded into
+the next command; the pipeline adds the scalar command return to its shared
+budget without checking it against forwarded value.
 
 Every command implementation must account for its complete incoming state.
 It must validate and consume the state, transform and return it, forward it
@@ -540,15 +540,15 @@ Chain-specific dispatch:
 The `pipe()` loop is pure protocol logic:
 
 1. Iterate STEP blocks.
-2. Decode `(cmd, resources, input)` and deduct its native-value lane from the
-   scalar budget.
+2. Decode `(cmd, value, input)` and deduct the `uint128` native value directly
+   from the scalar budget.
 3. Dispatch `cmd` locally.
-4. Thread the returned state bytes into the next step, decode each returned transaction, and post it before dispatching the next step.
+4. Thread the returned state bytes into the next step and add the returned native credit to the shared budget before dispatching the next step.
 5. Require the final state to be empty.
 
-`pipe()` returns the remaining native-value budget to its caller. If the
-entrypoint refunds that value, it encodes the refund as a
-TRANSACTION block and passes it through the same posting path.
+`pipe()` returns the remaining native-value budget to its caller. Per-command
+native credit replenishes this budget, allowing one command to fund later
+commands. The enclosing entrypoint settles the final budget once.
 
 Dispatch should not extract a target chain ID. It should only validate that `cmd` is a trusted local command and resolve it through the local chain's dispatch table.
 
@@ -717,7 +717,7 @@ The TypeScript SDK may know about many chains because it is off-chain orchestrat
 ```rust
 struct CommandOutput {
     state: Vec<u8>,
-    transactions: Vec<u8>,
+    credit: u128,
 }
 
 trait Dispatcher {

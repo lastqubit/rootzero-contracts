@@ -135,8 +135,8 @@ A input is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
 The descriptor lane key is the prime item: it is the block type that may repeat
-for batching. Readers interpret a zero group byte as group size 1 when the lane
-is non-empty.
+for batching. Descriptor decoding interprets a zero group byte as group size 1
+when the lane is non-empty.
 
 Off-chain, building a batch is concatenation. Using the reference encoders from
 [`test/helpers/blocks.ts`](test/helpers/blocks.ts):
@@ -149,13 +149,12 @@ const input = concat([
   encodeAmountBlock(usdc, 250_000_000n),
   encodeAmountBlock(dai, 250n * 10n ** 18n),
 ]);
-// deposit(input) returns two #balance blocks in its state output and an
-// empty transaction output
+// deposit(input) returns two #balance blocks and zero native budget credit
 ```
 
 Everything downstream keeps this shape: commands loop over input blocks,
-posting loops over transactions, pipelines loop over steps. Batching is
-never a special case.
+posting ports loop over transactions, and pipelines loop over steps. Batching
+is never a special case.
 
 ## IDs, Accounts, Assets, and Nodes
 
@@ -254,17 +253,19 @@ struct CommandContext {
 }
 ```
 
-Every command returns two block streams: `state`, which is threaded into the
-next pipeline step, and `transactions`, which contains `#transaction` blocks
-for the pipeline host to post outside the state lane. Either stream may be
-empty.
+Every command returns a `state` block stream and a trusted native `credit`.
+State is threaded into the next pipeline step, while credit replenishes the
+shared pipeline budget without validation against forwarded call value.
+Command trust is the authority boundary.
 
 State is linear, not optional ambient context. A command is responsible for
 the entire state stream it receives: it must validate and consume it, transform
 and return it, forward it intact, or revert. A command must never succeed while
-silently ignoring or dropping supplied state. Commands that declare
-`Specs.Empty` state therefore reject any non-empty state, while commands that
-accept state validate the complete stream against their declared state schema.
+silently ignoring or dropping supplied state. Descriptor schemas remain
+discovery metadata; the command's decoding and loop implementation defines its
+runtime lane semantics. A command that does not consume supplied state rejects
+it when closing, while `takeRawState` explicitly consumes an intact forwarded
+state lane.
 This is especially important for `#debt` and `#position`, because dropping
 either could silently discard an outstanding debt requirement.
 
@@ -285,22 +286,22 @@ claims, fees, netting, and other multi-step operations. Debt and position are
 transient representations and do not themselves create or erase an obligation
 recorded by an external system.
 
-The standard `Deposit` mixin shows the canonical shape: open and validate both
-command lanes, loop the batch, call the hook, and write the output run:
+The standard `Deposit` mixin shows the canonical shape: open the execution,
+decode its active input lane, call the hook, and write the output run:
 
 ```solidity
 function deposit(
     bytes calldata context
-) external onlyCommand returns (bytes memory, bytes memory) {
-    Execution memory exec = openCommand(context, descriptor, 0);
+) external onlyCommand returns (bytes memory, uint) {
+    Execution memory exec = openCommand(context, descriptor);
 
     while (exec.more()) {
-        (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+        (bytes32 asset, uint amount) = exec.unpackAmount();
         deposit(exec.account, asset, amount); // host policy hook
         exec.outputBalance(asset, amount);
     }
 
-    return closeCommand(exec);
+    return exec.close();
 }
 ```
 
@@ -313,19 +314,19 @@ abstract contract MyCommand is CommandBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0);
     }
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
             // Apply command-specific behavior for this group.
             exec.outputBalance(asset, amount);
         }
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 ```
@@ -336,7 +337,9 @@ or compose values such as `Flags.Funded`, `Flags.Admin`, and
 and 7 are reserved for endpoint-defined custom flags. Bits 2 through 5 remain
 reserved for future protocol flags.
 
-The standard commands cover the common ledger movements: `deposit` and
+The standard commands cover the common ledger movements: `bootstrap` (source
+an initial balance and native-value budget), `cashout` (withdraw a requested
+native-asset amount), `deposit` and
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
 `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
@@ -354,53 +357,60 @@ A single command is rarely the whole story. A pipeline is a run of `#step`
 blocks executed in order within one transaction:
 
 ```txt
-step { uint cmd, uint resources, #bytes as input }
+step { uint cmd, uint128 value, #bytes as input }
 ```
 
-Each step names a command, the resources it may spend, and its input.
+Each step names a command, the native value it may spend, and its input.
 The returned state threads into the next command and the final state must be
-empty. Returned transactions do not enter the state lane; the pipeline passes
-each decoded transaction to the shared posting implementation before
-running the next step. This is the core of `Pipeline.pipe`:
+empty. Each returned native credit replenishes the budget before running the
+next step, allowing one command to fund later commands. The standard
+`bootstrap` command consumes a stream of
+`#bootstrap { bytes32 asset, uint amount, uint budget }` requests and atomically
+debits each asset through the standard account hook, introduces matching
+`#balance` state, and sources summed trusted credit through its dedicated budget
+hook. This is the core of
+`Pipeline.pipe`:
 
 ```solidity
 while (cur.more()) {
-    (uint cmd, uint resources, bytes calldata input) = cur.unpackStep();
-    uint128 value;
-    (budget, value) = Budgets.useResourceValue(budget, resources);
-    Reader memory transactions;
-    (state, transactions.source) = dispatch(
+    (uint cmd, uint128 value, bytes calldata input) = cur.unpackStep();
+    if (budget < value) revert InsufficientValue();
+    unchecked { budget -= value; }
+    uint credit;
+    (state, credit) = dispatch(
         cmd,
         account,
         state,
         input,
         value
     );
-    while (transactions.more()) {
-        (bytes32 from, bytes32 to, bytes32 asset, uint amount) = transactions.unpackTransaction();
-        post(from, to, asset, amount);
-    }
+    budget += credit;
 }
 if (state.length != 0) revert UnexpectedState();
 ```
 
 `Pipeline.pipe` takes the available native-value budget as a `uint` and returns
-the remaining budget after every step has executed.
+the remaining budget after every step has executed. The enclosing entrypoint
+settles that final value once.
 
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
 `#amount` input into `#balance` state, and `payout` consumes that state
 toward a recipient. Because a pipeline is just blocks, it is also the unit of
-command batching — and `resources` is a chain-specific word interpreted by the
-portal adapter (on EVM, the low 128 bits are native value in wei, drawn from a
-shared budget), so the same pipeline bytes are meaningful to every port.
+command batching. A step's `uint128 value` is drawn directly from the shared
+native-value budget. Transport envelopes retain separate chain-specific
+`resources` fields for adapters that also need gas or runtime parameters.
 
-Hosts that implement a pipeline locally can inherit `DebitAccountInternal`,
-`CreditAccountInternal`, `SettleInternal`, and `RepayInternal` to advertise the
-canonical command endpoints while routing their local command IDs through
+Hosts that implement a pipeline locally can inherit `BootstrapInternal`,
+`CashoutInternal`, `DebitAccountInternal`, `CreditAccountInternal`,
+`SettleInternal`, and
+`RepayInternal` to advertise the canonical command endpoints while routing
+their local command IDs through `executeBootstrap`, `executeCashout`,
 `executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
-`executeRepay`. These adapters consume the memory-backed pipeline state directly
-and avoid an external self-call. Pass the step value into each adapter; all four
-reject nonzero value because the commands are non-funded.
+`executeRepay`. The bootstrap, cashout, and debit adapters decode fixed-stride
+calldata input directly; the other three
+decode memory-backed pipeline state. All avoid an external self-call. Pass the
+step value into each adapter; all six reject nonzero value because the commands
+are non-funded.
 
 Positions also support backward-composed pipelines. In an exact-output route,
 the asset side can represent the desired result while the liability side
@@ -493,7 +503,7 @@ Import from the package entry points rather than deep paths:
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
   mixins, their hooks (including `PipeHook`), and `Flags`
 - `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
-  `Reader`/`Readers`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
+  `Memory`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
   `Specs`
 - `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
   layout and value helpers
