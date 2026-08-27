@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-3.0-only
+pragma solidity ^0.8.33;
+
+/// @dev Thrown when an operation attempts to spend more value than remains.
+error InsufficientValue();
+
+/// @dev Thrown when a decoder or execution is finalized with unread data.
+error UnconsumedData();
+
+/// @dev Thrown when an ID does not match the expected convention or type.
+error InvalidId();
+
+/// @dev Thrown when an operation exceeds its logical data boundary.
+error OutOfBounds();
+
+/// @dev Thrown when a value exceeds the target integer width.
+error ValueOverflow();
+
+/// @dev Thrown when a value is not evenly divisible by its divisor.
+error NotDivisible();
+
+/// @dev Thrown when an identifier contains a zero address.
+error ZeroAddress();
+
+/// @dev Thrown when an address does not contain deployed bytecode.
+error InvalidContract();
+
+/// @dev Thrown when an account ID does not match the expected family or type.
+error InvalidAccount();
+
+/// @dev Thrown when an asset ID does not match the expected type or chain.
+error InvalidAsset();
+
+/// @dev Thrown when an asset is not authorized for an operation.
+error UnauthorizedAsset();
+
+/// @dev Thrown when a required nonzero amount is zero.
+error ZeroAmount();
+
+/// @dev Thrown when an amount falls outside its allowed range.
+error BadAmount(uint amount);
+
+/// @dev Thrown when an opaque ID preimage is missing or unsupported.
+error InvalidPreimage();
+
+/// @dev Thrown when a cursor is not positioned at the expected offset.
+error UnexpectedPosition();
+
+/// @dev Thrown when no packed cursor matches a requested identity.
+error MissingCursor();

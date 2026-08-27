@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {BadAmount, InvalidAsset, UnauthorizedAsset, ZeroAmount} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
@@ -20,11 +21,6 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 ///
 /// All asset IDs are chain-local (include `block.chainid` in bits [223:192]).
 library Assets {
-    /// @dev Thrown when an asset ID does not match the expected type or chain.
-    error InvalidAsset();
-    /// @dev Thrown when an asset is not authorized for the requested operation.
-    error UnauthorizedAsset();
-
     /// @dev 24-bit family tag shared by all EVM-backed asset types.
     uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Asset);
     /// @dev Full 4-byte type prefix for the native chain coin/token asset.
@@ -136,11 +132,6 @@ library Assets {
 /// @title Amounts
 /// @notice Validation helpers for token amounts.
 library Amounts {
-    /// @dev Thrown when a required non-zero amount is zero.
-    error ZeroAmount();
-    /// @dev Thrown when an amount falls outside the allowed `[min, max]` range.
-    error BadAmount(uint amount);
-
     /// @notice Assert that `amount` is non-zero and return it unchanged.
     /// @param amount Amount to validate.
     /// @return The same `amount` value if valid.

@@ -34,12 +34,12 @@ contract TestErc20CursorHelper {
     }
 
     function testExpectErc20Amount(bytes calldata source, uint i) external view returns (address token, uint amount) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         return expectErc20Amount(cur, i);
     }
 
     function testRequireErc20Amount(bytes calldata source) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         bytes32 asset;
         (asset, amount) = Decoders.unpackAmount(cur);
         token = Assets.erc20Addr(asset);
@@ -47,12 +47,12 @@ contract TestErc20CursorHelper {
     }
 
     function testExpectErc20Balance(bytes calldata source, uint i) external view returns (address token, uint amount) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         return expectErc20Balance(cur, i);
     }
 
     function testRequireErc20Balance(bytes calldata source) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         bytes32 asset;
         (asset, amount) = Decoders.unpackBalance(cur);
         token = Assets.erc20Addr(asset);
@@ -64,7 +64,7 @@ contract TestErc20CursorHelper {
         uint i,
         uint host
     ) external view returns (address token, uint amount) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         return expectErc20Custody(cur, i, host);
     }
 
@@ -72,7 +72,7 @@ contract TestErc20CursorHelper {
         bytes calldata source,
         uint host
     ) external view returns (address token, uint amount, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         uint actualHost;
         bytes32 asset;
         (actualHost, asset, amount) = Decoders.unpackCustody(cur);

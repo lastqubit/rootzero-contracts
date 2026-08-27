@@ -8,7 +8,7 @@ pragma solidity ^0.8.33;
 // blocks. Multiple outer blocks still form an ordinary command batch.
 
 import {Host} from "../contracts/Core.sol";
-import {CommandBase, Cur, Decoders, Execution, Executions, Lanes, Specs} from "../contracts/Commands.sol";
+import {CommandBase, Cur, Decoders, Execution, Executions, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 using Decoders for Cur;
@@ -21,17 +21,17 @@ abstract contract MyCommand is CommandBase {
     event AssetSeen(uint indexed batch, bytes32 asset);
 
     constructor() {
-        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0);
     }
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
         uint batch;
 
         while (exec.more()) {
-            Cur memory items = exec.list(inputSpec, Lanes.Input);
+            Cur memory items = exec.list(inputSpec);
 
             while (items.more()) {
                 emit AssetSeen(batch, items.unpackAsset());
@@ -42,7 +42,7 @@ abstract contract MyCommand is CommandBase {
             }
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {InvalidAccount} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol";
 
@@ -18,9 +19,6 @@ import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol"
 ///
 /// The helpers in this library validate and deconstruct structured account IDs.
 library Accounts {
-    /// @dev Thrown when an account ID does not belong to the EVM family.
-    error InvalidAccount();
-
     /// @dev 24-bit family tag shared by all EVM-backed account types.
     uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Account);
     /// @dev Full 4-byte type prefix for admin accounts (chain-local EVM address).

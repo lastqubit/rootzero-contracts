@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Cursors} from "../utils/Cursors.sol";
+import {ValueOverflow} from "../utils/Errors.sol";
 
 /// @title Buffers
 /// @notice Allocation and finalization helpers for mutable memory byte buffers.
-/// @dev Packed buffer positions use `Cursors`; flag bit 0 denotes growth policy.
-/// `write` copies from memory, while `copy` copies directly from calldata.
+/// @dev `write` copies from memory, while `copy` copies directly from calldata.
 library Buffers {
-    using Cursors for uint;
-
-    uint8 internal constant Growable = 1;
-
     /// @dev A reserved memory write exceeds the physical backing buffer.
     error BufferOverflow();
     /// @dev A buffer cursor does not match its logical or physical capacity.
@@ -19,12 +14,12 @@ library Buffers {
 
     /// @notice Create a packed buffer cursor at write position zero.
     /// @param len Initial logical byte capacity.
-    /// @param count Number of logical items represented by the buffer.
-    /// @param growable Whether writes may expand the logical capacity.
+    /// @param stride Optional blocks per group represented by the buffer.
     /// @param tag Cursor identity tag.
     /// @return cur Packed buffer cursor.
-    function cursor(uint len, uint count, bool growable, uint8 tag) internal pure returns (uint cur) {
-        cur = Cursors.create(0, len, count, growable ? Growable : 0, tag);
+    function cursor(uint len, uint8 stride, uint8 tag) internal pure returns (uint cur) {
+        if (len > type(uint32).max) revert ValueOverflow();
+        cur = (len << 64) | (uint(stride) << 96) | (uint(tag) << 120);
     }
 
     /// @notice Reserve relative write space and return the updated packed buffer cursor.
@@ -43,24 +38,28 @@ library Buffers {
         uint advance,
         uint touch
     ) internal pure returns (uint updated, bytes memory dst, uint i) {
-        uint len;
-        (i, , len) = cur.decode();
+        i = uint32(cur);
+        uint len = uint32(cur >> 64);
         uint required = i + (advance > touch ? advance : touch);
         bool empty = buffer.length == 0;
         dst = buffer;
 
-        if (cur.flagged(Growable) && required > len) {
+        if (required > len) {
             len = len == 0 ? 64 : len * 2;
             while (len < required) {
                 len *= 2;
             }
-            cur = cur.resize(len);
+            if (len > type(uint32).max) revert ValueOverflow();
+            cur = (cur & ~(uint(type(uint32).max) << 64)) | (len << 64);
             if (!empty) dst = resize(dst, i, len);
         }
 
-        updated = cur.advance(advance);
+        updated = cur + advance;
 
-        if (empty) dst = alloc(len);
+        if (empty) {
+            uint padded = ((len + 31) & ~uint(31)) + 32;
+            dst = new bytes(padded);
+        }
         if (required > dst.length) revert BufferOverflow();
     }
 
@@ -81,7 +80,8 @@ library Buffers {
     /// @param capacity Requested capacity of the new buffer.
     /// @return resized Newly allocated buffer containing the written prefix.
     function resize(bytes memory buffer, uint written, uint capacity) internal pure returns (bytes memory resized) {
-        resized = alloc(capacity);
+        uint padded = ((capacity + 31) & ~uint(31)) + 32;
+        resized = new bytes(padded);
         assembly ("memory-safe") {
             mcopy(add(resized, 0x20), add(buffer, 0x20), written)
         }
@@ -171,9 +171,13 @@ library Buffers {
     /// @param buffer Backing byte buffer.
     /// @return out Empty bytes when unused, otherwise the written prefix.
     function finish(uint cur, bytes memory buffer) internal pure returns (bytes memory out) {
-        (uint i, , uint len) = cur.decode();
+        uint i = uint32(cur);
+        uint len = uint32(cur >> 64);
         if (i == 0) return new bytes(0);
         if (i > len || i > buffer.length) revert IncompleteBuffer();
-        out = trim(buffer, i);
+        assembly ("memory-safe") {
+            mstore(buffer, i)
+        }
+        out = buffer;
     }
 }

@@ -5,11 +5,10 @@ import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAcc
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
+import {InsufficientValue, UnconsumedData} from "../utils/Errors.sol";
 import {Lanes} from "../utils/Lanes.sol";
 import {Budget} from "./Budget.sol";
-import {max16} from "../utils/Utils.sol";
 
 /// @notice Mutable state shared across one endpoint execution.
 /// @dev `decoders` contains tagged input and state cursor lanes. Cursor operations
@@ -18,163 +17,29 @@ struct Execution {
     bytes32 account;
     uint budget;
     uint decoders;
-    uint writers;
-    bytes transactions;
+    uint writer;
     bytes output;
 }
 
 /// @title Executions
-/// @notice Opening, decoding, output, transaction, and value helpers for executions.
+/// @notice Opening, decoding, output, and value helpers for executions.
 /// @dev `output*` helpers consume memory inputs; `outputCopy*` helpers copy
 /// calldata inputs directly to the output lane.
 library Executions {
     using Cursors for uint;
 
-    /// @dev Thrown when an execution attempts to spend more value than remains in its budget.
-    error InsufficientValue();
-    /// @dev Decoder block counts do not form compatible descriptor groups.
-    error BadRatio();
-    /// @dev A descriptor-empty lane received a non-empty block source.
+    /// @dev Command-defined lane policy rejected data in an expected-empty lane.
     error ZeroStride();
 
     // -------------------------------------------------------------------------
     // Opening
     // -------------------------------------------------------------------------
 
-    /// @dev A lane with stride zero accepts only an empty source and returns the zero cursor.
-    /// @param source Calldata source for the decoder lane.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param lane Input or state lane identifier.
-    /// @return cur Tagged packed decoder cursor carrying its raw block count, or zero for an absent lane.
-    function openDecoder(bytes calldata source, uint descriptor, uint8 lane) private pure returns (uint cur) {
-        uint stride = Descriptors.stride(descriptor, lane);
-        (uint abs, uint limit) = Cursors.bounds(source);
-        if (stride == 0 && abs == limit) return 0;
-        if (stride == 0) revert ZeroStride();
-
-        bytes4 key = Descriptors.key(descriptor, lane);
-        (uint count, uint end) = Blocks.runExact(abs, limit, key);
-        if (count == 0) revert Blocks.EmptyRun();
-        cur = Cursors.create(abs, end - abs, count, 0, lane);
-    }
-
-    /// @dev Convert one decoder lane's raw block count into descriptor groups.
-    function groupCount(uint decoders, uint descriptor, uint8 lane) private pure returns (uint groups) {
-        uint stride = Descriptors.stride(descriptor, lane);
-        if (stride == 0) return 0;
-
-        uint count = decoders.select(lane).count();
-        if (count % stride != 0) revert BadRatio();
-        groups = count / stride;
-    }
-
-    /// @dev Reconcile decoder lane groups once at endpoint execution opening.
-    function reconcile(uint decoders, uint descriptor, uint expected) private pure returns (uint groups) {
-        uint input = groupCount(decoders, descriptor, Lanes.Input);
-        uint state = groupCount(decoders, descriptor, Lanes.State);
-        if (input != 0 && state != 0 && input != state) revert BadRatio();
-
-        groups = input != 0 ? input : state;
-        if (groups != 0 && expected != 0 && groups != expected) revert BadRatio();
-        if (groups == 0) groups = expected;
-        max16(groups);
-    }
-
-    /// @dev Initialize one tagged writer cursor from a descriptor lane.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Reconciled execution batch count.
-    /// @param lane Output or transaction lane identifier.
-    /// @param padding Additional logical capacity reserved for the lane.
-    /// @return cur Tagged packed writer cursor, or zero for an absent lane.
-    function initWriter(uint descriptor, uint batches, uint8 lane, uint padding) private pure returns (uint cur) {
-        (uint capacity, bool growable) = Descriptors.allocation(descriptor, lane, batches);
-        if (capacity == 0) return 0;
-
-        uint count = batches * Descriptors.stride(descriptor, lane);
-        if (padding != 0) count += padding / Sizes.Transaction;
-        cur = Buffers.cursor(capacity + padding, count, growable, lane);
-    }
-
-    /// @dev Open and pair the input and state decoder cursors.
-    /// @param state State calldata source.
-    /// @param input Input calldata source.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @return Paired decoder cursors.
-    function decodeCursors(bytes calldata state, bytes calldata input, uint descriptor) private pure returns (uint) {
-        return
-            Cursors.pair(openDecoder(input, descriptor, Lanes.Input), openDecoder(state, descriptor, Lanes.State));
-    }
-
-    /// @dev Initialize and pair the output and transaction writer cursors.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Reconciled execution batch count.
-    /// @return Paired writer cursors.
-    function writerCursors(uint descriptor, uint batches) private pure returns (uint) {
-        return
-            Cursors.pair(
-                initWriter(descriptor, batches, Lanes.Output, 0),
-                initWriter(descriptor, batches, Lanes.Transactions, Sizes.Transaction)
-            );
-    }
-
-    /// @dev Complete execution initialization from pre-opened decoder cursors.
-    /// @param decoders Packed decoder cursor or pair.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Expected batch count; zero derives it from the decoders.
-    /// @return exec Initialized execution.
-    function open(uint decoders, uint descriptor, uint batches) private view returns (Execution memory exec) {
-        exec.budget = msg.value;
-        exec.decoders = decoders;
-        batches = reconcile(decoders, descriptor, batches);
-        exec.writers = writerCursors(descriptor, batches);
-    }
-
     /// @notice Open an execution containing only the current call-value budget.
-    /// @dev Decoders, writers, output, and transactions remain empty.
+    /// @dev Decoders, writer, and output remain empty.
     /// @return exec Budget-only execution initialized with `msg.value`.
     function open() internal view returns (Execution memory exec) {
         exec.budget = msg.value;
-    }
-
-    /// @notice Open an execution with an input decoder and descriptor writers.
-    /// @param input Input block stream.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Expected batch count; zero derives it from the input run.
-    /// @return exec Initialized execution.
-    function openInput(
-        bytes calldata input,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        return open(openDecoder(input, descriptor, Lanes.Input), descriptor, batches);
-    }
-
-    /// @notice Open an execution with a state decoder and descriptor writers.
-    /// @param state State block stream.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Expected batch count; zero derives it from the state run.
-    /// @return exec Initialized execution.
-    function openState(
-        bytes calldata state,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        return open(openDecoder(state, descriptor, Lanes.State), descriptor, batches);
-    }
-
-    /// @notice Open an execution with paired state and input decoders.
-    /// @param state State block stream.
-    /// @param input Input block stream.
-    /// @param descriptor Packed endpoint descriptor.
-    /// @param batches Expected batch count; zero derives it from the decoder runs.
-    /// @return exec Initialized execution.
-    function open(
-        bytes calldata state,
-        bytes calldata input,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        return open(decodeCursors(state, input, descriptor), descriptor, batches);
     }
 
     // -------------------------------------------------------------------------
@@ -188,99 +53,134 @@ library Executions {
         return exec.decoders.any();
     }
 
-    /// @notice Return a decoder lane's current absolute calldata position.
-    /// @param exec Execution whose decoder is inspected.
-    /// @param lane Decoder lane to select.
-    /// @return Current absolute calldata position of the selected lane.
-    function absolute(Execution memory exec, uint8 lane) internal pure returns (uint) {
-        return exec.decoders.select(lane).absolute();
+    /// @notice Make the input decoder the active low lane.
+    /// @return exec The same execution, allowing chained decoding.
+    function oninput(Execution memory exec) internal pure returns (Execution memory) {
+        exec.decoders = exec.decoders.select(Lanes.Input);
+        return exec;
     }
 
-    /// @dev Return the complete validated calldata source for a decoder lane.
+    /// @notice Make the state decoder the active low lane.
+    /// @return exec The same execution, allowing chained decoding.
+    function onstate(Execution memory exec) internal pure returns (Execution memory) {
+        exec.decoders = exec.decoders.select(Lanes.State);
+        return exec;
+    }
+
+    /// @notice Return the active decoder's current absolute calldata position.
+    /// @param exec Execution whose decoder is inspected.
+    /// @return Current absolute calldata position of the active lane.
+    function absolute(Execution memory exec) internal pure returns (uint) {
+        return exec.decoders.absolute();
+    }
+
+    /// @dev Return the complete bounded calldata source for a decoder lane.
     /// @dev Does not consume or depend on the lane's current position. A lane
     /// absent because its descriptor is EMPTY returns an empty calldata slice.
     /// @param exec Execution whose input or state source is requested.
-    /// @param lane Input or state decoder lane.
     /// @return data Complete calldata region represented by the lane.
     function raw(Execution memory exec, uint8 lane) private pure returns (bytes calldata data) {
         if (!exec.decoders.contains(lane)) return msg.data[0:0];
 
         uint cur = exec.decoders.select(lane);
-        (, uint offset, uint len) = cur.decode();
-        if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
-        return msg.data[offset:offset + len];
+        if (uint8(cur >> 96) == 0) return msg.data[0:0];
+        (uint abs, uint end) = cur.bounds();
+        if (end > msg.data.length) revert Blocks.MalformedBlocks();
+        return msg.data[abs:end];
     }
 
-    /// @notice Return the complete validated command state without consuming it.
+    /// @notice Return the complete bounded command state without consuming it.
     /// @dev Remains the complete original state after the state cursor advances.
     function rawState(Execution memory exec) internal pure returns (bytes calldata) {
         return raw(exec, Lanes.State);
     }
 
-    /// @notice Return the complete validated endpoint input without consuming it.
+    /// @notice Return the complete state lane and mark it fully consumed.
+    /// @dev Intended for commands that forward their state intact without decoding it.
+    /// A lane declared EMPTY is returned empty and remains unconsumed so close
+    /// still rejects any state supplied against the descriptor.
+    function takeRawState(Execution memory exec) internal pure returns (bytes calldata data) {
+        data = raw(exec, Lanes.State);
+        if (!exec.decoders.contains(Lanes.State)) return data;
+
+        uint cur = exec.decoders.select(Lanes.State);
+        if (uint8(cur >> 96) == 0) return data;
+        (, , uint len) = cur.decode();
+        exec.decoders = cur.seek(len);
+    }
+
+    /// @notice Return the complete bounded endpoint input without consuming it.
     /// @dev Remains the complete original input after the input cursor advances.
     function rawInput(Execution memory exec) internal pure returns (bytes calldata) {
         return raw(exec, Lanes.Input);
     }
 
+    /// @notice Return the complete input lane and mark it fully consumed.
+    /// @dev Intended for endpoints that forward their input intact without decoding it.
+    /// A lane declared EMPTY is returned empty and remains unconsumed so close
+    /// still rejects any input supplied against the descriptor.
+    function takeRawInput(Execution memory exec) internal pure returns (bytes calldata data) {
+        data = raw(exec, Lanes.Input);
+        if (!exec.decoders.contains(Lanes.Input)) return data;
+
+        uint cur = exec.decoders.select(Lanes.Input);
+        if (uint8(cur >> 96) == 0) return data;
+        (, , uint len) = cur.decode();
+        exec.decoders = cur.seek(len);
+    }
+
     /// @notice Return whether the next block on `lane` has `key` and an empty payload.
     /// @param exec Execution whose decoder is inspected without advancing.
-    /// @param lane Decoder lane to inspect.
     /// @param key Expected block key.
     /// @return Whether a complete matching empty block header occurs next.
-    function isEmpty(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (bool) {
-        uint cur = exec.decoders.select(lane);
+    function isEmpty(Execution memory exec, bytes4 key) internal pure returns (bool) {
+        uint cur = exec.decoders;
         (uint i, uint offset, uint len) = cur.decode();
         return Blocks.isEmpty(offset + i, offset + len, key);
     }
 
     /// @notice Validate and consume the next block from an execution decoder lane.
-    /// @param exec Execution whose selected decoder cursor is advanced over the complete block.
-    /// @param lane Execution decoder lane to select.
+    /// @param exec Execution whose active decoder cursor is advanced over the complete block.
     /// @param spec Expected block specification.
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function consume(Execution memory exec, uint8 lane, uint spec) internal pure returns (uint abs, uint end) {
-        uint cur = exec.decoders.select(lane);
+    function consume(Execution memory exec, uint spec) internal pure returns (uint abs, uint end) {
+        uint cur = exec.decoders;
         (abs, end) = Blocks.expect(cur.absolute(), spec);
         exec.decoders = cur.seekAbs(end);
     }
 
     /// @notice Validate a known key and consume the next block from an execution decoder lane.
     /// @dev Validates no payload-size constraint beyond proving the complete block
-    /// lies within the selected lane's logical region.
-    /// @param exec Execution whose selected decoder cursor is advanced over the complete block.
-    /// @param lane Execution decoder lane to select.
+    /// lies within the active lane's logical region.
+    /// @param exec Execution whose active decoder cursor is advanced over the complete block.
     /// @param key Expected block key.
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function consume(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (uint abs, uint end) {
-        uint cur = exec.decoders.select(lane);
+    function consume(Execution memory exec, bytes4 key) internal pure returns (uint abs, uint end) {
+        uint cur = exec.decoders;
         (abs, end) = Blocks.expectKey(cur.absolute(), key);
         exec.decoders = cur.seekAbs(end);
     }
 
     /// @notice Validate and consume one block from a decoder lane, returning its complete encoding.
-    /// @param exec Execution whose selected decoder cursor is advanced past the block.
-    /// @param lane Execution decoder lane to select.
+    /// @param exec Execution whose active decoder cursor is advanced past the block.
     /// @param key Expected block key.
     /// @return data Calldata view of the complete block, including its header.
     function takeBlock(
         Execution memory exec,
-        uint8 lane,
         bytes4 key
     ) internal pure returns (bytes calldata data) {
-        (uint abs, uint end) = consume(exec, lane, key);
+        (uint abs, uint end) = consume(exec, key);
         data = msg.data[abs - Sizes.Header:end];
     }
 
     /// @notice Consume a matching empty block from an execution decoder lane when present.
-    /// @param exec Execution whose selected decoder advances only for a matching empty block.
-    /// @param lane Decoder lane to consume.
+    /// @param exec Execution whose active decoder advances only for a matching empty block.
     /// @param key Expected block key.
     /// @return Whether an empty block was consumed.
-    function tryConsumeEmpty(Execution memory exec, uint8 lane, bytes4 key) internal pure returns (bool) {
-        uint cur = exec.decoders.select(lane);
+    function tryConsumeEmpty(Execution memory exec, bytes4 key) internal pure returns (bool) {
+        uint cur = exec.decoders;
         (uint i, uint offset, uint size) = cur.decode();
         (bytes4 current, uint len) = Blocks.peek(offset + i, offset + size);
         if (current != key || len != 0) return false;
@@ -289,34 +189,31 @@ library Executions {
     }
 
     /// @notice Validate and enter the payload of the next block in an execution decoder lane.
-    /// @dev The selected lane remains in its existing frame so callers can decode
+    /// @dev The active lane remains in its existing frame so callers can decode
     /// child blocks in place. Callers should prove complete payload consumption
     /// with `exec.expectAbs(end)` after decoding the children from the same lane.
-    /// @param exec Execution whose selected decoder cursor advances over the block header.
-    /// @param lane Execution decoder lane to select.
+    /// @param exec Execution whose active decoder cursor advances over the block header.
     /// @param spec Expected parent block specification.
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function enter(Execution memory exec, uint8 lane, uint spec) internal pure returns (uint abs, uint end) {
-        return enter(exec, lane, spec, 0);
+    function enter(Execution memory exec, uint spec) internal pure returns (uint abs, uint end) {
+        return enter(exec, spec, 0);
     }
 
     /// @notice Validate a parent block and advance over a fixed payload prefix.
     /// @dev `amount` is relative to the payload start and cannot exceed the
     /// current parent payload. The returned `abs` remains the payload start.
-    /// @param exec Execution whose selected decoder advances over the header and fixed prefix.
-    /// @param lane Execution decoder lane to select.
+    /// @param exec Execution whose active decoder advances over the header and fixed prefix.
     /// @param spec Expected parent block specification.
     /// @param amount Number of initial payload bytes to advance over.
     /// @return abs Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function enter(
         Execution memory exec,
-        uint8 lane,
         uint spec,
         uint amount
     ) internal pure returns (uint abs, uint end) {
-        uint cur = exec.decoders.select(lane);
+        uint cur = exec.decoders;
         (abs, end) = Blocks.expect(cur.absolute(), spec);
         if (amount > end - abs) revert Blocks.InvalidBlock();
         exec.decoders = cur.seekAbs(abs + amount);
@@ -324,26 +221,24 @@ library Executions {
 
     /// @notice Advance an execution decoder lane by a raw byte count.
     /// @dev No block header or schema is validated.
-    /// @param exec Execution whose selected decoder cursor is advanced.
-    /// @param lane Decoder lane to select.
+    /// @param exec Execution whose active decoder cursor is advanced.
     /// @param amount Number of bytes to advance.
-    function advance(Execution memory exec, uint8 lane, uint amount) internal pure {
-        uint cur = exec.decoders.select(lane);
+    function advance(Execution memory exec, uint amount) internal pure {
+        uint cur = exec.decoders;
         exec.decoders = cur.advance(amount);
     }
 
     /// @notice Take a raw byte range from an execution decoder lane.
     /// @dev No block header or schema is validated.
-    /// @param exec Execution whose selected decoder cursor is advanced.
-    /// @param lane Decoder lane to select.
+    /// @param exec Execution whose active decoder cursor is advanced.
     /// @param amount Number of bytes to take.
     /// @return abs Absolute position of the first taken byte.
-    function take(Execution memory exec, uint8 lane, uint amount) internal pure returns (uint abs) {
-        (exec.decoders, abs) = exec.decoders.consume(lane, amount);
+    function take(Execution memory exec, uint amount) internal pure returns (uint abs) {
+        (exec.decoders, abs) = exec.decoders.consume(amount);
     }
 
     /// @notice Require the active execution decoder to be at absolute position `abs`.
-    /// @dev The most recent lane-aware decoder operation determines the active lane.
+    /// @dev `oninput()` and `onstate()` determine the active lane.
     /// @param exec Execution whose active decoder position is validated.
     /// @param abs Expected absolute position.
     function expectAbs(Execution memory exec, uint abs) internal pure {
@@ -352,19 +247,17 @@ library Executions {
 
     /// @notice Consume a LIST block and return a cursor scoped to its payload.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane containing the LIST block.
     /// @return items Cursor over the nested list items.
-    function list(Execution memory exec, uint8 lane) internal pure returns (Cur memory items) {
-        return list(exec, Specs.List, lane);
+    function list(Execution memory exec) internal pure returns (Cur memory items) {
+        return list(exec, Specs.List);
     }
 
     /// @notice Consume a list block described by `spec` and return a cursor scoped to its payload.
     /// @param exec Execution whose decoder is advanced.
     /// @param spec Custom list block specification.
-    /// @param lane Decoder lane containing the list block.
     /// @return items Cursor over the nested list items.
-    function list(Execution memory exec, uint spec, uint8 lane) internal pure returns (Cur memory items) {
-        (uint abs, uint end) = consume(exec, lane, spec);
+    function list(Execution memory exec, uint spec) internal pure returns (Cur memory items) {
+        (uint abs, uint end) = consume(exec, spec);
         items.state = Cursors.create(abs, end - abs, 0, 0, 0);
     }
 
@@ -372,400 +265,350 @@ library Executions {
     // Fixed-width block decoding
     // -------------------------------------------------------------------------
 
-    /// @dev Return the next raw calldata word from `lane` and advance by `size` bytes.
-    function next(Execution memory exec, uint8 lane, uint size) private pure returns (bytes32 value) {
-        value = Blocks.read32(take(exec, lane, size));
+    /// @dev Return the next raw calldata word from the active lane and advance by `size` bytes.
+    function next(Execution memory exec, uint size) private pure returns (bytes32 value) {
+        value = Blocks.read32(take(exec, size));
     }
 
     /// @notice Return the next raw byte from a decoder lane and advance it by one byte.
-    function next1(Execution memory exec, uint8 lane) internal pure returns (bytes1 value) {
-        value = bytes1(next(exec, lane, 1));
+    function next1(Execution memory exec) internal pure returns (bytes1 value) {
+        value = bytes1(next(exec, 1));
     }
 
     /// @notice Return the next two raw bytes from a decoder lane and advance it by two bytes.
-    function next2(Execution memory exec, uint8 lane) internal pure returns (bytes2 value) {
-        value = bytes2(next(exec, lane, 2));
+    function next2(Execution memory exec) internal pure returns (bytes2 value) {
+        value = bytes2(next(exec, 2));
     }
 
     /// @notice Return the next four raw bytes from a decoder lane and advance it by four bytes.
-    function next4(Execution memory exec, uint8 lane) internal pure returns (bytes4 value) {
-        value = bytes4(next(exec, lane, 4));
+    function next4(Execution memory exec) internal pure returns (bytes4 value) {
+        value = bytes4(next(exec, 4));
     }
 
     /// @notice Return the next eight raw bytes from a decoder lane and advance it by eight bytes.
-    function next8(Execution memory exec, uint8 lane) internal pure returns (bytes8 value) {
-        value = bytes8(next(exec, lane, 8));
+    function next8(Execution memory exec) internal pure returns (bytes8 value) {
+        value = bytes8(next(exec, 8));
     }
 
     /// @notice Return the next sixteen raw bytes from a decoder lane and advance it by sixteen bytes.
-    function next16(Execution memory exec, uint8 lane) internal pure returns (bytes16 value) {
-        value = bytes16(next(exec, lane, 16));
+    function next16(Execution memory exec) internal pure returns (bytes16 value) {
+        value = bytes16(next(exec, 16));
     }
 
     /// @notice Return the next raw calldata word from a decoder lane and advance it.
-    /// @param exec Execution whose selected decoder cursor advances by one word.
-    /// @param lane Execution decoder lane to select.
-    /// @return value Raw word at the selected lane's previous position.
-    function next32(Execution memory exec, uint8 lane) internal pure returns (bytes32 value) {
-        value = next(exec, lane, Sizes.Word);
+    /// @param exec Execution whose active decoder cursor advances by one word.
+    /// @return value Raw word at the active lane's previous position.
+    function next32(Execution memory exec) internal pure returns (bytes32 value) {
+        value = next(exec, Sizes.Word);
     }
 
-    /// @notice Decode one fixed 32-byte payload from `lane`.
+    /// @notice Decode one fixed 32-byte payload from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @param spec Expected fixed block specification.
     /// @return value Decoded payload word.
-    function unpack32(Execution memory exec, uint8 lane, uint spec) internal pure returns (bytes32 value) {
+    function unpack32(Execution memory exec, uint spec) internal pure returns (bytes32 value) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B32);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B32);
         if (Blocks.header(abs, Specs.key(spec)) != 32) revert Blocks.InvalidBlock();
         assembly ("memory-safe") {
             value := calldataload(add(abs, 0x08))
         }
     }
 
-    /// @notice Decode and consume one ACCOUNT block from `lane`.
+    /// @notice Decode and consume one ACCOUNT block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return account Decoded account identifier.
-    function unpackAccount(Execution memory exec, uint8 lane) internal pure returns (bytes32 account) {
+    function unpackAccount(Execution memory exec) internal pure returns (bytes32 account) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B32);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B32);
         account = Blocks.unpackAccount(abs);
     }
 
-    /// @notice Decode and consume one NODE block from `lane`.
+    /// @notice Decode and consume one NODE block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return node Decoded node identifier.
-    function unpackNode(Execution memory exec, uint8 lane) internal pure returns (uint node) {
+    function unpackNode(Execution memory exec) internal pure returns (uint node) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B32);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B32);
         node = Blocks.unpackNode(abs);
     }
 
-    /// @notice Decode and consume one ASSET block from `lane`.
+    /// @notice Decode and consume one CASHOUT block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
-    /// @return asset Decoded asset identifier.
-    function unpackAsset(Execution memory exec, uint8 lane) internal pure returns (bytes32 asset) {
+    /// @return amount Native-asset amount to withdraw.
+    function unpackCashout(Execution memory exec) internal pure returns (uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B32);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Cashout);
+        amount = Blocks.unpackCashout(abs);
+    }
+
+    /// @notice Decode and consume one BOOTSTRAP block from the active lane.
+    /// @param exec Execution whose decoder is advanced.
+    /// @return asset Decoded asset identifier.
+    /// @return amount Decoded balance amount.
+    /// @return budget Decoded native-value budget contribution.
+    function unpackBootstrap(
+        Execution memory exec
+    ) internal pure returns (bytes32 asset, uint amount, uint budget) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Bootstrap);
+        return Blocks.unpackBootstrap(abs);
+    }
+
+    /// @notice Decode and consume one ASSET block from the active lane.
+    /// @param exec Execution whose decoder is advanced.
+    /// @return asset Decoded asset identifier.
+    function unpackAsset(Execution memory exec) internal pure returns (bytes32 asset) {
+        uint abs;
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B32);
         asset = Blocks.unpackAsset(abs);
     }
 
-    /// @notice Decode and consume one ACCOUNT_ASSET block from `lane`.
+    /// @notice Decode and consume one ACCOUNT_ASSET block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return account Decoded account identifier.
     /// @return asset Decoded asset identifier.
-    function unpackAccountAsset(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 account, bytes32 asset) {
+    function unpackAccountAsset(Execution memory exec) internal pure returns (bytes32 account, bytes32 asset) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B64);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B64);
         (account, asset) = Blocks.unpackAccountAsset(abs);
     }
 
     /// @notice Decode one ACCOUNT_ASSET block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded account and asset.
-    function unpackAccountAssetValue(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (AccountAsset memory value) {
-        (value.account, value.asset) = unpackAccountAsset(exec, lane);
+    function unpackAccountAssetValue(Execution memory exec) internal pure returns (AccountAsset memory value) {
+        (value.account, value.asset) = unpackAccountAsset(exec);
     }
 
-    /// @notice Decode and consume one HOST_ASSET block from `lane`.
+    /// @notice Decode and consume one HOST_ASSET block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return host Decoded host identifier.
     /// @return asset Decoded asset identifier.
-    function unpackHostAsset(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint host, bytes32 asset) {
+    function unpackHostAsset(Execution memory exec) internal pure returns (uint host, bytes32 asset) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.HostAsset);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.HostAsset);
         (host, asset) = Blocks.unpackHostAsset(abs);
     }
 
     /// @notice Decode one HOST_ASSET block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded host and asset.
-    function unpackHostAssetValue(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (HostAsset memory value) {
-        (value.host, value.asset) = unpackHostAsset(exec, lane);
+    function unpackHostAssetValue(Execution memory exec) internal pure returns (HostAsset memory value) {
+        (value.host, value.asset) = unpackHostAsset(exec);
     }
 
-    /// @notice Decode and consume one AMOUNT block from `lane`.
+    /// @notice Decode and consume one AMOUNT block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded amount.
-    function unpackAmount(Execution memory exec, uint8 lane) internal pure returns (bytes32 asset, uint amount) {
+    function unpackAmount(Execution memory exec) internal pure returns (bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Amount);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Amount);
         (asset, amount) = Blocks.unpackAmount(abs);
     }
 
     /// @notice Decode one AMOUNT block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded asset and amount.
-    function unpackAmountValue(Execution memory exec, uint8 lane) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.amount) = unpackAmount(exec, lane);
+    function unpackAmountValue(Execution memory exec) internal pure returns (AssetAmount memory value) {
+        (value.asset, value.amount) = unpackAmount(exec);
     }
 
-    /// @notice Decode and consume one BALANCE block from `lane`.
+    /// @notice Decode and consume one BALANCE block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded balance amount.
-    function unpackBalance(Execution memory exec, uint8 lane) internal pure returns (bytes32 asset, uint amount) {
+    function unpackBalance(Execution memory exec) internal pure returns (bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Balance);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Balance);
         (asset, amount) = Blocks.unpackBalance(abs);
     }
 
     /// @notice Decode one BALANCE block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded asset and balance amount.
-    function unpackBalanceValue(Execution memory exec, uint8 lane) internal pure returns (AssetAmount memory value) {
-        (value.asset, value.amount) = unpackBalance(exec, lane);
+    function unpackBalanceValue(Execution memory exec) internal pure returns (AssetAmount memory value) {
+        (value.asset, value.amount) = unpackBalance(exec);
     }
 
-    /// @notice Decode and consume one DEBT block from `lane`.
-    function unpackDebt(Execution memory exec, uint8 lane) internal pure returns (bytes32 liability, uint debt) {
+    /// @notice Decode and consume one DEBT block from the active lane.
+    function unpackDebt(Execution memory exec) internal pure returns (bytes32 liability, uint debt) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Debt);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Debt);
         (liability, debt) = Blocks.unpackDebt(abs);
     }
 
     /// @notice Decode one DEBT block into its structured value.
-    function unpackDebtValue(Execution memory exec, uint8 lane) internal pure returns (Debt memory value) {
-        (value.liability, value.debt) = unpackDebt(exec, lane);
+    function unpackDebtValue(Execution memory exec) internal pure returns (Debt memory value) {
+        (value.liability, value.debt) = unpackDebt(exec);
     }
 
-    /// @notice Decode and consume one POSITION block from `lane`.
-    function unpackPosition(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    /// @notice Decode and consume one POSITION block from the active lane.
+    function unpackPosition(Execution memory exec) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Position);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Position);
         (asset, amount, liability, debt) = Blocks.unpackPosition(abs);
     }
 
     /// @notice Decode one POSITION block into its structured value.
-    function unpackPositionValue(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (Position memory value) {
-        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(exec, lane);
+    function unpackPositionValue(Execution memory exec) internal pure returns (Position memory value) {
+        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(exec);
     }
 
     /// @notice Decode one BALANCE block and associate it with `host`.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @param host Host associated with the decoded balance.
     /// @return value Host-scoped asset amount.
     function unpackBalanceForHost(
         Execution memory exec,
-        uint8 lane,
         uint host
     ) internal pure returns (HostAmount memory value) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Balance);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Balance);
         value.host = host;
         (value.asset, value.amount) = Blocks.unpackBalance(abs);
     }
 
-    /// @notice Decode and consume one ACCOUNT_AMOUNT block from `lane`.
+    /// @notice Decode and consume one ACCOUNT_AMOUNT block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return account Decoded account identifier.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded amount.
-    function unpackAccountAmount(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
+    function unpackAccountAmount(Execution memory exec) internal pure returns (bytes32 account, bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B96);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B96);
         (account, asset, amount) = Blocks.unpackAccountAmount(abs);
     }
 
     /// @notice Decode one ACCOUNT_AMOUNT block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded account, asset, and amount.
-    function unpackAccountAmountValue(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (AccountAmount memory value) {
-        (value.account, value.asset, value.amount) = unpackAccountAmount(exec, lane);
+    function unpackAccountAmountValue(Execution memory exec) internal pure returns (AccountAmount memory value) {
+        (value.account, value.asset, value.amount) = unpackAccountAmount(exec);
     }
 
-    /// @notice Decode and consume one ALLOCATION block from `lane`.
+    /// @notice Decode and consume one ALLOCATION block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return host Decoded host identifier.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded amount.
-    function unpackAllocation(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+    function unpackAllocation(Execution memory exec) internal pure returns (uint host, bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B96);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B96);
         (host, asset, amount) = Blocks.unpackAllocation(abs);
     }
 
     /// @notice Decode one ALLOCATION block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded host, asset, and amount.
-    function unpackAllocationValue(Execution memory exec, uint8 lane) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.amount) = unpackAllocation(exec, lane);
+    function unpackAllocationValue(Execution memory exec) internal pure returns (HostAmount memory value) {
+        (value.host, value.asset, value.amount) = unpackAllocation(exec);
     }
 
-    /// @notice Decode and consume one ALLOWANCE block from `lane`.
+    /// @notice Decode and consume one ALLOWANCE block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return host Decoded host identifier.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded allowance amount.
-    function unpackAllowance(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+    function unpackAllowance(Execution memory exec) internal pure returns (uint host, bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B96);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B96);
         (host, asset, amount) = Blocks.unpackAllowance(abs);
     }
 
     /// @notice Decode one ALLOWANCE block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded host, asset, and allowance amount.
-    function unpackAllowanceValue(Execution memory exec, uint8 lane) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.amount) = unpackAllowance(exec, lane);
+    function unpackAllowanceValue(Execution memory exec) internal pure returns (HostAmount memory value) {
+        (value.host, value.asset, value.amount) = unpackAllowance(exec);
     }
 
-    /// @notice Decode and consume one CUSTODY block from `lane`.
+    /// @notice Decode and consume one CUSTODY block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return host Decoded host identifier.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded custody amount.
-    function unpackCustody(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint host, bytes32 asset, uint amount) {
+    function unpackCustody(Execution memory exec) internal pure returns (uint host, bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B96);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B96);
         (host, asset, amount) = Blocks.unpackCustody(abs);
     }
 
     /// @notice Decode one CUSTODY block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded host, asset, and custody amount.
-    function unpackCustodyValue(Execution memory exec, uint8 lane) internal pure returns (HostAmount memory value) {
-        (value.host, value.asset, value.amount) = unpackCustody(exec, lane);
+    function unpackCustodyValue(Execution memory exec) internal pure returns (HostAmount memory value) {
+        (value.host, value.asset, value.amount) = unpackCustody(exec);
     }
 
-    /// @notice Decode and consume one HOST_ACCOUNT_ASSET block from `lane`.
+    /// @notice Decode and consume one HOST_ACCOUNT_ASSET block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return host Decoded host identifier.
     /// @return account Decoded account identifier.
     /// @return asset Decoded asset identifier.
-    function unpackHostAccountAsset(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint host, bytes32 account, bytes32 asset) {
+    function unpackHostAccountAsset(Execution memory exec) internal pure returns (uint host, bytes32 account, bytes32 asset) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.B96);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.B96);
         (host, account, asset) = Blocks.unpackHostAccountAsset(abs);
     }
 
     /// @notice Decode one HOST_ACCOUNT_ASSET block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded host, account, and asset.
-    function unpackHostAccountAssetValue(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (HostAccountAsset memory value) {
-        (value.host, value.account, value.asset) = unpackHostAccountAsset(exec, lane);
+    function unpackHostAccountAssetValue(Execution memory exec) internal pure returns (HostAccountAsset memory value) {
+        (value.host, value.account, value.asset) = unpackHostAccountAsset(exec);
     }
 
-    /// @notice Decode and consume one TRANSACTION block from `lane`.
+    /// @notice Decode and consume one TRANSACTION block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return from Decoded debit account.
     /// @return to Decoded credit account.
     /// @return asset Decoded asset identifier.
     /// @return amount Decoded transaction amount.
-    function unpackTransaction(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
+    function unpackTransaction(Execution memory exec) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
         uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(lane, Sizes.Transaction);
+        (exec.decoders, abs) = exec.decoders.consume(Sizes.Transaction);
         (from, to, asset, amount) = Blocks.unpackTransaction(abs);
     }
 
     /// @notice Decode one TRANSACTION block into its structured value.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return value Decoded transaction.
-    function unpackTransactionValue(Execution memory exec, uint8 lane) internal pure returns (Tx memory value) {
-        (value.from, value.to, value.asset, value.amount) = unpackTransaction(exec, lane);
+    function unpackTransactionValue(Execution memory exec) internal pure returns (Tx memory value) {
+        (value.from, value.to, value.asset, value.amount) = unpackTransaction(exec);
     }
 
     // -------------------------------------------------------------------------
     // Dynamic block decoding
     // -------------------------------------------------------------------------
 
-    /// @notice Decode and consume a block described by `spec` from `lane`.
+    /// @notice Decode and consume a block described by `spec` from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @param spec Expected block specification.
     /// @return data Calldata view of the decoded payload.
-    function unpackRaw(Execution memory exec, uint8 lane, uint spec) internal pure returns (bytes calldata data) {
-        uint cur = exec.decoders.select(lane);
+    function unpackRaw(Execution memory exec, uint spec) internal pure returns (bytes calldata data) {
+        uint cur = exec.decoders;
         uint end;
         (data, end) = Blocks.unpackRaw(cur.absolute(), spec);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one BYTES block from `lane`.
+    /// @notice Decode and consume one BYTES block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return data Decoded byte payload.
-    function unpackBytes(Execution memory exec, uint8 lane) internal pure returns (bytes calldata data) {
-        uint cur = exec.decoders.select(lane);
+    function unpackBytes(Execution memory exec) internal pure returns (bytes calldata data) {
+        uint cur = exec.decoders;
         uint end;
         (data, end) = Blocks.unpackBytes(cur.absolute());
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one STRING block from `lane`.
+    /// @notice Decode and consume one STRING block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return data Decoded string payload.
-    function unpackString(Execution memory exec, uint8 lane) internal pure returns (string memory data) {
-        uint cur = exec.decoders.select(lane);
+    function unpackString(Execution memory exec) internal pure returns (string memory data) {
+        uint cur = exec.decoders;
         bytes calldata value;
         uint end;
         (value, end) = Blocks.unpackString(cur.absolute());
@@ -773,149 +616,113 @@ library Executions {
         data = string(value);
     }
 
-    /// @notice Decode and consume one STEP block from `lane`.
+    /// @notice Decode and consume one STEP block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return cmd Decoded command identifier.
-    /// @return resources Decoded packed resources.
+    /// @return value Decoded native value.
     /// @return input Decoded nested input.
-    function unpackStep(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint cmd, uint resources, bytes calldata input) {
-        uint cur = exec.decoders.select(lane);
+    function unpackStep(Execution memory exec) internal pure returns (uint cmd, uint128 value, bytes calldata input) {
+        uint cur = exec.decoders;
         uint end;
-        (cmd, resources, input, end) = Blocks.unpackStep(cur.absolute());
+        (cmd, value, input, end) = Blocks.unpackStep(cur.absolute());
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one CALL block from `lane`.
+    /// @notice Decode and consume one CALL block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return target Decoded call target.
     /// @return resources Decoded packed resources.
     /// @return data Decoded call payload.
-    function unpackCall(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint target, uint resources, bytes calldata data) {
-        uint cur = exec.decoders.select(lane);
+    function unpackCall(Execution memory exec) internal pure returns (uint target, uint resources, bytes calldata data) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (target, resources, data, end) = Blocks.unpackCall(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one ANNOTATION block from `lane`.
+    /// @notice Decode and consume one ANNOTATION block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return entity Decoded entity identifier.
     /// @return data Decoded annotation block stream.
-    function unpackAnnotation(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint entity, bytes calldata data) {
-        uint cur = exec.decoders.select(lane);
+    function unpackAnnotation(Execution memory exec) internal pure returns (uint entity, bytes calldata data) {
+        uint cur = exec.decoders;
         uint end;
         (entity, data, end) = Blocks.unpackAnnotation(cur.absolute());
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one CONTEXT block from `lane`.
+    /// @notice Decode and consume one CONTEXT block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return account Decoded account identifier.
     /// @return state Decoded nested state.
     /// @return input Decoded nested input.
-    function unpackContext(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input) {
-        uint cur = exec.decoders.select(lane);
+    function unpackContext(Execution memory exec) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (account, state, input, end) = Blocks.unpackContext(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one RELAY block from `lane`.
+    /// @notice Decode and consume one RELAY block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return portal Decoded destination portal.
     /// @return resources Decoded packed resources.
     /// @return input Decoded nested input.
-    function unpackRelay(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint portal, uint resources, bytes calldata input) {
-        uint cur = exec.decoders.select(lane);
+    function unpackRelay(Execution memory exec) internal pure returns (uint portal, uint resources, bytes calldata input) {
+        uint cur = exec.decoders;
         uint end;
         (portal, resources, input, end) = Blocks.unpackRelay(cur.absolute());
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one DISPATCH block from `lane`.
+    /// @notice Decode and consume one DISPATCH block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return portal Decoded destination portal.
     /// @return resources Decoded packed resources.
     /// @return payload Decoded dispatch payload.
-    function unpackDispatch(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
-        uint cur = exec.decoders.select(lane);
+    function unpackDispatch(Execution memory exec) internal pure returns (uint portal, uint resources, bytes calldata payload) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (portal, resources, payload, end) = Blocks.unpackDispatch(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one LABEL block from `lane`.
+    /// @notice Decode and consume one LABEL block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return namespace Decoded label namespace.
     /// @return name Decoded label text.
-    function unpackLabel(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (bytes32 namespace, string memory name) {
-        uint cur = exec.decoders.select(lane);
+    function unpackLabel(Execution memory exec) internal pure returns (bytes32 namespace, string memory name) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (namespace, name, end) = Blocks.unpackLabel(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one SCHEMA block from `lane`.
+    /// @notice Decode and consume one SCHEMA block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return spec Decoded block specification.
     /// @return body Decoded schema body.
     /// @return name Decoded schema name.
-    function unpackSchema(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint spec, string memory body, bytes32 name) {
-        uint cur = exec.decoders.select(lane);
+    function unpackSchema(Execution memory exec) internal pure returns (uint spec, string memory body, bytes32 name) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (spec, body, name, end) = Blocks.unpackSchema(abs);
         exec.decoders = cur.seekAbs(end);
     }
 
-    /// @notice Decode and consume one RECOVER block from `lane`.
+    /// @notice Decode and consume one RECOVER block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @param lane Decoder lane to consume.
     /// @return handler Decoded recovery handler.
     /// @return resources Decoded packed resources.
     /// @return key Decoded recovery key.
     /// @return witness Decoded recovery witness.
-    function unpackRecover(
-        Execution memory exec,
-        uint8 lane
-    ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
-        uint cur = exec.decoders.select(lane);
+    function unpackRecover(Execution memory exec) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
+        uint cur = exec.decoders;
         uint abs = cur.absolute();
         uint end;
         (handler, resources, key, witness, end) = Blocks.unpackRecover(abs);
@@ -932,8 +739,7 @@ library Executions {
     /// @param touch Number of bytes that must be addressable by the write.
     /// @return i Relative output offset reserved for the write.
     function reserve(Execution memory exec, uint amount, uint touch) internal pure returns (uint i) {
-        uint writers = exec.writers.select(Lanes.Output);
-        (exec.writers, exec.output, i) = Buffers.reserve(writers, exec.output, amount, touch);
+        (exec.writer, exec.output, i) = Buffers.reserve(exec.writer, exec.output, amount, touch);
     }
 
     /// @dev Reserve an exact number of output bytes.
@@ -941,7 +747,7 @@ library Executions {
     /// @param size Number of bytes to reserve and touch.
     /// @return i Relative output offset reserved for the write.
     function reserve(Execution memory exec, uint size) private pure returns (uint i) {
-        return reserve(exec, size, size);
+        (exec.writer, exec.output, i) = Buffers.reserve(exec.writer, exec.output, size, size);
     }
 
     /// @notice Append an empty block to execution output.
@@ -1224,12 +1030,12 @@ library Executions {
     /// @notice Append a STEP block to execution output.
     /// @param exec Execution receiving the block.
     /// @param cmd Command identifier to encode.
-    /// @param resources Packed resources to encode.
+    /// @param value Native value to encode.
     /// @param input Command input to encode.
-    function outputStep(Execution memory exec, uint cmd, uint resources, bytes memory input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    function outputStep(Execution memory exec, uint cmd, uint128 value, bytes memory input) internal pure {
+        uint size = Sizes.Step + input.length;
         uint i = reserve(exec, size);
-        Blocks.writeStep(exec.output, i, cmd, resources, input);
+        Blocks.writeStep(exec.output, i, cmd, value, input);
     }
 
     /// @notice Append a CALL block to execution output.
@@ -1361,10 +1167,10 @@ library Executions {
     }
 
     /// @notice Append a STEP block to execution output by copying its nested input from calldata.
-    function outputCopyStep(Execution memory exec, uint cmd, uint resources, bytes calldata input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    function outputCopyStep(Execution memory exec, uint cmd, uint128 value, bytes calldata input) internal pure {
+        uint size = Sizes.Step + input.length;
         uint i = reserve(exec, size);
-        Blocks.copyStep(exec.output, i, cmd, resources, input);
+        Blocks.copyStep(exec.output, i, cmd, value, input);
     }
 
     /// @notice Append a CALL block to execution output by copying its nested payload from calldata.
@@ -1414,7 +1220,7 @@ library Executions {
     }
 
     // -------------------------------------------------------------------------
-    // Value and transaction writing
+    // Value
     // -------------------------------------------------------------------------
 
     /// @notice Remove and return the remaining execution value budget.
@@ -1452,63 +1258,6 @@ library Executions {
         return uint128(useValue(exec, uint128(resources)));
     }
 
-    /// @notice Append a deferred transaction to the transaction writer lane.
-    /// @param exec Execution receiving the transaction.
-    /// @param from Debit account identifier.
-    /// @param to Credit account identifier.
-    /// @param asset Asset identifier.
-    /// @param amount Transaction amount.
-    function queueTransaction(
-        Execution memory exec,
-        bytes32 from,
-        bytes32 to,
-        bytes32 asset,
-        uint amount
-    ) internal pure {
-        uint i;
-        uint size = Sizes.Transaction;
-        uint writers = exec.writers.select(Lanes.Transactions);
-        (exec.writers, exec.transactions, i) = Buffers.reserve(writers, exec.transactions, size, size);
-        Blocks.writeTransaction(exec.transactions, i, from, to, asset, amount);
-    }
-
-    /// @notice Queue a transaction that debits `account`.
-    /// @param exec Execution receiving the transaction.
-    /// @param account Account to debit.
-    /// @param asset Asset to debit.
-    /// @param amount Amount to debit.
-    function queueDebit(Execution memory exec, bytes32 account, bytes32 asset, uint amount) internal pure {
-        queueTransaction(exec, account, bytes32(0), asset, amount);
-    }
-
-    /// @notice Queue a transaction that credits `account`.
-    /// @param exec Execution receiving the transaction.
-    /// @param account Account to credit.
-    /// @param asset Asset to credit.
-    /// @param amount Amount to credit.
-    function queueCredit(Execution memory exec, bytes32 account, bytes32 asset, uint amount) internal pure {
-        queueTransaction(exec, bytes32(0), account, asset, amount);
-    }
-
-    /// @notice Drain the remaining value budget and queue it as an account refund.
-    /// @dev Creates a one-transaction writer lane when the descriptor declared none.
-    /// @param exec Execution whose remaining budget is refunded.
-    /// @param account Account receiving the refund.
-    /// @param asset Asset identifier used for the refund transaction.
-    /// @return amount Value removed from the execution budget and queued for refund.
-    function refundValue(Execution memory exec, bytes32 account, bytes32 asset) internal pure returns (uint amount) {
-        amount = exec.budget;
-        if (amount == 0) return 0;
-
-        exec.budget = 0;
-        if (!exec.writers.contains(Lanes.Transactions)) {
-            uint refunds = Buffers.cursor(Sizes.Transaction, 1, false, Lanes.Transactions);
-            exec.writers = Cursors.pair(exec.writers, refunds);
-        }
-
-        queueCredit(exec, account, asset, amount);
-    }
-
     // -------------------------------------------------------------------------
     // Finalization
     // -------------------------------------------------------------------------
@@ -1517,19 +1266,32 @@ library Executions {
     /// @param exec Execution whose output is finalized.
     /// @return out Trimmed output bytes.
     function finish(Execution memory exec) internal pure returns (bytes memory out) {
+        if (exec.decoders.any()) revert UnconsumedData();
         if (exec.output.length == 0) return new bytes(0);
 
-        uint writers = exec.writers.select(Lanes.Output);
-        out = Buffers.finish(writers, exec.output);
+        out = Buffers.finish(exec.writer, exec.output);
     }
 
-    /// @notice Finalize and return queued execution transactions.
-    /// @param exec Execution whose transactions are finalized.
-    /// @return out Trimmed transaction bytes.
-    function finishTransactions(Execution memory exec) internal pure returns (bytes memory out) {
-        if (exec.transactions.length == 0) return new bytes(0);
-
-        uint writers = exec.writers.select(Lanes.Transactions);
-        out = Buffers.finish(writers, exec.transactions);
+    /// @notice Close an execution and return its output and remaining budget.
+    /// @param exec Execution whose lanes, writer, and budget are finalized.
+    /// @return output Final encoded output block stream.
+    /// @return credit Remaining native value to credit to the caller's budget.
+    function close(Execution memory exec) internal pure returns (bytes memory output, uint credit) {
+        return close(exec, 0);
     }
+
+    /// @notice Close an execution and combine its remaining budget with additional command credit.
+    /// @param exec Execution whose lanes, writer, and budget are finalized.
+    /// @param extraCredit Additional trusted credit produced by the command.
+    /// @return output Final encoded output block stream.
+    /// @return credit Remaining execution budget plus `extraCredit`.
+    function close(
+        Execution memory exec,
+        uint extraCredit
+    ) internal pure returns (bytes memory output, uint credit) {
+        output = finish(exec);
+        credit = exec.budget + extraCredit;
+        exec.budget = 0;
+    }
+
 }

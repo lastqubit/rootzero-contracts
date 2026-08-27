@@ -32,6 +32,8 @@ pragma solidity ^0.8.33;
 // - `resources` fields are chain-specific resource words. A portal adapter
 //   interprets them for the destination runtime. EVM resources use the low
 //   128 bits as native value.
+// - STEP encodes native `value` directly as uint128; it does not carry a
+//   chain-specific resources word
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
 // - `at N` assigns an offchain presentation position to one sibling; explicit
@@ -84,6 +86,7 @@ library Schemas {
     string constant Account = "bytes32 account";
     string constant Asset = "bytes32 asset";
     string constant Status = "uint code";
+    string constant Cashout = "uint amount";
 
     // Two-word payloads
 
@@ -95,6 +98,7 @@ library Schemas {
 
     // Three-word payloads
 
+    string constant Bootstrap = "bytes32 asset, uint amount, uint budget";
     string constant Allocation = "uint host, bytes32 asset, uint amount";
     string constant Allowance = "uint host, bytes32 asset, uint amount";
     string constant Custody = "uint host, bytes32 asset, uint amount";
@@ -110,8 +114,8 @@ library Schemas {
 
     // Composite payloads
 
+    string constant Step = "uint cmd, uint128 value, #bytes as input";
     string constant Call = "uint target, uint resources, #bytes as payload";
-    string constant Step = "uint cmd, uint resources, #bytes as input";
     string constant Relay = "uint portal, uint resources, #bytes as input";
     string constant Dispatch = "uint portal, uint resources, #bytes as payload";
     string constant Context = "bytes32 account, #bytes as state, #bytes as input";

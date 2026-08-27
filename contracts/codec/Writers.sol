@@ -8,8 +8,7 @@ import {Sizes, Specs} from "./Specs.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
 struct Writer {
-    /// @dev Packed cursor metadata. `len` is logical capacity and flag bit 0
-    /// indicates whether the backing buffer may grow.
+    /// @dev Packed cursor metadata. `len` is the current logical capacity.
     uint cur;
     /// @dev Destination buffer. Physical capacity may be padded up to a full 32-byte word;
     /// final length is set to the packed write position by `finish`.
@@ -30,22 +29,18 @@ library Writers {
 
     /// @notice Initialize writer metadata without allocating a backing buffer.
     /// @param len Initial logical byte capacity of the writer.
-    /// @param growable Whether append helpers may expand the capacity.
     /// @return writer Unallocated writer positioned at index 0.
-    function init(uint len, bool growable) internal pure returns (Writer memory writer) {
-        writer.cur = Buffers.cursor(len, 0, growable, 0);
+    function init(uint len) internal pure returns (Writer memory writer) {
+        writer.cur = Buffers.cursor(len, 0, 0);
     }
 
     /// @notice Initialize writer metadata for `groups` of blocks described by `spec`.
     /// @param spec Packed block key, payload bounds, allocation hint, and flags.
     /// @param groups Number of descriptor groups the writer is expected to encode.
-    /// @return writer Unallocated writer with capacity derived from the specification,
-    /// or an inert empty writer when its capacity is zero.
+    /// @return writer Unallocated writer with initial capacity derived from the specification.
     function init(uint spec, uint groups) internal pure returns (Writer memory writer) {
-        (uint capacity, bool growable) = Specs.allocation(spec, groups);
-        if (capacity == 0) return writer;
-
-        writer.cur = Buffers.cursor(capacity, Specs.count(spec, groups), growable, 0);
+        uint capacity = Specs.allocation(spec, groups);
+        writer.cur = Buffers.cursor(capacity, Specs.stride(Specs.normalize(spec)), 0);
     }
 
     // -------------------------------------------------------------------------
@@ -66,7 +61,7 @@ library Writers {
     /// @param size Number of bytes to reserve and touch.
     /// @return i Relative offset reserved for the write.
     function reserve(Writer memory writer, uint size) private pure returns (uint i) {
-        return reserve(writer, size, size);
+        (writer.cur, writer.dst, i) = Buffers.reserve(writer.cur, writer.dst, size, size);
     }
 
     // -------------------------------------------------------------------------
@@ -417,12 +412,12 @@ library Writers {
     /// @notice Append a STEP block.
     /// @param writer Destination writer.
     /// @param cmd Command identifier to encode.
-    /// @param resources Packed resources to encode.
+    /// @param value Native value to encode.
     /// @param input Command input to encode.
-    function appendStep(Writer memory writer, uint cmd, uint resources, bytes memory input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    function appendStep(Writer memory writer, uint cmd, uint128 value, bytes memory input) internal pure {
+        uint size = Sizes.Step + input.length;
         uint i = reserve(writer, size);
-        Blocks.writeStep(writer.dst, i, cmd, resources, input);
+        Blocks.writeStep(writer.dst, i, cmd, value, input);
     }
 
     /// @notice Append a CALL block.
@@ -566,10 +561,10 @@ library Writers {
     }
 
     /// @notice Append a STEP block by copying its nested input from calldata.
-    function copyStep(Writer memory writer, uint cmd, uint resources, bytes calldata input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    function copyStep(Writer memory writer, uint cmd, uint128 value, bytes calldata input) internal pure {
+        uint size = Sizes.Step + input.length;
         uint i = reserve(writer, size);
-        Blocks.copyStep(writer.dst, i, cmd, resources, input);
+        Blocks.copyStep(writer.dst, i, cmd, value, input);
     }
 
     /// @notice Append a CALL block by copying its nested payload from calldata.

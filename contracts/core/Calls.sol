@@ -135,17 +135,17 @@ abstract contract CommandCalls is NodeCalls {
     /// @param state Current command state block stream.
     /// @param input Command input block stream.
     /// @return nextState Decoded command output state block stream.
-    /// @return transactions Decoded command transaction block stream.
+    /// @return credit Trusted native value to add to the caller's execution budget.
     function callCommand(
         uint command,
         uint128 value,
         bytes32 account,
         bytes memory state,
         bytes calldata input
-    ) internal returns (bytes memory nextState, bytes memory transactions) {
+    ) internal returns (bytes memory nextState, uint credit) {
         bytes4 selector = Nodes.commandSelector(command);
         bytes memory data = encodeCommandCall(selector, account, state, input);
-        return abi.decode(trustedCall(command, value, data), (bytes, bytes));
+        return abi.decode(trustedCall(command, value, data), (bytes, uint));
     }
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
@@ -31,23 +31,23 @@ abstract contract RecoverPayable is CommandBase, RecoverPayableHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("recoverPayable", Specs.Empty, Specs.Recover, Specs.Empty, 0, Flags.Funded);
+        (, descriptor) = command("recoverPayable", Specs.Empty, Specs.Recover, Specs.Empty, Flags.Funded);
     }
 
     /// @notice Recover each recover block in the command input.
     /// @param context Command context carrying the RECOVER input stream.
     /// @return Empty output state.
-    /// @return Remaining native value as a refund transaction stream.
+    /// @return Native value to add to the caller's budget.
     function recoverPayable(
         bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external payable onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (uint handler, uint resources, bytes32 key, bytes calldata witness) = exec.unpackRecover(Lanes.Input);
+            (uint handler, uint resources, bytes32 key, bytes calldata witness) = exec.unpackRecover();
             recover(handler, resources, key, witness, exec);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

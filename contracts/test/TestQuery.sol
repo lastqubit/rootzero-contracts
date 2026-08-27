@@ -29,11 +29,11 @@ contract TestQuery is QueryBase {
     }
 
     function incrementQuery(bytes calldata input) external view returns (bytes memory out) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
         uint valueSpec = ValueSpec;
 
         while (exec.more()) {
-            uint foo = uint(exec.unpack32(Lanes.Input, valueSpec));
+            uint foo = uint(exec.unpack32(valueSpec));
             output32(exec, valueSpec, bytes32(foo + 1));
         }
 
@@ -55,11 +55,11 @@ contract TestKeyedLocalQuery is QueryBase {
     }
 
     function keyedLocalQuery(bytes calldata input) external view returns (bytes memory out) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
         uint valueSpec = ValueSpec;
 
         while (exec.more()) {
-            uint foo = uint(exec.unpack32(Lanes.Input, valueSpec));
+            uint foo = uint(exec.unpack32(valueSpec));
             output32(exec, valueSpec, bytes32(foo + 2));
         }
 

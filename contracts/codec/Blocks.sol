@@ -108,7 +108,12 @@ library Blocks {
     /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function expectKey(uint abs, bytes4 key) internal pure returns (uint body, uint end) {
-        uint len = header(abs, key);
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        if (uint32(head >> 224) != uint32(key)) revert InvalidBlock();
+        uint len = uint32(head >> 192);
         unchecked {
             body = abs + Sizes.Header;
             end = body + len;
@@ -192,6 +197,31 @@ library Blocks {
 
             unchecked {
                 ++total;
+            }
+        }
+    }
+
+    /// @notice Count consecutive blocks with `key` using a minimal hint-only scan.
+    /// @dev DANGER: This is not validation. It stops on a different key or when the
+    /// next declared block end exceeds `limit`; malformed or trailing data does not
+    /// revert. Use only for optional allocation hints whose result is later validated
+    /// by normal decoding and execution finalization.
+    /// @param abs Absolute start position.
+    /// @param limit Absolute region boundary.
+    /// @param key Block key forming the run.
+    /// @return total Number of complete consecutive matching blocks.
+    function runCount(uint abs, uint limit, bytes4 key) internal pure returns (uint total) {
+        uint expected = uint32(key);
+        assembly ("memory-safe") {
+            for { } lt(abs, limit) { } {
+                let head := calldataload(abs)
+                if iszero(eq(shr(224, head), expected)) { break }
+
+                let next := add(add(abs, 8), and(shr(192, head), 0xffffffff))
+                if gt(next, limit) { break }
+
+                abs := next
+                total := add(total, 1)
             }
         }
     }
@@ -350,6 +380,20 @@ library Blocks {
         }
     }
 
+    /// @notice Write a CASHOUT block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Cashout` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param amount Native-asset amount to withdraw.
+    function writeCashout(bytes memory dst, uint i, uint amount) internal pure {
+        uint spec = Specs.Cashout;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), amount)
+        }
+    }
+
     // Two-word payloads
 
     /// @notice Write an AMOUNT block at `i`.
@@ -433,6 +477,24 @@ library Blocks {
     }
 
     // Three-word payloads
+
+    /// @notice Write a BOOTSTRAP block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Bootstrap` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param asset Asset identifier to bootstrap.
+    /// @param amount Balance amount to source.
+    /// @param budget Native-value budget to source.
+    function writeBootstrap(bytes memory dst, uint i, bytes32 asset, uint amount, uint budget) internal pure {
+        uint spec = Specs.Bootstrap;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+            mstore(add(p, 0x48), budget)
+        }
+    }
 
     /// @notice Write an ALLOCATION block at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
@@ -697,19 +759,19 @@ library Blocks {
     /// @param dst Destination buffer.
     /// @param i Relative write position.
     /// @param cmd Command identifier.
-    /// @param resources Packed resources.
+    /// @param value Native value assigned to the step.
     /// @param input Command input.
-    function writeStep(bytes memory dst, uint i, uint cmd, uint resources, bytes memory input) internal pure {
-        uint len = 64 + Sizes.Header + input.length;
+    function writeStep(bytes memory dst, uint i, uint cmd, uint128 value, bytes memory input) internal pure {
+        uint len = 48 + Sizes.Header + input.length;
         uint key = uint32(Keys.Step);
         uint byteskey = uint32(Keys.Bytes);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, or(shl(224, key), shl(192, len)))
             mstore(add(p, 0x08), cmd)
-            mstore(add(p, 0x28), resources)
+            mstore(add(p, 0x28), shl(128, value))
 
-            let q := add(p, 0x48)
+            let q := add(p, 0x38)
             let inputlen := mload(input)
             mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
             mcopy(add(q, 0x08), add(input, 0x20), inputlen)
@@ -969,8 +1031,21 @@ library Blocks {
     }
 
     /// @notice Encode a STEP block at `i`, copying its nested input from calldata.
-    function copyStep(bytes memory dst, uint i, uint cmd, uint resources, bytes calldata input) internal pure {
-        copyComposite(dst, i, Keys.Step, cmd, resources, input);
+    function copyStep(bytes memory dst, uint i, uint cmd, uint128 value, bytes calldata input) internal pure {
+        uint len = max32(48 + Sizes.Header + input.length);
+        uint key = uint32(Keys.Step);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            mstore(add(p, 0x08), cmd)
+            mstore(add(p, 0x28), shl(128, value))
+
+            let q := add(p, 0x38)
+            let inputlen := input.length
+            mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
+            calldatacopy(add(q, 0x08), input.offset, inputlen)
+        }
     }
 
     /// @notice Encode a CALL block at `i`, copying its nested payload from calldata.
@@ -1342,11 +1417,9 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Account >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             account := calldataload(add(abs, 0x08))
         }
+        if (head >> 192 != Specs.Account >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width ASSET block at `abs`.
@@ -1356,11 +1429,9 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Asset >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             asset := calldataload(add(abs, 0x08))
         }
+        if (head >> 192 != Specs.Asset >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width NODE block at `abs`.
@@ -1370,11 +1441,9 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Node >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             node := calldataload(add(abs, 0x08))
         }
+        if (head >> 192 != Specs.Node >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width STATUS block at `abs`.
@@ -1384,11 +1453,21 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Status >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             code := calldataload(add(abs, 0x08))
         }
+        if (head >> 192 != Specs.Status >> 192) revert InvalidBlock();
+    }
+
+    /// @notice Decode a low-level fixed-width CASHOUT block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return amount Native-asset amount to withdraw.
+    function unpackCashout(uint abs) internal pure returns (uint amount) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            amount := calldataload(add(abs, 0x08))
+        }
+        if (head >> 192 != Specs.Cashout >> 192) revert InvalidBlock();
     }
 
     // Two-word payloads
@@ -1401,12 +1480,10 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Amount >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             asset := calldataload(add(abs, 0x08))
             amount := calldataload(add(abs, 0x28))
         }
+        if (head >> 192 != Specs.Amount >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width BALANCE block at `abs`.
@@ -1417,13 +1494,10 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Balance >> 192) revert InvalidBlock();
-
-        assembly ("memory-safe") {
             asset := calldataload(add(abs, 0x08))
             amount := calldataload(add(abs, 0x28))
         }
+        if (head >> 192 != Specs.Balance >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width DEBT block at `abs`.
@@ -1434,12 +1508,10 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Debt >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             liability := calldataload(add(abs, 0x08))
             debt := calldataload(add(abs, 0x28))
         }
+        if (head >> 192 != Specs.Debt >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width ACCOUNT_ASSET block at `abs`.
@@ -1450,15 +1522,29 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.AccountAsset >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             account := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
         }
+        if (head >> 192 != Specs.AccountAsset >> 192) revert InvalidBlock();
     }
 
     // Three-word payloads
+
+    /// @notice Decode a low-level fixed-width BOOTSTRAP block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return asset Decoded asset identifier.
+    /// @return amount Decoded balance amount.
+    /// @return budget Decoded native-value budget contribution.
+    function unpackBootstrap(uint abs) internal pure returns (bytes32 asset, uint amount, uint budget) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+            budget := calldataload(add(abs, 0x48))
+        }
+        if (head >> 192 != Specs.Bootstrap >> 192) revert InvalidBlock();
+    }
 
     /// @notice Decode a low-level fixed-width ALLOCATION block at `abs`.
     /// @param abs Absolute block position.
@@ -1469,13 +1555,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Allocation >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
             amount := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.Allocation >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width ALLOWANCE block at `abs`.
@@ -1487,13 +1571,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Allowance >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
             amount := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.Allowance >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width CUSTODY block at `abs`.
@@ -1505,13 +1587,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Custody >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
             amount := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.Custody >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width ACCOUNT_AMOUNT block at `abs`.
@@ -1523,13 +1603,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.AccountAmount >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             account := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
             amount := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.AccountAmount >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width HOST_AMOUNT block at `abs`.
@@ -1541,13 +1619,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.HostAmount >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
             amount := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.HostAmount >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width HOST_ACCOUNT_ASSET block at `abs`.
@@ -1559,13 +1635,11 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.HostAccountAsset >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             account := calldataload(add(abs, 0x28))
             asset := calldataload(add(abs, 0x48))
         }
+        if (head >> 192 != Specs.HostAccountAsset >> 192) revert InvalidBlock();
     }
 
     // Four-word payloads
@@ -1582,14 +1656,12 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Position >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             asset := calldataload(add(abs, 0x08))
             amount := calldataload(add(abs, 0x28))
             liability := calldataload(add(abs, 0x48))
             debt := calldataload(add(abs, 0x68))
         }
+        if (head >> 192 != Specs.Position >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width HOST_ASSET block at `abs`.
@@ -1600,12 +1672,10 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.HostAsset >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             asset := calldataload(add(abs, 0x28))
         }
+        if (head >> 192 != Specs.HostAsset >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width TRANSACTION block at `abs`.
@@ -1618,14 +1688,12 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.Transaction >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             from := calldataload(add(abs, 0x08))
             to := calldataload(add(abs, 0x28))
             asset := calldataload(add(abs, 0x48))
             amount := calldataload(add(abs, 0x68))
         }
+        if (head >> 192 != Specs.Transaction >> 192) revert InvalidBlock();
     }
 
     /// @notice Decode a low-level fixed-width HOST_ACCOUNT_AMOUNT block at `abs`.
@@ -1640,14 +1708,12 @@ library Blocks {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
-        }
-        if (head >> 192 != Specs.HostAccountAmount >> 192) revert InvalidBlock();
-        assembly ("memory-safe") {
             host := calldataload(add(abs, 0x08))
             account := calldataload(add(abs, 0x28))
             asset := calldataload(add(abs, 0x48))
             amount := calldataload(add(abs, 0x68))
         }
+        if (head >> 192 != Specs.HostAccountAmount >> 192) revert InvalidBlock();
     }
 
     // Dynamic leaf blocks
@@ -1657,7 +1723,16 @@ library Blocks {
     /// @return value Decoded list payload.
     /// @return end Absolute position after the block.
     function unpackList(uint abs) internal pure returns (bytes calldata value, uint end) {
-        return unpackRaw(abs, Keys.List);
+        uint head;
+        uint len;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            len := and(shr(192, head), 0xffffffff)
+            value.offset := add(abs, 0x08)
+            value.length := len
+        }
+        if (uint32(head >> 224) != uint32(Keys.List)) revert InvalidBlock();
+        end = abs + Sizes.Header + len;
     }
 
     /// @notice Decode one EVM payload and its absolute end position.
@@ -1665,7 +1740,16 @@ library Blocks {
     /// @return value Decoded EVM payload.
     /// @return end Absolute position after the block.
     function unpackEvm(uint abs) internal pure returns (bytes calldata value, uint end) {
-        return unpackRaw(abs, Keys.Evm);
+        uint head;
+        uint len;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            len := and(shr(192, head), 0xffffffff)
+            value.offset := add(abs, 0x08)
+            value.length := len
+        }
+        if (uint32(head >> 224) != uint32(Keys.Evm)) revert InvalidBlock();
+        end = abs + Sizes.Header + len;
     }
 
     /// @notice Decode one BYTES payload and its absolute end position.
@@ -1673,7 +1757,16 @@ library Blocks {
     /// @return value Decoded byte payload.
     /// @return end Absolute position after the block.
     function unpackBytes(uint abs) internal pure returns (bytes calldata value, uint end) {
-        return unpackRaw(abs, Keys.Bytes);
+        uint head;
+        uint len;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            len := and(shr(192, head), 0xffffffff)
+            value.offset := add(abs, 0x08)
+            value.length := len
+        }
+        if (uint32(head >> 224) != uint32(Keys.Bytes)) revert InvalidBlock();
+        end = abs + Sizes.Header + len;
     }
 
     /// @notice Decode one STRING payload and its absolute end position.
@@ -1681,20 +1774,15 @@ library Blocks {
     /// @return value Decoded string bytes.
     /// @return end Absolute position after the block.
     function unpackString(uint abs) internal pure returns (bytes calldata value, uint end) {
-        return unpackRaw(abs, Keys.String);
-    }
-
-    /// @dev Decode a dynamic leaf block after validating its key.
-    /// @param abs Absolute block position.
-    /// @param expected Expected block key.
-    /// @return value Decoded payload.
-    /// @return end Absolute position after the block.
-    function unpackRaw(uint abs, bytes4 expected) private pure returns (bytes calldata value, uint end) {
-        uint len = header(abs, expected);
+        uint head;
+        uint len;
         assembly ("memory-safe") {
+            head := calldataload(abs)
+            len := and(shr(192, head), 0xffffffff)
             value.offset := add(abs, 0x08)
             value.length := len
         }
+        if (uint32(head >> 224) != uint32(Keys.String)) revert InvalidBlock();
         end = abs + Sizes.Header + len;
     }
 
@@ -1743,19 +1831,19 @@ library Blocks {
     /// @notice Decode one STEP block and its nested input.
     /// @param abs Absolute block position.
     /// @return cmd Decoded command identifier.
-    /// @return resources Decoded packed resources.
+    /// @return value Decoded native value.
     /// @return input Decoded command input.
     /// @return end Absolute position after the block.
     function unpackStep(
         uint abs
-    ) internal pure returns (uint cmd, uint resources, bytes calldata input, uint end) {
+    ) internal pure returns (uint cmd, uint128 value, bytes calldata input, uint end) {
         uint limit;
         (abs, limit) = expectKey(abs, Keys.Step);
         assembly ("memory-safe") {
             cmd := calldataload(abs)
-            resources := calldataload(add(abs, 0x20))
+            value := shr(128, calldataload(add(abs, 0x20)))
         }
-        (input, end) = unpackBytes(abs + 64);
+        (input, end) = unpackBytes(abs + 48);
         if (end != limit) revert InvalidBlock();
     }
 
@@ -2021,6 +2109,24 @@ library Blocks {
 
     // Fixed-width factories
 
+    /// @notice Encode a BOOTSTRAP block.
+    /// @param asset Asset identifier.
+    /// @param amount Balance amount to source.
+    /// @param budget Native-value budget to source.
+    /// @return value Encoded BOOTSTRAP block bytes.
+    function createBootstrap(bytes32 asset, uint amount, uint budget) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Bootstrap);
+        writeBootstrap(value, 0, asset, amount, budget);
+    }
+
+    /// @notice Encode a CASHOUT block.
+    /// @param amount Native-asset amount to withdraw.
+    /// @return value Encoded CASHOUT block bytes.
+    function createCashout(uint amount) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Cashout);
+        writeCashout(value, 0, amount);
+    }
+
     /// @notice Encode an AMOUNT block.
     /// @param asset Asset identifier.
     /// @param amount Token amount.
@@ -2094,20 +2200,20 @@ library Blocks {
 
     /// @notice Encode a STEP block.
     /// @param cmd Command identifier.
-    /// @param resources Packed resources assigned to the step.
+    /// @param value Native value assigned to the step.
     /// @param input Raw nested input payload.
-    /// @return value Encoded STEP block bytes.
-    function createStep(uint cmd, uint resources, bytes memory input) internal pure returns (bytes memory value) {
-        uint len = max32(Sizes.B64 + Sizes.Header + input.length);
-        value = allocate(len);
-        writeStep(value, 0, cmd, resources, input);
+    /// @return encoded Encoded STEP block bytes.
+    function createStep(uint cmd, uint128 value, bytes memory input) internal pure returns (bytes memory encoded) {
+        uint len = max32(Sizes.Step + input.length);
+        encoded = allocate(len);
+        writeStep(encoded, 0, cmd, value, input);
     }
 
     /// @notice Encode a STEP block by copying its nested input from calldata.
-    function createStepCopy(uint cmd, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
-        uint len = max32(Sizes.B64 + Sizes.Header + input.length);
-        value = allocate(len);
-        copyStep(value, 0, cmd, resources, input);
+    function createStepCopy(uint cmd, uint128 value, bytes calldata input) internal pure returns (bytes memory encoded) {
+        uint len = max32(Sizes.Step + input.length);
+        encoded = allocate(len);
+        copyStep(encoded, 0, cmd, value, input);
     }
 
     /// @notice Encode a CALL block.
@@ -2214,5 +2320,87 @@ library Blocks {
         uint len = max32(Sizes.B96 + Sizes.Header + witness.length);
         value = allocate(len);
         copyRecover(value, 0, handler, resources, recoverykey, witness);
+    }
+}
+
+/// @title Memory
+/// @notice Fixed-stride decoding for homogeneous block streams held in memory.
+/// @dev The unpackers are intentionally unchecked beyond their exact header
+/// comparison. Callers must obtain bounds with `bounds`, advance by the matching
+/// complete encoded block size, and stop at the returned end position.
+library Memory {
+    uint64 private constant BalanceHeader = (uint64(uint32(Keys.Balance)) << 32) | 64;
+    uint64 private constant DebtHeader = (uint64(uint32(Keys.Debt)) << 32) | 64;
+    uint64 private constant PositionHeader = (uint64(uint32(Keys.Position)) << 32) | 128;
+    uint64 private constant TransactionHeader = (uint64(uint32(Keys.Transaction)) << 32) | 128;
+
+    /// @notice Return absolute bounds for a fixed-stride memory block stream.
+    /// @dev DANGER: Empty streams are valid and `size` must be nonzero. The size
+    /// must include the complete block header and payload.
+    /// @param source Memory block stream.
+    /// @param size Complete encoded size of each block.
+    /// @return abs Absolute memory position of the first block header.
+    /// @return end Absolute memory position immediately after the source.
+    function bounds(bytes memory source, uint size) internal pure returns (uint abs, uint end) {
+        uint len = source.length;
+        uint remainder;
+        assembly ("memory-safe") {
+            remainder := mod(len, size)
+            abs := add(source, 0x20)
+            end := add(abs, len)
+        }
+        if (remainder != 0) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode a BALANCE block at an in-bounds absolute memory position.
+    function unpackBalance(uint abs) internal pure returns (bytes32 asset, uint amount) {
+        uint64 actual;
+        assembly ("memory-safe") {
+            actual := shr(192, mload(abs))
+            asset := mload(add(abs, 0x08))
+            amount := mload(add(abs, 0x28))
+        }
+        if (actual != BalanceHeader) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode a DEBT block at an in-bounds absolute memory position.
+    function unpackDebt(uint abs) internal pure returns (bytes32 liability, uint debt) {
+        uint64 actual;
+        assembly ("memory-safe") {
+            actual := shr(192, mload(abs))
+            liability := mload(add(abs, 0x08))
+            debt := mload(add(abs, 0x28))
+        }
+        if (actual != DebtHeader) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode a POSITION block at an in-bounds absolute memory position.
+    function unpackPosition(
+        uint abs
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+        uint64 actual;
+        assembly ("memory-safe") {
+            actual := shr(192, mload(abs))
+            asset := mload(add(abs, 0x08))
+            amount := mload(add(abs, 0x28))
+            liability := mload(add(abs, 0x48))
+            debt := mload(add(abs, 0x68))
+        }
+        if (actual != PositionHeader) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode a TRANSACTION block at an in-bounds absolute memory position.
+    function unpackTransaction(
+        uint abs
+    ) internal pure returns (bytes32 from, bytes32 to, bytes32 asset, uint amount) {
+        uint64 actual;
+        assembly ("memory-safe") {
+            actual := shr(192, mload(abs))
+            from := mload(add(abs, 0x08))
+            to := mload(add(abs, 0x28))
+            asset := mload(add(abs, 0x48))
+            amount := mload(add(abs, 0x68))
+        }
+        if (actual != TransactionHeader) revert Blocks.InvalidBlock();
     }
 }

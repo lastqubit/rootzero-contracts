@@ -19,7 +19,7 @@ pragma solidity ^0.8.33;
 //   PAYMENT(asset | amount | STATUS())
 
 import {Host} from "../contracts/Core.sol";
-import {Blocks, CommandBase, Execution, Executions, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
+import {Blocks, CommandBase, Execution, Executions, Sizes, Specs} from "../contracts/Commands.sol";
 import {Keys} from "../contracts/Codec.sol";
 
 using Executions for Execution;
@@ -34,20 +34,19 @@ abstract contract MyCommand is CommandBase {
 
     constructor() {
         inputSpec = schema(1, uint32(64 + Sizes.Header), uint32(64 + Sizes.Status), uint32(64 + Sizes.Status), INPUT);
-        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Empty, 0);
     }
 
     function unpackPayment(
-        Execution memory exec,
-        uint8 lane
+        Execution memory exec
     ) private view returns (bytes32 asset, uint amount, uint status) {
-        (uint abs, uint end) = exec.enter(lane, inputSpec, 64);
+        (uint abs, uint end) = exec.enter(inputSpec, 64);
 
         asset = Blocks.read32(abs);
         amount = uint(Blocks.read32(abs + 32));
 
-        if (!exec.tryConsumeEmpty(lane, Keys.Status)) {
-            status = uint(exec.unpack32(lane, Specs.Status));
+        if (!exec.tryConsumeEmpty(Keys.Status)) {
+            status = uint(exec.unpack32(Specs.Status));
         }
 
         exec.expectAbs(end);
@@ -55,17 +54,17 @@ abstract contract MyCommand is CommandBase {
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         // The input can batch multiple payment blocks. Each one is decoded
         // with the command-local unpack helper above.
         while (exec.more()) {
-            (bytes32 asset, uint amount, uint status) = unpackPayment(exec, Lanes.Input);
+            (bytes32 asset, uint amount, uint status) = unpackPayment(exec);
             emit PaymentSeen(asset, amount, status);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 

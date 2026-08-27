@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @title Annotate
@@ -12,23 +12,23 @@ abstract contract Annotate is AdminBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("annotate", Specs.Empty, Specs.Annotation, Specs.Empty, 0, Flags.Admin);
+        (, descriptor) = command("annotate", Specs.Empty, Specs.Annotation, Specs.Empty, Flags.Admin);
     }
 
     /// @notice Publish each ANNOTATION block in the admin input.
     /// @param context Admin command context carrying the ANNOTATION input stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function annotate(
         bytes calldata context
-    ) external returns (bytes memory, bytes memory) {
-        Execution memory exec = openAdminCommand(context, descriptor, 0);
+    ) external returns (bytes memory, uint) {
+        Execution memory exec = openAdminCommand(context, descriptor);
 
         while (exec.more()) {
-            (uint entity, bytes calldata data) = exec.unpackAnnotation(Lanes.Input);
+            (uint entity, bytes calldata data) = exec.unpackAnnotation();
             emit Annotation(entity, data);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

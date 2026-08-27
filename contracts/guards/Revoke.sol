@@ -5,7 +5,7 @@ import {AllowanceHook} from "../commands/admin/Allowance.sol";
 import {DenyAssetsHook} from "../commands/admin/DenyAssets.sol";
 import {GuardBase} from "./Base.sol";
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 using Executions for Execution;
 
 /// @title Revoke
@@ -21,10 +21,10 @@ abstract contract Revoke is GuardBase {
 
     /// @notice Revoke every NODE block in `input` as the active guardian.
     function revoke(bytes calldata input) external onlyGuardian {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
 
         while (exec.more()) {
-            uint node = exec.unpackNode(Lanes.Input);
+            uint node = exec.unpackNode();
             setNode(node, false);
         }
     }
@@ -42,10 +42,10 @@ abstract contract RevokeAllowance is GuardBase, AllowanceHook {
 
     /// @notice Revoke every HOST_ASSET allowance in `input` as the active guardian.
     function revokeAllowance(bytes calldata input) external onlyGuardian {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
 
         while (exec.more()) {
-            (uint peer, bytes32 asset) = exec.unpackHostAsset(Lanes.Input);
+            (uint peer, bytes32 asset) = exec.unpackHostAsset();
             allowance(peer, asset, 0);
         }
     }
@@ -63,10 +63,10 @@ abstract contract RevokeAsset is GuardBase, DenyAssetsHook {
 
     /// @notice Deny every ASSET block in `input` as the active guardian.
     function revokeAsset(bytes calldata input) external onlyGuardian {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
 
         while (exec.more()) {
-            bytes32 asset = exec.unpackAsset(Lanes.Input);
+            bytes32 asset = exec.unpackAsset();
             denyAsset(asset);
         }
     }

@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Decoders, Cur, Readers, Reader} from "../Codec.sol";
-import {PostHook} from "./Settlement.sol";
-import {Budgets} from "../execution/Budget.sol";
-
-using Decoders for Cur;
-using Readers for Reader;
+import {Blocks} from "../codec/Blocks.sol";
+import {Cursors} from "../utils/Cursors.sol";
+import {InsufficientValue, OutOfBounds} from "../utils/Errors.sol";
 
 /// @notice Hook implemented by hosts that execute encoded step streams.
 abstract contract PipeHook {
@@ -21,28 +18,28 @@ abstract contract PipeHook {
 
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
-abstract contract Pipeline is PipeHook, PostHook {
+abstract contract Pipeline is PipeHook {
     /// @dev Thrown when the pipeline finishes with non-empty threaded state.
     error UnexpectedState();
 
     /// @notice Override to dispatch one piped step.
     /// Called once per STEP block. The returned state becomes the state passed to
     /// the next step, and the final returned state must be empty. Returned
-    /// transactions are decoded and passed individually to `post` before the next step runs.
+    /// credit is added to the shared native-value budget before the next step runs.
     /// @param cmd Command node ID to invoke or handle.
     /// @param account Account identifier for the piped context.
     /// @param state Current threaded state block stream.
     /// @param input Step input block stream.
     /// @param value Native EVM value assigned to this step.
     /// @return output Updated state block stream for the next step.
-    /// @return transactions Transaction block stream produced by the command.
+    /// @return credit Trusted native value to add to the pipeline budget.
     function dispatch(
         uint cmd,
         bytes32 account,
         bytes memory state,
         bytes calldata input,
         uint128 value
-    ) internal virtual returns (bytes memory output, bytes memory transactions);
+    ) internal virtual returns (bytes memory output, uint credit);
 
     /// @notice Execute a STEP block stream through the pipeline.
     /// @dev Reverts with `UnexpectedState` if the final threaded state is non-empty.
@@ -58,19 +55,21 @@ abstract contract Pipeline is PipeHook, PostHook {
         bytes calldata steps,
         uint budget
     ) internal virtual override returns (uint remaining) {
-        Cur memory cur = Decoders.open(steps);
+        (uint abs, uint end) = Cursors.bounds(steps);
 
-        while (cur.more()) {
-            (uint cmd, uint resources, bytes calldata input) = cur.unpackStep();
+        while (abs < end) {
+            uint cmd;
             uint128 value;
-            (budget, value) = Budgets.useResourceValue(budget, resources);
-            Reader memory txs;
-            (state, txs.source) = dispatch(cmd, account, state, input, value);
-
-            while (txs.more()) {
-                (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
-                post(from, to, asset, amount);
+            bytes calldata input;
+            (cmd, value, input, abs) = Blocks.unpackStep(abs);
+            if (abs > end) revert OutOfBounds();
+            if (value > budget) revert InsufficientValue();
+            unchecked {
+                budget -= value;
             }
+            uint credit;
+            (state, credit) = dispatch(cmd, account, state, input, value);
+            budget += credit;
         }
 
         if (state.length != 0) revert UnexpectedState();

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Specs} from "./Base.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 using Executions for Execution;
@@ -25,24 +25,24 @@ abstract contract Withdraw is CommandBase, WithdrawHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("withdraw", Specs.Balance, Specs.Empty, Specs.Empty, 0, 0);
+        (id, descriptor) = command("withdraw", Specs.Balance, Specs.Empty, Specs.Empty, 0);
         action(id, Actions.Withdraw);
     }
 
     /// @notice Withdraw each BALANCE block from the command state to the command account.
     /// @param context Command context carrying the BALANCE state stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function withdraw(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
+            (bytes32 asset, uint amount) = exec.unpackBalance();
             withdraw(exec.account, asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

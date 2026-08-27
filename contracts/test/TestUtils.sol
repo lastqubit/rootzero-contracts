@@ -8,7 +8,9 @@ import { Nodes } from "../utils/Nodes.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, ensureContract, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
 import { CommanderAccess, enforceSender } from "../core/Access.sol";
-import { Execution } from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
+
+using Executions for Execution;
 
 contract TestUtils is CommandBase, CommanderAccess {
     constructor() CommanderAccess(address(0)) {}
@@ -272,11 +274,21 @@ contract TestUtils is CommandBase, CommanderAccess {
     function testValueTransaction(
         uint remaining,
         bytes32 account
-    ) external returns (bytes memory transaction, uint remainingAfter) {
+    ) external returns (uint credit, uint remainingAfter) {
         Execution memory exec;
         exec.account = account;
         exec.budget = remaining;
-        (, transaction) = closeCommand(exec);
+        (, credit) = exec.close();
+        remainingAfter = exec.budget;
+    }
+
+    function testCloseWithCredit(
+        uint remaining,
+        uint extraCredit
+    ) external returns (uint credit, uint remainingAfter) {
+        Execution memory exec;
+        exec.budget = remaining;
+        (, credit) = exec.close(extraCredit);
         remainingAfter = exec.budget;
     }
 

@@ -62,9 +62,9 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
         bytes memory state,
         bytes calldata,
         uint128 value
-    ) internal override returns (bytes memory nextState, bytes memory transactions) {
+    ) internal override returns (bytes memory nextState, uint credit) {
         emit StepDispatched(cid, stepCount++, value);
-        return (state, "");
+        return (state, 0);
     }
 
     function getAdminAccount() external view returns (bytes32) { return admin; }

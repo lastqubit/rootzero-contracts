@@ -5,7 +5,7 @@ import {PortBase} from "./Base.sol";
 import {AllowAssetsHook} from "../commands/admin/AllowAssets.sol";
 import {DenyAssetsHook} from "../commands/admin/DenyAssets.sol";
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
@@ -23,10 +23,10 @@ abstract contract AllowAssetsPort is PortBase, AllowAssetsHook {
     /// @param data ASSET block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portAllowAssets(bytes calldata data) external onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor, 0);
+        Execution memory exec = openInput(data, descriptor);
 
         while (exec.more()) {
-            bytes32 asset = exec.unpackAsset(Lanes.Input);
+            bytes32 asset = exec.unpackAsset();
             allowAsset(asset);
         }
 
@@ -48,10 +48,10 @@ abstract contract DenyAssetsPort is PortBase, DenyAssetsHook {
     /// @param data ASSET block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portDenyAssets(bytes calldata data) external onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor, 0);
+        Execution memory exec = openInput(data, descriptor);
 
         while (exec.more()) {
-            bytes32 asset = exec.unpackAsset(Lanes.Input);
+            bytes32 asset = exec.unpackAsset();
             denyAsset(asset);
         }
 
@@ -86,11 +86,11 @@ abstract contract RequestAssetPort is PortBase, RequestAssetHook {
     /// @param data AMOUNT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portRequestAsset(bytes calldata data) external onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor, 0);
+        Execution memory exec = openInput(data, descriptor);
         uint peer = caller();
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
             requestAsset(peer, asset, amount);
         }
 

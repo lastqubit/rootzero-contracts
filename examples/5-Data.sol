@@ -10,7 +10,7 @@ pragma solidity ^0.8.33;
 // fixed `host` ID followed by an
 // AMOUNT child block in its tail.
 
-import {Blocks, CommandBase, Execution, Executions, HostAmount, Lanes, Sizes, Specs} from "../contracts/Commands.sol";
+import {Blocks, CommandBase, Execution, Executions, HostAmount, Sizes, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 
@@ -22,31 +22,30 @@ abstract contract MyCommand is CommandBase {
     constructor() {
         uint32 size = uint32(32 + Sizes.Amount);
         inputSpec = schema(1, size, INPUT, bytes32(0));
-        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, inputSpec, Specs.Custody, 0);
     }
 
     // sendToHost is the virtual hook implementers override to move the asset.
     function sendToHost(uint host, bytes32 asset, uint amount) internal virtual;
 
     function unpackInput(
-        Execution memory exec,
-        uint8 lane
+        Execution memory exec
     ) private view returns (uint peer, bytes32 asset, uint amount) {
-        (uint abs, uint end) = exec.enter(lane, inputSpec, 32);
+        (uint abs, uint end) = exec.enter(inputSpec, 32);
 
         peer = uint(Blocks.read32(abs));
-        (asset, amount) = exec.unpackAmount(lane);
+        (asset, amount) = exec.unpackAmount();
 
         exec.expectAbs(end);
     }
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (uint targetHost, bytes32 asset, uint amount) = unpackInput(exec, Lanes.Input);
+            (uint targetHost, bytes32 asset, uint amount) = unpackInput(exec);
 
             // Delegate to the implementer to move the asset to the selected host.
             sendToHost(targetHost, asset, amount);
@@ -55,6 +54,6 @@ abstract contract MyCommand is CommandBase {
             exec.outputCustody(HostAmount({host: targetHost, asset: asset, amount: amount}));
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

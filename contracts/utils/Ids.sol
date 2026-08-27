@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {InvalidId, InvalidPreimage} from "./Errors.sol";
+
 /// @title Ids
 /// @notice Shared helpers for the protocol-wide 256-bit ID convention.
 ///
@@ -10,11 +12,6 @@ pragma solidity ^0.8.33;
 /// Opaque keccak preimages start with `0x01`, and the ID is derived as:
 ///   `0x00 || bytes31(keccak256(preimage))`
 library Ids {
-    /// @dev Thrown when an ID does not match the expected convention.
-    error InvalidId();
-    /// @dev Thrown when an opaque ID preimage is missing or uses an unsupported format/hash tag.
-    error InvalidPreimage();
-
     /// @dev Preimage format/hash tag for keccak256-derived opaque IDs.
     uint8 constant Keccak = 0x01;
 

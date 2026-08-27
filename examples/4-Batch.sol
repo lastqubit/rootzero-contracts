@@ -9,7 +9,7 @@ pragma solidity ^0.8.33;
 //
 // Execution owns the response buffer and grows it through output helpers.
 
-import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Commands.sol";
+import {CommandBase, Execution, Executions, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 
@@ -17,25 +17,25 @@ abstract contract MyCommand is CommandBase {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0);
     }
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
+    ) external onlyCommand returns (bytes memory, uint) {
         // Open and validate both descriptor lanes and initialize the output buffer.
-        Execution memory exec = openCommand(context, descriptor, 0);
+        Execution memory exec = openCommand(context, descriptor);
 
         // Walk every AMOUNT block in the current input run.
         while (exec.more()) {
             // Unpack asset and amount from the next AMOUNT block.
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
 
             // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 

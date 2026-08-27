@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Specs} from "./Base.sol";
 import {DebitAccountHook} from "../core/Settlement.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Sizes} from "../codec/Specs.sol";
-import {Decoders} from "../codec/Decoders.sol";
-import {Cur} from "../utils/Cursors.sol";
+import {Cursors} from "../utils/Cursors.sol";
 
 using Executions for Execution;
-using Decoders for Cur;
 
 /// @title DebitAccount
 /// @notice Command that deducts AMOUNT blocks from an account and emits matching BALANCE state.
@@ -20,7 +18,7 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("debitAccount", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
+        (id, descriptor) = command("debitAccount", Specs.Empty, Specs.Amount, Specs.Balance, 0);
     }
 
     /// @notice Return the registered DEBIT_ACCOUNT command ID.
@@ -31,26 +29,26 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     /// @notice Debit AMOUNT input blocks from the command account and output matching BALANCE blocks.
     /// @param context Command context carrying the AMOUNT input stream.
     /// @return BALANCE block stream matching the debited amounts.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function debitAccount(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
             debitAccount(exec.account, asset, amount);
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
 /// @title DebitAccountInternal
-/// @notice Extends the advertised debit-account command with memory-state pipeline dispatch.
+/// @notice Extends the advertised debit-account command with optimized pipeline dispatch.
 /// @dev This adapter is not a separate command. It uses the command ID and account hook
-/// inherited from `DebitAccount` while accepting the state location used by `Pipeline`.
+/// inherited from `DebitAccount` while decoding its fixed-stride input directly from calldata.
 abstract contract DebitAccountInternal is DebitAccount {
     /// @notice Execute the inherited debit-account command from an internal pipeline.
     /// @param account Account whose funds are debited.
@@ -58,26 +56,32 @@ abstract contract DebitAccountInternal is DebitAccount {
     /// @param input AMOUNT block stream.
     /// @param value Native value assigned to the command; must be zero.
     /// @return output BALANCE block stream matching the debited amounts.
-    /// @return transactions Empty transaction stream.
+    /// @return credit Zero native budget credit.
     function executeDebitAccount(
         bytes32 account,
         bytes memory state,
         bytes calldata input,
         uint128 value
-    ) internal returns (bytes memory, bytes memory) {
+    ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
         if (state.length != 0) revert Executions.ZeroStride();
-        Cur memory cur = Decoders.open(input);
+        if (input.length == 0) revert Blocks.EmptyRun();
+        if (input.length % Sizes.Amount != 0) revert Blocks.InvalidBlock();
+
+        (uint abs, uint end) = Cursors.bounds(input);
         bytes memory output = new bytes(input.length);
         uint i;
 
-        while (cur.more()) {
-            (bytes32 asset, uint amount) = cur.unpackAmount();
+        while (abs < end) {
+            (bytes32 asset, uint amount) = Blocks.unpackAmount(abs);
             debitAccount(account, asset, amount);
             Blocks.writeBalance(output, i, asset, amount);
-            i += Sizes.Balance;
+            unchecked {
+                abs += Sizes.Amount;
+                i += Sizes.Balance;
+            }
         }
 
-        return (output, "");
+        return (output, 0);
     }
 }

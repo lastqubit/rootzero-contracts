@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 import {QueryBase} from "./Base.sol";
 
 using Executions for Execution;
@@ -32,10 +32,10 @@ abstract contract GetBalances is QueryBase, GetBalancesHook {
     /// @param input Block-stream input consisting of `accountAsset(account, asset)*`.
     /// @return Block-stream response containing one `accountAmount(account, asset, amount)` block per input block.
     function getBalances(bytes calldata input) external view returns (bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
 
         while (exec.more()) {
-            (bytes32 account, bytes32 asset) = exec.unpackAccountAsset(Lanes.Input);
+            (bytes32 account, bytes32 asset) = exec.unpackAccountAsset();
             uint amount = getBalance(account, asset);
             exec.outputAccountAmount(account, asset, amount);
         }

@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {InvalidContract, NotDivisible, ValueOverflow, ZeroAddress} from "./Errors.sol";
+
 // Basis-points denominator: 10_000 BPS == 100.00%.
 uint16 constant MAX_BPS = 10_000;
-
-/// @dev Thrown by max* helpers when a value exceeds the target integer width.
-error ValueOverflow();
-/// @dev Thrown by `divisible` when `n` is not evenly divisible by `divisor`.
-error NotDivisible();
-/// @dev Thrown when an ID claims to carry an address but the embedded address is zero.
-error ZeroAddress();
-/// @dev Thrown when an address does not contain deployed bytecode.
-error InvalidContract();
 
 /// @notice Assert that `value` fits in uint8 and return it as uint8.
 function max8(uint value) pure returns (uint8) {

@@ -7,6 +7,8 @@ import {Label} from "../annotations/Label.sol";
 import {Schema} from "../annotations/Schema.sol";
 import {Descriptors} from "../codec/Descriptors.sol";
 
+using Descriptors for uint;
+
 /// @title EndpointBase
 /// @notice Shared endpoint metadata helpers.
 abstract contract EndpointBase is EndpointEvent, Label, Schema {
@@ -16,7 +18,6 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
     /// @param state State block specification.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param transactions Number of transaction blocks produced per batch, or zero for none.
     /// @param flags Packed endpoint behavior flags.
     /// @return descriptor Packed endpoint lane metadata and flags.
     function endpoint(
@@ -25,10 +26,9 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
         uint state,
         uint input,
         uint output,
-        uint8 transactions,
         uint8 flags
     ) internal returns (uint descriptor) {
-        descriptor = Descriptors.create(state, input, output, transactions, flags);
+        descriptor = Descriptors.create(state, input, output, flags);
         return endpoint(id, name, descriptor);
     }
 
@@ -56,12 +56,12 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
 /// Commands intentionally do not inherit this base because they must open state
 /// and input together through `openCommand`.
 abstract contract InputEndpointBase is EndpointBase {
-    /// @notice Open an endpoint input stream with an expected batch count.
+    /// @notice Open a bounded endpoint input stream.
     function openInput(
         bytes calldata input,
-        uint descriptor,
-        uint batches
+        uint descriptor
     ) internal view returns (Execution memory exec) {
-        return Executions.openInput(input, descriptor, batches);
+        exec.budget = msg.value;
+        (exec.decoders, exec.writer) = descriptor.openInput(input);
     }
 }

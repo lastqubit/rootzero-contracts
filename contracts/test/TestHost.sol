@@ -3,6 +3,8 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Allocate } from "../commands/Allocate.sol";
+import { BootstrapInternal } from "../commands/Bootstrap.sol";
+import { CashoutInternal } from "../commands/Cashout.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
 import { CreditAccountInternal } from "../commands/Credit.sol";
@@ -21,15 +23,15 @@ import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
 import { RevokeAllowance, RevokeAsset } from "../guards/Revoke.sol";
 import { HostAmount } from "../core/Types.sol";
-import { Reader, Readers } from "../Codec.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
 
-using Readers for Reader;
 using Executions for Execution;
 
 contract TestHost is
     Host,
     Allocate,
+    BootstrapInternal,
+    CashoutInternal,
     Deposit,
     DepositPayable,
     Withdraw,
@@ -57,6 +59,8 @@ contract TestHost is
     RevokeAsset
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
+    event BootstrapBudgetCalled(bytes32 account, uint amount);
+    event CashoutCalled(bytes32 account, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
     event WithdrawCalled(bytes32 account, bytes32 asset, uint amount);
@@ -99,6 +103,15 @@ contract TestHost is
 
     function allocate(bytes32 account, HostAmount memory custody) internal override {
         emit AllocateCalled(custody.host, account, custody.asset, custody.amount);
+    }
+
+    function bootstrapBudget(bytes32 account, uint amount) internal override {
+        if (amount == 0) return;
+        emit BootstrapBudgetCalled(account, amount);
+    }
+
+    function cashout(bytes32 account, uint amount) internal override {
+        emit CashoutCalled(account, amount);
     }
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -180,10 +193,11 @@ contract TestHost is
         uint portal,
         uint resources,
         bytes32 account,
+        bytes calldata state,
         bytes calldata input,
-        Execution memory exec
+        Execution memory
     ) internal override {
-        emit RelayCalled(portal, resources, account, exec.rawState(), input);
+        emit RelayCalled(portal, resources, account, state, input);
     }
 
     function recover(
@@ -214,8 +228,14 @@ contract TestHost is
         bytes memory state,
         bytes calldata input,
         uint128 value
-    ) internal override returns (bytes memory nextState, bytes memory transactions) {
+    ) internal override returns (bytes memory nextState, uint credit) {
         emit StepDispatched(cid, stepCount++, value);
+        if (cid == bootstrapId()) {
+            return executeBootstrap(account, state, input, value);
+        }
+        if (cid == cashoutId()) {
+            return executeCashout(account, state, input, value);
+        }
         if (cid == debitAccountId()) {
             return executeDebitAccount(account, state, input, value);
         }
@@ -228,8 +248,8 @@ contract TestHost is
         if (cid == repayId()) {
             return executeRepay(account, state, input, value);
         }
-        if (cid == type(uint).max) return (state, input);
-        return (state, "");
+        if (cid == type(uint).max) return (state, 123);
+        return (state, 0);
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {
@@ -237,12 +257,9 @@ contract TestHost is
         exec.account = account;
         uint budget = exec.drainBudget();
         exec.budget = pipe(account, state, steps, budget);
-        Reader memory txs;
-        (, txs.source) = closeCommand(exec);
-        while (txs.more()) {
-            (bytes32 from, bytes32 to, bytes32 asset, uint amount) = txs.unpackTransaction();
-            post(from, to, asset, amount);
-        }
+        uint credit;
+        (, credit) = exec.close();
+        post(bytes32(0), account, nativeAsset, credit);
     }
 
     function getAdminAccount() external view returns (bytes32) {

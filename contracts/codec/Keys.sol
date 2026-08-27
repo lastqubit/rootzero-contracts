@@ -11,6 +11,10 @@ library Keys {
     bytes4 constant Empty = bytes4(0);
     /// @dev Input amount - (bytes32 asset, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
+    /// @dev Native-asset cashout request - (uint amount)
+    bytes4 constant Cashout = bytes4(keccak256("#cashout"));
+    /// @dev Pipeline bootstrap request - (bytes32 asset, uint amount, uint budget)
+    bytes4 constant Bootstrap = bytes4(keccak256("#bootstrap"));
     /// @dev Ledger balance - (bytes32 asset, uint amount)
     bytes4 constant Balance = bytes4(keccak256("#balance"));
     /// @dev Liability-only debt state - (bytes32 liability, uint debt)
@@ -35,7 +39,7 @@ library Keys {
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
-    /// @dev Sub-command invocation - (uint cmd, uint resources, #bytes as input)
+    /// @dev Sub-command invocation - (uint cmd, uint128 value, #bytes as input)
     bytes4 constant Step = bytes4(keccak256("#step"));
     /// @dev Portal relay input - (uint portal, uint resources, #bytes as input)
     bytes4 constant Relay = bytes4(keccak256("#relay"));

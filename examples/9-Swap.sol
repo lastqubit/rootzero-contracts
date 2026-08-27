@@ -24,7 +24,7 @@ pragma solidity ^0.8.33;
 //   }
 
 import {Host, Schema} from "../contracts/Core.sol";
-import {Blocks, CommandBase, Cur, Decoders, Execution, Executions, Lanes, Position, Specs} from "../contracts/Commands.sol";
+import {Blocks, CommandBase, Cur, Decoders, Execution, Executions, Position, Specs} from "../contracts/Commands.sol";
 
 using Decoders for Cur;
 using Executions for Execution;
@@ -77,17 +77,16 @@ abstract contract SwapInput is Schema {
     }
 
     function unpackSwap(
-        Execution memory exec,
-        uint8 lane
+        Execution memory exec
     ) internal view returns (Position memory position, SwapContext memory context, Cur memory hops) {
-        (uint abs, uint end) = exec.enter(lane, swapSpec, 40);
+        (uint abs, uint end) = exec.enter(swapSpec, 40);
 
         context.fee = uint32(Blocks.read4(abs));
         context.tickSpacing = int32(uint32(Blocks.read4(abs + 4)));
         context.hook = uint(Blocks.read32(abs + 8));
-        context.hookData = exec.unpackBytes(lane);
-        position = exec.unpackPositionValue(lane);
-        hops = exec.list(lane);
+        context.hookData = exec.unpackBytes();
+        position = exec.unpackPositionValue();
+        hops = exec.list();
 
         exec.expectAbs(end);
     }
@@ -97,7 +96,7 @@ abstract contract SwapCommand is CommandBase, SwapHopInput, SwapInput {
     uint private immutable descriptor;
 
     constructor() SwapHopInput(2) SwapInput(1) {
-        (, descriptor) = command("swap", Specs.Empty, swapSpec, Specs.Empty, 0, 0);
+        (, descriptor) = command("swap", Specs.Empty, swapSpec, Specs.Empty, 0);
     }
 
     function swap(Position memory, SwapContext memory, Cur memory hops) internal virtual {
@@ -106,15 +105,15 @@ abstract contract SwapCommand is CommandBase, SwapHopInput, SwapInput {
 
     function swap(
         bytes calldata commandContext
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(commandContext, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(commandContext, descriptor);
 
         while (exec.more()) {
-            (Position memory position, SwapContext memory context, Cur memory hops) = unpackSwap(exec, Lanes.Input);
+            (Position memory position, SwapContext memory context, Cur memory hops) = unpackSwap(exec);
             swap(position, context, hops);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 

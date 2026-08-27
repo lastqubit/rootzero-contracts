@@ -6,19 +6,17 @@ import {EndpointBase} from "../core/Endpoint.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
 import {HostAmount, Position} from "../core/Types.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
-import {ReceivedEvent} from "../events/Received.sol";
-import {Actions} from "../utils/Actions.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 import {Descriptors, Flags} from "../codec/Descriptors.sol";
 import {Nodes} from "../utils/Nodes.sol";
-import {Cursors} from "../utils/Cursors.sol";
 
 using Executions for Execution;
+using Descriptors for uint;
 
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
 /// Provides access control modifiers and command endpoint metadata helpers.
-abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
+abstract contract CommandBase is CallerAccess, EndpointBase {
     /// @dev Thrown when `onlyActive` finds that `deadline` has already passed.
     error Expired();
     /// @dev Thrown when a non-funded internal command receives native value.
@@ -43,7 +41,6 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
     /// @param state State block specification.
     /// @param input Input block specification.
     /// @param output Output block specification.
-    /// @param transactions Number of transaction blocks produced per batch, or zero for none.
     /// @param flags Packed command behavior flags.
     /// @return id Command node ID.
     /// @return descriptor Packed endpoint lane metadata and flags.
@@ -52,10 +49,9 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         uint state,
         uint input,
         uint output,
-        uint8 transactions,
         uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(state, input, output, transactions, flags);
+        descriptor = Descriptors.create(state, input, output, flags);
         return command(name, descriptor);
     }
 
@@ -70,55 +66,24 @@ abstract contract CommandBase is CallerAccess, EndpointBase, ReceivedEvent {
         published = endpoint(id, name, descriptor);
     }
 
-    /// @notice Decode the command ABI argument as exactly one complete CONTEXT block.
+    /// @notice Decode one command context and open bounded state and input lanes.
     /// @dev Rejects empty input, trailing bytes, and additional context blocks.
-    function unpackCommandContext(
-        bytes calldata context
-    ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input) {
+    /// The command's decode and loop implementation defines lane semantics.
+    /// Closing requires both lanes to have been consumed completely.
+    /// @param context Exactly one CONTEXT block carrying the account, state, and input.
+    /// @param descriptor Packed command endpoint descriptor.
+    /// @return exec Execution with a resizable output writer initialized from its descriptor hint.
+    function openCommand(bytes calldata context, uint descriptor) internal view returns (Execution memory exec) {
         uint abs;
         assembly ("memory-safe") {
             abs := context.offset
         }
 
-        uint end;
-        (account, state, input, end) = Blocks.unpackContext(abs);
+        (bytes32 account, bytes calldata state, bytes calldata input, uint end) = Blocks.unpackContext(abs);
         if (end != abs + context.length) revert Blocks.InvalidBlock();
-    }
 
-    /// @notice Decode one command context and validate both lanes, including lanes declared EMPTY.
-    /// Batches are derived from the input and state lanes. A non-empty stream for
-    /// a lane whose descriptor has zero stride reverts instead of being ignored.
-    /// Commands must account for the complete validated state by consuming it,
-    /// transforming and returning it, forwarding it intact, or reverting.
-    /// @param context Exactly one CONTEXT block carrying the account, state, and input.
-    /// @param descriptor Packed command endpoint descriptor.
-    /// @param batches Required batch count, or zero to reconcile the lane counts.
-    /// @return exec Execution with its output buffer metadata initialized for the reconciled batch count.
-    function openCommand(
-        bytes calldata context,
-        uint descriptor,
-        uint batches
-    ) internal view returns (Execution memory exec) {
-        (bytes32 account, bytes calldata state, bytes calldata input) = unpackCommandContext(context);
-        exec = Executions.open(state, input, descriptor, batches);
+        (exec.decoders, exec.writer) = descriptor.open(state, input);
         exec.account = account;
-    }
-
-    /// @notice Close a command execution and refund unspent value to its account.
-    /// @param exec Command execution to close.
-    /// @return output Final encoded output block stream.
-    /// @return transactions Final encoded transaction block stream.
-    function closeCommand(
-        Execution memory exec
-    ) internal returns (bytes memory output, bytes memory transactions) {
-        if (exec.budget == 0 && Cursors.initial(exec.writers)) return ("", "");
-
-        output = close(exec);
-        uint amount = exec.refundValue(exec.account, nativeAsset);
-        if (amount != 0) {
-            emit Received(exec.account, nativeAsset, amount, Actions.Refund, 0);
-        }
-
-        transactions = exec.finishTransactions();
+        exec.budget = msg.value;
     }
 }

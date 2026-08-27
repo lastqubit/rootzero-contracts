@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import { Accounts } from "../utils/Accounts.sol";
 import { Assets } from "../utils/Assets.sol";
+import {InvalidAsset} from "../utils/Errors.sol";
 import { GetBalances } from "../queries/Balances.sol";
 
 contract TestErc20BalanceToken {
@@ -33,6 +34,6 @@ contract TestBalancesQuery is GetBalances {
         address accountAddr = Accounts.addr(account);
         if (asset == nativeAsset) return accountAddr.balance;
         if (asset == tokenAsset) return token.balanceOf(accountAddr);
-        revert Assets.InvalidAsset();
+        revert InvalidAsset();
     }
 }

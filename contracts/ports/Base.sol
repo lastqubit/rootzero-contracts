@@ -41,7 +41,7 @@ abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
         uint output,
         uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(Specs.Empty, input, output, 0, flags);
+        descriptor = Descriptors.create(Specs.Empty, input, output, flags);
         return port(name, descriptor);
     }
 

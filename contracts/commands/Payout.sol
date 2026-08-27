@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Specs} from "./Base.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 
@@ -26,24 +26,24 @@ abstract contract Payout is CommandBase, PayoutHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0, 0);
+        (id, descriptor) = command("payout", Specs.Balance, Specs.Account, Specs.Empty, 0);
         action(id, Actions.Payout);
     }
 
     /// @notice Pay out BALANCE state blocks to matching ACCOUNT input blocks.
     /// @param context Command context carrying BALANCE state and matching ACCOUNT input.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function payout(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackBalance(Lanes.State);
-            payout(exec.account, exec.unpackAccount(Lanes.Input), asset, amount);
+            (bytes32 asset, uint amount) = exec.onstate().unpackBalance();
+            payout(exec.account, exec.oninput().unpackAccount(), asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

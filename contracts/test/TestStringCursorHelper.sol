@@ -20,7 +20,7 @@ contract TestStringCursorHelper {
     }
 
     function testUnpackString(bytes calldata source) external pure returns (string memory data, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         data = cur.unpackString();
         (i, , ) = Cursors.decode(cur.state);
     }
@@ -28,7 +28,7 @@ contract TestStringCursorHelper {
     function testUnpackLabel(
         bytes calldata source
     ) external pure returns (bytes32 namespace, string memory name, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         (namespace, name) = cur.unpackLabel();
         (i, , ) = Cursors.decode(cur.state);
     }
@@ -36,7 +36,7 @@ contract TestStringCursorHelper {
     function testUnpackSchema(
         bytes calldata source
     ) external pure returns (uint spec, string memory body, bytes32 name, uint i) {
-        Cur memory cur = Decoders.wrap(source);
+        Cur memory cur = Decoders.open(source);
         (spec, body, name) = cur.unpackSchema();
         (i, , ) = Cursors.decode(cur.state);
     }

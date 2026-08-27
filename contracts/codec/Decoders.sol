@@ -5,6 +5,7 @@ import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAcc
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
+import {UnconsumedData} from "../utils/Errors.sol";
 
 using Decoders for Cur;
 
@@ -17,40 +18,11 @@ library Decoders {
     // Cur memory adapters
     // -------------------------------------------------------------------------
 
-    /// @notice Wrap a calldata source in an ungrouped cursor.
-    /// @param source Calldata region to wrap.
-    /// @return cur Cursor spanning the complete source.
-    function wrap(bytes calldata source) internal pure returns (Cur memory cur) {
-        cur.state = Cursors.wrap(source, 0, 0);
-    }
-
-    /// @notice Wrap the calldata tail beginning at relative position `i`.
-    /// @param source Calldata region containing the tail.
-    /// @param i Relative tail position.
-    /// @return cur Cursor spanning `source[i:]`.
-    function wrap(bytes calldata source, uint i) internal pure returns (Cur memory cur) {
-        cur.state = Cursors.wrap(source[i:], 0, 0);
-    }
-
-    /// @notice Open a non-empty calldata source as an ungrouped cursor.
+    /// @notice Open a calldata source without inspecting its contents.
     /// @param source Calldata region to open.
     /// @return cur Cursor spanning the complete source.
     function open(bytes calldata source) internal pure returns (Cur memory cur) {
-        if (source.length == 0) revert Blocks.EmptyRun();
-        cur.state = Cursors.wrap(source, 0, 0);
-    }
-
-    /// @notice Open the first homogeneous batch in `source`.
-    /// @param source Calldata block stream to open.
-    /// @return cur Counted cursor spanning the first homogeneous batch.
-    function batch(bytes calldata source) internal pure returns (Cur memory cur) {
-        (uint abs, uint limit) = Cursors.bounds(source);
-        if (abs == limit) revert Blocks.EmptyRun();
-
-        bytes4 key = bytes4(source);
-        (uint count, uint end) = Blocks.run(abs, limit, key);
-        if (count == 0) revert Blocks.EmptyRun();
-        cur.state = Cursors.create(abs, end - abs, count, 0, 0);
+        cur.state = Cursors.wrap(source, 0);
     }
 
     /// @notice Return whether `cur` has unread bytes.
@@ -58,6 +30,12 @@ library Decoders {
     /// @return Whether unread bytes remain.
     function more(Cur memory cur) internal pure returns (bool) {
         return cur.state.more();
+    }
+
+    /// @notice Require the complete decoder source to have been consumed.
+    /// @param cur Decoder cursor to close.
+    function close(Cur memory cur) internal pure {
+        if (cur.state.more()) revert UnconsumedData();
     }
 
     /// @notice Return the cursor's current absolute calldata position.
@@ -164,9 +142,9 @@ library Decoders {
     /// @param cur Cursor whose calldata is returned.
     /// @return Complete cursor region.
     function raw(Cur memory cur) internal pure returns (bytes calldata) {
-        (, uint offset, uint len) = cur.state.decode();
-        if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
-        return msg.data[offset:offset + len];
+        (uint abs, uint end) = cur.state.bounds();
+        if (end > msg.data.length) revert Blocks.MalformedBlocks();
+        return msg.data[abs:end];
     }
 
     /// @notice Return relative calldata range `[from, to)` from `cur`.
@@ -396,6 +374,26 @@ library Decoders {
         uint abs;
         (cur.state, abs) = cur.state.consume(Sizes.B32);
         node = Blocks.unpackNode(abs);
+    }
+
+    /// @notice Decode and consume one CASHOUT block.
+    /// @param cur Cursor advanced past the block.
+    /// @return amount Native-asset amount to withdraw.
+    function unpackCashout(Cur memory cur) internal pure returns (uint amount) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.Cashout);
+        amount = Blocks.unpackCashout(abs);
+    }
+
+    /// @notice Decode and consume one BOOTSTRAP block.
+    /// @param cur Cursor advanced past the block.
+    /// @return asset Decoded asset identifier.
+    /// @return amount Decoded balance amount.
+    /// @return budget Decoded native-value budget contribution.
+    function unpackBootstrap(Cur memory cur) internal pure returns (bytes32 asset, uint amount, uint budget) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.Bootstrap);
+        return Blocks.unpackBootstrap(abs);
     }
 
     /// @notice Decode and consume one ASSET block.
@@ -738,14 +736,14 @@ library Decoders {
     /// @notice Decode and consume one STEP block.
     /// @param cur Cursor advanced past the block.
     /// @return cmd Decoded command identifier.
-    /// @return resources Decoded packed resources.
+    /// @return value Decoded native value.
     /// @return input Decoded command input.
     function unpackStep(
         Cur memory cur
-    ) internal pure returns (uint cmd, uint resources, bytes calldata input) {
+    ) internal pure returns (uint cmd, uint128 value, bytes calldata input) {
         uint abs = cur.state.absolute();
         uint end;
-        (cmd, resources, input, end) = Blocks.unpackStep(abs);
+        (cmd, value, input, end) = Blocks.unpackStep(abs);
         cur.state = cur.state.seekAbs(end);
     }
 

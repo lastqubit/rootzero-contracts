@@ -11,7 +11,7 @@ pragma solidity ^0.8.33;
 //   2. Metadata defined in the constructor to announce the command to the protocol.
 //   3. The onlyCommand modifier on the entrypoint to enforce the trusted caller.
 
-import {CommandBase, Execution, Executions, Lanes, Specs} from "../contracts/Commands.sol";
+import {CommandBase, Execution, Executions, Specs} from "../contracts/Commands.sol";
 
 using Executions for Execution;
 
@@ -22,20 +22,20 @@ abstract contract MyCommand is CommandBase {
     constructor() {
         // Announce this command to the rootzero protocol.
         // Args: label, state, input, output, selector override, funded.
-        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
+        (, descriptor) = command("myCommand", Specs.Empty, Specs.Amount, Specs.Balance, 0);
     }
 
     function myCommand(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
+    ) external onlyCommand returns (bytes memory, uint) {
         // onlyCommand checks that msg.sender is the trusted runtime / commander host.
-        Execution memory exec = openCommand(context, descriptor, 1);
-        (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+        Execution memory exec = openCommand(context, descriptor);
+        (bytes32 asset, uint amount) = exec.unpackAmount();
 
         // Apply your app logic here (e.g. debit the account), then append a BALANCE block.
         exec.outputBalance(asset, amount);
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 

@@ -7,6 +7,12 @@ import {
     CommandBase,
     CreditAccountInternal,
     DebitAccountInternal,
+    Bootstrap,
+    BootstrapBudgetHook,
+    BootstrapInternal,
+    Cashout,
+    CashoutHook,
+    CashoutInternal,
     PipeHook as EndpointPipeHook,
     SettleInternal,
     Repay,
@@ -28,6 +34,7 @@ import {
 import {HostAsset as CodecHostAsset} from "../Codec.sol";
 import {Debt as CodecDebt} from "../Codec.sol";
 import {Flags as CodecFlags} from "../Codec.sol";
+import {Memory as CodecMemory} from "../Codec.sol";
 import {HostAsset as CommandHostAsset} from "../Commands.sol";
 import {Debt as CommandDebt} from "../Commands.sol";
 import {Flags as CommandFlags} from "../Commands.sol";

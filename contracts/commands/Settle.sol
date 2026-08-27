@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
 import {SettleHook} from "../core/Settlement.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
-import {Blocks} from "../codec/Blocks.sol";
-import {Reader, Readers} from "../codec/Readers.sol";
+import {Blocks, Memory} from "../codec/Blocks.sol";
+import {Sizes} from "../codec/Specs.sol";
 
 using Executions for Execution;
-using Readers for Reader;
 
 /// @notice Hook implemented by hosts that settle positions using native value.
 abstract contract SettlePayableHook {
@@ -37,7 +36,7 @@ abstract contract Settle is CommandBase, SettleHook, Action {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("settle", Specs.Position, Specs.Empty, Specs.Empty, 0, 0);
+        (id, descriptor) = command("settle", Specs.Position, Specs.Empty, Specs.Empty, 0);
         action(id, Actions.Settle);
     }
 
@@ -49,18 +48,18 @@ abstract contract Settle is CommandBase, SettleHook, Action {
     /// @notice Settle each POSITION block from the command state.
     /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function settle(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
+            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
             settle(exec.account, asset, amount, liability, debt);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -71,25 +70,25 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("settlePayable", Specs.Position, Specs.Empty, Specs.Empty, 0, Flags.Funded);
+        (id, descriptor) = command("settlePayable", Specs.Position, Specs.Empty, Specs.Empty, Flags.Funded);
         action(id, Actions.Settle);
     }
 
     /// @notice Settle each POSITION block with access to a shared native-value budget.
     /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
-    /// @return Remaining native value as a refund transaction stream.
+    /// @return Native value to add to the caller's budget.
     function settlePayable(
         bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external payable onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
+            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
             settle(exec.account, asset, amount, liability, debt, exec);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -104,23 +103,26 @@ abstract contract SettleInternal is Settle {
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to the command; must be zero.
     /// @return output Empty output state.
-    /// @return transactions Empty transaction stream.
+    /// @return credit Zero native budget credit.
     function executeSettle(
         bytes32 account,
         bytes memory state,
         bytes calldata input,
         uint128 value
-    ) internal returns (bytes memory, bytes memory) {
+    ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert Executions.ZeroStride();
         if (state.length == 0) revert Blocks.EmptyRun();
 
-        Reader memory reader = Readers.open(state);
-        while (reader.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = reader.unpackPosition();
+        (uint abs, uint end) = Memory.bounds(state, Sizes.Position);
+        while (abs < end) {
+            (bytes32 asset, uint amount, bytes32 liability, uint debt) = Memory.unpackPosition(abs);
             settle(account, asset, amount, liability, debt);
+            unchecked {
+                abs += Sizes.Position;
+            }
         }
 
-        return ("", "");
+        return ("", 0);
     }
 }

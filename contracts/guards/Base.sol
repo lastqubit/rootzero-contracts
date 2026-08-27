@@ -27,6 +27,6 @@ abstract contract GuardBase is GuardianAccess, InputEndpointBase {
         uint input
     ) internal returns (uint id, uint descriptor) {
         id = Nodes.toGuard(name, address(this));
-        descriptor = endpoint(id, name, Specs.Empty, input, Specs.Empty, 0, 0);
+        descriptor = endpoint(id, name, Specs.Empty, input, Specs.Empty, 0);
     }
 }

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
+import {InvalidId} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
@@ -20,9 +21,6 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 ///
 /// The helpers in this library validate and deconstruct structured node IDs.
 library Nodes {
-    /// @dev Thrown when an ID does not match the expected node type or chain.
-    error InvalidId();
-
     /// @dev 24-bit family tag shared by all node types (Evm + Node category).
     uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Node);
     /// @dev Full 4-byte type prefix for chain/domain nodes.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AdminBase, Execution, Executions, Flags, Lanes, Specs} from "./Base.sol";
+import {AdminBase, Execution, Executions, Flags, Specs} from "./Base.sol";
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that configure peer asset allowances.
@@ -23,23 +23,23 @@ abstract contract Allowance is AdminBase, AllowanceHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allowance", Specs.Empty, Specs.Allowance, Specs.Empty, 0, Flags.Admin);
+        (, descriptor) = command("allowance", Specs.Empty, Specs.Allowance, Specs.Empty, Flags.Admin);
     }
 
     /// @notice Apply each ALLOWANCE block in the admin input.
     /// @param context Admin command context carrying the ALLOWANCE input stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function allowance(
         bytes calldata context
-    ) external returns (bytes memory, bytes memory) {
-        Execution memory exec = openAdminCommand(context, descriptor, 0);
+    ) external returns (bytes memory, uint) {
+        Execution memory exec = openAdminCommand(context, descriptor);
 
         while (exec.more()) {
-            (uint peer, bytes32 asset, uint amount) = exec.unpackAllowance(Lanes.Input);
+            (uint peer, bytes32 asset, uint amount) = exec.unpackAllowance();
             allowance(peer, asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

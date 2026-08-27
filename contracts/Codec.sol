@@ -11,8 +11,7 @@ import { Descriptors, Flags } from "./codec/Descriptors.sol";
 import { Schemas } from "./codec/Schema.sol";
 import { Decoders } from "./codec/Decoders.sol";
 import { Cursors, Cur } from "./utils/Cursors.sol";
-import { Readers, Reader } from "./codec/Readers.sol";
-import { Blocks } from "./codec/Blocks.sol";
+import { Blocks, Memory } from "./codec/Blocks.sol";
 import { Buffers } from "./codec/Buffers.sol";
 import { Writer, Writers } from "./codec/Writers.sol";
 

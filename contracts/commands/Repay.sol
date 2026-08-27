@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
 import {RepayHook} from "../core/Settlement.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
-import {Blocks} from "../codec/Blocks.sol";
-import {Reader, Readers} from "../codec/Readers.sol";
+import {Blocks, Memory} from "../codec/Blocks.sol";
+import {Sizes} from "../codec/Specs.sol";
 
 using Executions for Execution;
-using Readers for Reader;
 
 /// @notice Hook implemented by hosts that repay liabilities using native value.
 abstract contract RepayPayableHook {
@@ -28,7 +27,7 @@ abstract contract Repay is CommandBase, RepayHook, Action {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("repay", Specs.Debt, Specs.Empty, Specs.Empty, 0, 0);
+        (id, descriptor) = command("repay", Specs.Debt, Specs.Empty, Specs.Empty, 0);
         action(id, Actions.Repay);
     }
 
@@ -40,18 +39,18 @@ abstract contract Repay is CommandBase, RepayHook, Action {
     /// @notice Repay each liability in the DEBT state stream.
     /// @param context Command context carrying the DEBT state stream.
     /// @return Empty output state.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function repay(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 liability, uint debt) = exec.unpackDebt(Lanes.State);
+            (bytes32 liability, uint debt) = exec.unpackDebt();
             repay(exec.account, liability, debt);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -62,25 +61,25 @@ abstract contract RepayPayable is CommandBase, RepayPayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("repayPayable", Specs.Debt, Specs.Empty, Specs.Empty, 0, Flags.Funded);
+        (id, descriptor) = command("repayPayable", Specs.Debt, Specs.Empty, Specs.Empty, Flags.Funded);
         action(id, Actions.Repay);
     }
 
     /// @notice Repay each liability in the DEBT state stream.
     /// @param context Command context carrying the DEBT state stream.
     /// @return Empty output state.
-    /// @return Remaining native value as a refund transaction stream.
+    /// @return Native value to add to the caller's budget.
     function repayPayable(
         bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external payable onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 liability, uint debt) = exec.unpackDebt(Lanes.State);
+            (bytes32 liability, uint debt) = exec.unpackDebt();
             repay(exec.account, liability, debt, exec);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -91,26 +90,26 @@ abstract contract RepayPosition is CommandBase, RepayHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("repayPosition", Specs.Position, Specs.Empty, Specs.Balance, 0, 0);
+        (id, descriptor) = command("repayPosition", Specs.Position, Specs.Empty, Specs.Balance, 0);
         action(id, Actions.Repay);
     }
 
     /// @notice Repay each POSITION liability and return its asset as BALANCE state.
     /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function repayPosition(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
+            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
             repay(exec.account, liability, debt);
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -122,7 +121,7 @@ abstract contract RepayPositionPayable is CommandBase, RepayPayableHook, Action 
     constructor() {
         uint id;
         (id, descriptor) = command(
-            "repayPositionPayable", Specs.Position, Specs.Empty, Specs.Balance, 0, Flags.Funded
+            "repayPositionPayable", Specs.Position, Specs.Empty, Specs.Balance, Flags.Funded
         );
         action(id, Actions.Repay);
     }
@@ -130,19 +129,19 @@ abstract contract RepayPositionPayable is CommandBase, RepayPayableHook, Action 
     /// @notice Repay each POSITION liability and return its asset as BALANCE state.
     /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
-    /// @return Remaining native value as a refund transaction stream.
+    /// @return Native value to add to the caller's budget.
     function repayPositionPayable(
         bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external payable onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition(Lanes.State);
+            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
             repay(exec.account, liability, debt, exec);
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -157,23 +156,26 @@ abstract contract RepayInternal is Repay {
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to the command; must be zero.
     /// @return output Empty output state.
-    /// @return transactions Empty transaction stream.
+    /// @return credit Zero native budget credit.
     function executeRepay(
         bytes32 account,
         bytes memory state,
         bytes calldata input,
         uint128 value
-    ) internal returns (bytes memory, bytes memory) {
+    ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert Executions.ZeroStride();
         if (state.length == 0) revert Blocks.EmptyRun();
 
-        Reader memory reader = Readers.open(state);
-        while (reader.more()) {
-            (bytes32 liability, uint debt) = reader.unpackDebt();
+        (uint abs, uint end) = Memory.bounds(state, Sizes.Debt);
+        while (abs < end) {
+            (bytes32 liability, uint debt) = Memory.unpackDebt(abs);
             repay(account, liability, debt);
+            unchecked {
+                abs += Sizes.Debt;
+            }
         }
 
-        return ("", "");
+        return ("", 0);
     }
 }

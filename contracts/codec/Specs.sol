@@ -21,8 +21,14 @@ library Sizes {
     uint constant B128 = Header + 4 * Word;
     /// @dev 8 header + 160 payload = 168 bytes total.
     uint constant B160 = Header + 5 * Word;
+    /// @dev Minimum STEP size: 8 header + 32 command + 16 value + 8 nested BYTES header.
+    uint constant Step = 2 * Header + Word + 16;
     /// @dev STATUS block: 8 header + 32 status code = 40 bytes
     uint constant Status = B32;
+    /// @dev CASHOUT block: 8 header + 32 native-asset amount = 40 bytes
+    uint constant Cashout = B32;
+    /// @dev BOOTSTRAP block: 8 header + 32 asset + 32 amount + 32 budget = 104 bytes
+    uint constant Bootstrap = B96;
     /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
     uint constant Amount = B64;
     /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
@@ -44,7 +50,7 @@ library Sizes {
 /// `[key:4][min:4][max:4][hint:3][stride:1][reserved:16]`.
 /// The upper eight bytes of a fixed-layout spec are its encoded block header,
 /// allowing the entire spec word to be written directly as that header.
-/// A maximum of zero means unbounded and requires a growable writer.
+/// A maximum of zero means the payload size is unbounded.
 library Specs {
     /// @dev A payload is incompatible with its block specification.
     error InvalidSpec();
@@ -58,11 +64,14 @@ library Specs {
     uint private constant Exact128 = 128 * SizeFields;
     uint private constant UnboundedHint128 = uint(128) << 136;
     uint private constant UnboundedMin40Hint256 = (uint(40) << 192) | (uint(256) << 136);
+    uint private constant UnboundedMin56Hint256 = (uint(56) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin72Hint256 = (uint(72) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin48Hint512 = (uint(48) << 192) | (uint(512) << 136);
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
 
     uint constant Empty = uint(bytes32(Keys.Empty));
+    uint constant Cashout = uint(bytes32(Keys.Cashout)) | Exact32;
+    uint constant Bootstrap = uint(bytes32(Keys.Bootstrap)) | Exact96;
     uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
     uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
     uint constant Debt = uint(bytes32(Keys.Debt)) | Exact64;
@@ -76,7 +85,7 @@ library Specs {
     uint constant String = uint(bytes32(Keys.String)) | UnboundedHint128;
     uint constant Account = uint(bytes32(Keys.Account)) | Exact32;
     uint constant Transaction = uint(bytes32(Keys.Transaction)) | Exact128;
-    uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin72Hint256;
+    uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin56Hint256;
     uint constant Relay = uint(bytes32(Keys.Relay)) | UnboundedMin72Hint256;
     uint constant Context = uint(bytes32(Keys.Context)) | UnboundedMin48Hint512;
     uint constant Recover = uint(bytes32(Keys.Recover)) | UnboundedMin104Hint256;
@@ -205,18 +214,19 @@ library Specs {
     /// @param groups Number of groups.
     /// @return Number of blocks across all groups.
     function count(uint spec, uint groups) internal pure returns (uint) {
-        return groups * stride(normalize(spec));
+        uint8 n = uint8(spec >> 128);
+        if (n == 0 && uint32(spec >> 224) != 0) n = 1;
+        return groups * n;
     }
 
-    /// @notice Return the buffer configuration for `groups` of `spec`.
-    /// @dev Dynamic specs use their allocation hint and a maximum of zero means growable.
+    /// @notice Return the initial buffer capacity for `groups` of `spec`.
     /// @param spec Packed block specification.
     /// @param groups Number of groups to allocate.
     /// @return capacity Initial encoded byte capacity.
-    /// @return growable Whether the buffer may grow beyond its initial capacity.
-    function allocation(uint spec, uint groups) internal pure returns (uint capacity, bool growable) {
-        capacity = count(spec, groups) * (Sizes.Header + uint24(spec >> 136));
-        growable = uint32(spec >> 160) == 0;
+    function allocation(uint spec, uint groups) internal pure returns (uint capacity) {
+        uint8 n = uint8(spec >> 128);
+        if (n == 0 && uint32(spec >> 224) != 0) n = 1;
+        capacity = groups * n * (Sizes.Header + uint24(spec >> 136));
     }
 
     /// @notice Return `spec` grouped with an explicit stride.

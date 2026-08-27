@@ -5,7 +5,7 @@ import {PortBase} from "./Base.sol";
 import {Flags} from "../codec/Descriptors.sol";
 import {PipeHook} from "../core/Pipeline.sol";
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
@@ -25,11 +25,11 @@ abstract contract PipePayablePort is PortBase, PipeHook {
     /// @param data CONTEXT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portPipePayable(bytes calldata data) external payable onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor, 0);
+        Execution memory exec = openInput(data, descriptor);
         uint budget = exec.drainBudget();
 
         while (exec.more()) {
-            (bytes32 account, bytes calldata state, bytes calldata input) = exec.unpackContext(Lanes.Input);
+            (bytes32 account, bytes calldata state, bytes calldata input) = exec.unpackContext();
             budget = pipe(account, state, input, budget);
         }
         

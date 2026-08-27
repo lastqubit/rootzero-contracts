@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, HostAmount, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, HostAmount, Specs} from "./Base.sol";
 
 using Executions for Execution;
 
@@ -24,24 +24,25 @@ abstract contract Allocate is CommandBase, AllocateHook {
     uint private immutable descriptor;
 
     constructor() {
-        (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0, 0);
+        (, descriptor) = command("allocate", Specs.Balance, Specs.Node, Specs.Custody, 0);
     }
 
     /// @notice Allocate BALANCE state blocks to matching NODE input blocks.
     /// @param context Command context carrying BALANCE state and matching NODE input.
     /// @return CUSTODY block stream matching the allocated balances.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function allocate(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            HostAmount memory custody = exec.unpackBalanceForHost(Lanes.State, exec.unpackNode(Lanes.Input));
+            uint host = exec.oninput().unpackNode();
+            HostAmount memory custody = exec.onstate().unpackBalanceForHost(host);
             allocate(exec.account, custody);
             exec.outputCustody(custody);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

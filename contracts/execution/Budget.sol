@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {InsufficientValue} from "../utils/Errors.sol";
+
 /// @notice Mutable native-value budget shared across internal calls.
 struct Budget {
     /// @dev Remaining unspent native value in wei.
@@ -10,9 +12,6 @@ struct Budget {
 /// @title Budgets
 /// @notice Opening and mutation helpers for standalone native-value budgets.
 library Budgets {
-    /// @dev Thrown when an operation attempts to spend more value than remains.
-    error InsufficientValue();
-
     /// @notice Open a standalone budget containing the current call value.
     /// @return budget Budget initialized with `msg.value`.
     function open() internal view returns (Budget memory budget) {

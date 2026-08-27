@@ -24,7 +24,7 @@ abstract contract QueryBase is InputEndpointBase {
         uint input,
         uint output
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(Specs.Empty, input, output, 0, 0);
+        descriptor = Descriptors.create(Specs.Empty, input, output, 0);
         return query(name, descriptor);
     }
 

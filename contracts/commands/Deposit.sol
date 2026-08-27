@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Flags, Lanes, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 
@@ -39,26 +39,26 @@ abstract contract Deposit is CommandBase, DepositHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0, 0);
+        (id, descriptor) = command("deposit", Specs.Empty, Specs.Amount, Specs.Balance, 0);
         action(id, Actions.Deposit);
     }
 
     /// @notice Deposit AMOUNT input blocks into the command account and output matching BALANCE blocks.
     /// @param context Command context carrying the AMOUNT input stream.
     /// @return BALANCE block stream matching the deposited amounts.
-    /// @return Empty transaction stream.
+    /// @return Zero native budget credit.
     function deposit(
         bytes calldata context
-    ) external onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
             deposit(exec.account, asset, amount);
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }
 
@@ -70,25 +70,25 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
 
     constructor() {
         uint id;
-        (id, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, 0, Flags.Funded);
+        (id, descriptor) = command("depositPayable", Specs.Empty, Specs.Amount, Specs.Balance, Flags.Funded);
         action(id, Actions.Deposit);
     }
 
     /// @notice Deposit AMOUNT input blocks with access to a mutable native-value budget.
     /// @param context Command context carrying the AMOUNT input stream.
     /// @return BALANCE block stream matching the deposited amounts.
-    /// @return Remaining native value as a refund transaction stream.
+    /// @return Native value to add to the caller's budget.
     function depositPayable(
         bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, bytes memory) {
-        Execution memory exec = openCommand(context, descriptor, 0);
+    ) external payable onlyCommand returns (bytes memory, uint) {
+        Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount(Lanes.Input);
+            (bytes32 asset, uint amount) = exec.unpackAmount();
             deposit(exec.account, asset, amount, exec);
             exec.outputBalance(asset, amount);
         }
 
-        return closeCommand(exec);
+        return exec.close();
     }
 }

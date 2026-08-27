@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 import {QueryBase} from "./Base.sol";
 
 using Executions for Execution;
@@ -31,10 +31,10 @@ abstract contract AssetStatus is QueryBase, AssetStatusHook {
     /// @param input Block-stream input consisting of `asset { bytes32 asset }` blocks.
     /// @return Block-stream response containing one `status { uint code }` form block per asset block.
     function assetStatus(bytes calldata input) external view returns (bytes memory) {
-        Execution memory exec = openInput(input, descriptor, 0);
+        Execution memory exec = openInput(input, descriptor);
 
         while (exec.more()) {
-            bytes32 asset = exec.unpackAsset(Lanes.Input);
+            bytes32 asset = exec.unpackAsset();
             uint status = assetStatus(asset);
             exec.outputStatus(status);
         }

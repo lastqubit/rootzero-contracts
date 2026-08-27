@@ -9,6 +9,4 @@ library Lanes {
     uint8 internal constant State = 2;
     /// @dev Writer lane containing regular endpoint output blocks.
     uint8 internal constant Output = 3;
-    /// @dev Writer lane containing deferred transaction blocks.
-    uint8 internal constant Transactions = 4;
 }

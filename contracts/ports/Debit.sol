@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import {PortBase} from "./Base.sol";
 import {DebitAccountHook} from "../core/Settlement.sol";
 import {Specs} from "../Codec.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
@@ -22,10 +22,10 @@ abstract contract DebitAccountPort is PortBase, DebitAccountHook {
     /// @param data ACCOUNT_AMOUNT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portDebitAccount(bytes calldata data) external onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor, 0);
+        Execution memory exec = openInput(data, descriptor);
 
         while (exec.more()) {
-            (bytes32 account, bytes32 asset, uint amount) = exec.unpackAccountAmount(Lanes.Input);
+            (bytes32 account, bytes32 asset, uint amount) = exec.unpackAccountAmount();
             debitAccount(account, asset, amount);
         }
         
