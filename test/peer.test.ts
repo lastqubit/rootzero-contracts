@@ -194,9 +194,8 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
   });
 
@@ -241,9 +240,8 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
   });
 
@@ -290,9 +288,8 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
   });
 
@@ -340,14 +337,13 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
 
-    it("reverts InvalidBlock when input is not an ACCOUNT_AMOUNT block", async () => {
+    it("reverts OutOfBounds when input cannot decode as an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -395,14 +391,13 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
 
-    it("reverts InvalidBlock when input is not an ACCOUNT_AMOUNT block", async () => {
+    it("reverts OutOfBounds when input cannot decode as an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -530,9 +525,8 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
   });
 
@@ -624,9 +618,8 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input is empty", async () => {
-      await expect(callAs(1, method))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(1, method);
     });
 
     it("reverts InvalidBlock when input is not a DISPATCH block", async () => {

@@ -33,7 +33,6 @@ export function endpointDescriptor({
   inputStride,
   output = Keys.Empty,
   outputStride,
-  transactions = 0,
   funded = false,
   admin = false,
 }: {
@@ -43,7 +42,6 @@ export function endpointDescriptor({
   inputStride?: number;
   output?: string | bigint;
   outputStride?: number;
-  transactions?: number;
   funded?: boolean;
   admin?: boolean;
 }): bigint {
@@ -67,7 +65,6 @@ export function endpointDescriptor({
     (stateLane << 216n) |
     (inputLane << 176n) |
     (outputLane << 48n) |
-    (BigInt(transactions) << 8n) |
     flags;
 
   return descriptor;
@@ -77,6 +74,8 @@ export function endpointDescriptor({
 export const Keys = {
   Empty: "0x00000000",
   Local: localKey(1),
+  Cashout: blockKey("#cashout"),
+  Bootstrap: blockKey("#bootstrap"),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
   Debt: blockKey("#debt"),
@@ -139,6 +138,14 @@ export function encodeBlock(key: string, payload: string): string {
 
 export function encodeAmountBlock(asset: string, amount: bigint): string {
   return encodeBlock(Keys.Amount, ethers.concat([pad32(asset), pad32(amount)]));
+}
+
+export function encodeCashoutBlock(amount: bigint): string {
+  return encodeBlock(Keys.Cashout, pad32(amount));
+}
+
+export function encodeBootstrapBlock(asset: string, amount: bigint, budget: bigint): string {
+  return encodeBlock(Keys.Bootstrap, ethers.concat([pad32(asset), pad32(amount), pad32(budget)]));
 }
 
 export function encodeBalanceBlock(asset: string, amount: bigint): string {
@@ -208,7 +215,11 @@ export function encodeTxBlock(from: string, to: string, asset: string, amount: b
 }
 
 export function encodeStepBlock(cmd: bigint, value: bigint, input: string): string {
-  return encodeBlock(Keys.Step, ethers.concat([pad32(cmd), pad32(value), encodeBytesBlock(input)]));
+  return encodeBlock(Keys.Step, ethers.concat([
+    pad32(cmd),
+    ethers.zeroPadValue(ethers.toBeHex(value), 16),
+    encodeBytesBlock(input),
+  ]));
 }
 
 export function encodeCallBlock(target: bigint, value: bigint, data: string): string {

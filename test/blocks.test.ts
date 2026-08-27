@@ -11,6 +11,8 @@ import {
   encodeAmountBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
+  encodeCashoutBlock,
+  encodeBootstrapBlock,
   encodeDebtBlock,
   encodePositionBlock,
   encodeBytesBlock,
@@ -128,7 +130,7 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackDebt(expected)).to.deep.equal([liability, debt]);
       expect(await helper.testUnpackDebt(expected)).to.deep.equal([liability, debt]);
       expect(await helper.testUnpackDebtValue(expected)).to.deep.equal([liability, debt]);
-      expect(await helper.testReaderUnpackDebt(expected)).to.deep.equal([liability, debt, 72n, true]);
+      expect(await helper.testMemoryUnpackDebt(expected)).to.deep.equal([liability, debt]);
       expect(await blocksHelper.executionOutputDebt(liability, debt)).to.equal(expected);
       expect(await blocksHelper.executionUnpackDebt(expected)).to.deep.equal([liability, debt]);
     });
@@ -166,8 +168,8 @@ describe("Cursors", () => {
       ]);
       expect(await helper.testUnpackPosition(expected)).to.deep.equal([asset, positionAmount, liability, debt]);
       expect(await helper.testUnpackPositionValue(expected)).to.deep.equal([asset, positionAmount, liability, debt]);
-      expect(await helper.testReaderUnpackPosition(expected)).to.deep.equal([
-        asset, positionAmount, liability, debt, 136n, true,
+      expect(await helper.testMemoryUnpackPosition(expected)).to.deep.equal([
+        asset, positionAmount, liability, debt,
       ]);
     });
 
@@ -207,7 +209,6 @@ describe("Cursors", () => {
       );
       expect(await blocksHelper.appendHostAsset(host, asset)).to.equal(data);
       expect(await blocksHelper.executionOutputHostAsset(host, asset)).to.equal(data);
-      expect(await helper.testReaderUnpackHostAsset(data)).to.deep.equal([host, asset, 72n, true]);
     });
 
     it("writeCustodyBlock produces 104 bytes", async () => {
@@ -252,6 +253,20 @@ describe("Cursors", () => {
       expect(data).to.equal(encodeAmountBlock(asset, amount));
     });
 
+    it("cashout returns a valid encoded CASHOUT block", async () => {
+      const data: string = await helper.testToCashoutBlock(amount);
+      expect(data).to.equal(encodeCashoutBlock(amount));
+      expect(await blocksHelper.unpackCashout(data)).to.equal(amount);
+    });
+
+    it("bootstrap returns a valid encoded BOOTSTRAP block", async () => {
+      const budget = 19n;
+      const data: string = await helper.testToBootstrapBlock(asset, amount, budget);
+      expect(data).to.equal(encodeBootstrapBlock(asset, amount, budget));
+      expect(await blocksHelper.unpackBootstrap(data)).to.deep.equal([asset, amount, budget]);
+      expect(await helper.testUnpackBootstrap(data)).to.deep.equal([asset, amount, budget]);
+    });
+
     it("writeBalance writes the specialized encoding at the requested offset", async () => {
       const offset = 5n;
       const data = await blocksHelper.writeBalance(offset, asset, amount);
@@ -279,6 +294,8 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackAsset(encodeAssetBlock(asset))).to.equal(asset);
       expect(await blocksHelper.unpackNode(encodeNodeBlock(host))).to.equal(host);
       expect(await blocksHelper.unpackStatus(encodeStatusBlock(7n))).to.equal(7n);
+      expect(await blocksHelper.unpackCashout(encodeCashoutBlock(9n))).to.equal(9n);
+      expect(await helper.testUnpackCashout(encodeCashoutBlock(13n))).to.equal(13n);
 
       expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
@@ -431,7 +448,7 @@ describe("Cursors", () => {
     });
 
     it("derives fixed bounds and stores dynamic bounds in specs", async () => {
-      expect(await blocksHelper.specRanges()).to.deep.equal([128n, 128n, 72n, 0n]);
+      expect(await blocksHelper.specRanges()).to.deep.equal([128n, 128n, 56n, 0n]);
     });
 
     it("stores allocation hints in three bytes", async () => {
@@ -476,42 +493,83 @@ describe("Cursors", () => {
       expect(await blocksHelper.groupedCapacity()).to.equal(6n * 72n);
     });
 
-    it("derives fixed, growable, and transaction allocations from descriptor lanes", async () => {
-      const balance = exactSpec(Keys.Balance, 64);
-      const bytes = rangedSpec(Keys.Bytes, 0, 0, 128);
+    it("initializes execution output capacity from the active decoder run", async () => {
+      const amountSpec = exactSpec(Keys.Amount, 64);
+      const balanceSpec = exactSpec(Keys.Balance, 64);
+      const groupedInput = amountSpec | (2n << 128n);
+      const groupedOutput = balanceSpec | (3n << 128n);
+      const input = concat(
+        encodeAmountBlock(asset, 1n),
+        encodeAmountBlock(asset, 2n),
+        encodeAmountBlock(asset, 3n),
+        encodeAmountBlock(asset, 4n),
+      );
 
-      expect(await blocksHelper.descriptorAllocation(balance, 0, 3, 3))
-        .to.deep.equal([3n * 72n, false]);
-      expect(await blocksHelper.descriptorAllocation(bytes, 0, 3, 2))
-        .to.deep.equal([2n * 136n, true]);
-      expect(await blocksHelper.descriptorAllocation(0, 2, 4, 3))
-        .to.deep.equal([6n * 136n, false]);
-      await expect(blocksHelper.descriptorAllocation(balance, 0, 1, 1))
-        .to.be.revertedWithCustomError(blocksHelper, "InvalidLane");
+      expect(await blocksHelper.executionWriterHint("0x", input, 0, groupedInput, groupedOutput))
+        .to.deep.equal([6n * 72n, 3n]);
     });
 
-    it("retains the complete output writer spec in its descriptor lane", async () => {
-      expect(await blocksHelper.balanceOutputDescriptor())
-        .to.equal(exactSpec(Keys.Balance, 64) | (1n << 128n));
-      expect(await blocksHelper.groupedBalanceOutputDescriptor())
-        .to.deep.equal([exactSpec(Keys.Balance, 64) | (3n << 128n), 3n]);
+    it("uses only the selected lower decoder lane for the output hint", async () => {
+      const balanceSpec = exactSpec(Keys.Balance, 64);
+      const amountSpec = exactSpec(Keys.Amount, 64);
+      const positionSpec = exactSpec(Keys.Position, 128);
+      const state = encodeBalanceBlock(asset, 1n);
+      const input = concat(
+        encodeAmountBlock(asset, 2n),
+        encodeAmountBlock(asset, 3n),
+      );
+
+      expect(
+        await blocksHelper.executionWriterHint(
+          state,
+          input,
+          balanceSpec,
+          amountSpec,
+          positionSpec,
+        ),
+      ).to.deep.equal([2n * 136n, 1n]);
     });
 
-    it("packs and checks composable descriptor flags", async () => {
-      expect(await blocksHelper.descriptorFlags()).to.deep.equal([true, true]);
+    it("uses state as the output-hint lane when descriptor input is empty", async () => {
+      const balanceSpec = exactSpec(Keys.Balance, 64);
+      const amountSpec = exactSpec(Keys.Amount, 64);
+      const state = concat(
+        encodeBalanceBlock(asset, 1n),
+        encodeBalanceBlock(asset, 2n),
+        encodeBalanceBlock(asset, 3n),
+      );
+
+      expect(await blocksHelper.executionWriterHint(state, "0x", balanceSpec, 0, amountSpec))
+        .to.deep.equal([3n * 72n, 1n]);
     });
 
-    it("stores the transactions per batch alongside the output spec", async () => {
-      expect(await blocksHelper.descriptorTransactions()).to.equal(3n);
+    it("packs complete descriptor metadata without exposing field accessors", async () => {
+      const output = exactSpec(Keys.Amount, 64) | (4n << 128n);
+      const expected =
+        (BigInt(Keys.Balance) << 224n) |
+        (2n << 216n) |
+        (BigInt(Keys.Asset) << 184n) |
+        (3n << 176n) |
+        ((output >> 128n) << 48n) |
+        3n;
+
+      expect(await blocksHelper.descriptorWord()).to.equal(expected);
     });
 
-    it("returns the effective key for every descriptor lane", async () => {
-      expect(await blocksHelper.descriptorKey(1)).to.equal(Keys.Asset);
-      expect(await blocksHelper.descriptorKey(2)).to.equal(Keys.Balance);
-      expect(await blocksHelper.descriptorKey(3)).to.equal(Keys.Amount);
-      expect(await blocksHelper.descriptorKey(4)).to.equal(Keys.Transaction);
-      await expect(blocksHelper.descriptorKey(0))
-        .to.be.revertedWithCustomError(blocksHelper, "InvalidLane");
+    it("opens descriptor state and input cursors with initialized writers", async () => {
+      const [stateCursor, stateWriter, inputCursor, inputWriter] =
+        await blocksHelper.descriptorOpens("0x1234", "0xaabbcc");
+
+      expect((stateCursor >> 64n) & 0xffffffffn).to.equal(2n);
+      expect((stateCursor >> 96n) & 0xffn).to.equal(2n);
+      expect((stateCursor >> 120n) & 0xffn).to.equal(2n);
+      expect((inputCursor >> 64n) & 0xffffffffn).to.equal(3n);
+      expect((inputCursor >> 96n) & 0xffn).to.equal(3n);
+      expect((inputCursor >> 120n) & 0xffn).to.equal(1n);
+      expect((stateWriter >> 64n) & 0xffffffffn).to.equal(0n);
+      expect((stateWriter >> 96n) & 0xffn).to.equal(4n);
+      expect((inputWriter >> 64n) & 0xffffffffn).to.equal(0n);
+      expect((inputWriter >> 96n) & 0xffn).to.equal(4n);
     });
 
     it("enters a parent on one execution lane and preserves the paired lane", async () => {
@@ -585,19 +643,6 @@ describe("Cursors", () => {
       }
     });
 
-    it("reserves grouped transaction capacity plus one refund slot", async () => {
-      const transactions = await blocksHelper.executionTransactions(2, 3, 7);
-      expect(ethers.getBytes(transactions).length).to.equal(7 * 136);
-      await expect(blocksHelper.executionTransactions(2, 3, 8))
-        .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
-    });
-
-    it("omits the transaction writer when its declared count is zero", async () => {
-      expect(await blocksHelper.executionTransactions(0, 3, 0)).to.equal("0x");
-      await expect(blocksHelper.executionTransactions(0, 3, 1))
-        .to.be.revertedWithCustomError(blocksHelper, "MissingCursor");
-    });
-
     it("text returns a valid encoded STRING block", async () => {
       const label = "relayBalancePayable";
       const data: string = await stringHelper.testToStringBlock(label);
@@ -619,18 +664,18 @@ describe("Cursors", () => {
       expect(data).to.equal(encodeBalanceBlock(asset, amount));
     });
 
-    it("returns an inert empty writer for a zero block count", async () => {
-      expect(await blocksHelper.emptyWriter()).to.deep.equal([0n, 0n, false, 0n]);
+    it("returns an unallocated writer for a zero block count", async () => {
+      expect(await blocksHelper.emptyWriter()).to.deep.equal([0n, 0n, 0n]);
     });
 
     it("lazily allocates a buffer while preserving cursor metadata", async () => {
-      expect(await blocksHelper.reserveBuffer(33, 7, true, 9, 2, 32))
-        .to.deep.equal([0n, 2n, 33n, 7n, 1n, 9n, 96n]);
+      expect(await blocksHelper.reserveBuffer(33, 7, 9, 2, 32))
+        .to.deep.equal([0n, 2n, 33n, 7n, 9n, 96n]);
     });
 
     it("uses touch for capacity and advance for the logical position", async () => {
-      expect(await blocksHelper.reserveBuffer(16, 1, true, 0, 2, 32))
-        .to.deep.equal([0n, 2n, 32n, 1n, 1n, 0n, 64n]);
+      expect(await blocksHelper.reserveBuffer(16, 1, 0, 2, 32))
+        .to.deep.equal([0n, 2n, 32n, 1n, 0n, 64n]);
     });
 
     it("grows an allocated buffer and preserves its written prefix", async () => {
@@ -640,9 +685,9 @@ describe("Cursors", () => {
         .to.equal(concat(first, second));
     });
 
-    it("rejects growth when the buffer cursor is fixed", async () => {
-      await expect(blocksHelper.reserveBuffer(8, 1, false, 0, 16, 16))
-        .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
+    it("grows every buffer beyond its initial capacity", async () => {
+      expect(await blocksHelper.reserveBuffer(8, 1, 0, 16, 16))
+        .to.deep.equal([0n, 16n, 16n, 1n, 0n, 64n]);
     });
 
     it("opens, spends, drains, and detaches standalone value budgets", async () => {
@@ -663,9 +708,9 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InsufficientValue");
     });
 
-    it("reverts when appending past logical writer capacity", async () => {
-      await expect(blocksHelper.rejectSecond32(asset))
-        .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
+    it("grows when appending past initial logical writer capacity", async () => {
+      const block = encodeBlock("0x00000001", asset);
+      expect(await blocksHelper.growSecond32(asset)).to.equal(concat(block, block));
     });
 
     it("rejects a payload that does not match a fixed spec", async () => {
@@ -682,91 +727,79 @@ describe("Cursors", () => {
     });
   });
 
-  describe("Readers", () => {
+  describe("Memory", () => {
     const asset = ethers.zeroPadValue("0xaa", 32);
     const otherAsset = ethers.zeroPadValue("0xbb", 32);
     const from = encodeUserAccount("0x01");
     const to = encodeUserAccount("0x02");
 
-    it("unpacks a balance and advances to the end", async () => {
+    it("unpacks a fixed-stride balance", async () => {
       const source = encodeBalanceBlock(asset, 123n);
-      expect(await helper.testReaderUnpackBalance(source)).to.deep.equal([
+      expect(await helper.testMemoryUnpackBalance(source)).to.deep.equal([
         asset,
         123n,
-        72n,
-        true,
       ]);
     });
 
-    it("detects and conditionally consumes empty blocks", async () => {
-      const empty = encodeBlock(Keys.Balance, "0x");
-      const balance = encodeBalanceBlock(asset, 123n);
-      expect(await helper.testReaderIsEmpty(empty, Keys.Balance)).to.equal(true);
-      expect(await helper.testReaderIsEmpty(empty, Keys.Amount)).to.equal(false);
-      expect(await helper.testReaderIsEmpty(balance, Keys.Balance)).to.equal(false);
-      expect(await helper.testReaderTryConsumeEmpty(empty, Keys.Balance)).to.deep.equal([true, 8n, true]);
-      expect(await helper.testReaderTryConsumeEmpty(empty, Keys.Amount)).to.deep.equal([false, 0n, false]);
-      expect(await helper.testReaderTryConsumeEmpty(balance, Keys.Balance)).to.deep.equal([false, 0n, false]);
-
-      const malformed = "0x" + Keys.Balance.slice(2) + "00000040";
-      await expect(helper.testReaderTryConsumeEmpty(malformed, Keys.Balance))
-        .to.be.revertedWithCustomError(helper, "InvalidBlock");
-    });
-
-    it("unpacks a transaction and advances to the end", async () => {
+    it("unpacks a fixed-stride transaction", async () => {
       const source = encodeTxBlock(from, to, asset, 456n);
-      expect(await helper.testReaderUnpackTransaction(source)).to.deep.equal([
+      expect(await helper.testMemoryUnpackTransaction(source)).to.deep.equal([
         from,
         to,
         asset,
         456n,
-        136n,
-        true,
       ]);
     });
 
-    it("unpacks sequential blocks and reports completion", async () => {
+    it("unpacks sequential fixed-stride blocks", async () => {
       const source = concat(
         encodeBalanceBlock(asset, 123n),
         encodeBalanceBlock(otherAsset, 456n),
       );
-      expect(await helper.testReaderUnpackTwoBalances(source)).to.deep.equal([
+      expect(await helper.testMemoryUnpackTwoBalances(source)).to.deep.equal([
         asset,
         123n,
         otherAsset,
         456n,
-        144n,
-        true,
       ]);
     });
 
     it("rejects a block with the wrong key", async () => {
-      await expect(helper.testReaderUnpackBalance(encodeAmountBlock(asset, 123n)))
+      await expect(helper.testMemoryUnpackBalance(encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+    });
+
+    it("rejects a wrong key later in a fixed-stride stream", async () => {
+      const source = concat(
+        encodeBalanceBlock(asset, 123n),
+        encodeAmountBlock(otherAsset, 456n),
+      );
+      await expect(helper.testMemoryUnpackTwoBalances(source))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("rejects a payload below the minimum length", async () => {
       const source = encodeBlock(Keys.Balance, asset);
-      await expect(helper.testReaderUnpackBalance(source))
+      await expect(helper.testMemoryUnpackBalance(source))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("rejects a payload above the maximum length", async () => {
       const source = encodeBlock(Keys.Balance, ethers.concat([asset, asset, asset]));
-      await expect(helper.testReaderUnpackBalance(source))
+      await expect(helper.testMemoryUnpackBalance(source))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("rejects a truncated header", async () => {
       const source = ethers.dataSlice(encodeBalanceBlock(asset, 123n), 0, 7);
-      await expect(helper.testReaderUnpackBalance(source))
+      await expect(helper.testMemoryUnpackBalance(source))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
     it("rejects a truncated payload", async () => {
       const complete = ethers.getBytes(encodeBalanceBlock(asset, 123n));
       const source = ethers.hexlify(complete.slice(0, -1));
-      await expect(helper.testReaderUnpackBalance(source))
+      await expect(helper.testMemoryUnpackBalance(source))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
   });
@@ -800,15 +833,6 @@ describe("Cursors", () => {
       expect(selected >> 128n).to.equal((lower << 64n) | (7n << 120n));
     });
 
-    it("treats a zero cursor as absent when pairing", async () => {
-      const cur = 10n << 64n;
-
-      expect(await helper.testPair(0, 0)).to.equal(0n);
-      expect(await helper.testPair(cur, 0)).to.equal(cur);
-      expect(await helper.testPair(0, cur)).to.equal(cur);
-      await expect(helper.testPair(0, 1)).to.be.revertedWithCustomError(helper, "OutOfBounds");
-    });
-
     it("finds only nonzero cursor tags", async () => {
       const cur = (10n << 64n) | (7n << 120n);
 
@@ -817,11 +841,11 @@ describe("Cursors", () => {
       expect(await helper.testContains(0, 0)).to.be.false;
     });
 
-    it("packs count, consumer flags, and tag into cursor metadata", async () => {
-      const [cur, count, flags, tag] = await helper.testSpanMeta(0x1234, 0x56, 0x78);
+    it("packs optional stride, consumer flags, and tag into cursor metadata", async () => {
+      const [cur, stride, flags, tag] = await helper.testSpanMeta(0x34, 0x56, 0x78);
 
-      expect(cur).to.equal((0x1234n << 96n) | (0x56n << 112n) | (0x78n << 120n));
-      expect(count).to.equal(0x1234n);
+      expect(cur).to.equal((0x34n << 96n) | (0x56n << 112n) | (0x78n << 120n));
+      expect(stride).to.equal(0x34n);
       expect(flags).to.equal(0x56n);
       expect(tag).to.equal(0x78n);
     });
@@ -831,31 +855,8 @@ describe("Cursors", () => {
       expect(await helper.testFrame()).to.equal(frame);
     });
 
-    it("matches an upper cursor by frame and reports whether it is before a mark", async () => {
-      const [matched, pending] = await helper.testMarkBefore(8n, 12n, false);
-      expect(matched & 0xffffffffn).to.equal(8n);
-      expect((matched >> 120n) & 0xffn).to.equal(2n);
-      expect(pending).to.be.true;
-    });
-
-    it("ignores the upper 128 bits of a mark and returns false exactly at it", async () => {
-      const [, pending] = await helper.testMarkBefore(12n, 12n, true);
-      expect(pending).to.be.false;
-    });
-
-    it("reverts after a mark or when no cursor frame matches it", async () => {
-      await expect(helper.testMarkBefore(13n, 12n, false))
-        .to.be.revertedWithCustomError(helper, "OutOfBounds");
-      await expect(helper.testMissingMark())
-        .to.be.revertedWithCustomError(helper, "MissingCursor");
-    });
-
-    it("locates an empty cursor and treats its zero mark as reached", async () => {
-      const cur = (10n << 64n) | (1n << 120n);
-      expect(await helper.testZeroMark(0)).to.equal(0n);
-      expect(await helper.testZeroMark(cur)).to.equal(cur << 128n);
-      expect(await helper.testZeroBefore(0)).to.be.false;
-      expect(await helper.testZeroBefore(cur)).to.be.false;
+    it("returns the complete active cursor bounds independent of its position", async () => {
+      expect(await helper.testCursorBounds()).to.deep.equal([10n, 30n]);
     });
 
     it("detects whether both packed cursors remain at their initial positions", async () => {
@@ -916,49 +917,30 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(source).length));
     });
 
-    it("wrap(source, i) creates a cursor over the source tail", async () => {
+    it("open(source) creates an ungrouped cursor over the complete source", async () => {
       const a = encodeAmountBlock(asset, 1n);
       const b = encodeBalanceBlock(asset, 2n);
       const source = concat(a, b);
-      const i = BigInt(ethers.getBytes(a).length);
-      const [offset, cursorI, len] = await helper.testWrapAt(source, i);
-      expect(offset).to.equal(i);
-      expect(cursorI).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(b).length));
-    });
-
-    it("open(source) creates an ungrouped cursor over the complete non-empty source", async () => {
-      const a = encodeAmountBlock(asset, 1n);
-      const b = encodeBalanceBlock(asset, 2n);
-      const source = concat(a, b);
-      const [offset, cursorI, len, count] = await helper.testOpen(source);
+      const [offset, cursorI, len, stride] = await helper.testOpen(source);
       expect(offset).to.equal(0n);
       expect(cursorI).to.equal(0n);
       expect(len).to.equal(BigInt(ethers.getBytes(source).length));
-      expect(count).to.equal(0n);
+      expect(stride).to.equal(0n);
     });
 
-    it("open(source) reverts EmptyRun for an empty source", async () => {
-      await expect(helper.testOpen("0x"))
-        .to.be.revertedWithCustomError(helper, "EmptyRun");
+    it("open(source) accepts an empty source", async () => {
+      expect(await helper.testOpen("0x")).to.deep.equal([0n, 0n, 0n, 0n]);
     });
 
-    it("batch(source) creates a counted cursor over the matching first run", async () => {
-      const a = encodeAmountBlock(asset, 1n);
-      const b = encodeAmountBlock(asset, 2n);
-      const c = encodeBalanceBlock(asset, 3n);
-      const source = concat(a, b, c);
-      const batch = concat(a, b);
-      const [offset, cursorI, len, count] = await helper.testBatch(source);
-      expect(offset).to.equal(0n);
-      expect(cursorI).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(batch).length));
-      expect(count).to.equal(2n);
+    it("close succeeds after the complete decoder source is consumed", async () => {
+      const source = encodeAmountBlock(asset, 1n);
+      expect(await helper.testClose(source, ethers.getBytes(source).length)).to.equal(true);
     });
 
-    it("batch(source) reverts EmptyRun for an empty source", async () => {
-      await expect(helper.testBatch("0x"))
-        .to.be.revertedWithCustomError(helper, "EmptyRun");
+    it("close rejects unread decoder data", async () => {
+      const source = encodeAmountBlock(asset, 1n);
+      await expect(helper.testClose(source, 0n))
+        .to.be.revertedWithCustomError(helper, "UnconsumedData");
     });
 
     it("peek returns the next key and payload length", async () => {
@@ -1126,6 +1108,19 @@ describe("Cursors", () => {
       expect(await helper.testRun(source, 0n, Keys.Amount)).to.deep.equal([2n, 0n]);
       expect(await helper.testRun(source, 0n, Keys.Balance)).to.deep.equal([0n, 0n]);
       expect(await helper.testRun(source, balanceAt, Keys.Balance)).to.deep.equal([1n, balanceAt]);
+    });
+
+    it("runCount cheaply counts complete matching blocks for hints", async () => {
+      const first = encodeAmountBlock(asset, 1n);
+      const second = encodeAmountBlock(asset, 2n);
+      const amounts = concat(first, second);
+      const source = concat(amounts, encodeBalanceBlock(asset, 3n));
+
+      expect(await helper.testRunCount(source, 0n, Keys.Amount)).to.equal(2n);
+      expect(await helper.testRunCount(source, 0n, Keys.Balance)).to.equal(0n);
+
+      const truncated = concat(first, "0x" + Keys.Amount.slice(2) + "00000040");
+      expect(await helper.testRunCount(truncated, 0n, Keys.Amount)).to.equal(1n);
     });
 
     it("exact run requires every source block to have the expected key", async () => {
@@ -1313,6 +1308,26 @@ describe("Cursors", () => {
       expect(await blocksHelper.executionRawEmptyState(input)).to.equal("0x");
     });
 
+    it("takeRawState returns the intact lane and consumes it", async () => {
+      const state = encodeBalanceBlock(asset, amount);
+      expect(await blocksHelper.executionTakeRawState(state)).to.deep.equal([state, true]);
+    });
+
+    it("takeRawInput returns the intact lane and consumes it", async () => {
+      const input = encodeAmountBlock(asset, amount);
+      expect(await blocksHelper.executionTakeRawInput(input)).to.deep.equal([input, true]);
+    });
+
+    it("finish rejects unread execution data", async () => {
+      const input = encodeAmountBlock(asset, amount);
+      await expect(blocksHelper.executionFinishUnread(input))
+        .to.be.revertedWithCustomError(blocksHelper, "UnconsumedData");
+
+      const state = encodeBalanceBlock(asset, amount);
+      await expect(blocksHelper.executionFinishUnreadState(state))
+        .to.be.revertedWithCustomError(blocksHelper, "UnconsumedData");
+    });
+
     it("unpackStep consumes the block and returns the trailing input", async () => {
       const req = encodeAmountBlock(asset, amount);
       const step = encodeStepBlock(7n, 55n, req);
@@ -1321,6 +1336,14 @@ describe("Cursors", () => {
       expect(value).to.equal(55n);
       expect(outReq).to.equal(req);
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
+    });
+
+    it("packs STEP value into exactly 16 bytes", async () => {
+      const value = (1n << 128n) - 1n;
+      const step = encodeStepBlock(7n, value, "0x");
+
+      expect(ethers.getBytes(step).length).to.equal(64);
+      expect(await helper.testUnpackStep(step)).to.deep.equal([7n, value, "0x", 64n]);
     });
 
     it("unpackContext consumes account, state, and input bytes", async () => {
@@ -1485,7 +1508,7 @@ describe("Cursors", () => {
       expect(await operation.testCheckCursorRatio(state, 2n, input, 1n)).to.equal(true);
     });
 
-    it("reverts BadRatio when state and input runs break the expected ratio", async () => {
+    it("does not pre-scan or reconcile state and input ratios", async () => {
       const state = concat(
         encodeBalanceBlock(asset, 1n),
         encodeBalanceBlock(asset, 2n),
@@ -1493,8 +1516,7 @@ describe("Cursors", () => {
       );
       const input = encodeAmountBlock(asset, 4n);
 
-      await expect(operation.testCheckCursorRatio(state, 2n, input, 1n))
-        .to.be.revertedWithCustomError(operation, "BadRatio");
+      expect(await operation.testCheckCursorRatio(state, 2n, input, 1n)).to.equal(true);
     });
   });
 

@@ -9,9 +9,10 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock,
   encodeBlock,
+  encodeStatusBlock,
+  encodeNodeBlock,
   encodeCustodyBlock,
   encodeContextBlock,
-  encodeStatusBlock,
   encodeBytesBlock,
   encodeListBlock,
   encodePositionBlock,
@@ -47,7 +48,7 @@ describe("Examples", () => {
       );
 
       expect(output).to.equal(encodeBalanceBlock(asset, 12n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("builds and runs the batch command example", async () => {
@@ -70,7 +71,7 @@ describe("Examples", () => {
         encodeBalanceBlock(first, 10n),
         encodeBalanceBlock(second, 20n),
       ));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("builds and runs the custom-data command example", async () => {
@@ -85,7 +86,7 @@ describe("Examples", () => {
       const context = encodeContextBlock(account, "0x", input);
       const [output, transactions] = await host.myCommand.staticCall(context);
       expect(output).to.equal(encodeCustodyBlock(target, asset, 30n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
       await expect(host.myCommand(context))
         .to.emit(host, "SentToHost")
         .withArgs(target, asset, 30n);
@@ -139,29 +140,24 @@ describe("Examples", () => {
     });
   });
 
-  describe("8-Transactions", () => {
-    it("returns one credit transaction for each input batch", async () => {
+  describe("8-BudgetCredit", () => {
+    it("returns a trusted budget credit derived from every input batch", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
       const host = await deploy("TestTransactionsExampleHost", commander);
 
       const account = encodeUserAccount(commander);
-      const firstAsset = ethers.zeroPadValue("0x11", 32);
-      const secondAsset = ethers.zeroPadValue("0x22", 32);
       const input = concat(
-        encodeAmountBlock(firstAsset, 10n),
-        encodeAmountBlock(secondAsset, 20n),
+        encodeNodeBlock(10n),
+        encodeNodeBlock(20n),
       );
 
-      const [output, transactions] = await host.myCommand.staticCall(
+      const [output, credit] = await host.myCommand.staticCall(
         encodeContextBlock(account, "0x", input),
       );
 
       expect(output).to.equal("0x");
-      expect(transactions).to.equal(concat(
-        encodeTxBlock(ethers.ZeroHash, account, firstAsset, 10n),
-        encodeTxBlock(ethers.ZeroHash, account, secondAsset, 20n),
-      ));
+      expect(credit).to.equal(30n);
     });
   });
 
@@ -206,7 +202,7 @@ describe("Examples", () => {
         encodeContextBlock(account, "0x", input),
       );
       expect(output).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
   });
 });

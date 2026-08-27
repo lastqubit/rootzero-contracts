@@ -70,7 +70,7 @@ describe("Burn", () => {
     const state = encodeBalanceBlock(ethers.zeroPadValue("0xc1", 32), 50n);
     const [result, transactions] = await (host as any)[burnMethod].staticCall(...ctx({ state }));
     expect(result).to.equal("0x");
-    expect(transactions).to.equal("0x");
+    expect(transactions).to.equal(0n);
   });
 
   it("stops at the first non-BALANCE block and succeeds if at least one was processed", async () => {
@@ -91,9 +91,8 @@ describe("Burn", () => {
 
   // â”€â”€ Error cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  it("reverts EmptyRun when state is empty", async () => {
-    await expect(callAs(0, ctx()))
-      .to.be.revertedWithCustomError(host, "EmptyRun");
+  it("accepts an empty state batch", async () => {
+    expect(await (host as any)[burnMethod].staticCall(...ctx())).to.deep.equal(["0x", 0n]);
   });
 });
 

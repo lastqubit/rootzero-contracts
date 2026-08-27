@@ -90,9 +90,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "authorize", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "authorize", adminCtx("0x"));
     });
   });
 
@@ -121,9 +120,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "unauthorize", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "unauthorize", adminCtx("0x"));
     });
   });
 
@@ -155,9 +153,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidAccount");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "appoint", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "appoint", adminCtx("0x"));
     });
   });
 
@@ -184,9 +181,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "dismiss", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "dismiss", adminCtx("0x"));
     });
   });
 
@@ -216,9 +212,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "allowAssets", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "allowAssets", adminCtx("0x"));
     });
   });
 
@@ -238,9 +233,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "denyAssets", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "denyAssets", adminCtx("0x"));
     });
   });
 
@@ -264,9 +258,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "allowance", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "allowance", adminCtx("0x"));
     });
   });
 
@@ -328,9 +321,8 @@ describe("Admin Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun for empty input", async () => {
-      await expect(callAs(0, "annotate", adminCtx("0x")))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty input batch", async () => {
+      await callAs(0, "annotate", adminCtx("0x"));
     });
   });
 

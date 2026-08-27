@@ -6,6 +6,8 @@ import {
   Keys,
   endpointDescriptor,
   exactSpec,
+  encodeBootstrapBlock,
+  encodeCashoutBlock,
   encodeAmountBlock,
   encodeBalanceBlock, encodeDebtBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
@@ -76,6 +78,7 @@ describe("Commands", () => {
       ["repayPayable", 11n],
       ["repayPosition", 11n],
       ["repayPositionPayable", 11n],
+      ["cashout", 15n],
     ] as const) {
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd(method), encodeActionBlock(action));
@@ -102,7 +105,7 @@ describe("Commands", () => {
 
       const [result, transactions] = await host.deposit.staticCall(...ctx({ input: input }));
       expect(result).to.equal(encodeBalanceBlock(asset, amount));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("processes multiple AMOUNT blocks", async () => {
@@ -118,7 +121,7 @@ describe("Commands", () => {
         encodeBalanceBlock(asset1, 10n),
         encodeBalanceBlock(asset2, 20n)
       ));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("accepts an ordinary command call from an authorized node", async () => {
@@ -143,16 +146,14 @@ describe("Commands", () => {
       ).to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("reverts EmptyRun when input has no AMOUNT blocks", async () => {
-      await expect(
-        callAs(0, "deposit", ctx({ input: "0x" }))
-      ).to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty input as an empty batch", async () => {
+      expect(await host.deposit.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
-    it("reverts MalformedBlocks for input with only 4 garbage bytes", async () => {
+    it("reverts OutOfBounds for input with only 4 garbage bytes", async () => {
       await expect(
         callAs(0, "deposit", ctx({ input: "0xdeadbeef" }))
-      ).to.be.revertedWithCustomError(host, "MalformedBlocks");
+      ).to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
     it("rejects more than one context block", async () => {
@@ -170,7 +171,7 @@ describe("Commands", () => {
       const input = encodeAmountBlock(asset, 10n);
 
       await expect(callAs(0, "deposit", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
   describe("depositPayable", () => {
@@ -195,16 +196,16 @@ describe("Commands", () => {
 
       const [result, transactions] = await host.depositPayable.staticCall(...ctx({ input: input }), { value: 8n });
       expect(result).to.equal(encodeBalanceBlock(asset, 8n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
-    it("keeps output and remaining-value transactions in separate writer lanes", async () => {
+    it("returns output and remaining native credit separately", async () => {
       const asset = ethers.zeroPadValue("0x06", 32);
       const input = encodeAmountBlock(asset, 8n);
 
       const [result, transactions] = await host.depositPayable.staticCall(...ctx({ input: input }), { value: 9n });
       expect(result).to.equal(encodeBalanceBlock(asset, 8n));
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(1n);
     });
 
     it("does not truncate exact deposit values to the resource value lane", async () => {
@@ -230,9 +231,8 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, 100n);
     });
 
-    it("reverts EmptyRun for empty state", async () => {
-      await expect(callAs(0, "withdraw", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty state as an empty batch", async () => {
+      expect(await host.withdraw.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
     it("emits WithdrawCalled for each BALANCE block in a batch state", async () => {
@@ -250,11 +250,125 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "WithdrawCalled").withArgs(userAccount, asset3, 30n);
     });
 
-    it("reverts MalformedBlocks for state with a truncated BALANCE block", async () => {
+    it("reverts OutOfBounds for state with a truncated BALANCE block", async () => {
       const full = encodeBalanceBlock(asset, 100n);
       const truncated = ethers.hexlify(ethers.getBytes(full).slice(0, -1));
       await expect(callAs(0, "withdraw", ctx({ state: truncated })))
-        .to.be.revertedWithCustomError(host, "MalformedBlocks");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("bootstrap", () => {
+    const asset = ethers.zeroPadValue("0x19", 32);
+
+    it("discovers BOOTSTRAP input with BALANCE output", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("bootstrap"),
+          endpointDescriptor({ input: Keys.Bootstrap, output: exactSpec(Keys.Balance, 64) }),
+        );
+    });
+
+    it("atomically sources a balance and budget credit", async () => {
+      const input = encodeBootstrapBlock(asset, 12n, 25n);
+      const tx = await callAs(0, "bootstrap", ctx({ input }));
+
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, asset, 12n, 12n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, 25n);
+      expect(await host.bootstrap.staticCall(...ctx({ input })))
+        .to.deep.equal([encodeBalanceBlock(asset, 12n), 25n]);
+    });
+
+    it("bootstraps batches and sums their budget credit", async () => {
+      const secondAsset = ethers.zeroPadValue("0x1a", 32);
+      const input = concat(
+        encodeBootstrapBlock(asset, 7n, 11n),
+        encodeBootstrapBlock(secondAsset, 13n, 17n),
+      );
+      const tx = await callAs(0, "bootstrap", ctx({ input }));
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, asset, 7n, 7n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, 11n);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, secondAsset, 13n, 13n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, 17n);
+      expect(await host.bootstrap.staticCall(...ctx({ input }))).to.deep.equal([
+        concat(encodeBalanceBlock(asset, 7n), encodeBalanceBlock(secondAsset, 13n)),
+        28n,
+      ]);
+    });
+
+    it("accepts an empty bootstrap batch", async () => {
+      expect(await host.bootstrap.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
+    });
+
+    it("allows a zero budget contribution", async () => {
+      const input = encodeBootstrapBlock(asset, 8n, 0n);
+      const tx = await callAs(0, "bootstrap", ctx({ input }));
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, asset, 8n, 8n);
+      expect(await host.bootstrap.staticCall(...ctx({ input })))
+        .to.deep.equal([encodeBalanceBlock(asset, 8n), 0n]);
+    });
+
+    it("rejects a different input block type", async () => {
+      const input = encodeAllocationBlock(1n, asset, 1n);
+      await expect(callAs(0, "bootstrap", ctx({ input })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("requires empty incoming state", async () => {
+      const state = encodeBalanceBlock(asset, 1n);
+      const input = encodeBootstrapBlock(asset, 2n, 3n);
+      await expect(callAs(0, "bootstrap", ctx({ state, input })))
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("cashout", () => {
+    it("discovers CASHOUT input with empty state and output", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("cashout"),
+          endpointDescriptor({ input: Keys.Cashout }),
+        );
+    });
+
+    it("withdraws the requested native-asset amount through its hook", async () => {
+      const input = encodeCashoutBlock(25n);
+      const tx = await callAs(0, "cashout", ctx({ input }));
+
+      await expect(tx).to.emit(host, "CashoutCalled")
+        .withArgs(userAccount, 25n);
+      expect(await host.cashout.staticCall(...ctx({ input })))
+        .to.deep.equal(["0x", 0n]);
+    });
+
+    it("cashes out batches and accepts an empty batch", async () => {
+      const input = concat(encodeCashoutBlock(3n), encodeCashoutBlock(5n));
+      const tx = await callAs(0, "cashout", ctx({ input }));
+      await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 3n);
+      await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 5n);
+      expect(await host.cashout.staticCall(...ctx({ input }))).to.deep.equal(["0x", 0n]);
+      expect(await host.cashout.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
+    });
+
+    it("requires empty incoming state", async () => {
+      const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
+      await expect(callAs(0, "cashout", ctx({ state, input: encodeCashoutBlock(1n) })))
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -283,7 +397,7 @@ describe("Commands", () => {
 
       const [output, transactions] = await host.settle.staticCall(...ctx({ state }));
       expect(output).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("settles a batch of POSITION blocks", async () => {
@@ -301,16 +415,15 @@ describe("Commands", () => {
         .withArgs(userAccount, secondAsset, 200n, secondLiability, 75n);
     });
 
-    it("reverts EmptyRun for empty state", async () => {
-      await expect(callAs(0, "settle", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty state as an empty batch", async () => {
+      expect(await host.settle.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
-    it("reverts MalformedBlocks for truncated POSITION state", async () => {
+    it("reverts OutOfBounds for truncated POSITION state", async () => {
       const full = encodePositionBlock(asset, 100n, liability, 40n);
       const truncated = ethers.hexlify(ethers.getBytes(full).slice(0, -1));
       await expect(callAs(0, "settle", ctx({ state: truncated })))
-        .to.be.revertedWithCustomError(host, "MalformedBlocks");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
@@ -324,7 +437,7 @@ describe("Commands", () => {
       const input = encodeAmountBlock(asset, 1n);
 
       await expect(callAs(0, "settle", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -359,7 +472,7 @@ describe("Commands", () => {
         .withArgs(userAccount, secondAsset, 20n, secondLiability, 10n, 30n);
     });
 
-    it("returns unspent command value as a refund transaction", async () => {
+    it("returns unspent command value as native budget credit", async () => {
       const state = encodePositionBlock(asset, 3n, liability, 2n);
       const [output, transactions] = await host.settlePayable.staticCall(
         ...ctx({ state }),
@@ -367,7 +480,7 @@ describe("Commands", () => {
       );
 
       expect(output).to.equal("0x");
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(3n);
     });
 
     it("reverts InsufficientValue when the hook overspends the budget", async () => {
@@ -377,9 +490,8 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("reverts EmptyRun for empty state", async () => {
-      await expect(callAs(0, "settlePayable", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty state as an empty batch", async () => {
+      expect(await host.settlePayable.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
@@ -394,7 +506,7 @@ describe("Commands", () => {
       const input = encodeAmountBlock(asset, 1n);
 
       await expect(callAs(0, "settlePayable", ctx({ state, input }), { value: 5n }))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -418,7 +530,7 @@ describe("Commands", () => {
       const [output, transactions] = await host.repay.staticCall(...ctx({ state }));
 
       expect(output).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
 
       const tx = await callAs(0, "repay", ctx({ state }));
       await expect(tx).to.emit(host, "DebitFromCalled")
@@ -440,9 +552,8 @@ describe("Commands", () => {
         .withArgs(userAccount, secondLiability, 10n, 10n);
     });
 
-    it("rejects empty state, POSITION state, and non-empty input", async () => {
-      await expect(callAs(0, "repay", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty batch and rejects incompatible state or pairing", async () => {
+      expect(await host.repay.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
 
       const position = encodePositionBlock(liability, 1n, liability, 40n);
       await expect(callAs(0, "repay", ctx({ state: position })))
@@ -451,7 +562,7 @@ describe("Commands", () => {
       const state = encodeDebtBlock(liability, 40n);
       const input = encodeAmountBlock(liability, 1n);
       await expect(callAs(0, "repay", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -478,19 +589,18 @@ describe("Commands", () => {
       );
 
       expect(output).to.equal("0x");
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(10n);
 
       const tx = await callAs(0, "repayPayable", ctx({ state }), { value: 50n });
       await expect(tx).to.emit(host, "RepayPayableCalled")
         .withArgs(userAccount, liability, 40n, 10n);
     });
 
-    it("rejects insufficient value and empty state", async () => {
+    it("rejects insufficient value and accepts empty state", async () => {
       const state = encodeDebtBlock(liability, 40n);
       await expect(callAs(0, "repayPayable", ctx({ state }), { value: 39n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
-      await expect(callAs(0, "repayPayable", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+      expect(await host.repayPayable.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
   });
 
@@ -518,7 +628,7 @@ describe("Commands", () => {
       const [output, transactions] = await host.repayPosition.staticCall(...ctx({ state }));
 
       expect(output).to.equal(encodeBalanceBlock(asset, 100n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
 
       const tx = await callAs(0, "repayPosition", ctx({ state }));
       await expect(tx).to.emit(host, "DebitFromCalled")
@@ -540,14 +650,13 @@ describe("Commands", () => {
       ));
     });
 
-    it("rejects empty state and non-empty input", async () => {
-      await expect(callAs(0, "repayPosition", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts empty state and rejects unmatched input", async () => {
+      expect(await host.repayPosition.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
 
       const state = encodePositionBlock(asset, 100n, liability, 40n);
       const input = encodeAmountBlock(asset, 1n);
       await expect(callAs(0, "repayPosition", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -585,7 +694,7 @@ describe("Commands", () => {
         .withArgs(userAccount, liability, 40n, 0n);
     });
 
-    it("shares the value budget across liabilities and refunds the remainder", async () => {
+    it("shares the value budget across liabilities and returns the remainder as credit", async () => {
       const secondAsset = ethers.zeroPadValue("0x36", 32);
       const secondLiability = ethers.zeroPadValue("0x37", 32);
       const state = concat(
@@ -601,7 +710,7 @@ describe("Commands", () => {
         encodeBalanceBlock(asset, 100n),
         encodeBalanceBlock(secondAsset, 20n),
       ));
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(10n);
     });
 
     it("reverts InsufficientValue when liabilities exceed the budget", async () => {
@@ -611,14 +720,13 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("rejects empty state and non-empty input", async () => {
-      await expect(callAs(0, "repayPositionPayable", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts empty state and rejects unmatched input", async () => {
+      expect(await host.repayPositionPayable.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
 
       const state = encodePositionBlock(asset, 100n, liability, 40n);
       const input = encodeAmountBlock(asset, 1n);
       await expect(callAs(0, "repayPositionPayable", ctx({ state, input }), { value: 40n }))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -654,7 +762,7 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "PayoutCalled").withArgs(userAccount, to2, asset2, 20n);
     });
 
-    it("reverts BadRatio when input accounts do not match state balances", async () => {
+    it("reverts OutOfBounds when input accounts run out before state balances", async () => {
       const state = concat(
         encodeBalanceBlock(asset, 1n),
         encodeBalanceBlock(asset, 2n),
@@ -662,7 +770,7 @@ describe("Commands", () => {
       const input = encodeAccountBlock(encodeUserAccount("0xd003"));
 
       await expect(callAs(0, "payout", ctx({ state, input: input })))
-        .to.be.revertedWithCustomError(host, "BadRatio");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
     it("reverts InvalidBlock when the paired input block is not an ACCOUNT", async () => {
@@ -686,9 +794,8 @@ describe("Commands", () => {
         .withArgs(userAccount, asset, 300n, 300n);
     });
 
-    it("reverts EmptyRun for empty state", async () => {
-      await expect(callAs(0, "creditAccount", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty state as an empty batch", async () => {
+      expect(await host.creditAccount.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
   });
 
@@ -708,12 +815,11 @@ describe("Commands", () => {
       const input = encodeAmountBlock(asset, 100n);
       const [result, transactions] = await host.debitAccount.staticCall(...ctx({ input: input }));
       expect(result).to.equal(encodeBalanceBlock(asset, 100n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
-    it("reverts EmptyRun when input has no AMOUNT blocks", async () => {
-      await expect(callAs(0, "debitAccount", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("treats empty input as an empty batch", async () => {
+      expect(await host.debitAccount.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
     it("processes multiple AMOUNT blocks and emits DebitFromCalled for each", async () => {
@@ -743,7 +849,7 @@ describe("Commands", () => {
         encodeBalanceBlock(asset1, 100n),
         encodeBalanceBlock(asset2, 200n),
       ));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
   });
 
@@ -776,7 +882,7 @@ describe("Commands", () => {
 
       const [result, transactions] = await host.allocate.staticCall(...ctx({ state, input }));
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 600n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("pairs each BALANCE with the NODE at the same position", async () => {
@@ -793,10 +899,10 @@ describe("Commands", () => {
         encodeCustodyBlock(111n, asset1, 100n),
         encodeCustodyBlock(222n, asset2, 200n),
       ));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
-    it("reverts BadRatio when NODE and BALANCE counts differ", async () => {
+    it("reverts OutOfBounds when NODE input runs out before BALANCE state", async () => {
       const asset = ethers.zeroPadValue("0x63", 32);
       const state = concat(
         encodeBalanceBlock(asset, 100n),
@@ -805,7 +911,7 @@ describe("Commands", () => {
       const input = encodeNodeBlock(111n);
 
       await expect(callAs(0, "allocate", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "BadRatio");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
     it("reverts InvalidBlock for non-NODE input", async () => {
@@ -834,14 +940,14 @@ describe("Commands", () => {
       const input = encodeAllocationBlock(hostId, asset, 700n);
       const [result, transactions] = await host.provision.staticCall(...ctx({ input: input }));
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 700n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
-    it("reverts InvalidBlock when input is not an ALLOCATION block", async () => {
+    it("reverts OutOfBounds when input cannot decode as an ALLOCATION block", async () => {
       const hostId = 654321n;
       const input = encodeNodeBlock(hostId);
       await expect(callAs(0, "provision", ctx({ input: input })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
     it("emits ProvisionCalled for each ALLOCATION block in a batch", async () => {
@@ -872,7 +978,7 @@ describe("Commands", () => {
         encodeCustodyBlock(host1, asset1, 100n),
         encodeCustodyBlock(host2, asset2, 200n),
       ));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
   });
   describe("provisionPayable", () => {
@@ -900,7 +1006,7 @@ describe("Commands", () => {
 
       const [result, transactions] = await host.provisionPayable.staticCall(...ctx({ input: input }), { value: 8n });
       expect(result).to.equal(encodeCustodyBlock(hostId, asset, 8n));
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
     });
 
     it("does not truncate exact provision values to the resource value lane", async () => {
@@ -944,7 +1050,7 @@ describe("Commands", () => {
       const input = encodeRelayBlock(portal, resources, steps);
       const [result, transactions] = await host.relayPayable.staticCall(...ctx({ input }));
       expect(result).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
 
       const tx = await callAs(0, "relayPayable", ctx({ input }));
       await expect(tx).to.emit(host, "RelayCalled")
@@ -956,12 +1062,12 @@ describe("Commands", () => {
       const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
 
       await expect(callAs(0, "relayPayable", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "UnconsumedData");
     });
 
-    it("reverts EmptyRun when input has no RELAY block", async () => {
+    it("rejects empty input while decoding its required RELAY block", async () => {
       await expect(callAs(0, "relayPayable", ctx()))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 
@@ -995,23 +1101,23 @@ describe("Commands", () => {
       const input = encodeRelayBlock(portal, resources, steps);
       const [result, transactions] = await host.relayBalancePayable.staticCall(...ctx({ state, input: input }));
       expect(result).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
 
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input: input }));
       await expect(tx).to.emit(host, "RelayCalled")
         .withArgs(portal, resources, userAccount, state, steps);
     });
 
-    it("reverts EmptyRun when input has no RELAY block", async () => {
+    it("rejects empty input while decoding its required RELAY block", async () => {
       const state = encodeBalanceBlock(relayAsset, 1n);
       await expect(callAs(0, "relayBalancePayable", ctx({ state })))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("reverts EmptyRun when BALANCE state is empty", async () => {
+    it("forwards an empty raw state lane", async () => {
       const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
       await expect(callAs(0, "relayBalancePayable", ctx({ input })))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+        .to.emit(host, "RelayCalled");
     });
 
     it("reverts AccessDenied for untrusted caller", async () => {
@@ -1031,26 +1137,32 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("reverts InvalidBlock when state is not BALANCE", async () => {
+    it("forwards raw state without validating its block schema", async () => {
       const state = encodePositionBlock(relayAsset, 1n, relayAsset, 1n);
-      const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
+      const portal = portalNode(31337n);
+      const steps = encodeStepBlock(0n, 0n, "0x");
+      const input = encodeRelayBlock(portal, 0n, steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.emit(host, "RelayCalled")
+        .withArgs(portal, 0n, userAccount, state, steps);
     });
 
-    it("reverts InvalidBlock when BALANCE state has a trailing different block type", async () => {
+    it("forwards the complete raw state lane including mixed trailing blocks", async () => {
       const state = concat(
         encodeBalanceBlock(relayAsset, 1n),
         encodePositionBlock(relayAsset, 1n, relayAsset, 1n),
       );
-      const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
+      const portal = portalNode(31337n);
+      const steps = encodeStepBlock(0n, 0n, "0x");
+      const input = encodeRelayBlock(portal, 0n, steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
+        .to.emit(host, "RelayCalled")
+        .withArgs(portal, 0n, userAccount, state, steps);
     });
 
-    it("reverts BadRatio when input has more than one RELAY block", async () => {
+    it("rejects unread trailing RELAY input when closing", async () => {
       const portal = portalNode(31337n);
       const input = concat(
         encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x")),
@@ -1059,10 +1171,10 @@ describe("Commands", () => {
       const state = encodeBalanceBlock(relayAsset, 1n);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "BadRatio");
+        .to.be.revertedWithCustomError(host, "UnconsumedData");
     });
 
-    it("reverts BadRatio when multiple BALANCE blocks are paired with one RELAY block", async () => {
+    it("forwards multiple raw state blocks with one RELAY block", async () => {
       const secondAsset = ethers.zeroPadValue("0x82", 32);
       const state = concat(
         encodeBalanceBlock(relayAsset, 1n),
@@ -1073,7 +1185,8 @@ describe("Commands", () => {
       const input = encodeRelayBlock(portal, 0n, steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "BadRatio");
+        .to.emit(host, "RelayCalled")
+        .withArgs(portal, 0n, userAccount, state, steps);
     });
 
     it("passes relay resources through even when it exceeds msg.value", async () => {
@@ -1086,14 +1199,14 @@ describe("Commands", () => {
         .withArgs(portal, 2n, userAccount, state, steps);
     });
 
-    it("returns unspent command value after relay dispatch as a transaction", async () => {
+    it("returns unspent command value after relay dispatch as credit", async () => {
       const portal = portalNode(31337n);
       const input = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
       const state = encodeBalanceBlock(relayAsset, 1n);
 
       const [output, transactions] = await host.relayBalancePayable.staticCall(...ctx({ state, input }), { value: 1n });
       expect(output).to.equal("0x");
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(1n);
     });
   });
 
@@ -1122,25 +1235,109 @@ describe("Commands", () => {
 
       const [result, transactions] = await host.recoverPayable.staticCall(...ctx({ input: input }), { value: 13n });
       expect(result).to.equal("0x");
-      expect(transactions).to.equal("0x");
+      expect(transactions).to.equal(0n);
 
       const tx = await callAs(0, "recoverPayable", ctx({ input: input }), { value: 13n });
       await expect(tx).to.emit(host, "RecoverCalled")
         .withArgs(handler, resources, key, witness, 13n);
     });
 
-    it("returns unspent command value after recovery as a transaction", async () => {
+    it("returns unspent command value after recovery as credit", async () => {
       const key = ethers.zeroPadValue("0xcafe", 32);
       const witness = encodeContextBlock(userAccount, "0x", "0x");
       const input = encodeRecoverBlock(0n, 0n, key, witness);
 
       const [state, transactions] = await host.recoverPayable.staticCall(...ctx({ input: input }), { value: 1n });
       expect(state).to.equal("0x");
-      expect(ethers.getBytes(transactions).length).to.equal(136);
+      expect(transactions).to.equal(1n);
     });
   });
 
   describe("pipeline", () => {
+    it("executes cashout batches through optimized local dispatch", async () => {
+      const input = concat(encodeCashoutBlock(23n), encodeCashoutBlock(29n));
+      const steps = encodeStepBlock(await cmd("cashout"), 0n, input);
+      const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
+      await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 23n);
+      await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 29n);
+    });
+
+    it("rejects step value and state for local cashout", async () => {
+      const command = await cmd("cashout");
+      const input = encodeCashoutBlock(1n);
+      const valued = encodeStepBlock(command, 1n, input);
+      await expect(callAs(0, "testPipe", userAccount, "0x", valued, { value: 1n }))
+        .to.be.revertedWithCustomError(host, "ValueNotAllowed");
+
+      const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
+      const step = encodeStepBlock(command, 0n, input);
+      await expect(callAs(0, "testPipe", userAccount, state, step))
+        .to.be.revertedWithCustomError(host, "ZeroStride");
+    });
+
+    it("bootstraps balance and makes its budget available to a later step", async () => {
+      const asset = ethers.zeroPadValue("0xa0", 32);
+      const amount = 17n;
+      const input = concat(
+        encodeStepBlock(await cmd("bootstrap"), 0n, encodeBootstrapBlock(asset, 9n, amount)),
+        encodeStepBlock(0n, amount, "0x"),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", input);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, asset, 9n, 9n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, amount);
+    });
+
+    it("rejects native value assigned to the local bootstrap command", async () => {
+      const input = encodeStepBlock(
+        await cmd("bootstrap"),
+        1n,
+        encodeBootstrapBlock(ethers.ZeroHash, 1n, 1n),
+      );
+
+      await expect(callAs(0, "testPipe", userAccount, "0x", input, { value: 1n }))
+        .to.be.revertedWithCustomError(host, "ValueNotAllowed");
+    });
+
+    it("bootstraps batches through optimized local dispatch", async () => {
+      const command = await cmd("bootstrap");
+      const firstAsset = ethers.zeroPadValue("0xa2", 32);
+      const secondAsset = ethers.zeroPadValue("0xa3", 32);
+      const bootstrapInput = concat(
+        encodeBootstrapBlock(firstAsset, 1n, 2n),
+        encodeBootstrapBlock(secondAsset, 3n, 4n),
+      );
+      const steps = concat(
+        encodeStepBlock(command, 0n, bootstrapInput),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+      );
+      const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, firstAsset, 1n, 1n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, 2n);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, secondAsset, 3n, 3n);
+      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
+        .withArgs(userAccount, 4n);
+    });
+
+    it("requires bootstrap to start with empty pipeline state", async () => {
+      const asset = ethers.zeroPadValue("0xa0", 32);
+      const state = encodeBalanceBlock(asset, 1n);
+      const steps = encodeStepBlock(
+        await cmd("bootstrap"),
+        0n,
+        encodeBootstrapBlock(asset, 2n, 3n),
+      );
+
+      await expect(callAs(0, "testPipe", userAccount, state, steps))
+        .to.be.revertedWithCustomError(host, "ZeroStride");
+    });
+
     it("executes local debit and credit commands against threaded state", async () => {
       const asset = ethers.zeroPadValue("0xa1", 32);
       const amount = 42n;
@@ -1185,6 +1382,97 @@ describe("Commands", () => {
       await expect(tx)
         .to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, liability, debt, debt);
+    });
+
+    it("processes batched fixed-stride streams in internal commands", async () => {
+      const asset = ethers.zeroPadValue("0xb4", 32);
+      const liability = ethers.zeroPadValue("0xb5", 32);
+
+      const debitCreditTx = await callAs(
+        0,
+        "testPipe",
+        userAccount,
+        "0x",
+        concat(
+          encodeStepBlock(
+            await cmd("debitAccount"),
+            0n,
+            concat(encodeAmountBlock(asset, 1n), encodeAmountBlock(asset, 2n)),
+          ),
+          encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+        ),
+      );
+      await expect(debitCreditTx).to.emit(host, "DebitFromCalled").withArgs(userAccount, asset, 2n, 2n);
+      await expect(debitCreditTx).to.emit(host, "CreditToCalled").withArgs(userAccount, asset, 2n, 2n);
+
+      const settleTx = await callAs(
+        0,
+        "testPipe",
+        userAccount,
+        concat(
+          encodePositionBlock(asset, 3n, liability, 4n),
+          encodePositionBlock(asset, 5n, liability, 6n),
+        ),
+        encodeStepBlock(await cmd("settle"), 0n, "0x"),
+      );
+      await expect(settleTx)
+        .to.emit(host, "SettleCalled")
+        .withArgs(userAccount, asset, 5n, liability, 6n);
+
+      const repayTx = await callAs(
+        0,
+        "testPipe",
+        userAccount,
+        concat(encodeDebtBlock(liability, 7n), encodeDebtBlock(liability, 8n)),
+        encodeStepBlock(await cmd("repay"), 0n, "0x"),
+      );
+      await expect(repayTx)
+        .to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, liability, 8n, 8n);
+    });
+
+    it("rejects malformed fixed-stride memory state in internal commands", async () => {
+      const asset = ethers.zeroPadValue("0xb6", 32);
+      const liability = ethers.zeroPadValue("0xb7", 32);
+      const position = encodePositionBlock(asset, 1n, liability, 2n);
+      const cases = [
+        { command: "creditAccount", state: encodeAmountBlock(asset, 1n) },
+        { command: "settle", state: ethers.dataSlice(position, 0, ethers.dataLength(position) - 1) },
+        { command: "repay", state: encodeBalanceBlock(liability, 1n) },
+      ];
+
+      for (const testCase of cases) {
+        await expect(
+          callAs(
+            0,
+            "testPipe",
+            userAccount,
+            testCase.state,
+            encodeStepBlock(await cmd(testCase.command), 0n, "0x"),
+          ),
+        ).to.be.revertedWithCustomError(host, "InvalidBlock");
+      }
+    });
+
+    it("rejects malformed fixed-stride calldata input in the internal debit command", async () => {
+      const asset = ethers.zeroPadValue("0xb8", 32);
+      const amount = encodeAmountBlock(asset, 1n);
+      const inputs = [
+        encodeBalanceBlock(asset, 1n),
+        ethers.dataSlice(amount, 0, ethers.dataLength(amount) - 1),
+      ];
+
+      for (const input of inputs) {
+        await expect(
+          callAs(
+            0,
+            "testPipe",
+            userAccount,
+            "0x",
+            encodeStepBlock(await cmd("debitAccount"), 0n, input),
+          ),
+        ).to.be.revertedWithCustomError(host, "InvalidBlock");
+      }
     });
 
     it("rejects value assigned to every local non-funded command", async () => {
@@ -1252,75 +1540,28 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "StepDispatched").withArgs(22n, startCount + 1n, 9n);
     });
 
-    it("uses only the low 128 resource bits as EVM step value", async () => {
-      const resources = (123n << 128n) | 7n;
-      const input = encodeStepBlock(11n, resources, "0x1234");
-      const startCount = await host.stepCount();
-
-      const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 7n });
-
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
+    it("rejects step values wider than uint128", async () => {
+      expect(() => encodeStepBlock(11n, 1n << 128n, "0x1234"))
+        .to.throw();
     });
 
-    it("posts each decoded transaction returned by dispatch", async () => {
-      const first = {
-        from: encodeUserAccount("0x11"),
-        to: encodeUserAccount("0x12"),
-        asset: ethers.zeroPadValue("0x13", 32),
-        amount: 14n,
-      };
-      const second = {
-        from: encodeUserAccount("0x21"),
-        to: encodeUserAccount("0x22"),
-        asset: ethers.zeroPadValue("0x23", 32),
-        amount: 24n,
-      };
-      const transactions = concat(
-        encodeTxBlock(first.from, first.to, first.asset, first.amount),
-        encodeTxBlock(second.from, second.to, second.asset, second.amount),
-      );
-      const input = encodeStepBlock(ethers.MaxUint256, 0n, transactions);
+    it("settles trusted returned value once after the pipeline closes", async () => {
+      const input = encodeStepBlock(ethers.MaxUint256, 0n, "0x1234");
+      const nativeAsset = await utils.testToNativeAsset();
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
 
       await expect(tx)
-        .to.emit(host, "DebitFromCalled")
-        .withArgs(first.from, first.asset, first.amount, first.amount);
-      await expect(tx)
         .to.emit(host, "CreditToCalled")
-        .withArgs(first.to, first.asset, first.amount, first.amount);
-      await expect(tx)
-        .to.emit(host, "DebitFromCalled")
-        .withArgs(second.from, second.asset, second.amount, second.amount);
-      await expect(tx)
-        .to.emit(host, "CreditToCalled")
-        .withArgs(second.to, second.asset, second.amount, second.amount);
+        .withArgs(userAccount, nativeAsset, 123n, 123n);
     });
 
-    it("posts transactions from consecutive steps before dispatching the next step", async () => {
-      const first = {
-        from: encodeUserAccount("0x31"),
-        to: encodeUserAccount("0x32"),
-        asset: ethers.zeroPadValue("0x33", 32),
-        amount: 34n,
-      };
-      const second = {
-        from: encodeUserAccount("0x41"),
-        to: encodeUserAccount("0x42"),
-        asset: ethers.zeroPadValue("0x43", 32),
-        amount: 44n,
-      };
+    it("makes command-returned value available to later steps", async () => {
+      const startCount = await host.stepCount();
+      const nativeAsset = await utils.testToNativeAsset();
       const input = concat(
-        encodeStepBlock(
-          ethers.MaxUint256,
-          0n,
-          encodeTxBlock(first.from, first.to, first.asset, first.amount),
-        ),
-        encodeStepBlock(
-          ethers.MaxUint256,
-          0n,
-          encodeTxBlock(second.from, second.to, second.asset, second.amount),
-        ),
+        encodeStepBlock(ethers.MaxUint256, 0n, "0x"),
+        encodeStepBlock(11n, 100n, "0x"),
       );
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
@@ -1336,52 +1577,20 @@ describe("Commands", () => {
         .filter(
           (event) =>
             event?.name === "StepDispatched" ||
-            event?.name === "DebitFromCalled" ||
             event?.name === "CreditToCalled",
         );
 
       expect(events.map((event) => event!.name)).to.deep.equal([
         "StepDispatched",
-        "DebitFromCalled",
-        "CreditToCalled",
         "StepDispatched",
-        "DebitFromCalled",
         "CreditToCalled",
       ]);
-      expect(Array.from(events[1]!.args)).to.deep.equal([
-        first.from,
-        first.asset,
-        first.amount,
-        first.amount,
-      ]);
-      expect(Array.from(events[2]!.args)).to.deep.equal([
-        first.to,
-        first.asset,
-        first.amount,
-        first.amount,
-      ]);
-      expect(Array.from(events[4]!.args)).to.deep.equal([
-        second.from,
-        second.asset,
-        second.amount,
-        second.amount,
-      ]);
-      expect(Array.from(events[5]!.args)).to.deep.equal([
-        second.to,
-        second.asset,
-        second.amount,
-        second.amount,
-      ]);
+      expect(Array.from(events[0]!.args)).to.deep.equal([ethers.MaxUint256, startCount, 0n]);
+      expect(Array.from(events[1]!.args)).to.deep.equal([11n, startCount + 1n, 100n]);
+      expect(Array.from(events[2]!.args)).to.deep.equal([userAccount, nativeAsset, 23n, 23n]);
     });
 
-    it("rejects a malformed transaction stream returned by dispatch", async () => {
-      const input = encodeStepBlock(ethers.MaxUint256, 0n, "0x1234");
-
-      await expect(callAs(0, "testPipe", userAccount, "0x", input))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
-    });
-
-    it("posts decoded unspent value after the pipeline closes", async () => {
+    it("settles the final pipeline budget after the pipeline closes", async () => {
       const input = encodeStepBlock(11n, 0n, "0x");
       const nativeAsset = await utils.testToNativeAsset();
 
@@ -1402,9 +1611,8 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
-    it("reverts EmptyRun when no STEP blocks", async () => {
-      await expect(callAs(0, "testPipe", userAccount, "0x", "0x"))
-        .to.be.revertedWithCustomError(host, "EmptyRun");
+    it("accepts an empty STEP batch", async () => {
+      await host.testPipe.staticCall(userAccount, "0x", "0x");
     });
 
     it("rejects a non-STEP block trailing the STEP stream", async () => {
@@ -1415,6 +1623,14 @@ describe("Commands", () => {
 
       await expect(callAs(0, "testPipe", userAccount, "0x", input))
         .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("rejects a STEP block extending beyond the stream boundary", async () => {
+      const complete = ethers.getBytes(encodeStepBlock(0n, 0n, "0x"));
+      const input = ethers.hexlify(complete.slice(0, -1));
+
+      await expect(callAs(0, "testPipe", userAccount, "0x", input))
+        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
 
 

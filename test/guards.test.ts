@@ -115,9 +115,8 @@ describe("Guard Actions", () => {
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
-  it("revokeAsset rejects an empty input run", async () => {
-    await expect(host.connect(guardianSigner).revokeAsset("0x"))
-      .to.be.revertedWithCustomError(host, "EmptyRun");
+  it("revokeAsset accepts an empty batch", async () => {
+    await host.connect(guardianSigner).revokeAsset("0x");
   });
 
   it("guardian can revoke host asset allowances", async () => {
@@ -139,9 +138,8 @@ describe("Guard Actions", () => {
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
-  it("revokeAllowance rejects an empty input run", async () => {
-    await expect(host.connect(guardianSigner).revokeAllowance("0x"))
-      .to.be.revertedWithCustomError(host, "EmptyRun");
+  it("revokeAllowance accepts an empty batch", async () => {
+    await host.connect(guardianSigner).revokeAllowance("0x");
   });
 
   it("revokeAllowance rejects allowance blocks carrying an amount", async () => {
@@ -189,9 +187,8 @@ describe("Guard Actions", () => {
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
-  it("reverts EmptyRun when input is empty", async () => {
-    await expect(host.connect(guardianSigner).revoke("0x"))
-      .to.be.revertedWithCustomError(host, "EmptyRun");
+  it("accepts an empty revoke batch", async () => {
+    await host.connect(guardianSigner).revoke("0x");
   });
 
   it("reverts InvalidBlock when revoke input is not NODE blocks", async () => {
@@ -201,7 +198,7 @@ describe("Guard Actions", () => {
       .to.be.revertedWithCustomError(host, "InvalidBlock");
   });
 
-  it("reverts MalformedBlocks when revoke input has a truncated NODE block", async () => {
+  it("reverts OutOfBounds when revoke input has a truncated NODE block", async () => {
     const truncated = ethers.concat([
       Keys.Node,
       ethers.toBeHex(32, 4),
@@ -209,7 +206,7 @@ describe("Guard Actions", () => {
     ]);
 
     await expect(host.connect(guardianSigner).revoke(truncated))
-      .to.be.revertedWithCustomError(host, "MalformedBlocks");
+      .to.be.revertedWithCustomError(host, "OutOfBounds");
   });
 
   it("dismissed guardian cannot revoke nodes", async () => {

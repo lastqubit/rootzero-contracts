@@ -550,29 +550,27 @@ describe("Utils", () => {
   // ── Value ─────────────────────────────────────────────────────────────────
 
   describe("Value", () => {
-    it("converts remaining native value into a transaction block", async () => {
+    it("returns remaining native value as trusted budget credit", async () => {
       const account = encodeUserAccount("0x03");
-      const nativeAsset = await utils.testToNativeAsset();
-      const [transaction, remaining] = await utils.testValueTransaction.staticCall(100n, account);
+      const [credit, remaining] = await utils.testValueTransaction.staticCall(100n, account);
 
-      expect(transaction).to.equal(encodeTxBlock(ethers.ZeroHash, account, nativeAsset, 100n));
+      expect(credit).to.equal(100n);
       expect(remaining).to.equal(0n);
-      const receipt = await (await utils.testValueTransaction(100n, account)).wait();
-      const receivedEvent = utils.interface.getEvent("Received")!;
-      const receivedLog = receipt!.logs.find((log) => log.topics[0] === receivedEvent.topicHash)!;
-      const received = utils.interface.decodeEventLog(receivedEvent, receivedLog.data, receivedLog.topics);
-      expect([...received]).to.deep.equal([account, nativeAsset, 100n, 13n, 0n]);
     });
 
-    it("returns empty bytes for an empty native-value budget", async () => {
+    it("returns zero credit for an empty native-value budget", async () => {
       const account = encodeUserAccount("0x03");
-      const [transaction, remaining] = await utils.testValueTransaction.staticCall(0n, account);
+      const [credit, remaining] = await utils.testValueTransaction.staticCall(0n, account);
 
-      expect(transaction).to.equal("0x");
+      expect(credit).to.equal(0n);
       expect(remaining).to.equal(0n);
-      const receipt = await (await utils.testValueTransaction(0n, account)).wait();
-      const receivedTopic = utils.interface.getEvent("Received")!.topicHash;
-      expect(receipt!.logs.some((log) => log.topics[0] === receivedTopic)).to.be.false;
+    });
+
+    it("combines additional command credit with the remaining execution budget", async () => {
+      const [credit, remaining] = await utils.testCloseWithCredit.staticCall(40n, 2n);
+
+      expect(credit).to.equal(42n);
+      expect(remaining).to.equal(0n);
     });
 
   });

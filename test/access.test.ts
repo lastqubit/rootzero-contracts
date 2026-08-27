@@ -40,13 +40,11 @@ describe("Access Control", () => {
 
   it("commander is trusted", async () => {
     // Commander can call trusted-only functions without reverting.
-    // We test by calling authorize with zero input from commander (should revert EmptyRun, not Unauthorized).
+    // An empty authorize batch is a successful no-op.
     const adminAccount: string = await host.getAdminAccount();
     const ctx = [encodeContextBlock(adminAccount, "0x", "0x")] as const;
     const signers = await getSigners(1);
-    await expect(
-      host.connect(signers[0]).authorize(...ctx)
-    ).to.be.revertedWithCustomError(host, "EmptyRun");
+    await host.connect(signers[0]).authorize(...ctx);
   });
 
   it("stranger is not trusted and gets AccessDenied", async () => {
