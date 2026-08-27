@@ -8,6 +8,107 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.26.0
+
+### Breaking Changes
+
+- STEP blocks now encode `uint128 value` directly instead of a full-width
+  chain-specific `uint resources` word. The fixed STEP prefix is 16 bytes
+  smaller, and pipeline dispatch no longer truncates or interprets resource bits.
+- Commands now return `(bytes state, uint credit)` instead of separate state
+  and transaction block streams. Pipelines trust the scalar return and add it
+  to the shared value budget, allowing later commands to spend it before the
+  enclosing entrypoint settles the final budget once. Transaction blocks remain
+  available for explicit posting through ports.
+- Removed transaction writer metadata from endpoint descriptors and execution
+  writer lanes.
+- Removed descriptor checks, eager lane scans, group reconciliation, and the
+  expected batch argument from execution opening. State/input keys and strides
+  remain descriptor metadata; command decoding and loops define their runtime
+  semantics, while finalization rejects unread state or input bytes.
+- Removed the generic memory-backed `Reader` and `Readers` API from
+  `Codec.sol`. Fixed homogeneous memory streams now use absolute-position
+  `Memory` unpackers.
+- Removed `Decoders.wrap` and the scanning `Decoders.batch` constructor.
+  `Decoders.open` now wraps any calldata source without initial checks,
+  including empty sources; explicit decoding defines structure and cardinality.
+- Removed the unused `Cursors.pair`, `locate`, and `before` helpers. Cursor
+  pairs are packed directly where execution needs them.
+- Replaced the cross-chain-ambiguous `#budget` block with the command-specific
+  `#cashout { uint amount }` block.
+
+### Added
+
+- Added the standard
+  `#bootstrap { bytes32 asset, uint amount, uint budget }` input block and
+  `Bootstrap` command. It uses the standard `DebitAccountHook` for each initial
+  balance and a dedicated `BootstrapBudgetHook` for native-value contributions,
+  including zero contributions. `BootstrapInternal` provides direct local
+  pipeline dispatch without a self-call.
+- Added `Cashout`, its dedicated native-withdrawal hook, optimized
+  `CashoutInternal` dispatch, and the canonical `Actions.Cashout` annotation.
+  Added `Actions.Cashin` as its native-deposit counterpart.
+- Added `utils/Errors.sol` as the canonical declaration source for all
+  utility-layer errors, preserving their existing signatures and selectors.
+- Added hint-only `Blocks.runCount`, a minimal assembly scan that counts complete
+  consecutive keyed blocks without treating the result as structural validation.
+- Added `Executions.takeRawState` for forwarding an intact state lane while
+  marking it consumed.
+- Added symmetric `Executions.takeRawInput` for forwarding and consuming an
+  intact input lane.
+- Added `Decoders.close` to reject unread bytes explicitly. Execution `finish`
+  and `close` apply the same invariant automatically.
+- Added `Execution.close(extraCredit)` to combine trusted command-produced
+  credit with the execution's remaining value budget during finalization.
+- Added `Memory.bounds` and specialized `unpackBalance`, `unpackDebt`,
+  `unpackPosition`, and `unpackTransaction` helpers for fixed-stride memory
+  block streams.
+
+### Changed
+
+- Replaced the unused checked `Cursors.wrap(source, flags, tag)` with the
+  two-argument packed calldata wrapper used by generic decoders. Removed the
+  duplicate private execution `openDecoder` implementation.
+- Replaced the unused cursor item-count metadata with an optional one-byte
+  block stride. `Descriptors` now fully opens single or paired decoder cursors,
+  selects the active lane, derives the output allocation hint, and initializes
+  the writer cursor. Removed descriptor field accessors so packed layout
+  interpretation remains internal to the codec. Endpoint and command helpers
+  now construct `Execution` directly with the returned cursors and `msg.value`;
+  removed the descriptor-backed `Executions.open*` wrappers.
+- Execution output writers now derive their initial capacity from an optimized
+  hint-only scan of the selected low decoder lane and grow as needed. Output
+  strides and size hints no longer impose a hard precomputed batch capacity.
+- All buffers now grow beyond their initial capacity. Removed the `Growable`
+  cursor flag and the growth-policy booleans from buffer, writer, specification,
+  and descriptor allocation APIs.
+- `Execution` now stores its sole output writer as a direct untagged cursor;
+  output reservation and finalization no longer perform lane selection.
+- Execution traversal and unpack helpers now consume the active low decoder
+  lane without a lane argument. Mixed-lane commands select explicitly with
+  chainable `onstate()` and `oninput()` helpers. Paired executions use descriptor
+  metadata to place state low for state-only commands, which decode directly.
+  Relay commands select input explicitly before decoding their forwarded block.
+- `Execution.close()` now finalizes output and drains the remaining budget as
+  `(bytes output, uint credit)`; commands return it directly without the former
+  `CommandBase.closeCommand` wrapper. Budget draining is inlined in `close()`.
+- Internal debit processing now validates its fixed calldata stride once and
+  decodes each amount directly. Internal credit, settlement, repayment, and
+  pipeline transaction processing do the equivalent for memory streams.
+- Pipeline step value is now checked and deducted directly from the scalar
+  budget, avoiding the generic budget-helper call in the dispatch loop. The
+  loop now also traverses absolute calldata bounds and unpacks STEP blocks
+  directly without allocating a decoder cursor.
+- `Cursors` now performs packed construction, bounds, navigation, selection,
+  and consumption directly in each helper, avoiding nested internal-call
+  overhead across low-level decoding paths.
+- `Blocks.expectKey` and the specialized dynamic leaf unpackers now validate
+  their headers directly, reducing composite decoding overhead.
+- `Specs` and `Descriptors` now calculate hot-path counts and writer allocation
+  directly from their packed fields.
+- Buffer reservation/finalization, fixed-size writer reservation, and execution
+  opening/output paths now operate directly on validated packed cursors.
+
 ## 1.25.0
 
 ### Breaking Changes
