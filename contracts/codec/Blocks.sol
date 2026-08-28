@@ -761,17 +761,17 @@ library Blocks {
     /// @param cmd Command identifier.
     /// @param value Native value assigned to the step.
     /// @param input Command input.
-    function writeStep(bytes memory dst, uint i, uint cmd, uint128 value, bytes memory input) internal pure {
-        uint len = 48 + Sizes.Header + input.length;
+    function writeStep(bytes memory dst, uint i, uint cmd, uint value, bytes memory input) internal pure {
+        uint len = 64 + Sizes.Header + input.length;
         uint key = uint32(Keys.Step);
         uint byteskey = uint32(Keys.Bytes);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, or(shl(224, key), shl(192, len)))
             mstore(add(p, 0x08), cmd)
-            mstore(add(p, 0x28), shl(128, value))
+            mstore(add(p, 0x28), value)
 
-            let q := add(p, 0x38)
+            let q := add(p, 0x48)
             let inputlen := mload(input)
             mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
             mcopy(add(q, 0x08), add(input, 0x20), inputlen)
@@ -1031,17 +1031,17 @@ library Blocks {
     }
 
     /// @notice Encode a STEP block at `i`, copying its nested input from calldata.
-    function copyStep(bytes memory dst, uint i, uint cmd, uint128 value, bytes calldata input) internal pure {
-        uint len = max32(48 + Sizes.Header + input.length);
+    function copyStep(bytes memory dst, uint i, uint cmd, uint value, bytes calldata input) internal pure {
+        uint len = max32(64 + Sizes.Header + input.length);
         uint key = uint32(Keys.Step);
         uint byteskey = uint32(Keys.Bytes);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, or(shl(224, key), shl(192, len)))
             mstore(add(p, 0x08), cmd)
-            mstore(add(p, 0x28), shl(128, value))
+            mstore(add(p, 0x28), value)
 
-            let q := add(p, 0x38)
+            let q := add(p, 0x48)
             let inputlen := input.length
             mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
             calldatacopy(add(q, 0x08), input.offset, inputlen)
@@ -1836,14 +1836,14 @@ library Blocks {
     /// @return end Absolute position after the block.
     function unpackStep(
         uint abs
-    ) internal pure returns (uint cmd, uint128 value, bytes calldata input, uint end) {
+    ) internal pure returns (uint cmd, uint value, bytes calldata input, uint end) {
         uint limit;
         (abs, limit) = expectKey(abs, Keys.Step);
         assembly ("memory-safe") {
             cmd := calldataload(abs)
-            value := shr(128, calldataload(add(abs, 0x20)))
+            value := calldataload(add(abs, 0x20))
         }
-        (input, end) = unpackBytes(abs + 48);
+        (input, end) = unpackBytes(abs + 64);
         if (end != limit) revert InvalidBlock();
     }
 
@@ -2203,14 +2203,14 @@ library Blocks {
     /// @param value Native value assigned to the step.
     /// @param input Raw nested input payload.
     /// @return encoded Encoded STEP block bytes.
-    function createStep(uint cmd, uint128 value, bytes memory input) internal pure returns (bytes memory encoded) {
+    function createStep(uint cmd, uint value, bytes memory input) internal pure returns (bytes memory encoded) {
         uint len = max32(Sizes.Step + input.length);
         encoded = allocate(len);
         writeStep(encoded, 0, cmd, value, input);
     }
 
     /// @notice Encode a STEP block by copying its nested input from calldata.
-    function createStepCopy(uint cmd, uint128 value, bytes calldata input) internal pure returns (bytes memory encoded) {
+    function createStepCopy(uint cmd, uint value, bytes calldata input) internal pure returns (bytes memory encoded) {
         uint len = max32(Sizes.Step + input.length);
         encoded = allocate(len);
         copyStep(encoded, 0, cmd, value, input);

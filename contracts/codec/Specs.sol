@@ -21,8 +21,8 @@ library Sizes {
     uint constant B128 = Header + 4 * Word;
     /// @dev 8 header + 160 payload = 168 bytes total.
     uint constant B160 = Header + 5 * Word;
-    /// @dev Minimum STEP size: 8 header + 32 command + 16 value + 8 nested BYTES header.
-    uint constant Step = 2 * Header + Word + 16;
+    /// @dev Minimum STEP size: 8 header + 32 command + 32 value + 8 nested BYTES header.
+    uint constant Step = 2 * Header + 2 * Word;
     /// @dev STATUS block: 8 header + 32 status code = 40 bytes
     uint constant Status = B32;
     /// @dev CASHOUT block: 8 header + 32 native-asset amount = 40 bytes
@@ -64,7 +64,6 @@ library Specs {
     uint private constant Exact128 = 128 * SizeFields;
     uint private constant UnboundedHint128 = uint(128) << 136;
     uint private constant UnboundedMin40Hint256 = (uint(40) << 192) | (uint(256) << 136);
-    uint private constant UnboundedMin56Hint256 = (uint(56) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin72Hint256 = (uint(72) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin48Hint512 = (uint(48) << 192) | (uint(512) << 136);
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
@@ -85,7 +84,7 @@ library Specs {
     uint constant String = uint(bytes32(Keys.String)) | UnboundedHint128;
     uint constant Account = uint(bytes32(Keys.Account)) | Exact32;
     uint constant Transaction = uint(bytes32(Keys.Transaction)) | Exact128;
-    uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin56Hint256;
+    uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin72Hint256;
     uint constant Relay = uint(bytes32(Keys.Relay)) | UnboundedMin72Hint256;
     uint constant Context = uint(bytes32(Keys.Context)) | UnboundedMin48Hint512;
     uint constant Recover = uint(bytes32(Keys.Recover)) | UnboundedMin104Hint256;

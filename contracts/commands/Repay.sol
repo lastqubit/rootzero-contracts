@@ -162,7 +162,7 @@ abstract contract RepayInternal is Repay {
         bytes32 account,
         bytes memory state,
         bytes calldata input,
-        uint128 value
+        uint value
     ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert UnexpectedInput();

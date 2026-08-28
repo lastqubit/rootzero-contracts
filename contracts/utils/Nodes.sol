@@ -6,6 +6,21 @@ import {InvalidId} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
+/// @notice Validate and unpack a command node into its ABI selector and target address.
+/// @dev Validates only the command type prefix; chain locality and authorization are caller concerns.
+/// @param cmd Command node ID to unpack.
+/// @return selector ABI selector stored in bits [191:160].
+/// @return target Contract address stored in bits [159:0].
+function unpackCommand(uint cmd) pure returns (bytes4 selector, address target) {
+    uint32 command = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
+    if (uint32(cmd >> 224) != command) revert InvalidId();
+
+    assembly ("memory-safe") {
+        selector := shl(224, and(shr(160, cmd), 0xffffffff))
+        target := and(cmd, 0xffffffffffffffffffffffffffffffffffffffff)
+    }
+}
+
 /// @title Nodes
 /// @notice Encoding and decoding helpers for 256-bit node identifiers.
 ///

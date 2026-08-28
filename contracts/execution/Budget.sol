@@ -38,15 +38,19 @@ library Budgets {
     }
 
     /// @notice Deduct the EVM value lane of `resources` from `budget`.
-    /// @dev EVM resources use the low 128 bits as native value/endowment.
+    /// @dev `resources` is not a native value. This helper explicitly extracts
+    /// its low 128-bit EVM value lane and widens that lane to a plain `uint`.
     /// @param budget Mutable budget to debit.
     /// @param resources Packed resources whose low 128 bits contain native value.
     /// @return value Native value to forward in wei.
-    function useResourceValue(Budget memory budget, uint resources) internal pure returns (uint128) {
-        return uint128(useValue(budget, uint128(resources)));
+    function useResourceValue(Budget memory budget, uint resources) internal pure returns (uint value) {
+        value = uint128(resources);
+        useValue(budget, value);
     }
 
     /// @notice Deduct the EVM value lane of `resources` from a scalar budget.
+    /// @dev `resources` is not a native value. This helper explicitly extracts
+    /// its low 128-bit EVM value lane and widens that lane to a plain `uint`.
     /// @param budget Remaining native value in wei.
     /// @param resources Packed resources whose low 128 bits contain native value.
     /// @return remaining Native value remaining after the deduction.
@@ -54,7 +58,7 @@ library Budgets {
     function useResourceValue(
         uint budget,
         uint resources
-    ) internal pure returns (uint remaining, uint128 value) {
+    ) internal pure returns (uint remaining, uint value) {
         value = uint128(resources);
         remaining = useValue(budget, value);
     }

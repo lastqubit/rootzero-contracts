@@ -29,10 +29,11 @@ pragma solidity ^0.8.33;
 // - `portal` fields identify destination portal hosts. By convention the value
 //   is the portal implementation's host ID; core passes it through unchanged
 //   and hooks may validate or resolve it for their transport
-// - `resources` fields are chain-specific resource words. A portal adapter
-//   interprets them for the destination runtime. EVM resources use the low
-//   128 bits as native value.
-// - STEP encodes native `value` directly as uint128; it does not carry a
+// - `resources` fields are opaque chain-specific packed words, not native
+//   values. A portal adapter interprets them for the destination runtime. EVM
+//   resources use the low 128 bits as native value, extracted explicitly with
+//   `useResourceValue` before spending.
+// - STEP encodes native `value` directly as uint; it does not carry a
 //   chain-specific resources word
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
@@ -116,7 +117,7 @@ library Schemas {
 
     // Composite payloads
 
-    string constant Step = "uint cmd, uint128 value, #bytes as input";
+    string constant Step = "uint cmd, uint value, #bytes as input";
     string constant Call = "uint target, uint resources, #bytes as payload";
     string constant Relay = "uint portal, uint resources, #bytes as input";
     string constant Dispatch = "uint portal, uint resources, #bytes as payload";

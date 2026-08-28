@@ -9,7 +9,8 @@ using Executions for Execution;
 abstract contract RecoverPayableHook {
     /// @notice Override to recover a witness through `handler`.
     /// @param handler Port that should attempt recovery.
-    /// @param resources Chain-specific resources assigned to the recovery attempt.
+    /// @param resources Opaque packed chain-specific resources, not plain native
+    /// value. EVM handlers extract the low 128-bit value lane with `useResourceValue`.
     /// @param key Recovery lookup key.
     /// @param witness Witness payload used to prove and replay recovery.
     /// @param funds Shared execution containing the source value budget.

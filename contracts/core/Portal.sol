@@ -20,7 +20,7 @@ abstract contract Portal is PortCalls, NodeAccess, UnresolvedEvent, ResolvedEven
     /// @param message Encoded port input to forward.
     /// @param value Native EVM value assigned to the forwarding attempt.
     /// @return miss Message digest recorded for recovery when forwarding fails; zero on success.
-    function forward(uint port, bytes32 key, bytes calldata message, uint128 value) internal returns (bytes32 miss) {
+    function forward(uint port, bytes32 key, bytes calldata message, uint value) internal returns (bytes32 miss) {
         if (tryCallPortCopy(port, value, message)) return bytes32(0);
 
         miss = keccak256(message);
@@ -33,7 +33,7 @@ abstract contract Portal is PortCalls, NodeAccess, UnresolvedEvent, ResolvedEven
     /// @param key Recovery lookup key.
     /// @param witness Witness payload used to prove and replay recovery.
     /// @param value Native EVM value assigned to the resolution attempt.
-    function resolve(uint port, bytes32 key, bytes calldata witness, uint128 value) internal virtual {
+    function resolve(uint port, bytes32 key, bytes calldata witness, uint value) internal virtual {
         if (unresolved[key] != keccak256(witness)) revert BadWitness();
 
         delete unresolved[key];

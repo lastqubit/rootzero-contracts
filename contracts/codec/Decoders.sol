@@ -740,7 +740,7 @@ library Decoders {
     /// @return input Decoded command input.
     function unpackStep(
         Cur memory cur
-    ) internal pure returns (uint cmd, uint128 value, bytes calldata input) {
+    ) internal pure returns (uint cmd, uint value, bytes calldata input) {
         uint abs = cur.state.absolute();
         uint end;
         (cmd, value, input, end) = Blocks.unpackStep(abs);

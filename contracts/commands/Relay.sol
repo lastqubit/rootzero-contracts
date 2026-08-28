@@ -13,8 +13,9 @@ abstract contract RelayPayableHook {
     /// the source state is consumed before destination success is known.
     /// @param portal Destination portal implementation's host ID. Implementations
     /// may validate or resolve it for their transport.
-    /// @param resources Chain-specific destination resources. EVM adapters
-    /// may interpret this as packed execution gas and destination value.
+    /// @param resources Opaque packed chain-specific destination resources, not
+    /// plain native value. EVM adapters extract the low 128-bit value lane with
+    /// `useResourceValue`; higher bits may encode execution gas or other data.
     /// @param account Destination command account.
     /// @param state Complete state forwarded into the destination context.
     /// @param input Input forwarded into the destination context.

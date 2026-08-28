@@ -8,7 +8,9 @@ using Executions for Execution;
 
 /// @title ExecutePayable
 /// @notice Admin command that forwards raw calldata to one or more target nodes.
-/// Each CALL block specifies a target node ID, packed resources, and raw calldata payload.
+/// Each CALL block specifies a target node ID, opaque packed resources, and raw
+/// calldata payload. Packed resources are converted to plain native value only
+/// through `useResourceValue`.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` is returned as native budget credit.
 abstract contract ExecutePayable is RawNodeCalls, AdminBase {

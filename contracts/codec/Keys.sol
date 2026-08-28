@@ -39,7 +39,7 @@ library Keys {
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
-    /// @dev Sub-command invocation - (uint cmd, uint128 value, #bytes as input)
+    /// @dev Sub-command invocation - (uint cmd, uint value, #bytes as input)
     bytes4 constant Step = bytes4(keccak256("#step"));
     /// @dev Portal relay input - (uint portal, uint resources, #bytes as input)
     bytes4 constant Relay = bytes4(keccak256("#relay"));

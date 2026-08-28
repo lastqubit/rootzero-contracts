@@ -106,9 +106,7 @@ abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
     /// @param node Node ID to validate.
     /// @return The same `node` value if trusted.
     function ensureTrusted(uint node) internal view override returns (uint) {
-        if (node == 0 || !nodes[node]) {
-            revert AccessDenied();
-        }
+        if (!nodes[node]) revert AccessDenied();
         return node;
     }
 

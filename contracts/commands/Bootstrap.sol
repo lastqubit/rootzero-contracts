@@ -58,7 +58,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
         bytes32 account,
         bytes memory state,
         bytes calldata input,
-        uint128 value
+        uint value
     ) internal returns (bytes memory output, uint credit) {
         if (state.length != 0) revert UnexpectedState();
         if (input.length % Sizes.Bootstrap != 0) revert Blocks.InvalidBlock();

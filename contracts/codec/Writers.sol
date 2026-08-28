@@ -414,7 +414,7 @@ library Writers {
     /// @param cmd Command identifier to encode.
     /// @param value Native value to encode.
     /// @param input Command input to encode.
-    function appendStep(Writer memory writer, uint cmd, uint128 value, bytes memory input) internal pure {
+    function appendStep(Writer memory writer, uint cmd, uint value, bytes memory input) internal pure {
         uint size = Sizes.Step + input.length;
         uint i = reserve(writer, size);
         Blocks.writeStep(writer.dst, i, cmd, value, input);
@@ -561,7 +561,7 @@ library Writers {
     }
 
     /// @notice Append a STEP block by copying its nested input from calldata.
-    function copyStep(Writer memory writer, uint cmd, uint128 value, bytes calldata input) internal pure {
+    function copyStep(Writer memory writer, uint cmd, uint value, bytes calldata input) internal pure {
         uint size = Sizes.Step + input.length;
         uint i = reserve(writer, size);
         Blocks.copyStep(writer.dst, i, cmd, value, input);

@@ -618,7 +618,7 @@ library Executions {
     /// @return cmd Decoded command identifier.
     /// @return value Decoded native value.
     /// @return input Decoded nested input.
-    function unpackStep(Execution memory exec) internal pure returns (uint cmd, uint128 value, bytes calldata input) {
+    function unpackStep(Execution memory exec) internal pure returns (uint cmd, uint value, bytes calldata input) {
         uint cur = exec.decoders;
         uint end;
         (cmd, value, input, end) = Blocks.unpackStep(cur.absolute());
@@ -1029,7 +1029,7 @@ library Executions {
     /// @param cmd Command identifier to encode.
     /// @param value Native value to encode.
     /// @param input Command input to encode.
-    function outputStep(Execution memory exec, uint cmd, uint128 value, bytes memory input) internal pure {
+    function outputStep(Execution memory exec, uint cmd, uint value, bytes memory input) internal pure {
         uint size = Sizes.Step + input.length;
         uint i = reserve(exec, size);
         Blocks.writeStep(exec.output, i, cmd, value, input);
@@ -1164,7 +1164,7 @@ library Executions {
     }
 
     /// @notice Append a STEP block to execution output by copying its nested input from calldata.
-    function outputCopyStep(Execution memory exec, uint cmd, uint128 value, bytes calldata input) internal pure {
+    function outputCopyStep(Execution memory exec, uint cmd, uint value, bytes calldata input) internal pure {
         uint size = Sizes.Step + input.length;
         uint i = reserve(exec, size);
         Blocks.copyStep(exec.output, i, cmd, value, input);
@@ -1247,12 +1247,14 @@ library Executions {
     }
 
     /// @notice Deduct the EVM value lane of `resources` from the execution budget.
-    /// @dev EVM resources use the low 128 bits as native value/endowment.
+    /// @dev `resources` is not a native value. This helper explicitly extracts
+    /// its low 128-bit EVM value lane and widens that lane to a plain `uint`.
     /// @param exec Mutable execution whose budget is charged.
     /// @param resources Packed resources whose value lane should be spent.
     /// @return value Native value to forward in wei.
-    function useResourceValue(Execution memory exec, uint resources) internal pure returns (uint128) {
-        return uint128(useValue(exec, uint128(resources)));
+    function useResourceValue(Execution memory exec, uint resources) internal pure returns (uint value) {
+        value = uint128(resources);
+        useValue(exec, value);
     }
 
     // -------------------------------------------------------------------------

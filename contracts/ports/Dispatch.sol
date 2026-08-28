@@ -13,8 +13,9 @@ abstract contract DispatchPayableHook {
     /// @notice Override to dispatch an encoded payload to `portal`.
     /// @param portal Destination portal implementation's host ID. Implementations
     /// may validate or resolve it for their transport.
-    /// @param resources Chain-specific destination resources. EVM adapters
-    /// may interpret this as packed execution gas and destination value.
+    /// @param resources Opaque packed chain-specific destination resources, not
+    /// plain native value. EVM adapters extract the low 128-bit value lane with
+    /// `useResourceValue`; higher bits may encode execution gas or other data.
     /// @param payload Encoded payload ready for the transport layer.
     /// @param funds Execution used for source value available for transport fees
     /// and destination resource funding.
