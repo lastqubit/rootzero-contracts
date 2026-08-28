@@ -8,6 +8,30 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.28.0
+
+### Breaking Changes
+
+- Expanded STEP's native `value` field from `uint128` to `uint`, increasing an
+  empty STEP block from 64 to 80 bytes. Plain native values now use `uint`
+  throughout runtime APIs; packed `resources` remain separate `uint` words
+  whose EVM value lane is extracted explicitly with `useResourceValue`.
+- Replaced the `CommandCalls` abstraction and its allocating `encodeCommandCall`
+  and `callCommand` helpers with the free `rawCommandCall` function. The caller
+  now supplies the decoded selector and target after validating and authorizing
+  the command, then uses the single-scratch assembly call path.
+- Added the required `ExecuteHook` to `Pipeline` and removed its `dispatch` hook.
+  Steps whose command IDs target the current host use `execute`; other commands
+  are checked through `TrustAccess` and called directly with `rawCommandCall`.
+
+### Changed
+
+- Added the free `unpackCommand` utility for validating a command node and
+  extracting its selector and target in one operation. Pipeline steps now use
+  it to validate command IDs and select local execution by target address.
+- Simplified `NodeAccess.ensureTrusted` to a single mapping check; an unset zero
+  node already resolves to false like every other untrusted node.
+
 ## 1.27.0
 
 ### Breaking Changes
