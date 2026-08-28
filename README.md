@@ -365,7 +365,7 @@ A single command is rarely the whole story. A pipeline is a run of `#step`
 blocks executed in order within one transaction:
 
 ```txt
-step { uint cmd, uint128 value, #bytes as input }
+step { uint cmd, uint value, #bytes as input }
 ```
 
 Each step names a command, the native value it may spend, and its input.
@@ -379,22 +379,22 @@ debits each asset through the standard account hook, introduces matching
 native asset through the same hook. Its pipeline-local implementation uses assigned step value first when
 bootstrapping the native asset, debits any remainder from the account, and
 returns unused assigned value as credit. Bootstrap is registered with command
-metadata but is only executable through local pipeline dispatch. This is the core of
+metadata but is only executable through local pipeline execution. This is the core of
 `Pipeline.pipe`:
 
 ```solidity
 while (cur.more()) {
-    (uint cmd, uint128 value, bytes calldata input) = cur.unpackStep();
+    (uint cmd, uint value, bytes calldata input) = cur.unpackStep();
+    (bytes4 selector, address target) = unpackCommand(cmd);
     if (budget < value) revert InsufficientValue();
     unchecked { budget -= value; }
     uint credit;
-    (state, credit) = dispatch(
-        cmd,
-        account,
-        state,
-        input,
-        value
-    );
+    if (target == address(this)) {
+        (state, credit) = execute(cmd, account, state, input, value);
+    } else {
+        ensureTrusted(cmd);
+        (state, credit) = rawCommandCall(selector, target, value, account, state, input);
+    }
     budget += credit;
 }
 if (state.length != 0) revert UnexpectedState();
@@ -407,9 +407,11 @@ settles that final value once.
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
 `#amount` input into `#balance` state, and `payout` consumes that state
 toward a recipient. Because a pipeline is just blocks, it is also the unit of
-command batching. A step's `uint128 value` is drawn directly from the shared
-native-value budget. Transport envelopes retain separate chain-specific
-`resources` fields for adapters that also need gas or runtime parameters.
+command batching. A step's plain `uint value` is drawn directly from the shared
+native-value budget. Transport envelopes retain separate opaque, packed
+chain-specific `resources` fields for adapters that also need gas or runtime
+parameters. A `resources` word is never itself native value; EVM adapters use
+`useResourceValue` to extract its low 128-bit value lane before spending it.
 
 Hosts that implement a pipeline locally can inherit `Bootstrap`,
 `CashoutInternal`, `DebitAccountInternal`, `CreditAccountInternal`,
@@ -509,11 +511,11 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Settlement`, `PipeHook`, `Pipeline`, `Portal`, validator
+  `Settlement`, `ExecuteHook`, `PipeHook`, `Pipeline`, `Portal`, validator
 - `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
   codec helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
-  mixins, their hooks (including `PipeHook`), and `Flags`
+  mixins, their hooks (including `ExecuteHook` and `PipeHook`), and `Flags`
 - `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
   `Memory`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
   `Specs`

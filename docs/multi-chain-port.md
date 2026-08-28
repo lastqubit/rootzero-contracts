@@ -64,7 +64,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Cursor parsing | `codec/Decoders.sol` | Zero-copy byte stream reader. Re-implement per language. |
 | Writer helpers | `codec/Writers.sol` | Block stream builder. Re-implement per language. |
 | Block key constants | `codec/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
-| Pipeline state model | `core/Pipeline.sol` | STEP stream, threaded `bytes` state, and separately posted TRANSACTION output. Only dispatch and posting are chain-specific. |
+| Pipeline state model | `core/Pipeline.sol` | STEP stream and threaded `bytes` state. Local execution, dispatch, and posting are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
 | Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
@@ -540,17 +540,20 @@ Chain-specific dispatch:
 The `pipe()` loop is pure protocol logic:
 
 1. Iterate STEP blocks.
-2. Decode `(cmd, value, input)` and deduct the `uint128` native value directly
+2. Decode `(cmd, value, input)` and deduct the plain `uint` native value directly
    from the scalar budget.
-3. Dispatch `cmd` locally.
-4. Thread the returned state bytes into the next step and add the returned native credit to the shared budget before dispatching the next step.
+3. Execute commands targeting the current host through its local execute hook;
+   validate trust and call other local-chain command targets directly.
+4. Thread the returned state bytes into the next step and add the returned native credit to the shared budget before executing the next step.
 5. Require the final state to be empty.
 
 `pipe()` returns the remaining native-value budget to its caller. Per-command
 native credit replenishes this budget, allowing one command to fund later
 commands. The enclosing entrypoint settles the final budget once.
 
-Dispatch should not extract a target chain ID. It should only validate that `cmd` is a trusted local command and resolve it through the local chain's dispatch table.
+Pipeline execution should not extract a target chain ID. `execute` resolves
+commands hosted by the current pipeline host; other command IDs are authorized
+as trusted local nodes and invoked through the local chain's call mechanism.
 
 #### Port Pipe
 

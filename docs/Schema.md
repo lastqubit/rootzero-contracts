@@ -441,15 +441,16 @@ value is the host ID of the destination portal implementation. Core encoding
 and dispatch pass the value through unchanged; transport hooks are responsible
 for any validation or route resolution they require.
 
-Fields named `resources` are chain-specific resource words. A portal adapter
-interprets them for the destination runtime. Different runtimes may pack these
-words differently, but a given runtime must use one stable format everywhere.
-For EVM chains, the low 128 bits are native value / endowment in wei; higher
-bits are reserved for execution resources such as gas.
+Fields named `resources` are opaque packed chain-specific words, not plain
+native values. A portal adapter interprets them for the destination runtime.
+Different runtimes may pack these words differently, but a given runtime must
+use one stable format everywhere. For EVM chains, the low 128 bits are native
+value / endowment in wei; higher bits are reserved for execution resources such
+as gas. EVM code must call `useResourceValue` to extract and spend the value lane.
 
-STEP blocks are deliberately narrower: their `uint128 value` field is the
-native value drawn from the pipeline budget. STEP does not contain a
-chain-specific `resources` word.
+STEP blocks use a plain `uint value` field containing native value drawn from
+the pipeline budget. This is distinct from `resources`: STEP does not contain
+or require interpretation of a chain-specific packed resource word.
 
 ## Protocol IDs
 
@@ -524,7 +525,7 @@ amount   { bytes32 asset, uint amount }
 budget   { uint amount }
 balance  { bytes32 asset, uint amount }
 custody  { uint host, bytes32 asset, uint amount }
-step     { uint cmd, uint128 value, #bytes as input }
+step     { uint cmd, uint value, #bytes as input }
 call     { uint target, uint resources, #bytes as payload }
 context  { bytes32 account, #bytes as state, #bytes as input }
 recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
