@@ -542,8 +542,10 @@ The `pipe()` loop is pure protocol logic:
 1. Iterate STEP blocks.
 2. Decode `(cmd, value, input)` and deduct the plain `uint` native value directly
    from the scalar budget.
-3. Execute commands targeting the current host through its local execute hook;
-   validate trust and call other local-chain command targets directly.
+3. Give commands targeting the current host to its local execute hook first. A
+   handled result uses the hook-authorized optimized internal output. An
+   unhandled result is validated for trust before calling the command's normal
+   entrypoint. Validate trust and call other local-chain command targets directly.
 4. Thread the returned state bytes into the next step and add the returned native credit to the shared budget before executing the next step.
 5. Require the final state to be empty.
 
@@ -551,9 +553,10 @@ The `pipe()` loop is pure protocol logic:
 native credit replenishes this budget, allowing one command to fund later
 commands. The enclosing entrypoint settles the final budget once.
 
-Pipeline execution should not extract a target chain ID. `execute` resolves
-commands hosted by the current pipeline host; other command IDs are authorized
-as trusted local nodes and invoked through the local chain's call mechanism.
+Pipeline execution should not extract a target chain ID. `execute` gets the
+first opportunity to handle commands hosted by the current pipeline host and
+must authorize any command it handles. Delegated and other command IDs are
+authorized as trusted local nodes before using the local chain's call mechanism.
 
 #### Port Pipe
 

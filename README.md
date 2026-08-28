@@ -388,13 +388,17 @@ while (cur.more()) {
     (bytes4 selector, address target) = unpackCommand(cmd);
     if (budget < value) revert InsufficientValue();
     unchecked { budget -= value; }
+    bool handled;
+    bytes memory output;
     uint credit;
     if (target == address(this)) {
-        (state, credit) = execute(cmd, account, state, input, value);
-    } else {
-        ensureTrusted(cmd);
-        (state, credit) = rawCommandCall(selector, target, value, account, state, input);
+        (handled, output, credit) = execute(cmd, account, state, input, value);
     }
+    if (!handled) {
+        ensureTrusted(cmd);
+        (output, credit) = rawCommandCall(selector, target, value, account, state, input);
+    }
+    state = output;
     budget += credit;
 }
 if (state.length != 0) revert UnexpectedState();
@@ -414,15 +418,18 @@ parameters. A `resources` word is never itself native value; EVM adapters use
 `useResourceValue` to extract its low 128-bit value lane before spending it.
 
 Hosts that implement a pipeline locally can inherit `Bootstrap`,
-`CashoutInternal`, `DebitAccountInternal`, `CreditAccountInternal`,
-`SettleInternal`, and
-`RepayInternal` to register canonical command metadata while routing
+`ExecuteCashout`, `ExecuteDebitAccount`, `ExecuteCreditAccount`,
+`ExecuteSettle`, and
+`ExecuteRepay` to register canonical command metadata while executing
 their local command IDs through `executeBootstrap`, `executeCashout`,
 `executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
 `executeRepay`. The bootstrap, cashout, and debit adapters decode fixed-stride
 calldata input directly; the other three
-decode memory-backed pipeline state. All avoid an external self-call. Pass the
-step value into each adapter. Bootstrap is pipeline-local rather than an
+decode memory-backed pipeline state. All return `handled = true` and avoid an
+external self-call. The host's `execute` hook must authorize a command before
+returning true. Returning `handled = false` delegates a local command to its
+trusted normal external entrypoint. Pass the step value into each adapter.
+Bootstrap is pipeline-local rather than an
 externally callable command and may consume value for native-asset balance;
 the other five reject nonzero value because those commands are non-funded.
 
