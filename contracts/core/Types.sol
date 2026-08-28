@@ -76,6 +76,7 @@ struct Debt {
 }
 
 /// @notice Asset and liability pair threaded as live pipeline state.
+/// Either side may be absent by setting both its identifier and quantity to zero.
 struct Position {
     /// @dev Identifier for the asset side.
     bytes32 asset;

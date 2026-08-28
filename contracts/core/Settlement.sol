@@ -61,7 +61,8 @@ abstract contract Settlement is PostHook, SettleHook, RepayHook, DebitAccountHoo
     }
 
     /// @notice Settle one position by crediting its asset and debiting its liability.
-    /// Skips either operation when its corresponding amount is zero.
+    /// Skips either operation when its corresponding amount is zero, including
+    /// position sides encoded as absent with a zero identifier and quantity.
     function settle(
         bytes32 account,
         bytes32 asset,

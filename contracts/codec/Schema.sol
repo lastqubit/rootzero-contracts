@@ -60,6 +60,8 @@ pragma solidity ^0.8.33;
 // - while a balance, debt, or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
 // - debt carries only a live liability side; position pairs live balance and debt sides
+// - either position side may be absent by setting both its identifier and quantity to zero,
+//   analogous to omitting a transaction side with a zero `from` or `to`
 // - debt and position state are transient and do not themselves create or erase an externally persisted obligation
 // - positions support backward composition, but pipeline steps always execute in encoded order
 // - commands must preserve, transform, settle, or intentionally consume pipeline state

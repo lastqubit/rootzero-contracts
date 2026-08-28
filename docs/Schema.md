@@ -242,6 +242,13 @@ debt     { bytes32 liability, uint debt }
 position { bytes32 asset, uint amount, bytes32 liability, uint debt }
 ```
 
+The two sides of a position are independently optional. Encode an absent asset
+side as `asset = 0, amount = 0`, and an absent liability side as
+`liability = 0, debt = 0`. This follows the same convention as a transaction
+whose zero `from` or `to` omits that side. One-sided positions allow a command
+to retain a position-shaped output for later composition; use `#balance` or
+`#debt` when that narrower state shape is sufficient.
+
 The position layout is deliberately the flat combination of the balance and
 debt layouts; it is not a nested Solidity struct. The asset side represents
 value acquired or controlled, and the liability side represents value owed or
