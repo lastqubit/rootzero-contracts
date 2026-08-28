@@ -8,12 +8,29 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.27.0
+
+### Breaking Changes
+
+- Removed `BootstrapBudgetHook`. Bootstrap budget contributions now debit the
+  account's local native asset through the standard `DebitAccountHook`.
+- Removed the external `bootstrap` endpoint and `BootstrapInternal`. Bootstrap
+  is now a pipeline-local command implemented directly by `Bootstrap` while
+  retaining its registered command ID and descriptor metadata.
+- Replaced the codec-specific `Executions.ZeroStride` error with global
+  `UnexpectedState` and `UnexpectedInput` errors for pipeline-local lane
+  violations.
+
 ### Changed
 
 - Node authorization and revocation now reject foreign-chain and opaque node
   IDs, keeping the trusted-node set local to the host chain.
 - Asserting EVM, admin, and user account helpers now require a nonzero embedded
   address while continuing to return the original account ID.
+- Documented that either side of a position may be absent, using a zero
+  identifier and quantity like an omitted transaction endpoint.
+- Bootstrap uses assigned step value before debiting any remaining native-asset
+  amount from the account and returns unused value as credit.
 
 ## 1.26.0
 
