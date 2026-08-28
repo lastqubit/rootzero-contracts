@@ -69,7 +69,7 @@ contract TestHost is
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint portal, uint resources, bytes32 account, bytes state, bytes input);
-    event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint128 value);
+    event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint value);
     event SettleCalled(
         bytes32 account,
         bytes32 asset,
@@ -94,7 +94,7 @@ contract TestHost is
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
-    event StepDispatched(uint cid, uint stepIndex, uint128 value);
+    event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
 
@@ -216,12 +216,12 @@ contract TestHost is
         emit AllowanceCalled(peer, asset, amount);
     }
 
-    function dispatch(
+    function execute(
         uint cid,
         bytes32 account,
         bytes memory state,
         bytes calldata input,
-        uint128 value
+        uint value
     ) internal override returns (bytes memory nextState, uint credit) {
         emit StepDispatched(cid, stepCount++, value);
         if (cid == bootstrapId()) {
@@ -242,7 +242,6 @@ contract TestHost is
         if (cid == repayId()) {
             return executeRepay(account, state, input, value);
         }
-        if (cid == type(uint).max) return (state, 123);
         return (state, 0);
     }
 

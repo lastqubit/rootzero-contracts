@@ -698,7 +698,7 @@ contract TestCursorHelper {
 
     function testUnpackStep(
         bytes calldata source
-    ) external pure returns (uint cmd, uint128 value, bytes calldata input, uint i) {
+    ) external pure returns (uint cmd, uint value, bytes calldata input, uint i) {
         Cur memory cur = Decoders.open(source);
         (cmd, value, input) = cur.unpackStep();
         (i, , ) = Cursors.decode(cur.state);

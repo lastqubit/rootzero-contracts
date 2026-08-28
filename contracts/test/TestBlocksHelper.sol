@@ -636,7 +636,7 @@ contract TestBlocksHelper is Action {
     function writeStep(
         uint offset,
         uint cmd,
-        uint128 value,
+        uint value,
         bytes memory input
     ) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.Step + input.length);

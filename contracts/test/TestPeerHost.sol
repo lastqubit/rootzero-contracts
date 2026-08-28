@@ -22,7 +22,7 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
-    event StepDispatched(uint cid, uint stepIndex, uint128 value);
+    event StepDispatched(uint cid, uint stepIndex, uint value);
 
     uint public stepCount;
 
@@ -56,12 +56,12 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
         emit PortDispatchCalled(portal, payload, resources, funds.budget);
     }
 
-    function dispatch(
+    function execute(
         uint cid,
         bytes32,
         bytes memory state,
         bytes calldata,
-        uint128 value
+        uint value
     ) internal override returns (bytes memory nextState, uint credit) {
         emit StepDispatched(cid, stepCount++, value);
         return (state, 0);

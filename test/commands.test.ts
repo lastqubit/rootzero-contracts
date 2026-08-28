@@ -17,6 +17,7 @@ import {
 
 describe("Commands", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
+  let remote: Awaited<ReturnType<typeof deploy>>;
   let utils: Awaited<ReturnType<typeof deploy>>;
   let commander: string;
   let userAccount: string;
@@ -26,8 +27,20 @@ describe("Commands", () => {
     const signer = await getSigner(0);
     commander = await signer.getAddress();
     host = await deploy("TestHost", commander);
+    remote = await deploy("TestRemoteCommand");
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
+
+    const trustedCommands = await Promise.all(
+      ["noop", "first", "second", "credit"].map((method) => remoteCmd(method)),
+    );
+    await host.authorize(
+      encodeContextBlock(
+        adminAccount,
+        "0x",
+        concat(...trustedCommands.map((command) => encodeNodeBlock(command))),
+      ),
+    );
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
@@ -61,6 +74,10 @@ describe("Commands", () => {
 
   async function cmd(method: string) {
     return commandId(`${method}(bytes)`, host);
+  }
+
+  async function remoteCmd(method: string) {
+    return commandId(`${method}(bytes)`, remote);
   }
 
   it("annotates commands with intrinsic semantic actions", async () => {
@@ -208,7 +225,7 @@ describe("Commands", () => {
       expect(transactions).to.equal(1n);
     });
 
-    it("does not truncate exact deposit values to the resource value lane", async () => {
+    it("keeps plain deposit values full-width", async () => {
       const asset = ethers.zeroPadValue("0x07", 32);
       const input = encodeAmountBlock(asset, 1n << 128n);
 
@@ -949,7 +966,7 @@ describe("Commands", () => {
       expect(transactions).to.equal(0n);
     });
 
-    it("does not truncate exact provision values to the resource value lane", async () => {
+    it("keeps plain provision values full-width", async () => {
       const asset = ethers.zeroPadValue("0x78", 32);
       const input = encodeAllocationBlock(888n, asset, 1n << 128n);
 
@@ -1221,7 +1238,7 @@ describe("Commands", () => {
       const amount = 17n;
       const input = concat(
         encodeStepBlock(await cmd("bootstrap"), 0n, encodeBootstrapBlock(asset, 9n, amount)),
-        encodeStepBlock(0n, amount, "0x"),
+        encodeStepBlock(await remoteCmd("noop"), amount, "0x"),
         encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
 
@@ -1538,40 +1555,52 @@ describe("Commands", () => {
       }
     });
 
-    it("executes STEP blocks and emits StepDispatched", async () => {
-      const input = encodeStepBlock(0n, 0n, "0x");
+    it("executes trusted remote STEP commands directly", async () => {
+      const input = encodeStepBlock(await remoteCmd("noop"), 0n, "0x");
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
-      await expect(tx).to.emit(host, "StepDispatched");
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("noop")!.selector, 0n);
     });
 
     it("threads state through multiple steps", async () => {
+      const command = await remoteCmd("noop");
       const input = concat(
-        encodeStepBlock(0n, 0n, "0x"),
-        encodeStepBlock(0n, 0n, "0x")
+        encodeStepBlock(command, 0n, "0x"),
+        encodeStepBlock(command, 0n, "0x")
       );
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
-      const count: bigint = await host.stepCount();
-      expect(count).to.be.gte(2n);
+      const receipt = await tx.wait();
+      const calls = receipt!.logs.filter((log) => {
+        try {
+          return remote.interface.parseLog(log)?.name === "CommandCalled";
+        } catch {
+          return false;
+        }
+      });
+      expect(calls).to.have.length(2);
     });
 
-    it("passes each step command and EVM value through to the dispatcher", async () => {
+    it("passes each remote command selector and EVM value to its target", async () => {
+      const first = await remoteCmd("first");
+      const second = await remoteCmd("second");
       const input = concat(
-        encodeStepBlock(11n, 7n, "0x1234"),
-        encodeStepBlock(22n, 9n, "0xabcd")
+        encodeStepBlock(first, 7n, "0x1234"),
+        encodeStepBlock(second, 9n, "0xabcd")
       );
-      const startCount = await host.stepCount();
       const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 16n });
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(11n, startCount, 7n);
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(22n, startCount + 1n, 9n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("first")!.selector, 7n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("second")!.selector, 9n);
     });
 
-    it("rejects step values wider than uint128", async () => {
+    it("encodes step values wider than uint128", async () => {
       expect(() => encodeStepBlock(11n, 1n << 128n, "0x1234"))
-        .to.throw();
+        .not.to.throw();
     });
 
     it("settles trusted returned value once after the pipeline closes", async () => {
-      const input = encodeStepBlock(ethers.MaxUint256, 0n, "0x1234");
+      const input = encodeStepBlock(await remoteCmd("credit"), 0n, "0x1234");
       const nativeAsset = await utils.testToNativeAsset();
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
@@ -1582,41 +1611,26 @@ describe("Commands", () => {
     });
 
     it("makes command-returned value available to later steps", async () => {
-      const startCount = await host.stepCount();
       const nativeAsset = await utils.testToNativeAsset();
+      const creditCommand = await remoteCmd("credit");
+      const spendCommand = await remoteCmd("noop");
       const input = concat(
-        encodeStepBlock(ethers.MaxUint256, 0n, "0x"),
-        encodeStepBlock(11n, 100n, "0x"),
+        encodeStepBlock(creditCommand, 0n, "0x"),
+        encodeStepBlock(spendCommand, 100n, "0x"),
       );
 
+      await (await getSigner(0)).sendTransaction({ to: await host.getAddress(), value: 100n });
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
-      const receipt = await tx.wait();
-      const events = receipt!.logs
-        .map((log) => {
-          try {
-            return host.interface.parseLog(log);
-          } catch {
-            return null;
-          }
-        })
-        .filter(
-          (event) =>
-            event?.name === "StepDispatched" ||
-            event?.name === "CreditToCalled",
-        );
-
-      expect(events.map((event) => event!.name)).to.deep.equal([
-        "StepDispatched",
-        "StepDispatched",
-        "CreditToCalled",
-      ]);
-      expect(Array.from(events[0]!.args)).to.deep.equal([ethers.MaxUint256, startCount, 0n]);
-      expect(Array.from(events[1]!.args)).to.deep.equal([11n, startCount + 1n, 100n]);
-      expect(Array.from(events[2]!.args)).to.deep.equal([userAccount, nativeAsset, 23n, 23n]);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("credit")!.selector, 0n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("noop")!.selector, 100n);
+      await expect(tx).to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, nativeAsset, 23n, 23n);
     });
 
     it("settles the final pipeline budget after the pipeline closes", async () => {
-      const input = encodeStepBlock(11n, 0n, "0x");
+      const input = encodeStepBlock(await remoteCmd("noop"), 0n, "0x");
       const nativeAsset = await utils.testToNativeAsset();
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 5n });
@@ -1631,7 +1645,7 @@ describe("Commands", () => {
         ethers.zeroPadValue("0x99", 32),
         123n
       );
-      const input = encodeStepBlock(0n, 0n, "0x");
+      const input = encodeStepBlock(await remoteCmd("noop"), 0n, "0x");
       await expect(host.testPipe.staticCall(userAccount, state, input))
         .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
@@ -1640,9 +1654,22 @@ describe("Commands", () => {
       await host.testPipe.staticCall(userAccount, "0x", "0x");
     });
 
+    it("rejects a STEP whose command ID is not a command node", async () => {
+      const input = encodeStepBlock(0n, 0n, "0x");
+      await expect(host.testPipe.staticCall(userAccount, "0x", input))
+        .to.be.revertedWithCustomError(host, "InvalidId");
+    });
+
+    it("rejects an untrusted remote command", async () => {
+      const command = await commandId("noop(bytes)", utils);
+      const input = encodeStepBlock(command, 0n, "0x");
+      await expect(host.testPipe.staticCall(userAccount, "0x", input))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
     it("rejects a non-STEP block trailing the STEP stream", async () => {
       const input = concat(
-        encodeStepBlock(0n, 0n, "0x"),
+        encodeStepBlock(await remoteCmd("noop"), 0n, "0x"),
         encodeAmountBlock(ethers.ZeroHash, 1n),
       );
 
@@ -1661,7 +1688,7 @@ describe("Commands", () => {
 
     it("tracks ETH value budget — reverts InsufficientValue when step requests too much", async () => {
       const largeValue = ethers.parseEther("1000");
-      const input = encodeStepBlock(0n, largeValue, "0x");
+      const input = encodeStepBlock(await remoteCmd("noop"), largeValue, "0x");
       await expect(
         (host.connect(await getSigner(0)) as any).testPipe(userAccount, "0x", input, { value: 0n })
       ).to.be.revertedWithCustomError(host, "InsufficientValue");

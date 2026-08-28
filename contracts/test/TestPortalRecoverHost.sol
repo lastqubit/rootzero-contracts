@@ -11,12 +11,12 @@ using Executions for Execution;
 contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
     constructor(address rootzero) Host(rootzero) {}
 
-    function testForward(uint handler, bytes32 key, bytes calldata message, uint128 value) external payable {
+    function testForward(uint handler, bytes32 key, bytes calldata message, uint value) external payable {
         bytes32 miss = forward(handler, key, message, value);
         if (miss != bytes32(0)) emit Unresolved(host, key, miss);
     }
 
-    function testCallPortMemory(uint port, bytes calldata input, uint128 value) external payable returns (bytes memory) {
+    function testCallPortMemory(uint port, bytes calldata input, uint value) external payable returns (bytes memory) {
         bytes memory data = input;
         return callPort(port, value, data);
     }

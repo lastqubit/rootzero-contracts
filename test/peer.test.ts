@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { deploy, getProvider, getSigner, portId } from "./helpers/setup.js";
+import { commandId, deploy, getProvider, getSigner, portId } from "./helpers/setup.js";
 import {
   Keys,
   endpointDescriptor,
@@ -21,14 +21,25 @@ import "./helpers/matchers.js";
 
 describe("Port Entrypoints", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
+  let remote: Awaited<ReturnType<typeof deploy>>;
 
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
     host = await deploy("TestPortHost", commander);
+    remote = await deploy("TestRemoteCommand");
     const trustedPeer = await callerHost(1);
     const adminAccount: string = await host.getAdminAccount();
-    await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(trustedPeer)));
+    const trustedCommands = await Promise.all(
+      ["noop", "first", "second"].map((name) => commandId(`${name}(bytes)`, remote)),
+    );
+    await host.authorize(
+      encodeContextBlock(
+        adminAccount,
+        "0x",
+        concat(encodeNodeBlock(trustedPeer), ...trustedCommands.map((command) => encodeNodeBlock(command))),
+      ),
+    );
   });
 
   async function port(method: string) {
@@ -534,30 +545,36 @@ describe("Port Entrypoints", () => {
     const method = "portPipePayable(bytes)";
     const account = encodeUserAccount("0x44");
 
-    it("unpacks CONTEXT blocks and dispatches nested input as pipe steps", async () => {
-      const step = encodeStepBlock(123n, 0n, "0xabcd");
-      const input = encodeContextBlock(account, "0x", step);
-      const startCount = await host.stepCount();
+    async function command(name: string) {
+      return commandId(`${name}(bytes)`, remote);
+    }
 
+    it("unpacks CONTEXT blocks and dispatches nested input as pipe steps", async () => {
+      const cmd = await command("first");
+      const step = encodeStepBlock(cmd, 0n, "0xabcd");
+      const input = encodeContextBlock(account, "0x", step);
       const tx = await callAs(1, method, input);
 
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(123n, startCount, 0n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("first")!.selector, 0n);
     });
 
     it("shares one value budget across multiple pipes", async () => {
-      const first = encodeContextBlock(account, "0x", encodeStepBlock(111n, 2n, "0x"));
-      const second = encodeContextBlock(account, "0x", encodeStepBlock(222n, 3n, "0x"));
-      const startCount = await host.stepCount();
-
+      const firstCommand = await command("first");
+      const secondCommand = await command("second");
+      const first = encodeContextBlock(account, "0x", encodeStepBlock(firstCommand, 2n, "0x"));
+      const second = encodeContextBlock(account, "0x", encodeStepBlock(secondCommand, 3n, "0x"));
       const tx = await callAs(1, method, concat(first, second), { value: 5n });
 
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(111n, startCount, 2n);
-      await expect(tx).to.emit(host, "StepDispatched").withArgs(222n, startCount + 1n, 3n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("first")!.selector, 2n);
+      await expect(tx).to.emit(remote, "CommandCalled")
+        .withArgs(remote.interface.getFunction("second")!.selector, 3n);
     });
 
     it("reverts UnexpectedState when a pipe context leaves final state", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0xaa", 32), 77n);
-      const input = encodeContextBlock(account, state, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeContextBlock(account, state, encodeStepBlock(await command("noop"), 0n, "0x"));
       const signer = await getSigner(1);
 
       await expect((host.connect(signer) as any)[method].staticCall(input))
@@ -565,14 +582,14 @@ describe("Port Entrypoints", () => {
     });
 
     it("reverts InsufficientValue when a pipe step requests more than the shared budget", async () => {
-      const input = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+      const input = encodeContextBlock(account, "0x", encodeStepBlock(await command("noop"), 1n, "0x"));
 
       await expect(callAs(1, method, input, { value: 0n }))
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("keeps unspent peer value on the host", async () => {
-      const input = encodeContextBlock(account, "0x", encodeStepBlock(0n, 1n, "0x"));
+    it("forwards assigned step value and keeps the unspent remainder on the host", async () => {
+      const input = encodeContextBlock(account, "0x", encodeStepBlock(await command("noop"), 1n, "0x"));
       const provider = await getProvider();
       const hostAddress = await host.getAddress();
 
@@ -582,7 +599,10 @@ describe("Port Entrypoints", () => {
 
       const before = await provider.getBalance(hostAddress, receipt.blockNumber - 1);
       const after = await provider.getBalance(hostAddress, receipt.blockNumber);
-      expect(after - before).to.equal(2n);
+      const remoteBefore = await provider.getBalance(await remote.getAddress(), receipt.blockNumber - 1);
+      const remoteAfter = await provider.getBalance(await remote.getAddress(), receipt.blockNumber);
+      expect(after - before).to.equal(1n);
+      expect(remoteAfter - remoteBefore).to.equal(1n);
     });
   });
 

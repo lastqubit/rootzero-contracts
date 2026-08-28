@@ -217,7 +217,7 @@ export function encodeTxBlock(from: string, to: string, asset: string, amount: b
 export function encodeStepBlock(cmd: bigint, value: bigint, input: string): string {
   return encodeBlock(Keys.Step, ethers.concat([
     pad32(cmd),
-    ethers.zeroPadValue(ethers.toBeHex(value), 16),
+    pad32(value),
     encodeBytesBlock(input),
   ]));
 }

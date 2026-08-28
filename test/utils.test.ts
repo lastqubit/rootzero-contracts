@@ -457,6 +457,19 @@ describe("Utils", () => {
       expect(result).to.equal(cid);
     });
 
+    it("unpackCommand extracts the selector and target from a command ID", async () => {
+      const cid: bigint = await utils.testToCommandId("deposit", signerAddress);
+      const [selector, target] = await utils.testUnpackCommand(cid);
+
+      expect(selector).to.equal(ethers.dataSlice(ethers.id("deposit(bytes)"), 0, 4));
+      expect(target).to.equal(signerAddress);
+    });
+
+    it("unpackCommand rejects a non-command ID", async () => {
+      const hid: bigint = await utils.testToHostId(signerAddress);
+      await expectCustomError(utils.testUnpackCommand(hid), "InvalidId");
+    });
+
     it("port succeeds for port ID", async () => {
       const pid: bigint = await utils.testToPortId("portRequestAllowance", signerAddress);
       const result: bigint = await utils.testPortNode(pid);

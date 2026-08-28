@@ -11,6 +11,7 @@ import {
     Cashout,
     CashoutHook,
     CashoutInternal,
+    ExecuteHook as EndpointExecuteHook,
     PipeHook as EndpointPipeHook,
     SettleInternal,
     Repay,
@@ -44,9 +45,11 @@ import {ResolvedEvent, UnresolvedEvent} from "../Events.sol";
 import {
     AccessDenied,
     CommanderNotAllowed,
+    ExecuteHook as CoreExecuteHook,
     PipeHook as CorePipeHook,
     enforceSender,
-    InputEndpointBase
+    InputEndpointBase,
+    rawCommandCall
 } from "../Core.sol";
 import {
     ZeroAddress,
@@ -55,6 +58,7 @@ import {
     clear32,
     clear64,
     ensureAddr,
+    unpackCommand,
     replace8,
     replace16,
     replace32,

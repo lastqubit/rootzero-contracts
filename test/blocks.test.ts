@@ -448,7 +448,7 @@ describe("Cursors", () => {
     });
 
     it("derives fixed bounds and stores dynamic bounds in specs", async () => {
-      expect(await blocksHelper.specRanges()).to.deep.equal([128n, 128n, 56n, 0n]);
+      expect(await blocksHelper.specRanges()).to.deep.equal([128n, 128n, 72n, 0n]);
     });
 
     it("stores allocation hints in three bytes", async () => {
@@ -1338,12 +1338,12 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(step).length));
     });
 
-    it("packs STEP value into exactly 16 bytes", async () => {
-      const value = (1n << 128n) - 1n;
+    it("packs STEP value into one full word", async () => {
+      const value = (1n << 256n) - 1n;
       const step = encodeStepBlock(7n, value, "0x");
 
-      expect(ethers.getBytes(step).length).to.equal(64);
-      expect(await helper.testUnpackStep(step)).to.deep.equal([7n, value, "0x", 64n]);
+      expect(ethers.getBytes(step).length).to.equal(80);
+      expect(await helper.testUnpackStep(step)).to.deep.equal([7n, value, "0x", 80n]);
     });
 
     it("unpackContext consumes account, state, and input bytes", async () => {
