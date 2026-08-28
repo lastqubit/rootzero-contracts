@@ -173,6 +173,18 @@ describe("Utils", () => {
       await expectCustomError(utils.testUserAccount(adminAccount), "InvalidAccount");
     });
 
+    it("asserting account helpers reject zero embedded addresses", async () => {
+      const adminAccount = await utils.testToAdminAccount(ethers.ZeroAddress);
+      const userAccount = await utils.testToUserAccount(ethers.ZeroAddress);
+
+      expect(await utils.testIsAdminAccount(adminAccount)).to.be.true;
+      expect(await utils.testIsUserAccount(userAccount)).to.be.true;
+      expect(await utils.testIsEvmAccount(userAccount)).to.be.true;
+      await expectCustomError(utils.testAdminAccount(adminAccount), "ZeroAddress");
+      await expectCustomError(utils.testUserAccount(userAccount), "ZeroAddress");
+      await expectCustomError(utils.testEvmAccount(userAccount), "ZeroAddress");
+    });
+
     it("accountAddr extracts embedded address", async () => {
       const userAccount = await utils.testToUserAccount(signerAddress);
       const extracted = await utils.testAccountAddr(userAccount);

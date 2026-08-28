@@ -8,6 +8,13 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+### Changed
+
+- Node authorization and revocation now reject foreign-chain and opaque node
+  IDs, keeping the trusted-node set local to the host chain.
+- Asserting EVM, admin, and user account helpers now require a nonzero embedded
+  address while continuing to return the original account ID.
+
 ## 1.26.0
 
 ### Breaking Changes

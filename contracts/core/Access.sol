@@ -89,6 +89,7 @@ abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
     /// @param node Node ID to update.
     /// @param active True to authorize the node, false to revoke it.
     function setNode(uint node, bool active) internal {
+        node = Nodes.local(node);
         nodes[node] = active;
         emit Node(host, node, active);
     }

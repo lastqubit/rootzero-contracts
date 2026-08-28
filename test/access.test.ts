@@ -22,6 +22,10 @@ describe("Access Control", () => {
     hostAddress = await host.getAddress();
   });
 
+  async function localNode(signerIndex: number) {
+    return utils.testToHostId(await (await getSigner(signerIndex)).getAddress());
+  }
+
   it("host ID is derived from contract address", async () => {
     const hostId: bigint = await host.host();
     // Lower 160 bits should be the contract address
@@ -68,7 +72,7 @@ describe("Access Control", () => {
   it("authorize emits Node event with active=true", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
-    const dummyNode = 0xdeadbeefn << 192n; // some non-zero node id
+    const dummyNode = await localNode(3);
     const nodeBlock = encodeNodeBlock(dummyNode);
     const ctx = [encodeContextBlock(adminAccount, "0x", nodeBlock)] as const;
 
@@ -80,7 +84,7 @@ describe("Access Control", () => {
   it("node is authorized after authorize call", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
-    const dummyNode = 0xcafebaben << 192n;
+    const dummyNode = await localNode(4);
     const nodeBlock = encodeNodeBlock(dummyNode);
     const ctx = [encodeContextBlock(adminAccount, "0x", nodeBlock)] as const;
     await host.connect(signers[0]).authorize(...ctx);
@@ -90,7 +94,7 @@ describe("Access Control", () => {
   it("unauthorize emits Node event with active=false", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
-    const dummyNode = 0x11111111n << 192n;
+    const dummyNode = await localNode(5);
     // First authorize
     await host.connect(signers[0]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
     // Then unauthorize
@@ -102,7 +106,7 @@ describe("Access Control", () => {
   it("node is not authorized after unauthorize call", async () => {
     const signers = await getSigners(1);
     const adminAccount: string = await host.getAdminAccount();
-    const dummyNode = 0x22222222n << 192n;
+    const dummyNode = await localNode(6);
     await host.connect(signers[0]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
     await host.connect(signers[0]).unauthorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(dummyNode)));
     expect(await host.isAuthorized(dummyNode)).to.be.false;
@@ -251,7 +255,7 @@ describe("Host feature bundles", () => {
     const utils = await deploy("TestUtils");
     const adminAccount = await utils.testToAdminAccount(commander);
     const guardianAccount = await utils.testToUserAccount(guardian);
-    const node = 123n;
+    const node = await utils.testToHostId(await signers[2].getAddress());
 
     await expect(host.connect(signers[2]).revoke(encodeNodeBlock(node)))
       .to.be.revertedWithCustomError(host, "AccessDenied");

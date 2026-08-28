@@ -57,7 +57,7 @@ describe("Admin Commands", () => {
     });
 
     it("authorizes a node and emits Node event", async () => {
-      const nodeId = 0xaaa000n;
+      const nodeId = await hostIdFor(await (await getSigner(4)).getAddress());
       const input = encodeNodeBlock(nodeId);
       await expect(callAs(0, "authorize", adminCtx(input)))
         .to.emit(host, "Node")
@@ -66,12 +66,26 @@ describe("Admin Commands", () => {
     });
 
     it("authorizes multiple nodes from multiple NODE blocks", async () => {
-      const node1 = 0xbbb001n;
-      const node2 = 0xbbb002n;
+      const node1 = await hostIdFor(await (await getSigner(5)).getAddress());
+      const node2 = await hostIdFor(await (await getSigner(6)).getAddress());
       const input = concat(encodeNodeBlock(node1), encodeNodeBlock(node2));
       await callAs(0, "authorize", adminCtx(input));
       expect(await host.isAuthorized(node1)).to.be.true;
       expect(await host.isAuthorized(node2)).to.be.true;
+    });
+
+    it("rejects foreign and opaque node IDs", async () => {
+      const provider = await getProvider();
+      const network = await provider.getNetwork();
+      const address = await (await getSigner(7)).getAddress();
+      const foreignNode = (0x01200202n << 224n)
+        | ((network.chainId + 1n) << 192n)
+        | BigInt(address);
+
+      await expect(callAs(0, "authorize", adminCtx(encodeNodeBlock(foreignNode))))
+        .to.be.revertedWithCustomError(host, "InvalidId");
+      await expect(callAs(0, "authorize", adminCtx(encodeNodeBlock(1n))))
+        .to.be.revertedWithCustomError(host, "InvalidId");
     });
 
     it("reverts AccessDenied when a trusted non-commander tries to authorize", async () => {
@@ -103,7 +117,7 @@ describe("Admin Commands", () => {
     });
 
     it("revokes node and emits Node event with false", async () => {
-      const nodeId = 0xccc001n;
+      const nodeId = await hostIdFor(await (await getSigner(8)).getAddress());
       // authorize first
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(nodeId)));
       // then unauthorize
@@ -151,6 +165,13 @@ describe("Admin Commands", () => {
 
       await expect(callAs(0, "appoint", adminCtx(encodeAccountBlock(adminAccount))))
         .to.be.revertedWithCustomError(host, "InvalidAccount");
+    });
+
+    it("rejects a user account with an embedded zero address", async () => {
+      const account = await utils.testToUserAccount(ethers.ZeroAddress);
+
+      await expect(callAs(0, "appoint", adminCtx(encodeAccountBlock(account))))
+        .to.be.revertedWithCustomError(host, "ZeroAddress");
     });
 
     it("accepts an empty input batch", async () => {
