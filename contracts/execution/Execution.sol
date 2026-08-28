@@ -28,9 +28,6 @@ struct Execution {
 library Executions {
     using Cursors for uint;
 
-    /// @dev Command-defined lane policy rejected data in an expected-empty lane.
-    error ZeroStride();
-
     // -------------------------------------------------------------------------
     // Opening
     // -------------------------------------------------------------------------

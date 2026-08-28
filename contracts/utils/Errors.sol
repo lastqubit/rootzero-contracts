@@ -7,6 +7,12 @@ error InsufficientValue();
 /// @dev Thrown when a decoder or execution is finalized with unread data.
 error UnconsumedData();
 
+/// @dev Thrown when an operation requires empty state but receives state data.
+error UnexpectedState();
+
+/// @dev Thrown when an operation requires empty input but receives input data.
+error UnexpectedInput();
+
 /// @dev Thrown when an ID does not match the expected convention or type.
 error InvalidId();
 

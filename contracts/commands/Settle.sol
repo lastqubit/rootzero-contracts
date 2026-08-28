@@ -7,6 +7,7 @@ import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 import {Blocks, Memory} from "../codec/Blocks.sol";
 import {Sizes} from "../codec/Specs.sol";
+import {UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
@@ -111,7 +112,7 @@ abstract contract SettleInternal is Settle {
         uint128 value
     ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
-        if (input.length != 0) revert Executions.ZeroStride();
+        if (input.length != 0) revert UnexpectedInput();
         if (state.length == 0) revert Blocks.EmptyRun();
 
         (uint abs, uint end) = Memory.bounds(state, Sizes.Position);

@@ -5,6 +5,7 @@ import {Execution, Executions, CommandBase, Specs} from "./Base.sol";
 import {CreditAccountHook} from "../core/Settlement.sol";
 import {Blocks, Memory} from "../codec/Blocks.sol";
 import {Sizes} from "../codec/Specs.sol";
+import {UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
@@ -61,7 +62,7 @@ abstract contract CreditAccountInternal is CreditAccount {
         uint128 value
     ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
-        if (input.length != 0) revert Executions.ZeroStride();
+        if (input.length != 0) revert UnexpectedInput();
         if (state.length == 0) revert Blocks.EmptyRun();
 
         (uint abs, uint end) = Memory.bounds(state, Sizes.Balance);

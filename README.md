@@ -276,6 +276,14 @@ next. Balance carries `{ asset, amount }`, debt carries `{ liability, debt }`,
 and position carries their flat combination
 `{ asset, amount, liability, debt }`.
 
+Either side of a position may be absent. An absent asset side is encoded as
+`asset = 0, amount = 0`; an absent liability side is encoded as
+`liability = 0, debt = 0`. This mirrors transaction blocks, where a zero `from`
+or `to` omits that side of the transfer. A one-sided position remains useful
+when a command must preserve position-shaped state for later composition;
+otherwise the narrower `#balance` or `#debt` block expresses the same live
+value more directly.
+
 `#debt` and `#position` are general live state rather than persisted
 lending-specific debt records. Debt carries value owed or required; position
 pairs that liability with value acquired or controlled. A command may preserve
@@ -367,8 +375,11 @@ next step, allowing one command to fund later commands. The standard
 `bootstrap` command consumes a stream of
 `#bootstrap { bytes32 asset, uint amount, uint budget }` requests and atomically
 debits each asset through the standard account hook, introduces matching
-`#balance` state, and sources summed trusted credit through its dedicated budget
-hook. This is the core of
+`#balance` state, and debits each nonzero budget contribution from the account's
+native asset through the same hook. Its pipeline-local implementation uses assigned step value first when
+bootstrapping the native asset, debits any remainder from the account, and
+returns unused assigned value as credit. Bootstrap is registered with command
+metadata but is only executable through local pipeline dispatch. This is the core of
 `Pipeline.pipe`:
 
 ```solidity
@@ -400,17 +411,18 @@ command batching. A step's `uint128 value` is drawn directly from the shared
 native-value budget. Transport envelopes retain separate chain-specific
 `resources` fields for adapters that also need gas or runtime parameters.
 
-Hosts that implement a pipeline locally can inherit `BootstrapInternal`,
+Hosts that implement a pipeline locally can inherit `Bootstrap`,
 `CashoutInternal`, `DebitAccountInternal`, `CreditAccountInternal`,
 `SettleInternal`, and
-`RepayInternal` to advertise the canonical command endpoints while routing
+`RepayInternal` to register canonical command metadata while routing
 their local command IDs through `executeBootstrap`, `executeCashout`,
 `executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
 `executeRepay`. The bootstrap, cashout, and debit adapters decode fixed-stride
 calldata input directly; the other three
 decode memory-backed pipeline state. All avoid an external self-call. Pass the
-step value into each adapter; all six reject nonzero value because the commands
-are non-funded.
+step value into each adapter. Bootstrap is pipeline-local rather than an
+externally callable command and may consume value for native-asset balance;
+the other five reject nonzero value because those commands are non-funded.
 
 Positions also support backward-composed pipelines. In an exact-output route,
 the asset side can represent the desired result while the liability side

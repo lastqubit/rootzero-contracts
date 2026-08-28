@@ -7,6 +7,7 @@ import {Sizes} from "../codec/Specs.sol";
 import {Cursors} from "../utils/Cursors.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
+import {UnexpectedState} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
@@ -70,7 +71,7 @@ abstract contract CashoutInternal is Cashout {
         uint128 value
     ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
-        if (state.length != 0) revert Executions.ZeroStride();
+        if (state.length != 0) revert UnexpectedState();
         if (input.length % Sizes.Cashout != 0) revert Blocks.InvalidBlock();
 
         (uint abs, uint end) = Cursors.bounds(input);

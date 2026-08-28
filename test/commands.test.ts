@@ -60,7 +60,7 @@ describe("Commands", () => {
   }
 
   async function cmd(method: string) {
-    return commandId(host.interface.getFunction(method)!.selector, host);
+    return commandId(`${method}(bytes)`, host);
   }
 
   it("annotates commands with intrinsic semantic actions", async () => {
@@ -259,9 +259,8 @@ describe("Commands", () => {
   });
 
   describe("bootstrap", () => {
-    const asset = ethers.zeroPadValue("0x19", 32);
-
-    it("discovers BOOTSTRAP input with BALANCE output", async () => {
+    it("discovers pipeline-local BOOTSTRAP input with BALANCE output", async () => {
+      expect(host.interface.getFunction("bootstrap")).to.equal(null);
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
@@ -271,65 +270,6 @@ describe("Commands", () => {
           await cmd("bootstrap"),
           endpointDescriptor({ input: Keys.Bootstrap, output: exactSpec(Keys.Balance, 64) }),
         );
-    });
-
-    it("atomically sources a balance and budget credit", async () => {
-      const input = encodeBootstrapBlock(asset, 12n, 25n);
-      const tx = await callAs(0, "bootstrap", ctx({ input }));
-
-      await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, asset, 12n, 12n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, 25n);
-      expect(await host.bootstrap.staticCall(...ctx({ input })))
-        .to.deep.equal([encodeBalanceBlock(asset, 12n), 25n]);
-    });
-
-    it("bootstraps batches and sums their budget credit", async () => {
-      const secondAsset = ethers.zeroPadValue("0x1a", 32);
-      const input = concat(
-        encodeBootstrapBlock(asset, 7n, 11n),
-        encodeBootstrapBlock(secondAsset, 13n, 17n),
-      );
-      const tx = await callAs(0, "bootstrap", ctx({ input }));
-      await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, asset, 7n, 7n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, 11n);
-      await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, secondAsset, 13n, 13n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, 17n);
-      expect(await host.bootstrap.staticCall(...ctx({ input }))).to.deep.equal([
-        concat(encodeBalanceBlock(asset, 7n), encodeBalanceBlock(secondAsset, 13n)),
-        28n,
-      ]);
-    });
-
-    it("accepts an empty bootstrap batch", async () => {
-      expect(await host.bootstrap.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
-    });
-
-    it("allows a zero budget contribution", async () => {
-      const input = encodeBootstrapBlock(asset, 8n, 0n);
-      const tx = await callAs(0, "bootstrap", ctx({ input }));
-      await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, asset, 8n, 8n);
-      expect(await host.bootstrap.staticCall(...ctx({ input })))
-        .to.deep.equal([encodeBalanceBlock(asset, 8n), 0n]);
-    });
-
-    it("rejects a different input block type", async () => {
-      const input = encodeAllocationBlock(1n, asset, 1n);
-      await expect(callAs(0, "bootstrap", ctx({ input })))
-        .to.be.revertedWithCustomError(host, "InvalidBlock");
-    });
-
-    it("requires empty incoming state", async () => {
-      const state = encodeBalanceBlock(asset, 1n);
-      const input = encodeBootstrapBlock(asset, 2n, 3n);
-      await expect(callAs(0, "bootstrap", ctx({ state, input })))
-        .to.be.revertedWithCustomError(host, "OutOfBounds");
     });
   });
 
@@ -1272,11 +1212,12 @@ describe("Commands", () => {
       const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
       const step = encodeStepBlock(command, 0n, input);
       await expect(callAs(0, "testPipe", userAccount, state, step))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
     it("bootstraps balance and makes its budget available to a later step", async () => {
       const asset = ethers.zeroPadValue("0xa0", 32);
+      const nativeAsset = await utils.testToNativeAsset();
       const amount = 17n;
       const input = concat(
         encodeStepBlock(await cmd("bootstrap"), 0n, encodeBootstrapBlock(asset, 9n, amount)),
@@ -1287,23 +1228,84 @@ describe("Commands", () => {
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, asset, 9n, 9n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, amount);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, amount, amount);
     });
 
-    it("rejects native value assigned to the local bootstrap command", async () => {
-      const input = encodeStepBlock(
-        await cmd("bootstrap"),
-        1n,
-        encodeBootstrapBlock(ethers.ZeroHash, 1n, 1n),
+    it("uses assigned value before debiting a native balance remainder", async () => {
+      const nativeAsset = await utils.testToNativeAsset();
+      const input = concat(
+        encodeStepBlock(
+          await cmd("bootstrap"),
+          4n,
+          encodeBootstrapBlock(nativeAsset, 7n, 0n),
+        ),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
 
-      await expect(callAs(0, "testPipe", userAccount, "0x", input, { value: 1n }))
-        .to.be.revertedWithCustomError(host, "ValueNotAllowed");
+      const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 4n });
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, 3n, 3n);
+      await expect(tx).to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, nativeAsset, 7n, 7n);
+    });
+
+    it("merges a native balance remainder and budget into one debit", async () => {
+      const nativeAsset = await utils.testToNativeAsset();
+      const input = concat(
+        encodeStepBlock(
+          await cmd("bootstrap"),
+          4n,
+          encodeBootstrapBlock(nativeAsset, 7n, 5n),
+        ),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 4n });
+      const receipt = await tx.wait();
+      const debits = receipt?.logs.filter((log: any) => {
+        try {
+          return host.interface.parseLog(log)?.name === "DebitFromCalled";
+        } catch {
+          return false;
+        }
+      });
+
+      expect(debits).to.have.length(1);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, 8n, 8n);
+    });
+
+    it("returns native value left after bootstrapping a native balance", async () => {
+      const nativeAsset = await utils.testToNativeAsset();
+      const input = concat(
+        encodeStepBlock(
+          await cmd("bootstrap"),
+          5n,
+          encodeBootstrapBlock(nativeAsset, 3n, 0n),
+        ),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 5n });
+      const receipt = await tx.wait();
+      const debits = receipt?.logs.filter((log: any) => {
+        try {
+          return host.interface.parseLog(log)?.name === "DebitFromCalled";
+        } catch {
+          return false;
+        }
+      });
+      expect(debits).to.be.empty;
+      await expect(tx).to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, nativeAsset, 3n, 3n);
+      await expect(tx).to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, nativeAsset, 2n, 2n);
     });
 
     it("bootstraps batches through optimized local dispatch", async () => {
       const command = await cmd("bootstrap");
+      const nativeAsset = await utils.testToNativeAsset();
       const firstAsset = ethers.zeroPadValue("0xa2", 32);
       const secondAsset = ethers.zeroPadValue("0xa3", 32);
       const bootstrapInput = concat(
@@ -1317,12 +1319,12 @@ describe("Commands", () => {
       const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, firstAsset, 1n, 1n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, 2n);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, 2n, 2n);
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, secondAsset, 3n, 3n);
-      await expect(tx).to.emit(host, "BootstrapBudgetCalled")
-        .withArgs(userAccount, 4n);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, 4n, 4n);
     });
 
     it("requires bootstrap to start with empty pipeline state", async () => {
@@ -1335,7 +1337,7 @@ describe("Commands", () => {
       );
 
       await expect(callAs(0, "testPipe", userAccount, state, steps))
-        .to.be.revertedWithCustomError(host, "ZeroStride");
+        .to.be.revertedWithCustomError(host, "UnexpectedState");
     });
 
     it("executes local debit and credit commands against threaded state", async () => {
@@ -1382,6 +1384,29 @@ describe("Commands", () => {
       await expect(tx)
         .to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, liability, debt, debt);
+    });
+
+    it("rejects input for state-only local commands", async () => {
+      const asset = ethers.zeroPadValue("0xb4", 32);
+      const liability = ethers.zeroPadValue("0xb5", 32);
+      const input = encodeAmountBlock(asset, 1n);
+      const cases = [
+        { command: "creditAccount", state: encodeBalanceBlock(asset, 1n) },
+        { command: "settle", state: encodePositionBlock(asset, 1n, liability, 1n) },
+        { command: "repay", state: encodeDebtBlock(liability, 1n) },
+      ];
+
+      for (const testCase of cases) {
+        await expect(
+          callAs(
+            0,
+            "testPipe",
+            userAccount,
+            testCase.state,
+            encodeStepBlock(await cmd(testCase.command), 0n, input),
+          ),
+        ).to.be.revertedWithCustomError(host, "UnexpectedInput");
+      }
     });
 
     it("processes batched fixed-stride streams in internal commands", async () => {

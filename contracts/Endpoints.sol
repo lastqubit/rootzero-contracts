@@ -13,7 +13,7 @@ import {CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} fr
 import {CommandBase} from "./commands/Base.sol";
 import {Allocate, AllocateHook} from "./commands/Allocate.sol";
 import {Burn, BurnHook} from "./commands/Burn.sol";
-import {Bootstrap, BootstrapBudgetHook, BootstrapInternal} from "./commands/Bootstrap.sol";
+import {Bootstrap} from "./commands/Bootstrap.sol";
 import {Cashout, CashoutHook, CashoutInternal} from "./commands/Cashout.sol";
 import {CreditAccount, CreditAccountInternal} from "./commands/Credit.sol";
 import {DebitAccount, DebitAccountInternal} from "./commands/Debit.sol";

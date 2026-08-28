@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Allocate } from "../commands/Allocate.sol";
-import { BootstrapInternal } from "../commands/Bootstrap.sol";
+import { Bootstrap } from "../commands/Bootstrap.sol";
 import { CashoutInternal } from "../commands/Cashout.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
@@ -30,7 +30,7 @@ using Executions for Execution;
 contract TestHost is
     Host,
     Allocate,
-    BootstrapInternal,
+    Bootstrap,
     CashoutInternal,
     Deposit,
     DepositPayable,
@@ -59,7 +59,6 @@ contract TestHost is
     RevokeAsset
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
-    event BootstrapBudgetCalled(bytes32 account, uint amount);
     event CashoutCalled(bytes32 account, uint amount);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
@@ -103,11 +102,6 @@ contract TestHost is
 
     function allocate(bytes32 account, HostAmount memory custody) internal override {
         emit AllocateCalled(custody.host, account, custody.asset, custody.amount);
-    }
-
-    function bootstrapBudget(bytes32 account, uint amount) internal override {
-        if (amount == 0) return;
-        emit BootstrapBudgetCalled(account, amount);
     }
 
     function cashout(bytes32 account, uint amount) internal override {

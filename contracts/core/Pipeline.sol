@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 import {Blocks} from "../codec/Blocks.sol";
 import {Cursors} from "../utils/Cursors.sol";
-import {InsufficientValue, OutOfBounds} from "../utils/Errors.sol";
+import {InsufficientValue, OutOfBounds, UnexpectedState} from "../utils/Errors.sol";
 
 /// @notice Hook implemented by hosts that execute encoded step streams.
 abstract contract PipeHook {
@@ -19,9 +19,6 @@ abstract contract PipeHook {
 /// @title Pipeline
 /// @notice Core pipeline functionality shared by higher-level surfaces.
 abstract contract Pipeline is PipeHook {
-    /// @dev Thrown when the pipeline finishes with non-empty threaded state.
-    error UnexpectedState();
-
     /// @notice Override to dispatch one piped step.
     /// Called once per STEP block. The returned state becomes the state passed to
     /// the next step, and the final returned state must be empty. Returned

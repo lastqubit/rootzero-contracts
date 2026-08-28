@@ -6,6 +6,7 @@ import {DebitAccountHook} from "../core/Settlement.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Sizes} from "../codec/Specs.sol";
 import {Cursors} from "../utils/Cursors.sol";
+import {UnexpectedState} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
@@ -64,7 +65,7 @@ abstract contract DebitAccountInternal is DebitAccount {
         uint128 value
     ) internal returns (bytes memory, uint) {
         if (value != 0) revert ValueNotAllowed();
-        if (state.length != 0) revert Executions.ZeroStride();
+        if (state.length != 0) revert UnexpectedState();
         if (input.length == 0) revert Blocks.EmptyRun();
         if (input.length % Sizes.Amount != 0) revert Blocks.InvalidBlock();
 
