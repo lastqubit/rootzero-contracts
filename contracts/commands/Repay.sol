@@ -146,16 +146,17 @@ abstract contract RepayPositionPayable is CommandBase, RepayPayableHook, Action 
     }
 }
 
-/// @title RepayInternal
-/// @notice Extends the advertised repay command with memory-state pipeline dispatch.
+/// @title ExecuteRepay
+/// @notice Extends the advertised repay command with memory-state pipeline execution.
 /// @dev This adapter is not a separate command. It uses the command ID and repayment hook
 /// inherited from `Repay` while accepting the state location used by `Pipeline`.
-abstract contract RepayInternal is Repay {
+abstract contract ExecuteRepay is Repay {
     /// @notice Execute the inherited repay command from an internal pipeline.
     /// @param account Account whose liabilities are repaid.
     /// @param state DEBT block stream held in pipeline memory.
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to the command; must be zero.
+    /// @return handled Always true because this helper executed the command.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
     function executeRepay(
@@ -163,7 +164,7 @@ abstract contract RepayInternal is Repay {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory, uint) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert UnexpectedInput();
         if (state.length == 0) revert Blocks.EmptyRun();
@@ -177,6 +178,6 @@ abstract contract RepayInternal is Repay {
             }
         }
 
-        return ("", 0);
+        return (true, "", 0);
     }
 }

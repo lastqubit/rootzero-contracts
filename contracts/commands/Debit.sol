@@ -46,16 +46,17 @@ abstract contract DebitAccount is CommandBase, DebitAccountHook {
     }
 }
 
-/// @title DebitAccountInternal
-/// @notice Extends the advertised debit-account command with optimized pipeline dispatch.
+/// @title ExecuteDebitAccount
+/// @notice Extends the advertised debit-account command with optimized pipeline execution.
 /// @dev This adapter is not a separate command. It uses the command ID and account hook
 /// inherited from `DebitAccount` while decoding its fixed-stride input directly from calldata.
-abstract contract DebitAccountInternal is DebitAccount {
+abstract contract ExecuteDebitAccount is DebitAccount {
     /// @notice Execute the inherited debit-account command from an internal pipeline.
     /// @param account Account whose funds are debited.
     /// @param state Empty pipeline state required by the command schema.
     /// @param input AMOUNT block stream.
     /// @param value Native value assigned to the command; must be zero.
+    /// @return handled Always true because this helper executed the command.
     /// @return output BALANCE block stream matching the debited amounts.
     /// @return credit Zero native budget credit.
     function executeDebitAccount(
@@ -63,14 +64,14 @@ abstract contract DebitAccountInternal is DebitAccount {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory, uint) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
         if (state.length != 0) revert UnexpectedState();
         if (input.length == 0) revert Blocks.EmptyRun();
         if (input.length % Sizes.Amount != 0) revert Blocks.InvalidBlock();
 
         (uint abs, uint end) = Cursors.bounds(input);
-        bytes memory output = new bytes(input.length);
+        output = new bytes(input.length);
         uint i;
 
         while (abs < end) {
@@ -83,6 +84,6 @@ abstract contract DebitAccountInternal is DebitAccount {
             }
         }
 
-        return (output, 0);
+        return (true, output, 0);
     }
 }

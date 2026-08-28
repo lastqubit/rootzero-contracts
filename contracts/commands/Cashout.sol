@@ -54,14 +54,15 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
     }
 }
 
-/// @title CashoutInternal
-/// @notice Extends cashout with optimized local pipeline dispatch.
-abstract contract CashoutInternal is Cashout {
+/// @title ExecuteCashout
+/// @notice Extends cashout with optimized local pipeline execution.
+abstract contract ExecuteCashout is Cashout {
     /// @notice Execute cashout directly against a calldata CASHOUT stream.
     /// @param account Account whose native asset is withdrawn.
     /// @param state Empty pipeline state required by the command schema.
     /// @param input CASHOUT block stream.
     /// @param value Native value assigned to this command; must be zero.
+    /// @return handled Always true because this helper executed the command.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
     function executeCashout(
@@ -69,7 +70,7 @@ abstract contract CashoutInternal is Cashout {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory, uint) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
         if (state.length != 0) revert UnexpectedState();
         if (input.length % Sizes.Cashout != 0) revert Blocks.InvalidBlock();
@@ -81,6 +82,6 @@ abstract contract CashoutInternal is Cashout {
                 abs += Sizes.Cashout;
             }
         }
-        return ("", 0);
+        return (true, "", 0);
     }
 }

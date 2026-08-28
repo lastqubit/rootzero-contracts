@@ -21,15 +21,17 @@ abstract contract PipeHook {
 
 /// @notice Hook implemented by pipeline hosts that execute host-local commands.
 abstract contract ExecuteHook {
-    /// @notice Execute one command whose node ID targets the current host.
-    /// @dev Implementations must revert for unsupported local command IDs.
+    /// @notice Try to execute one command whose node ID targets the current host.
+    /// @dev Implementations returning `handled = true` are responsible for
+    /// authorizing the command. Return false without side effects to delegate to
+    /// the trusted normal external entrypoint. Implementations may revert instead.
     function execute(
         uint cmd,
         bytes32 account,
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal virtual returns (bytes memory output, uint credit);
+    ) internal virtual returns (bool handled, bytes memory output, uint credit);
 }
 
 /// @title Pipeline
@@ -43,7 +45,11 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
         uint value
     ) private returns (bytes memory output, uint credit) {
         (bytes4 selector, address target) = unpackCommand(cmd);
-        if (target == address(this)) return execute(cmd, account, state, input, value);
+        if (target == address(this)) {
+            bool handled;
+            (handled, output, credit) = execute(cmd, account, state, input, value);
+            if (handled) return (output, credit);
+        }
         ensureTrusted(cmd);
         return rawCommandCall(selector, target, value, account, state, input);
     }

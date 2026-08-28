@@ -14,23 +14,23 @@ import {CommandBase} from "./commands/Base.sol";
 import {Allocate, AllocateHook} from "./commands/Allocate.sol";
 import {Burn, BurnHook} from "./commands/Burn.sol";
 import {Bootstrap} from "./commands/Bootstrap.sol";
-import {Cashout, CashoutHook, CashoutInternal} from "./commands/Cashout.sol";
-import {CreditAccount, CreditAccountInternal} from "./commands/Credit.sol";
-import {DebitAccount, DebitAccountInternal} from "./commands/Debit.sol";
+import {Cashout, CashoutHook, ExecuteCashout} from "./commands/Cashout.sol";
+import {CreditAccount, ExecuteCreditAccount} from "./commands/Credit.sol";
+import {DebitAccount, ExecuteDebitAccount} from "./commands/Debit.sol";
 import {Deposit, DepositHook, DepositPayable, DepositPayableHook} from "./commands/Deposit.sol";
 import {Payout, PayoutHook} from "./commands/Payout.sol";
 import {Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook} from "./commands/Provision.sol";
 import {RecoverPayable, RecoverPayableHook} from "./commands/Recover.sol";
 import {
     Repay,
-    RepayInternal,
+    ExecuteRepay,
     RepayPayable,
     RepayPayableHook,
     RepayPosition,
     RepayPositionPayable
 } from "./commands/Repay.sol";
 import {RelayPayable, RelayBalancePayable, RelayPayableHook} from "./commands/Relay.sol";
-import {Settle, SettlePayable, SettlePayableHook, SettleInternal} from "./commands/Settle.sol";
+import {Settle, SettlePayable, SettlePayableHook, ExecuteSettle} from "./commands/Settle.sol";
 import {Withdraw, WithdrawHook} from "./commands/Withdraw.sol";
 
 // Admin commands

@@ -43,16 +43,17 @@ abstract contract CreditAccount is CommandBase, CreditAccountHook {
     }
 }
 
-/// @title CreditAccountInternal
-/// @notice Extends the advertised credit-account command with memory-state pipeline dispatch.
+/// @title ExecuteCreditAccount
+/// @notice Extends the advertised credit-account command with memory-state pipeline execution.
 /// @dev This adapter is not a separate command. It uses the command ID and account hook
 /// inherited from `CreditAccount` while accepting the state location used by `Pipeline`.
-abstract contract CreditAccountInternal is CreditAccount {
+abstract contract ExecuteCreditAccount is CreditAccount {
     /// @notice Execute the inherited credit-account command from an internal pipeline.
     /// @param account Account credited by each balance.
     /// @param state BALANCE block stream held in pipeline memory.
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to the command; must be zero.
+    /// @return handled Always true because this helper executed the command.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
     function executeCreditAccount(
@@ -60,7 +61,7 @@ abstract contract CreditAccountInternal is CreditAccount {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory, uint) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert UnexpectedInput();
         if (state.length == 0) revert Blocks.EmptyRun();
@@ -74,6 +75,6 @@ abstract contract CreditAccountInternal is CreditAccount {
             }
         }
 
-        return ("", 0);
+        return (true, "", 0);
     }
 }

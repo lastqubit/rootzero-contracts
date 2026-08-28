@@ -52,6 +52,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
     /// @param state Empty pipeline state required by the command schema.
     /// @param input BOOTSTRAP block stream.
     /// @param value Native value available to fund native-asset balances.
+    /// @return handled Always true because this helper executed the command.
     /// @return output One BALANCE block per BOOTSTRAP input.
     /// @return credit Sourced budget contributions plus unused assigned value.
     function executeBootstrap(
@@ -59,7 +60,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory output, uint credit) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (state.length != 0) revert UnexpectedState();
         if (input.length % Sizes.Bootstrap != 0) revert Blocks.InvalidBlock();
 
@@ -77,5 +78,6 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
                 i += Sizes.Balance;
             }
         }
+        handled = true;
     }
 }

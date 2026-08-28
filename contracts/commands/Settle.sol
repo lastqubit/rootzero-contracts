@@ -93,16 +93,17 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
     }
 }
 
-/// @title SettleInternal
-/// @notice Extends the advertised settle command with memory-state pipeline dispatch.
+/// @title ExecuteSettle
+/// @notice Extends the advertised settle command with memory-state pipeline execution.
 /// @dev This adapter is not a separate command. It uses the command ID and settlement hook
 /// inherited from `Settle` while accepting the state location used by `Pipeline`.
-abstract contract SettleInternal is Settle {
+abstract contract ExecuteSettle is Settle {
     /// @notice Execute the inherited settle command from an internal pipeline.
     /// @param account Account for which each position is settled.
     /// @param state POSITION block stream held in pipeline memory.
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to the command; must be zero.
+    /// @return handled Always true because this helper executed the command.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
     function executeSettle(
@@ -110,7 +111,7 @@ abstract contract SettleInternal is Settle {
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal returns (bytes memory, uint) {
+    ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
         if (input.length != 0) revert UnexpectedInput();
         if (state.length == 0) revert Blocks.EmptyRun();
@@ -124,6 +125,6 @@ abstract contract SettleInternal is Settle {
             }
         }
 
-        return ("", 0);
+        return (true, "", 0);
     }
 }
