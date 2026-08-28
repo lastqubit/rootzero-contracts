@@ -31,9 +31,18 @@ describe("Commands", () => {
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
 
-    const trustedCommands = await Promise.all(
-      ["noop", "first", "second", "credit"].map((method) => remoteCmd(method)),
-    );
+    const trustedCommands = await Promise.all([
+      ...["noop", "first", "second", "credit"].map((method) => remoteCmd(method)),
+      ...[
+        "bootstrap",
+        "cashout",
+        "debitAccount",
+        "creditAccount",
+        "settle",
+        "repay",
+        "deposit",
+      ].map((method) => cmd(method)),
+    ]);
     await host.authorize(
       encodeContextBlock(
         adminAccount,
@@ -1211,7 +1220,7 @@ describe("Commands", () => {
   });
 
   describe("pipeline", () => {
-    it("executes cashout batches through optimized local dispatch", async () => {
+    it("executes cashout batches through optimized local execution", async () => {
       const input = concat(encodeCashoutBlock(23n), encodeCashoutBlock(29n));
       const steps = encodeStepBlock(await cmd("cashout"), 0n, input);
       const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
@@ -1320,7 +1329,7 @@ describe("Commands", () => {
         .withArgs(userAccount, nativeAsset, 2n, 2n);
     });
 
-    it("bootstraps batches through optimized local dispatch", async () => {
+    it("bootstraps batches through optimized local execution", async () => {
       const command = await cmd("bootstrap");
       const nativeAsset = await utils.testToNativeAsset();
       const firstAsset = ethers.zeroPadValue("0xa2", 32);
@@ -1370,6 +1379,24 @@ describe("Commands", () => {
       await expect(tx)
         .to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, asset, amount, amount);
+      await expect(tx)
+        .to.emit(host, "CreditToCalled")
+        .withArgs(userAccount, asset, amount, amount);
+    });
+
+    it("calls an unhandled local command through its normal entrypoint", async () => {
+      const asset = ethers.zeroPadValue("0xa4", 32);
+      const amount = 43n;
+      const input = concat(
+        encodeStepBlock(await cmd("deposit"), 0n, encodeAmountBlock(asset, amount)),
+        encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", input);
+
+      await expect(tx)
+        .to.emit(host, "DepositCalled")
+        .withArgs(userAccount, asset, amount);
       await expect(tx)
         .to.emit(host, "CreditToCalled")
         .withArgs(userAccount, asset, amount, amount);
@@ -1426,7 +1453,7 @@ describe("Commands", () => {
       }
     });
 
-    it("processes batched fixed-stride streams in internal commands", async () => {
+    it("processes batched fixed-stride streams in execute adapters", async () => {
       const asset = ethers.zeroPadValue("0xb4", 32);
       const liability = ethers.zeroPadValue("0xb5", 32);
 
@@ -1473,7 +1500,7 @@ describe("Commands", () => {
         .withArgs(userAccount, liability, 8n, 8n);
     });
 
-    it("rejects malformed fixed-stride memory state in internal commands", async () => {
+    it("rejects malformed fixed-stride memory state in execute adapters", async () => {
       const asset = ethers.zeroPadValue("0xb6", 32);
       const liability = ethers.zeroPadValue("0xb7", 32);
       const position = encodePositionBlock(asset, 1n, liability, 2n);
@@ -1665,6 +1692,26 @@ describe("Commands", () => {
       const input = encodeStepBlock(command, 0n, "0x");
       await expect(host.testPipe.staticCall(userAccount, "0x", input))
         .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("rejects revoked handled and delegated local commands", async () => {
+      for (const name of ["cashout", "deposit"] as const) {
+        const command = await cmd(name);
+        const trustInput = encodeContextBlock(
+          adminAccount,
+          "0x",
+          encodeNodeBlock(command),
+        );
+
+        await host.unauthorize(trustInput);
+        try {
+          const input = encodeStepBlock(command, 0n, "0x");
+          await expect(host.testPipe.staticCall(userAccount, "0x", input))
+            .to.be.revertedWithCustomError(host, "AccessDenied");
+        } finally {
+          await host.authorize(trustInput);
+        }
+      }
     });
 
     it("rejects a non-STEP block trailing the STEP stream", async () => {

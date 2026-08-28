@@ -4,17 +4,17 @@ pragma solidity ^0.8.33;
 import { Host } from "../core/Host.sol";
 import { Allocate } from "../commands/Allocate.sol";
 import { Bootstrap } from "../commands/Bootstrap.sol";
-import { CashoutInternal } from "../commands/Cashout.sol";
+import { ExecuteCashout } from "../commands/Cashout.sol";
 import { Deposit, DepositPayable } from "../commands/Deposit.sol";
 import { Withdraw } from "../commands/Withdraw.sol";
-import { CreditAccountInternal } from "../commands/Credit.sol";
-import { DebitAccountInternal } from "../commands/Debit.sol";
+import { ExecuteCreditAccount } from "../commands/Credit.sol";
+import { ExecuteDebitAccount } from "../commands/Debit.sol";
 import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
-import { RepayInternal, RepayPayable, RepayPosition, RepayPositionPayable } from "../commands/Repay.sol";
-import { SettleInternal, SettlePayable } from "../commands/Settle.sol";
+import { ExecuteRepay, RepayPayable, RepayPosition, RepayPositionPayable } from "../commands/Repay.sol";
+import { ExecuteSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
 import { PostPort } from "../ports/Post.sol";
@@ -31,23 +31,23 @@ contract TestHost is
     Host,
     Allocate,
     Bootstrap,
-    CashoutInternal,
+    ExecuteCashout,
     Deposit,
     DepositPayable,
     Withdraw,
-    CreditAccountInternal,
-    DebitAccountInternal,
+    ExecuteCreditAccount,
+    ExecuteDebitAccount,
     Payout,
     Provision,
     ProvisionPayable,
     RelayPayable,
     RelayBalancePayable,
     RecoverPayable,
-    RepayInternal,
+    ExecuteRepay,
     RepayPayable,
     RepayPosition,
     RepayPositionPayable,
-    SettleInternal,
+    ExecuteSettle,
     SettlePayable,
     Settlement,
     Pipeline,
@@ -94,10 +94,6 @@ contract TestHost is
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
-    event StepDispatched(uint cid, uint stepIndex, uint value);
-
-    uint public stepCount;
-
     constructor(address rootzero) Host(rootzero) Allocate() Deposit() Provision() {}
 
     function allocate(bytes32 account, HostAmount memory custody) internal override {
@@ -222,27 +218,32 @@ contract TestHost is
         bytes memory state,
         bytes calldata input,
         uint value
-    ) internal override returns (bytes memory nextState, uint credit) {
-        emit StepDispatched(cid, stepCount++, value);
+    ) internal override returns (bool handled, bytes memory nextState, uint credit) {
         if (cid == bootstrapId()) {
+            ensureTrusted(cid);
             return executeBootstrap(account, state, input, value);
         }
         if (cid == cashoutId()) {
+            ensureTrusted(cid);
             return executeCashout(account, state, input, value);
         }
         if (cid == debitAccountId()) {
+            ensureTrusted(cid);
             return executeDebitAccount(account, state, input, value);
         }
         if (cid == creditAccountId()) {
+            ensureTrusted(cid);
             return executeCreditAccount(account, state, input, value);
         }
         if (cid == settleId()) {
+            ensureTrusted(cid);
             return executeSettle(account, state, input, value);
         }
         if (cid == repayId()) {
+            ensureTrusted(cid);
             return executeRepay(account, state, input, value);
         }
-        return (state, 0);
+        return (false, state, 0);
     }
 
     function testPipe(bytes32 account, bytes memory state, bytes calldata steps) external payable {

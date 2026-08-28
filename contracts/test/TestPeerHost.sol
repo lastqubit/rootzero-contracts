@@ -22,10 +22,6 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
-    event StepDispatched(uint cid, uint stepIndex, uint value);
-
-    uint public stepCount;
-
     constructor(address cmdr) Host(cmdr) {}
 
     function requestAllowance(uint peer, bytes32 asset, uint amount) internal override {
@@ -57,14 +53,13 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
     }
 
     function execute(
-        uint cid,
+        uint,
         bytes32,
         bytes memory state,
         bytes calldata,
-        uint value
-    ) internal override returns (bytes memory nextState, uint credit) {
-        emit StepDispatched(cid, stepCount++, value);
-        return (state, 0);
+        uint
+    ) internal pure override returns (bool handled, bytes memory nextState, uint credit) {
+        return (false, state, 0);
     }
 
     function getAdminAccount() external view returns (bytes32) { return admin; }
