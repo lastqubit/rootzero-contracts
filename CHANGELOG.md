@@ -8,6 +8,19 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.29.0
+
+### Breaking Changes
+
+- `ExecuteHook.execute` and the optimized local command helpers now return a
+  leading `bool handled`. A local command returned as unhandled is invoked
+  through its trusted normal external command entrypoint; handled commands keep
+  the optimized internal path and are authorized by the hook implementation.
+- Renamed `CashoutInternal`, `DebitAccountInternal`, `CreditAccountInternal`,
+  `SettleInternal`, and `RepayInternal` to `ExecuteCashout`,
+  `ExecuteDebitAccount`, `ExecuteCreditAccount`, `ExecuteSettle`, and
+  `ExecuteRepay`.
+
 ## 1.28.0
 
 ### Breaking Changes
