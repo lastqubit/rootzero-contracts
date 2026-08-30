@@ -47,5 +47,5 @@ abstract contract MyCommand is CommandBase {
 }
 
 contract ExampleHost is Host, MyCommand {
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 }

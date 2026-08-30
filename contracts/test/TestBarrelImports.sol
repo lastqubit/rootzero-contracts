@@ -23,7 +23,6 @@ import {
     RepayPositionPayable,
     RequestAssetHook,
     RequestAssetPort,
-    RequestAllowanceHook,
     RequestAllowancePort,
     RevokeAllowance,
     RevokeAsset,
@@ -49,7 +48,9 @@ import {
     PipeHook as CorePipeHook,
     enforceSender,
     InputEndpointBase,
-    rawCommandCall
+    rawCall,
+    rawQuery,
+    tryRawCall
 } from "../Core.sol";
 import {
     ZeroAddress,
@@ -58,7 +59,6 @@ import {
     clear32,
     clear64,
     ensureAddr,
-    unpackCommand,
     replace8,
     replace16,
     replace32,

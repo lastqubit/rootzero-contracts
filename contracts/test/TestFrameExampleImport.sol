@@ -6,5 +6,5 @@ pragma solidity ^0.8.33;
 import "../../examples/7-Frame.sol";
 
 contract TestFrameExampleHost is ExampleHost {
-    constructor(address rootzero) ExampleHost(rootzero) {}
+    constructor(uint rootzero) ExampleHost(rootzero) {}
 }

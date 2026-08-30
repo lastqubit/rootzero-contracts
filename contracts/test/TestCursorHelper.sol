@@ -206,10 +206,6 @@ contract TestCursorHelper {
         return Blocks.createAmount(asset, amount);
     }
 
-    function testToCashoutBlock(uint amount) external pure returns (bytes memory) {
-        return Blocks.createCashout(amount);
-    }
-
     function testToBootstrapBlock(bytes32 asset, uint amount, uint budget) external pure returns (bytes memory) {
         return Blocks.createBootstrap(asset, amount, budget);
     }
@@ -274,11 +270,6 @@ contract TestCursorHelper {
     function testUnpackBalance(bytes calldata source) external pure returns (bytes32 asset, uint amount) {
         Cur memory cur = Decoders.open(source);
         return cur.unpackBalance();
-    }
-
-    function testUnpackCashout(bytes calldata source) external pure returns (uint amount) {
-        Cur memory cur = Decoders.open(source);
-        return cur.unpackCashout();
     }
 
     function testUnpackBootstrap(
@@ -597,6 +588,23 @@ contract TestCursorHelper {
         return cur.raw();
     }
 
+    function testDecoderRaw(
+        bytes calldata source,
+        uint amount
+    ) external pure returns (bytes calldata data) {
+        Cur memory cur = Decoders.open(source);
+        cur.advance(amount);
+        return cur.raw();
+    }
+
+    function testCursorRaw(
+        bytes calldata source,
+        uint amount
+    ) external pure returns (bytes calldata data) {
+        uint cur = Cursors.wrap(source).advance(amount);
+        return cur.raw();
+    }
+
     function testRawSlice(bytes calldata source, uint from, uint to) external pure returns (bytes calldata data) {
         Cur memory cur = Decoders.open(source);
         return cur.raw(from, to);
@@ -727,10 +735,27 @@ contract TestCursorHelper {
     function testUnpackRelay(bytes calldata source)
         external
         pure
-        returns (uint portal, uint resources, bytes calldata input, uint i)
+        returns (uint portal, uint resources, bytes calldata steps, uint i)
     {
         Cur memory cur = Decoders.open(source);
-        (portal, resources, input) = cur.unpackRelay();
+        (bytes calldata input, bytes calldata continuation) = cur.unpackRelay();
+        if (input.length >= 64) {
+            assembly ("memory-safe") {
+                portal := calldataload(input.offset)
+                resources := calldataload(add(input.offset, 0x20))
+            }
+        }
+        steps = continuation;
+        (i, , ) = Cursors.decode(cur.state);
+    }
+
+    function testUnpackRelayStreams(bytes calldata source)
+        external
+        pure
+        returns (bytes calldata input, bytes calldata steps, uint i)
+    {
+        Cur memory cur = Decoders.open(source);
+        (input, steps) = cur.unpackRelay();
         (i, , ) = Cursors.decode(cur.state);
     }
 

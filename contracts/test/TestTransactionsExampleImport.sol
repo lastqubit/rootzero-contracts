@@ -6,5 +6,5 @@ pragma solidity ^0.8.33;
 import {ExampleHost} from "../../examples/8-Transactions.sol";
 
 contract TestTransactionsExampleHost is ExampleHost {
-    constructor(address rootzero) ExampleHost(rootzero) {}
+    constructor(uint rootzero) ExampleHost(rootzero) {}
 }

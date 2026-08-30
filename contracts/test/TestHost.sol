@@ -68,7 +68,7 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
-    event RelayCalled(uint portal, uint resources, bytes32 account, bytes state, bytes input);
+    event RelayCalled(uint portal, uint resources, bytes32 account, bytes state, bytes steps);
     event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint value);
     event SettleCalled(
         bytes32 account,
@@ -94,7 +94,7 @@ contract TestHost is
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
-    constructor(address rootzero) Host(rootzero) Allocate() Deposit() Provision() {}
+    constructor(uint rootzero) Host(rootzero) Allocate() Deposit() Provision() {}
 
     function allocate(bytes32 account, HostAmount memory custody) internal override {
         emit AllocateCalled(custody.host, account, custody.asset, custody.amount);
@@ -180,14 +180,21 @@ contract TestHost is
     }
 
     function relay(
-        uint portal,
-        uint resources,
         bytes32 account,
         bytes calldata state,
         bytes calldata input,
+        bytes calldata steps,
         Execution memory
     ) internal override {
-        emit RelayCalled(portal, resources, account, state, input);
+        uint portal;
+        uint resources;
+        if (input.length >= 64) {
+            assembly ("memory-safe") {
+                portal := calldataload(input.offset)
+                resources := calldataload(add(input.offset, 0x20))
+            }
+        }
+        emit RelayCalled(portal, resources, account, state, steps);
     }
 
     function recover(
@@ -260,8 +267,12 @@ contract TestHost is
         return admin;
     }
 
-    function getCommander() external view returns (address) {
+    function getCommander() external view returns (uint) {
         return commander;
+    }
+
+    function getCommanderAddr() external view returns (address) {
+        return commanderAddr;
     }
 
     function isAuthorized(uint node) external view returns (bool) {

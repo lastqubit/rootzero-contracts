@@ -22,9 +22,9 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
-    constructor(address cmdr) Host(cmdr) {}
+    constructor(uint cmdr) Host(cmdr) {}
 
-    function requestAllowance(uint peer, bytes32 asset, uint amount) internal override {
+    function allowance(uint peer, bytes32 asset, uint amount) internal override {
         emit PortRequestAllowanceCalled(peer, asset, amount);
     }
 

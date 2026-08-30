@@ -9,7 +9,7 @@ import { CommanderAccess, NodeAccess } from "../core/Access.sol";
 using Descriptors for uint;
 
 contract TestOperation is NodeCalls, NodeAccess {
-    constructor() CommanderAccess(address(0)) {}
+    constructor() CommanderAccess(0) {}
 
     function testCheckCursorRatio(
         bytes calldata state,

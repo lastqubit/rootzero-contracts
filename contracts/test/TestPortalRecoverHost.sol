@@ -9,7 +9,7 @@ import {Execution, Executions} from "../execution/Execution.sol";
 using Executions for Execution;
 
 contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 
     function testForward(uint handler, bytes32 key, bytes calldata message, uint value) external payable {
         bytes32 miss = forward(handler, key, message, value);

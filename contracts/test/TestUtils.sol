@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
-import { Nodes, unpackCommand } from "../utils/Nodes.sol";
+import { Nodes } from "../utils/Nodes.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, ensureContract, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
 import { CommanderAccess, enforceSender } from "../core/Access.sol";
@@ -13,7 +13,7 @@ import {Execution, Executions} from "../execution/Execution.sol";
 using Executions for Execution;
 
 contract TestUtils is CommandBase, CommanderAccess {
-    constructor() CommanderAccess(address(0)) {}
+    constructor() CommanderAccess(0) {}
 
     function enforceCaller(address caller) internal view override returns (address) {
         return enforceCommander(caller);
@@ -163,6 +163,10 @@ contract TestUtils is CommandBase, CommanderAccess {
         return Nodes.toCommand(name, addr);
     }
 
+    function testToFlaggedCommandId(string memory name, address addr, uint8 flags) external view returns (uint) {
+        return Nodes.toCommand(name, addr, flags);
+    }
+
     function testToPortId(string memory name, address addr) external view returns (uint) {
         return Nodes.toPort(name, addr);
     }
@@ -209,10 +213,6 @@ contract TestUtils is CommandBase, CommanderAccess {
 
     function testCommandNode(uint value) external pure returns (uint) {
         return Nodes.command(value);
-    }
-
-    function testUnpackCommand(uint cmd) external pure returns (bytes4 selector, address target) {
-        return unpackCommand(cmd);
     }
 
     function testPortNode(uint value) external pure returns (uint) {
@@ -263,7 +263,7 @@ contract TestUtils is CommandBase, CommanderAccess {
         return beforeBps(amount, bps);
     }
 
-    function testIsFamily(uint value, uint24 family) external pure returns (bool) {
+    function testIsFamily(uint value, uint16 family) external pure returns (bool) {
         return isFamily(value, family);
     }
 

@@ -13,24 +13,24 @@ import {ExampleHost as SwapExampleHost} from "../../examples/9-Swap.sol";
 
 /// @notice Concrete wrapper ensuring the minimal command-host example compiles.
 contract TestMinimalHostExample is MinimalHostExample {
-    constructor(address commander) MinimalHostExample(commander) {}
+    constructor(uint commander) MinimalHostExample(commander) {}
 }
 
 /// @notice Concrete host used to exercise the single-input command example.
 contract TestBasicCommandExampleHost is Host, BasicCommandExample {
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 }
 
 /// @notice Concrete host used to exercise the batch command example.
 contract TestBatchCommandExampleHost is Host, BatchCommandExample {
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 }
 
 /// @notice Concrete host used to exercise the custom-data command example.
 contract TestDataCommandExampleHost is Host, DataCommandExample {
     event SentToHost(uint host, bytes32 asset, uint amount);
 
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 
     function sendToHost(uint host, bytes32 asset, uint amount) internal override {
         emit SentToHost(host, asset, amount);
@@ -39,10 +39,10 @@ contract TestDataCommandExampleHost is Host, DataCommandExample {
 
 /// @notice Concrete wrapper ensuring the custom-keyed list example compiles.
 contract TestListCommandExampleHost is ListExampleHost {
-    constructor(address rootzero) ListExampleHost(rootzero) {}
+    constructor(uint rootzero) ListExampleHost(rootzero) {}
 }
 
 /// @notice Concrete wrapper ensuring the nested swap example compiles.
 contract TestSwapExampleHost is SwapExampleHost {
-    constructor(address rootzero) SwapExampleHost(rootzero) {}
+    constructor(uint rootzero) SwapExampleHost(rootzero) {}
 }

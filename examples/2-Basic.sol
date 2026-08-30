@@ -19,7 +19,7 @@ contract ExampleHost is Host, DebitAccount {
     // Internal balance ledger: account -> asset -> amount
     mapping(bytes32 account => mapping(bytes32 asset => uint amount)) internal balances;
 
-    constructor(address rootzero) Host(rootzero) {}
+    constructor(uint rootzero) Host(rootzero) {}
 
     // debitAccount is the hook DebitAccount calls for each AMOUNT block.
     // Implement this with whatever storage your app uses.

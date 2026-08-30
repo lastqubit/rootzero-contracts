@@ -7,7 +7,8 @@ import {Sizes, Specs} from "../codec/Specs.sol";
 import {Writer, Writers} from "../codec/Writers.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
-import {Descriptors, Flags} from "../codec/Descriptors.sol";
+import {Descriptors} from "../codec/Descriptors.sol";
+import {Flags} from "../utils/Flags.sol";
 import {Budget, Budgets} from "../execution/Budget.sol";
 import {Action} from "../annotations/Action.sol";
 
@@ -330,7 +331,7 @@ contract TestBlocksHelper is Action {
         writer.copyBytes(value);
         writer.copyStep(1, 2, value);
         writer.copyCall(3, 4, value);
-        writer.copyRelay(5, 6, value);
+        writer.appendRelay(abi.encode(uint(5), uint(6)), value);
         writer.copyDispatch(7, 8, value);
         writer.copyContext(bytes32(uint(9)), value, value);
         writer.copyRecover(10, 11, bytes32(uint(12)), value);
@@ -379,7 +380,7 @@ contract TestBlocksHelper is Action {
         bytes memory composites = bytes.concat(
             Blocks.createStepCopy(1, 2, value),
             Blocks.createCallCopy(3, 4, value),
-            Blocks.createRelayCopy(5, 6, value),
+            Blocks.createRelay(abi.encode(uint(5), uint(6)), value),
             Blocks.createDispatchCopy(7, 8, value)
         );
         return bytes.concat(
@@ -399,7 +400,7 @@ contract TestBlocksHelper is Action {
         Executions.outputCopyBytes(exec, value);
         Executions.outputCopyStep(exec, 1, 2, value);
         Executions.outputCopyCall(exec, 3, 4, value);
-        Executions.outputCopyRelay(exec, 5, 6, value);
+        Executions.outputRelay(exec, abi.encode(uint(5), uint(6)), value);
         Executions.outputCopyDispatch(exec, 7, 8, value);
         Executions.outputCopyContext(exec, bytes32(uint(9)), value, value);
         Executions.outputCopyRecover(exec, 10, 11, bytes32(uint(12)), value);
@@ -657,10 +658,11 @@ contract TestBlocksHelper is Action {
         uint offset,
         uint portal,
         uint resources,
-        bytes memory input
+        bytes memory steps
     ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.B64 + Sizes.Header + input.length);
-        Blocks.writeRelay(dst, offset, portal, resources, input);
+        bytes memory input = abi.encode(portal, resources);
+        dst = new bytes(offset + 3 * Sizes.Header + input.length + steps.length);
+        Blocks.writeRelay(dst, offset, input, steps);
     }
 
     function writeDispatch(
@@ -733,10 +735,6 @@ contract TestBlocksHelper is Action {
 
     function unpackStatus(bytes calldata source) external pure returns (uint) {
         return Blocks.unpackStatus(position(source));
-    }
-
-    function unpackCashout(bytes calldata source) external pure returns (uint) {
-        return Blocks.unpackCashout(position(source));
     }
 
     function unpackBootstrap(bytes calldata source) external pure returns (bytes32, uint, uint) {
