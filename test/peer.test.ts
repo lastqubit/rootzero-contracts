@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { commandId, deploy, getProvider, getSigner, portId } from "./helpers/setup.js";
+import { commandId, deploy, getProvider, getSigner, hostId, portId } from "./helpers/setup.js";
 import {
   Keys,
   endpointDescriptor,
@@ -26,7 +26,7 @@ describe("Port Entrypoints", () => {
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
-    host = await deploy("TestPortHost", commander);
+    host = await deploy("TestPortHost", await hostId(commander));
     remote = await deploy("TestRemoteCommand");
     const trustedPeer = await callerHost(1);
     const adminAccount: string = await host.getAdminAccount();
@@ -43,7 +43,8 @@ describe("Port Entrypoints", () => {
   });
 
   async function port(method: string) {
-    return portId(host.interface.getFunction(method)!.selector, host);
+    const flags = method.includes("Payable") ? 1n : 0n;
+    return portId(host.interface.getFunction(method)!.selector, host, flags);
   }
 
   it("emits Endpoint discovery events with port id as the second argument", async () => {
@@ -153,11 +154,7 @@ describe("Port Entrypoints", () => {
 
   async function callerHost(signerIndex: number) {
     const signer = await getSigner(signerIndex);
-    const addr = await signer.getAddress();
-    const provider = await getProvider();
-    const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x01200202n;
-    return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
+    return hostId(await signer.getAddress());
   }
 
   async function localPortal() {
@@ -168,13 +165,13 @@ describe("Port Entrypoints", () => {
     const method = "portRequestAllowance(bytes)";
     const asset = ethers.zeroPadValue("0xa0", 32);
 
-    it("passes one allowance request to the hook scoped to the caller host", async () => {
+    it("sets one allowance through the shared hook scoped to the caller host", async () => {
       const peer = await callerHost(1);
       const tx = await callAs(1, method, encodeAmountBlock(asset, 123n));
       await expect(tx).to.emit(host, "PortRequestAllowanceCalled").withArgs(peer, asset, 123n);
     });
 
-    it("passes each allowance request in a batch to the hook", async () => {
+    it("sets each allowance in a batch through the shared hook", async () => {
       const peer = await callerHost(1);
       const asset2 = ethers.zeroPadValue("0xc0", 32);
       const tx = await callAs(

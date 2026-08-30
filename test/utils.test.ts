@@ -96,8 +96,8 @@ describe("Utils", () => {
     it("toAdminAccount encodes admin prefix, chainId and address", async () => {
       const result: string = await utils.testToAdminAccount(signerAddress);
       const val = BigInt(result);
-      // First two bytes are EVM + 32-byte width.
-      expect((val >> 240n) & 0xffffn).to.equal(0x0120n);
+      // First byte is the EVM representation.
+      expect((val >> 248n) & 0xffn).to.equal(0x01n);
       // Address is in bits 32..191
       const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
@@ -205,7 +205,7 @@ describe("Utils", () => {
   describe("Assets", () => {
     it("toNativeAsset returns an EVM asset", async () => {
       const asset: string = await utils.testToNativeAsset();
-      expect((BigInt(asset) >> 240n) & 0xffffn).to.equal(0x0120n);
+      expect((BigInt(asset) >> 248n) & 0xffn).to.equal(0x01n);
     });
 
     it("toErc20Asset embeds token address", async () => {
@@ -310,7 +310,7 @@ describe("Utils", () => {
       const selector = (id >> 160n) & 0xffffffffn;
       const embeddedAddress = id & ((1n << 160n) - 1n);
 
-      expect(prefix).to.equal(0x01200201n);
+      expect(prefix).to.equal(0x01020100n);
       expect(embeddedChainId).to.equal(chainId);
       expect(selector).to.equal(0n);
       expect(embeddedAddress).to.equal(0n);
@@ -376,7 +376,7 @@ describe("Utils", () => {
     });
 
     it("local node helper rejects foreign-chain EVM nodes", async () => {
-      const foreignHostId = (0x01200202n << 224n) | (999n << 192n) | BigInt(signerAddress);
+      const foreignHostId = (0x01020200n << 224n) | (999n << 192n) | BigInt(signerAddress);
       expect(await utils.testIsEvmNode(foreignHostId)).to.be.true;
       expect(await utils.testIsLocalNode(foreignHostId)).to.be.false;
       await expectCustomError(utils.testLocalNode(foreignHostId), "InvalidId");
@@ -457,17 +457,11 @@ describe("Utils", () => {
       expect(result).to.equal(cid);
     });
 
-    it("unpackCommand extracts the selector and target from a command ID", async () => {
-      const cid: bigint = await utils.testToCommandId("deposit", signerAddress);
-      const [selector, target] = await utils.testUnpackCommand(cid);
-
-      expect(selector).to.equal(ethers.dataSlice(ethers.id("deposit(bytes)"), 0, 4));
-      expect(target).to.equal(signerAddress);
-    });
-
-    it("unpackCommand rejects a non-command ID", async () => {
-      const hid: bigint = await utils.testToHostId(signerAddress);
-      await expectCustomError(utils.testUnpackCommand(hid), "InvalidId");
+    it("recognizes flagged command IDs while preserving their flags", async () => {
+      const id: bigint = await utils.testToFlaggedCommandId("relayBalancePayable", signerAddress, 0x80);
+      expect(await utils.testIsCommand(id)).to.be.true;
+      expect((id >> 224n) & 0xffn).to.equal(0x80n);
+      expect(await utils.testCommandNode(id)).to.equal(id);
     });
 
     it("port succeeds for port ID", async () => {
@@ -483,7 +477,7 @@ describe("Utils", () => {
     });
 
     it("localHostAddr reverts for a foreign-chain host id", async () => {
-      const foreignHostId = (0x01200202n << 224n) | (999n << 192n) | BigInt(signerAddress);
+      const foreignHostId = (0x01020200n << 224n) | (999n << 192n) | BigInt(signerAddress);
       await expectCustomError(utils.testLocalHostAddr(foreignHostId), "InvalidId");
     });
   });
@@ -530,10 +524,10 @@ describe("Utils", () => {
 
     it("isFamily matches family prefix", async () => {
       // Build a value with a known family prefix
-      // EVM = 0x0120, ACCOUNT = 0x01 -> family = (0x0120 << 8) | 0x01 = 0x012001
-      const family = 0x012001n;
-      const value = (family << 232n) | (1n << 191n); // some filler
-      expect(await utils.testIsFamily(value, 0x012001)).to.be.true;
+      // EVM = 0x01, ACCOUNT = 0x01 -> family = 0x0101
+      const family = 0x0101n;
+      const value = (family << 240n) | (1n << 191n); // some filler
+      expect(await utils.testIsFamily(value, 0x0101)).to.be.true;
     });
 
     it("max16/max32/max64/max128 accept boundary values", async () => {

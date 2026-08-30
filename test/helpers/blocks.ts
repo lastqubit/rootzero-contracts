@@ -35,6 +35,7 @@ export function endpointDescriptor({
   outputStride,
   funded = false,
   admin = false,
+  handoff = false,
 }: {
   state?: string;
   stateStride?: number;
@@ -44,8 +45,9 @@ export function endpointDescriptor({
   outputStride?: number;
   funded?: boolean;
   admin?: boolean;
+  handoff?: boolean;
 }): bigint {
-  const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n);
+  const flags = (funded ? 1n : 0n) | (admin ? 2n : 0n) | (handoff ? 128n : 0n);
   const stateLaneStride = laneStride(state, stateStride);
   const inputLaneStride = laneStride(input, inputStride);
   const outputSpec = typeof output === "bigint"
@@ -74,7 +76,6 @@ export function endpointDescriptor({
 export const Keys = {
   Empty: "0x00000000",
   Local: localKey(1),
-  Cashout: blockKey("#cashout"),
   Bootstrap: blockKey("#bootstrap"),
   Amount: blockKey("#amount"),
   Balance: blockKey("#balance"),
@@ -118,7 +119,7 @@ export function pad32(value: bigint | string): string {
   return ethers.zeroPadValue(value, 32);
 }
 
-const USER_PREFIX = 0x01200103n;
+const USER_PREFIX = 0x01010300n;
 
 export function encodeUserAccount(addr: string): string {
   const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
@@ -138,10 +139,6 @@ export function encodeBlock(key: string, payload: string): string {
 
 export function encodeAmountBlock(asset: string, amount: bigint): string {
   return encodeBlock(Keys.Amount, ethers.concat([pad32(asset), pad32(amount)]));
-}
-
-export function encodeCashoutBlock(amount: bigint): string {
-  return encodeBlock(Keys.Cashout, pad32(amount));
 }
 
 export function encodeBootstrapBlock(asset: string, amount: bigint, budget: bigint): string {
@@ -234,8 +231,14 @@ export function encodeRecoverBlock(handler: bigint, resources: bigint, key: stri
   return encodeBlock(Keys.Recover, ethers.concat([pad32(handler), pad32(resources), pad32(key), encodeBytesBlock(witness)]));
 }
 
-export function encodeRelayBlock(portal: bigint, resources: bigint, input: string): string {
-  return encodeBlock(Keys.Relay, ethers.concat([pad32(portal), pad32(resources), encodeBytesBlock(input)]));
+export function encodeRelayBlock(input: string, steps: string): string;
+export function encodeRelayBlock(portal: bigint, resources: bigint, steps: string): string;
+export function encodeRelayBlock(inputOrPortal: string | bigint, stepsOrResources: string | bigint, steps?: string): string {
+  const input = typeof inputOrPortal === "bigint"
+    ? ethers.concat([pad32(inputOrPortal), pad32(stepsOrResources as bigint)])
+    : inputOrPortal;
+  const continuation = steps ?? (stepsOrResources as string);
+  return encodeBlock(Keys.Relay, ethers.concat([encodeBytesBlock(input), encodeBytesBlock(continuation)]));
 }
 
 export function encodeDispatchBlock(portal: bigint, resources: bigint, payload: string): string {

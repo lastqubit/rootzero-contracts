@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner, getProvider } from "./helpers/setup.js";
+import { deploy, getSigner, getProvider, hostId } from "./helpers/setup.js";
 import hre from "hardhat";
 import "./helpers/matchers.js";
 import { encodeUserAccount } from "./helpers/blocks.js";
@@ -9,16 +9,14 @@ describe("Host Introduction", () => {
   let rootzero: Awaited<ReturnType<typeof deploy>>;
 
   before(async () => {
-    rootzero = await deploy("TestHost", ethers.ZeroAddress);
+    rootzero = await deploy("TestHost", 0n);
   });
 
   it("introduces host on construction when the rootzero runtime is set", async () => {
-    const rootzeroAddress = await rootzero.getAddress();
-
     const artifact = await hre.artifacts.readArtifact("TestHost");
     const provider = await getProvider();
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, await provider.getSigner(0));
-    const contract = await factory.deploy(rootzeroAddress);
+    const contract = await factory.deploy(await rootzero.host());
     const receipt = await contract.deploymentTransaction()!.wait();
 
     const rootzeroIface = rootzero.interface;
@@ -36,11 +34,10 @@ describe("Host Introduction", () => {
   });
 
   it("introduces a command host to its contract commander", async () => {
-    const commander = await rootzero.getAddress();
     const artifact = await hre.artifacts.readArtifact("TestMinimalCommandHost");
     const provider = await getProvider();
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, await provider.getSigner(0));
-    const contract = await factory.deploy(commander);
+    const contract = await factory.deploy(await rootzero.host());
     const receipt = await contract.deploymentTransaction()!.wait();
 
     const introduced = receipt!.logs
@@ -64,7 +61,7 @@ describe("Host Introduction", () => {
     for (const host of ["TestMinimalCommandHost", "TestBareHost"]) {
       let rejected = false;
       try {
-        await deploy(host, await commander.getAddress());
+        await deploy(host, await hostId(commander));
       } catch {
         rejected = true;
       }
@@ -72,8 +69,8 @@ describe("Host Introduction", () => {
     }
   });
 
-  it("does NOT introduce when the rootzero runtime is address(0)", async () => {
-    const host = await deploy("TestHost", ethers.ZeroAddress);
+  it("does NOT introduce when the commander host ID is zero", async () => {
+    const host = await deploy("TestHost", 0n);
     expect(await host.getAddress()).to.not.equal(ethers.ZeroAddress);
   });
 
@@ -91,7 +88,7 @@ describe("Host Introduction", () => {
     const callerAddr = await signer.getAddress();
 
     const CHAIN_ID = 31337n;
-    const HOST_PREFIX = 0x01200202n;
+    const HOST_PREFIX = 0x01020200n;
     const correctHostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(callerAddr);
 
     await expect(
@@ -104,7 +101,7 @@ describe("Host Introduction", () => {
     const signer = await getSigner(0);
     const callerAddr = await signer.getAddress();
     const CHAIN_ID = 31337n;
-    const HOST_PREFIX = 0x01200202n;
+    const HOST_PREFIX = 0x01020200n;
     const hostId = (HOST_PREFIX << 224n) | (CHAIN_ID << 192n) | BigInt(callerAddr);
 
     const provider = await getProvider();

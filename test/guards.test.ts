@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
-import { commandId, deploy, getProvider, getSigner, guardId } from "./helpers/setup.js";
+import { commandId, deploy, getSigner, guardId, hostId } from "./helpers/setup.js";
 import {
   encodeAccountBlock,
   encodeAssetBlock,
@@ -28,7 +28,7 @@ describe("Guard Actions", () => {
     guardianSigner = await getSigner(1);
     guardianAddress = await guardianSigner.getAddress();
 
-    host = await deploy("TestHost", commander);
+    host = await deploy("TestHost", await hostId(commander));
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
 
@@ -40,15 +40,9 @@ describe("Guard Actions", () => {
     return [encodeContextBlock(adminAccount, "0x", input)] as const;
   }
 
-  async function hostIdFor(addr: string) {
-    const provider = await getProvider();
-    const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x01200202n;
-    return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
-  }
-
   async function cmd(method: string) {
-    return commandId(host.interface.getFunction(method)!.selector, host);
+    const flags = ["appoint", "dismiss", "authorize", "unauthorize", "annotate"].includes(method) ? 2n : 0n;
+    return commandId(host.interface.getFunction(method)!.selector, host, flags);
   }
 
   async function guard(method: string, target = host) {
@@ -59,7 +53,7 @@ describe("Guard Actions", () => {
     const signer = await getSigner(0);
     const artifact = await hre.artifacts.readArtifact("TestHost");
     const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-    const deployed = await factory.deploy(commander);
+    const deployed = await factory.deploy(await hostId(commander));
     const deploymentTx = deployed.deploymentTransaction();
     if (!deploymentTx) throw new Error("missing deployment transaction");
     await deployed.waitForDeployment();
@@ -120,8 +114,8 @@ describe("Guard Actions", () => {
   });
 
   it("guardian can revoke host asset allowances", async () => {
-    const peer1 = await hostIdFor(await (await getSigner(2)).getAddress());
-    const peer2 = await hostIdFor(await (await getSigner(3)).getAddress());
+    const peer1 = await hostId(await (await getSigner(2)).getAddress());
+    const peer2 = await hostId(await (await getSigner(3)).getAddress());
     const asset1 = ethers.id("asset-1");
     const asset2 = ethers.id("asset-2");
 
@@ -156,7 +150,7 @@ describe("Guard Actions", () => {
   });
 
   it("guardian can revoke an authorized node directly", async () => {
-    const node = await hostIdFor(await (await getSigner(2)).getAddress());
+    const node = await hostId(await (await getSigner(2)).getAddress());
 
     await host.authorize(...adminCtx(encodeNodeBlock(node)));
     expect(await host.isAuthorized(node)).to.be.true;
@@ -169,8 +163,8 @@ describe("Guard Actions", () => {
   });
 
   it("guardian can revoke multiple nodes", async () => {
-    const node1 = await hostIdFor(await (await getSigner(2)).getAddress());
-    const node2 = await hostIdFor(await (await getSigner(3)).getAddress());
+    const node1 = await hostId(await (await getSigner(2)).getAddress());
+    const node2 = await hostId(await (await getSigner(3)).getAddress());
 
     await host.authorize(...adminCtx(ethers.concat([encodeNodeBlock(node1), encodeNodeBlock(node2)])));
 
@@ -181,7 +175,7 @@ describe("Guard Actions", () => {
   });
 
   it("reverts AccessDenied for non-guardian callers", async () => {
-    const node = await hostIdFor(await (await getSigner(2)).getAddress());
+    const node = await hostId(await (await getSigner(2)).getAddress());
 
     await expect(host.revoke(encodeNodeBlock(node)))
       .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -210,7 +204,7 @@ describe("Guard Actions", () => {
   });
 
   it("dismissed guardian cannot revoke nodes", async () => {
-    const node = await hostIdFor(await (await getSigner(2)).getAddress());
+    const node = await hostId(await (await getSigner(2)).getAddress());
     await host.authorize(...adminCtx(encodeNodeBlock(node)));
 
     const guardianAccount = await utils.testToUserAccount(guardianAddress);

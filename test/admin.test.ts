@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { commandId, deploy, getSigner, getProvider } from "./helpers/setup.js";
+import { commandId, deploy, getSigner, getProvider, hostId } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
@@ -19,7 +19,7 @@ describe("Admin Commands", () => {
   before(async () => {
     const signer = await getSigner(0);
     commander = await signer.getAddress();
-    host = await deploy("TestHost", commander);
+    host = await deploy("TestHost", await hostId(commander));
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
   });
@@ -38,15 +38,12 @@ describe("Admin Commands", () => {
     return (host.connect(signer) as any)[method](...callArgs);
   }
 
-  async function hostIdFor(addr: string) {
-    const provider = await getProvider();
-    const network = await provider.getNetwork();
-    const HOST_PREFIX = 0x01200202n;
-    return (HOST_PREFIX << 224n) | (network.chainId << 192n) | BigInt(addr);
-  }
-
   async function cmd(method: string) {
-    return commandId(host.interface.getFunction(method)!.selector, host);
+    const flags = method === "executePayable" ? 3n
+      : ["authorize", "unauthorize", "appoint", "dismiss", "allowAssets", "denyAssets", "allowance", "annotate"].includes(method)
+        ? 2n
+        : 0n;
+    return commandId(host.interface.getFunction(method)!.selector, host, flags);
   }
 
   // â”€â”€ Authorize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -57,7 +54,7 @@ describe("Admin Commands", () => {
     });
 
     it("authorizes a node and emits Node event", async () => {
-      const nodeId = await hostIdFor(await (await getSigner(4)).getAddress());
+      const nodeId = await hostId(await (await getSigner(4)).getAddress());
       const input = encodeNodeBlock(nodeId);
       await expect(callAs(0, "authorize", adminCtx(input)))
         .to.emit(host, "Node")
@@ -66,8 +63,8 @@ describe("Admin Commands", () => {
     });
 
     it("authorizes multiple nodes from multiple NODE blocks", async () => {
-      const node1 = await hostIdFor(await (await getSigner(5)).getAddress());
-      const node2 = await hostIdFor(await (await getSigner(6)).getAddress());
+      const node1 = await hostId(await (await getSigner(5)).getAddress());
+      const node2 = await hostId(await (await getSigner(6)).getAddress());
       const input = concat(encodeNodeBlock(node1), encodeNodeBlock(node2));
       await callAs(0, "authorize", adminCtx(input));
       expect(await host.isAuthorized(node1)).to.be.true;
@@ -78,7 +75,7 @@ describe("Admin Commands", () => {
       const provider = await getProvider();
       const network = await provider.getNetwork();
       const address = await (await getSigner(7)).getAddress();
-      const foreignNode = (0x01200202n << 224n)
+      const foreignNode = (0x01020200n << 224n)
         | ((network.chainId + 1n) << 192n)
         | BigInt(address);
 
@@ -91,7 +88,7 @@ describe("Admin Commands", () => {
     it("reverts AccessDenied when a trusted non-commander tries to authorize", async () => {
       const trustedSigner = await getSigner(1);
       const trustedAddress = await trustedSigner.getAddress();
-      await callAs(0, "authorize", adminCtx(encodeNodeBlock(await hostIdFor(trustedAddress))));
+      await callAs(0, "authorize", adminCtx(encodeNodeBlock(await hostId(trustedAddress))));
 
       await expect(callAs(1, "authorize", adminCtx(encodeNodeBlock(0xddd001n))))
         .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -117,7 +114,7 @@ describe("Admin Commands", () => {
     });
 
     it("revokes node and emits Node event with false", async () => {
-      const nodeId = await hostIdFor(await (await getSigner(8)).getAddress());
+      const nodeId = await hostId(await (await getSigner(8)).getAddress());
       // authorize first
       await callAs(0, "authorize", adminCtx(encodeNodeBlock(nodeId)));
       // then unauthorize
@@ -357,7 +354,7 @@ describe("Admin Commands", () => {
 
     it("executes raw calldata against a target node without prior authorization", async () => {
       const target = await deploy("TestExecuteTarget");
-      const targetId = await hostIdFor(await target.getAddress());
+      const targetId = await hostId(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [123n, "0x123456"]);
       const input = encodeCallBlock(targetId, 0n, calldata);
 
@@ -367,14 +364,14 @@ describe("Admin Commands", () => {
     });
 
     it("can govern another host through its commander host", async () => {
-      const source = await deploy("TestCommanderHost", commander);
+      const source = await deploy("TestCommanderHost", await hostId(commander));
       const sourceAdminAccount = await source.getAdminAccount();
-      const target = await deploy("TestHost", await source.getAddress());
+      const target = await deploy("TestHost", await source.host());
 
       const asset = ethers.zeroPadValue("0x123456", 32);
       const targetArgs = [encodeContextBlock(await target.getAdminAccount(), "0x", encodeAssetBlock(asset))];
       const calldata = target.interface.encodeFunctionData("allowAssets", targetArgs);
-      const input = encodeCallBlock(await hostIdFor(await target.getAddress()), 0n, calldata);
+      const input = encodeCallBlock(await hostId(await target.getAddress()), 0n, calldata);
 
       await expect(source.executePayable(encodeContextBlock(sourceAdminAccount, "0x", input)))
         .to.emit(target, "AllowAssetCalled")
@@ -382,10 +379,10 @@ describe("Admin Commands", () => {
     });
 
     it("processes multiple CALL blocks in one input", async () => {
-      const source = await deploy("TestCommanderHost", commander);
+      const source = await deploy("TestCommanderHost", await hostId(commander));
       const sourceAdminAccount = await source.getAdminAccount();
-      const targetA = await deploy("TestHost", await source.getAddress());
-      const targetB = await deploy("TestHost", await source.getAddress());
+      const targetA = await deploy("TestHost", await source.host());
+      const targetB = await deploy("TestHost", await source.host());
       const assetA = ethers.zeroPadValue("0xaa", 32);
       const assetB = ethers.zeroPadValue("0xbb", 32);
 
@@ -399,8 +396,8 @@ describe("Admin Commands", () => {
       );
 
       const tx = await source.executePayable(encodeContextBlock(sourceAdminAccount, "0x", concat(
-        encodeCallBlock(await hostIdFor(await targetA.getAddress()), 0n, calldataA),
-        encodeCallBlock(await hostIdFor(await targetB.getAddress()), 0n, calldataB)
+        encodeCallBlock(await hostId(await targetA.getAddress()), 0n, calldataA),
+        encodeCallBlock(await hostId(await targetB.getAddress()), 0n, calldataB)
       )));
 
       await expect(tx).to.emit(targetA, "AllowAssetCalled").withArgs(assetA);
@@ -410,7 +407,7 @@ describe("Admin Commands", () => {
     it("can forward native value to a target node without prior authorization", async () => {
       const target = await deploy("TestExecuteTarget");
       const amount = 5n;
-      const targetId = await hostIdFor(await target.getAddress());
+      const targetId = await hostId(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [1n, "0xab"]);
       const input = encodeCallBlock(targetId, amount, calldata);
 
@@ -423,7 +420,7 @@ describe("Admin Commands", () => {
       const target = await deploy("TestExecuteTarget");
       const amount = 5n;
       const surplus = 7n;
-      const targetId = await hostIdFor(await target.getAddress());
+      const targetId = await hostId(await target.getAddress());
       const calldata = target.interface.encodeFunctionData("ping", [2n, "0xcd"]);
       const input = encodeCallBlock(targetId, amount, calldata);
 
@@ -443,9 +440,9 @@ describe("Admin Commands", () => {
     });
 
     it("can replace relocate by sending native value with empty calldata to a host", async () => {
-      const target = await deploy("TestHost", commander);
+      const target = await deploy("TestHost", await hostId(commander));
       const targetAddr = await target.getAddress();
-      const targetId = await hostIdFor(targetAddr);
+      const targetId = await hostId(targetAddr);
       const amount = ethers.parseEther("0.001");
       const input = encodeCallBlock(targetId, amount, "0x");
 
@@ -461,7 +458,7 @@ describe("Admin Commands", () => {
 
     it("reverts FailedCall when the raw target call reverts", async () => {
       const target = await deploy("TestRejectEther");
-      const targetId = await hostIdFor(await target.getAddress());
+      const targetId = await hostId(await target.getAddress());
 
       await expect(callAs(0, "executePayable", adminCtx(encodeCallBlock(targetId, 1n, "0x")), { value: 1n }))
         .to.be.revertedWithCustomError(host, "FailedCall");

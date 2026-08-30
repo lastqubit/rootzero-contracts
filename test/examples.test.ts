@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner } from "./helpers/setup.js";
+import { deploy, getSigner, hostId } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
@@ -39,7 +39,7 @@ describe("Examples", () => {
     it("builds and runs the single-input command example", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestBasicCommandExampleHost", commander);
+      const host = await deploy("TestBasicCommandExampleHost", await hostId(commander));
       const account = encodeUserAccount(commander);
       const asset = ethers.zeroPadValue("0x01", 32);
 
@@ -54,7 +54,7 @@ describe("Examples", () => {
     it("builds and runs the batch command example", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestBatchCommandExampleHost", commander);
+      const host = await deploy("TestBatchCommandExampleHost", await hostId(commander));
       const account = encodeUserAccount(commander);
       const first = ethers.zeroPadValue("0x11", 32);
       const second = ethers.zeroPadValue("0x22", 32);
@@ -77,7 +77,7 @@ describe("Examples", () => {
     it("builds and runs the custom-data command example", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestDataCommandExampleHost", commander);
+      const host = await deploy("TestDataCommandExampleHost", await hostId(commander));
       const account = encodeUserAccount(commander);
       const asset = ethers.zeroPadValue("0x33", 32);
       const target = 77n;
@@ -95,7 +95,7 @@ describe("Examples", () => {
     it("builds and runs the custom-keyed top-level list example", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestListCommandExampleHost", commander);
+      const host = await deploy("TestListCommandExampleHost", await hostId(commander));
       const account = encodeUserAccount(commander);
       const first = ethers.zeroPadValue("0x44", 32);
       const second = ethers.zeroPadValue("0x55", 32);
@@ -117,7 +117,7 @@ describe("Examples", () => {
     it("decodes populated and empty child blocks with the custom unpack helper", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestFrameExampleHost", commander);
+      const host = await deploy("TestFrameExampleHost", await hostId(commander));
 
       const account = encodeUserAccount(commander);
       const asset = ethers.zeroPadValue("0x01", 32);
@@ -144,7 +144,7 @@ describe("Examples", () => {
     it("returns a trusted budget credit derived from every input batch", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestTransactionsExampleHost", commander);
+      const host = await deploy("TestTransactionsExampleHost", await hostId(commander));
 
       const account = encodeUserAccount(commander);
       const input = concat(
@@ -165,7 +165,7 @@ describe("Examples", () => {
     it("decodes swap configuration and its nested hop list", async () => {
       const signer = await getSigner(0);
       const commander = await signer.getAddress();
-      const host = await deploy("TestSwapExampleHost", commander);
+      const host = await deploy("TestSwapExampleHost", await hostId(commander));
       const account = encodeUserAccount(commander);
 
       const asset = ethers.zeroPadValue("0x10", 32);

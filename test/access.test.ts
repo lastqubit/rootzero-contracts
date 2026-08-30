@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
-import { deploy, getProvider, getSigner, getSigners } from "./helpers/setup.js";
+import { deploy, getProvider, getSigner, getSigners, hostId } from "./helpers/setup.js";
 import { encodeAccountBlock, encodeContextBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
 
 describe("Access Control", () => {
@@ -17,7 +17,7 @@ describe("Access Control", () => {
     commander = await signers[0].getAddress();
     stranger  = await signers[1].getAddress();
 
-    host = await deploy("TestHost", commander);
+    host = await deploy("TestHost", await hostId(commander));
     utils = await deploy("TestUtils");
     hostAddress = await host.getAddress();
   });
@@ -34,12 +34,17 @@ describe("Access Control", () => {
       .to.equal(hostAddress.toLowerCase());
   });
 
-  it("adminAccount encodes commander address", async () => {
+  it("adminAccount encodes the commander host's native identity", async () => {
     const adminAccount: string = await host.getAdminAccount();
     const val = BigInt(adminAccount);
     const embedded = (val >> 32n) & ((1n << 160n) - 1n);
     expect("0x" + embedded.toString(16).padStart(40, "0"))
       .to.equal(commander.toLowerCase());
+  });
+
+  it("retains the commander host ID and its resolved native address", async () => {
+    expect(await host.getCommander()).to.equal(await hostId(commander));
+    expect(await host.getCommanderAddr()).to.equal(commander);
   });
 
   it("commander is trusted", async () => {
@@ -127,9 +132,10 @@ describe("Access Control", () => {
   });
 
   it("falls back to the host address when commander is zero", async () => {
-    const selfManaged = await deploy("TestHost", ethers.ZeroAddress);
+    const selfManaged = await deploy("TestHost", 0n);
     const selfManagedAddress = await selfManaged.getAddress();
-    expect(await selfManaged.getCommander()).to.equal(selfManagedAddress);
+    expect(await selfManaged.getCommander()).to.equal(await selfManaged.host());
+    expect(await selfManaged.getCommanderAddr()).to.equal(selfManagedAddress);
 
     const adminAccount: string = await selfManaged.getAdminAccount();
     const val = BigInt(adminAccount);
@@ -137,13 +143,29 @@ describe("Access Control", () => {
     expect("0x" + embedded.toString(16).padStart(40, "0"))
       .to.equal(selfManagedAddress.toLowerCase());
   });
+
+  it("rejects non-host and foreign-chain commander IDs", async () => {
+    const local = await hostId(commander);
+    const nonHost = local ^ (1n << 224n);
+    const foreign = local ^ (1n << 192n);
+
+    for (const commanderId of [nonHost, foreign]) {
+      let rejected = false;
+      try {
+        await deploy("TestHost", commanderId);
+      } catch {
+        rejected = true;
+      }
+      expect(rejected).to.equal(true);
+    }
+  });
 });
 
 describe("Commander Access", () => {
   it("rejects a zero commander", async () => {
     let rejected = false;
     try {
-      await deploy("TestMinimalCommandHost", ethers.ZeroAddress);
+      await deploy("TestMinimalCommandHost", 0n);
     } catch {
       rejected = true;
     }
@@ -153,7 +175,7 @@ describe("Commander Access", () => {
   it("allows the commander to call a command", async () => {
     const signers = await getSigners(1);
     const commander = await signers[0].getAddress();
-    const host = await deploy("TestMinimalCommandHost", commander);
+    const host = await deploy("TestMinimalCommandHost", await hostId(commander));
 
     expect(await host.connect(signers[0]).ping()).to.equal(true);
   });
@@ -161,7 +183,7 @@ describe("Commander Access", () => {
   it("rejects other command callers", async () => {
     const signers = await getSigners(2);
     const commander = await signers[0].getAddress();
-    const host = await deploy("TestMinimalCommandHost", commander);
+    const host = await deploy("TestMinimalCommandHost", await hostId(commander));
 
     await expect(host.connect(signers[1]).ping())
       .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -169,7 +191,7 @@ describe("Commander Access", () => {
 
   it("does not expose advanced host entrypoints or accept direct native transfers", async () => {
     const signers = await getSigners(1);
-    const host = await deploy("TestMinimalCommandHost", await signers[0].getAddress());
+    const host = await deploy("TestMinimalCommandHost", await hostId(await signers[0].getAddress()));
 
     for (const name of [
       "annotate",
@@ -207,7 +229,7 @@ describe("Commander Access", () => {
 describe("Host feature bundles", () => {
   it("composes the default admin commands without guardian functionality", async () => {
     const commander = await (await getSigner(0)).getAddress();
-    const host = await deploy("TestAdminsHost", commander);
+    const host = await deploy("TestAdminsHost", await hostId(commander));
 
     for (const name of ["annotate", "authorize", "unauthorize", "executePayable"]) {
       expect(host.interface.getFunction(name)).to.not.equal(null);
@@ -221,11 +243,11 @@ describe("Host feature bundles", () => {
     const signers = await getSigners(3);
     const commander = await signers[0].getAddress();
     const peer = await signers[1].getAddress();
-    const host = await deploy("TestAdminsHost", commander);
+    const host = await deploy("TestAdminsHost", await hostId(commander));
     const utils = await deploy("TestUtils");
     const adminAccount = await utils.testToAdminAccount(commander);
     const network = await (await getProvider()).getNetwork();
-    const peerNode = (0x01200202n << 224n) | (network.chainId << 192n) | BigInt(peer);
+    const peerNode = (0x01020200n << 224n) | (network.chainId << 192n) | BigInt(peer);
 
     await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode)));
 
@@ -237,7 +259,7 @@ describe("Host feature bundles", () => {
 
   it("composes guardian management and revoke without other admin commands", async () => {
     const commander = await (await getSigner(0)).getAddress();
-    const host = await deploy("TestGuardiansHost", commander);
+    const host = await deploy("TestGuardiansHost", await hostId(commander));
 
     for (const name of ["appoint", "dismiss", "revoke"]) {
       expect(host.interface.getFunction(name)).to.not.equal(null);
@@ -251,7 +273,7 @@ describe("Host feature bundles", () => {
     const signers = await getSigners(3);
     const commander = await signers[0].getAddress();
     const guardian = await signers[1].getAddress();
-    const host = await deploy("TestGuardiansHost", commander);
+    const host = await deploy("TestGuardiansHost", await hostId(commander));
     const utils = await deploy("TestUtils");
     const adminAccount = await utils.testToAdminAccount(commander);
     const guardianAccount = await utils.testToUserAccount(guardian);

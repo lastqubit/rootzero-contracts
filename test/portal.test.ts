@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { deploy, getSigner, portId } from "./helpers/setup.js";
+import { deploy, getSigner, hostId, portId } from "./helpers/setup.js";
 import {
   encodeDispatchBlock,
   encodeContextBlock,
@@ -20,12 +20,12 @@ describe("Portal", () => {
 
   async function deployPortal() {
     const commander = await (await getSigner(0)).getAddress();
-    return deploy("TestPortalRecoverHost", commander);
+    return deploy("TestPortalRecoverHost", await hostId(commander));
   }
 
   async function deployPortHost() {
     const commander = await (await getSigner(0)).getAddress();
-    return deploy("TestPortHost", commander);
+    return deploy("TestPortHost", await hostId(commander));
   }
 
   async function dispatchPort(host: Awaited<ReturnType<typeof deploy>>) {

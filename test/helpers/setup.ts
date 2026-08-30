@@ -44,29 +44,46 @@ export async function deployAs(signerIndex: number, contractName: string, ...arg
   return contract;
 }
 
-const CommandPrefix = 0x01200203n;
-const PortPrefix = 0x01200204n;
-const QueryPrefix = 0x01200205n;
-const GuardPrefix = 0x01200206n;
+const HostPrefix = 0x01020200n;
+const CommandPrefix = 0x01020300n;
+const PortPrefix = 0x01020400n;
+const QueryPrefix = 0x01020500n;
+const GuardPrefix = 0x01020600n;
 
 function selector(signature: string) {
   if (/^0x[0-9a-fA-F]{8}$/.test(signature)) return BigInt(signature);
   return BigInt(ethers.dataSlice(ethers.id(signature), 0, 4));
 }
 
-async function nodeId(prefix: bigint, signature: string, target: { getAddress(): Promise<string> } | string) {
+async function nodeId(
+  prefix: bigint,
+  signature: string,
+  target: { getAddress(): Promise<string> } | string,
+  flags = 0n,
+) {
   const addr = typeof target === "string" ? target : await target.getAddress();
   const provider = await getProvider();
   const network = await provider.getNetwork();
-  return (prefix << 224n) | (network.chainId << 192n) | (selector(signature) << 160n) | BigInt(addr);
+  return ((prefix | flags) << 224n) | (network.chainId << 192n) | (selector(signature) << 160n) | BigInt(addr);
 }
 
-export function commandId(signature: string, target: { getAddress(): Promise<string> } | string) {
-  return nodeId(CommandPrefix, signature, target);
+export async function hostId(target: { getAddress(): Promise<string> } | string) {
+  const addr = typeof target === "string" ? target : await target.getAddress();
+  const provider = await getProvider();
+  const network = await provider.getNetwork();
+  return (HostPrefix << 224n) | (network.chainId << 192n) | BigInt(addr);
 }
 
-export function portId(signature: string, target: { getAddress(): Promise<string> } | string) {
-  return nodeId(PortPrefix, signature, target);
+export function commandId(
+  signature: string,
+  target: { getAddress(): Promise<string> } | string,
+  flags = 0n,
+) {
+  return nodeId(CommandPrefix, signature, target, flags);
+}
+
+export function portId(signature: string, target: { getAddress(): Promise<string> } | string, flags = 0n) {
+  return nodeId(PortPrefix, signature, target, flags);
 }
 
 export function queryId(signature: string, target: { getAddress(): Promise<string> } | string) {

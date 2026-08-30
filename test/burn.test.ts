@@ -1,6 +1,6 @@
 ﻿import { expect } from "chai";
 import { ethers } from "ethers";
-import { commandId, deploy, getSigner } from "./helpers/setup.js";
+import { commandId, deploy, getSigner, hostId } from "./helpers/setup.js";
 import { concat, encodeActionBlock, encodeBalanceBlock, encodeContextBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
@@ -12,9 +12,9 @@ describe("Burn", () => {
   before(async () => {
     const signer = await getSigner(0);
     const commander = await signer.getAddress();
-    host = await deploy("TestBurnHost", commander);
+    host = await deploy("TestBurnHost", await hostId(commander));
 
-    const USER_PREFIX = 0x01200103n;
+    const USER_PREFIX = 0x01010300n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (BigInt(commander) << 32n)),
       32

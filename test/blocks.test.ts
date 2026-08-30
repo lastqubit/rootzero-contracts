@@ -11,7 +11,6 @@ import {
   encodeAmountBlock,
   encodeAssetBlock,
   encodeBalanceBlock,
-  encodeCashoutBlock,
   encodeBootstrapBlock,
   encodeDebtBlock,
   encodePositionBlock,
@@ -253,12 +252,6 @@ describe("Cursors", () => {
       expect(data).to.equal(encodeAmountBlock(asset, amount));
     });
 
-    it("cashout returns a valid encoded CASHOUT block", async () => {
-      const data: string = await helper.testToCashoutBlock(amount);
-      expect(data).to.equal(encodeCashoutBlock(amount));
-      expect(await blocksHelper.unpackCashout(data)).to.equal(amount);
-    });
-
     it("bootstrap returns a valid encoded BOOTSTRAP block", async () => {
       const budget = 19n;
       const data: string = await helper.testToBootstrapBlock(asset, amount, budget);
@@ -294,9 +287,6 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackAsset(encodeAssetBlock(asset))).to.equal(asset);
       expect(await blocksHelper.unpackNode(encodeNodeBlock(host))).to.equal(host);
       expect(await blocksHelper.unpackStatus(encodeStatusBlock(7n))).to.equal(7n);
-      expect(await blocksHelper.unpackCashout(encodeCashoutBlock(9n))).to.equal(9n);
-      expect(await helper.testUnpackCashout(encodeCashoutBlock(13n))).to.equal(13n);
-
       expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackDebt(encodeDebtBlock(other, 99n))).to.deep.equal([other, 99n]);
@@ -1167,6 +1157,12 @@ describe("Cursors", () => {
       expect(await helper.testRaw(source)).to.equal(source);
     });
 
+    it("packed cursor raw returns only its unread calldata region", async () => {
+      const a = encodeAssetBlock(asset);
+      const b = encodeAccountBlock(encodeUserAccount("0x12"));
+      expect(await helper.testCursorRaw(concat(a, b), ethers.getBytes(a).length)).to.equal(b);
+    });
+
     it("raw returns a sliced cursor region as calldata", async () => {
       const a = encodeAssetBlock(asset);
       const b = encodeAccountBlock(encodeUserAccount("0x12"));
@@ -1299,21 +1295,24 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
-    it("execution raw returns complete lanes independent of cursor progress", async () => {
+    it("decoder and execution raw return unread lanes from the current position", async () => {
       const state = encodeBalanceBlock(asset, amount);
       const input = encodeAmountBlock(asset, 7n);
+      const first = ethers.zeroPadValue("0x41", 32);
+      const second = ethers.zeroPadValue("0x42", 32);
 
       expect(await blocksHelper.executionRaw(state, input))
-        .to.deep.equal([state, state, input]);
+        .to.deep.equal([state, "0x", input]);
       expect(await blocksHelper.executionRawEmptyState(input)).to.equal("0x");
+      expect(await helper.testDecoderRaw(concat(first, second), 32n)).to.equal(second);
     });
 
-    it("takeRawState returns the intact lane and consumes it", async () => {
+    it("takeRawState returns the unread lane and consumes it", async () => {
       const state = encodeBalanceBlock(asset, amount);
       expect(await blocksHelper.executionTakeRawState(state)).to.deep.equal([state, true]);
     });
 
-    it("takeRawInput returns the intact lane and consumes it", async () => {
+    it("takeRawInput returns the unread lane and consumes it", async () => {
       const input = encodeAmountBlock(asset, amount);
       expect(await blocksHelper.executionTakeRawInput(input)).to.deep.equal([input, true]);
     });
@@ -1375,7 +1374,7 @@ describe("Cursors", () => {
       expect(i).to.equal(BigInt(ethers.getBytes(recovery).length));
     });
 
-    it("unpackRelay consumes portal, resources, and input bytes", async () => {
+    it("unpackRelay consumes implementation-specific input and remaining steps", async () => {
       const portal: bigint = await utils.testLocalChainId();
       const input = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
       const relay = encodeRelayBlock(portal, 55n, input);
@@ -1383,6 +1382,16 @@ describe("Cursors", () => {
       expect(outPortal).to.equal(portal);
       expect(resources).to.equal(55n);
       expect(outInput).to.equal(input);
+      expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
+    });
+
+    it("unpackRelay keeps arbitrary command input separate from continuation steps", async () => {
+      const commandInput = encodeAmountBlock(asset, 7n);
+      const steps = encodeStepBlock(0n, 0n, "0x1234");
+      const relay = encodeRelayBlock(commandInput, steps);
+      const [outInput, outSteps, i] = await helper.testUnpackRelayStreams(relay);
+      expect(outInput).to.equal(commandInput);
+      expect(outSteps).to.equal(steps);
       expect(i).to.equal(BigInt(ethers.getBytes(relay).length));
     });
 

@@ -1,13 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
-import { commandId, deploy, getSigner } from "./helpers/setup.js";
+import { commandId, deploy, getSigner, hostId } from "./helpers/setup.js";
 import "./helpers/matchers.js";
 import {
   Keys,
   endpointDescriptor,
   exactSpec,
   encodeBootstrapBlock,
-  encodeCashoutBlock,
   encodeAmountBlock,
   encodeBalanceBlock, encodeDebtBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
@@ -16,6 +15,7 @@ import {
 } from "./helpers/blocks.js";
 
 describe("Commands", () => {
+  const HandoffFunded = 0x81n;
   let host: Awaited<ReturnType<typeof deploy>>;
   let remote: Awaited<ReturnType<typeof deploy>>;
   let utils: Awaited<ReturnType<typeof deploy>>;
@@ -26,7 +26,7 @@ describe("Commands", () => {
   before(async () => {
     const signer = await getSigner(0);
     commander = await signer.getAddress();
-    host = await deploy("TestHost", commander);
+    host = await deploy("TestHost", await hostId(commander));
     remote = await deploy("TestRemoteCommand");
     utils = await deploy("TestUtils");
     adminAccount = await host.getAdminAccount();
@@ -41,6 +41,7 @@ describe("Commands", () => {
         "settle",
         "repay",
         "deposit",
+        "relayBalancePayable",
       ].map((method) => cmd(method)),
     ]);
     await host.authorize(
@@ -53,8 +54,8 @@ describe("Commands", () => {
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
-    // USER_PREFIX = (0x0120 << 16) | (0x01 << 8) | 0x03 = 0x01200103
-    const USER_PREFIX = 0x01200103n;
+    // USER_PREFIX = [Evm][Account][User][flags=0] = 0x01010300
+    const USER_PREFIX = 0x01010300n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (addrBig << 32n)), 32
     );
@@ -82,7 +83,19 @@ describe("Commands", () => {
   }
 
   async function cmd(method: string) {
-    return commandId(`${method}(bytes)`, host);
+    return commandId(`${method}(bytes)`, host, commandFlags(method));
+  }
+
+  function commandFlags(method: string): bigint {
+    if (method === "relayPayable" || method === "relayBalancePayable") return HandoffFunded;
+    if (method === "executePayable") return 0x03n;
+    if (["authorize", "unauthorize", "appoint", "dismiss", "allowAssets", "denyAssets", "allowance", "annotate"].includes(method)) {
+      return 0x02n;
+    }
+    if (["depositPayable", "settlePayable", "repayPayable", "repayPositionPayable", "provisionPayable", "recoverPayable"].includes(method)) {
+      return 0x01n;
+    }
+    return 0n;
   }
 
   async function remoteCmd(method: string) {
@@ -300,7 +313,7 @@ describe("Commands", () => {
   });
 
   describe("cashout", () => {
-    it("discovers CASHOUT input with empty state and output", async () => {
+    it("discovers BALANCE state with empty input and output", async () => {
       const deployment = host.deploymentTransaction();
       expect(deployment).to.not.equal(null);
 
@@ -308,33 +321,38 @@ describe("Commands", () => {
         .withArgs(
           await host.host(),
           await cmd("cashout"),
-          endpointDescriptor({ input: Keys.Cashout }),
+          endpointDescriptor({ state: Keys.Balance }),
         );
     });
 
-    it("withdraws the requested native-asset amount through its hook", async () => {
-      const input = encodeCashoutBlock(25n);
-      const tx = await callAs(0, "cashout", ctx({ input }));
+    it("withdraws native BALANCE state through its hook", async () => {
+      const nativeAsset = await utils.testToNativeAsset();
+      const state = encodeBalanceBlock(nativeAsset, 25n);
+      const tx = await callAs(0, "cashout", ctx({ state }));
 
       await expect(tx).to.emit(host, "CashoutCalled")
         .withArgs(userAccount, 25n);
-      expect(await host.cashout.staticCall(...ctx({ input })))
+      expect(await host.cashout.staticCall(...ctx({ state })))
         .to.deep.equal(["0x", 0n]);
     });
 
     it("cashes out batches and accepts an empty batch", async () => {
-      const input = concat(encodeCashoutBlock(3n), encodeCashoutBlock(5n));
-      const tx = await callAs(0, "cashout", ctx({ input }));
+      const nativeAsset = await utils.testToNativeAsset();
+      const state = concat(
+        encodeBalanceBlock(nativeAsset, 3n),
+        encodeBalanceBlock(nativeAsset, 5n),
+      );
+      const tx = await callAs(0, "cashout", ctx({ state }));
       await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 3n);
       await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 5n);
-      expect(await host.cashout.staticCall(...ctx({ input }))).to.deep.equal(["0x", 0n]);
+      expect(await host.cashout.staticCall(...ctx({ state }))).to.deep.equal(["0x", 0n]);
       expect(await host.cashout.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
-    it("requires empty incoming state", async () => {
+    it("rejects non-native BALANCE state", async () => {
       const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
-      await expect(callAs(0, "cashout", ctx({ state, input: encodeCashoutBlock(1n) })))
-        .to.be.revertedWithCustomError(host, "OutOfBounds");
+      await expect(callAs(0, "cashout", ctx({ state })))
+        .to.be.revertedWithCustomError(host, "InvalidAsset");
     });
   });
 
@@ -989,7 +1007,7 @@ describe("Commands", () => {
   // ── Pipe ──────────────────────────────────────────────────────────────────
 
   describe("relayPayable", () => {
-    const PORTAL_PREFIX = 0x01200201n;
+    const PORTAL_PREFIX = 0x01020100n;
 
     function portalNode(id: bigint) {
       return (PORTAL_PREFIX << 224n) | id;
@@ -1003,7 +1021,7 @@ describe("Commands", () => {
         .withArgs(
           await host.host(),
           await cmd("relayPayable"),
-          endpointDescriptor({ input: Keys.Relay, funded: true }),
+          endpointDescriptor({ input: Keys.Relay, funded: true, handoff: true }),
         );
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd("relayPayable"), encodeLabelBlock(ethers.ZeroHash, "relayPayable"));
@@ -1038,7 +1056,7 @@ describe("Commands", () => {
   });
 
   describe("relayBalancePayable", () => {
-    const PORTAL_PREFIX = 0x01200201n;
+    const PORTAL_PREFIX = 0x01020100n;
     const relayAsset = ethers.zeroPadValue("0x80", 32);
 
     function portalNode(id: bigint) {
@@ -1053,7 +1071,7 @@ describe("Commands", () => {
         .withArgs(
           await host.host(),
           await cmd("relayBalancePayable"),
-          endpointDescriptor({ state: Keys.Balance, input: Keys.Relay, funded: true }),
+          endpointDescriptor({ state: Keys.Balance, input: Keys.Relay, funded: true, handoff: true }),
         );
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd("relayBalancePayable"), encodeLabelBlock(ethers.ZeroHash, "relayBalancePayable"));
@@ -1221,24 +1239,54 @@ describe("Commands", () => {
 
   describe("pipeline", () => {
     it("executes cashout batches through optimized local execution", async () => {
-      const input = concat(encodeCashoutBlock(23n), encodeCashoutBlock(29n));
-      const steps = encodeStepBlock(await cmd("cashout"), 0n, input);
-      const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
+      const nativeAsset = await utils.testToNativeAsset();
+      const state = concat(
+        encodeBalanceBlock(nativeAsset, 23n),
+        encodeBalanceBlock(nativeAsset, 29n),
+      );
+      const steps = encodeStepBlock(await cmd("cashout"), 0n, "0x");
+      const tx = await callAs(0, "testPipe", userAccount, state, steps);
       await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 23n);
       await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 29n);
     });
 
-    it("rejects step value and state for local cashout", async () => {
+    it("debits stored native value into state before cashing it out", async () => {
+      const nativeAsset = await utils.testToNativeAsset();
+      const amount = 31n;
+      const steps = concat(
+        encodeStepBlock(
+          await cmd("debitAccount"),
+          0n,
+          encodeAmountBlock(nativeAsset, amount),
+        ),
+        encodeStepBlock(await cmd("cashout"), 0n, "0x"),
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
+      await expect(tx).to.emit(host, "DebitFromCalled")
+        .withArgs(userAccount, nativeAsset, amount, amount);
+      await expect(tx).to.emit(host, "CashoutCalled")
+        .withArgs(userAccount, amount);
+    });
+
+    it("rejects step value and input for local cashout", async () => {
       const command = await cmd("cashout");
-      const input = encodeCashoutBlock(1n);
-      const valued = encodeStepBlock(command, 1n, input);
-      await expect(callAs(0, "testPipe", userAccount, "0x", valued, { value: 1n }))
+      const nativeAsset = await utils.testToNativeAsset();
+      const state = encodeBalanceBlock(nativeAsset, 1n);
+      const valued = encodeStepBlock(command, 1n, "0x");
+      await expect(callAs(0, "testPipe", userAccount, state, valued, { value: 1n }))
         .to.be.revertedWithCustomError(host, "ValueNotAllowed");
 
-      const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
-      const step = encodeStepBlock(command, 0n, input);
+      const step = encodeStepBlock(command, 0n, encodeBalanceBlock(nativeAsset, 1n));
       await expect(callAs(0, "testPipe", userAccount, state, step))
-        .to.be.revertedWithCustomError(host, "UnexpectedState");
+        .to.be.revertedWithCustomError(host, "UnexpectedInput");
+    });
+
+    it("rejects non-native state in optimized local cashout", async () => {
+      const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
+      const step = encodeStepBlock(await cmd("cashout"), 0n, "0x");
+      await expect(callAs(0, "testPipe", userAccount, state, step))
+        .to.be.revertedWithCustomError(host, "InvalidAsset");
     });
 
     it("bootstraps balance and makes its budget available to a later step", async () => {
@@ -1251,6 +1299,7 @@ describe("Commands", () => {
         encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
 
+      await (await getSigner(0)).sendTransaction({ to: await host.getAddress(), value: amount });
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, asset, 9n, 9n);
@@ -1624,6 +1673,38 @@ describe("Commands", () => {
     it("encodes step values wider than uint128", async () => {
       expect(() => encodeStepBlock(11n, 1n << 128n, "0x1234"))
         .not.to.throw();
+    });
+
+    it("hands ordinary input and the remaining steps to a handoff command", async () => {
+      const portal = (0x01020100n << 224n) | 31337n;
+      const resources = 9n;
+      const state = encodeBalanceBlock(ethers.zeroPadValue("0x80", 32), 12n);
+      const continuation = encodeStepBlock(await remoteCmd("noop"), 7n, "0x1234");
+      const relayInput = ethers.concat([
+        ethers.zeroPadValue(ethers.toBeHex(portal), 32),
+        ethers.zeroPadValue(ethers.toBeHex(resources), 32),
+      ]);
+      const steps = concat(
+        encodeStepBlock(
+          await cmd("relayBalancePayable"),
+          0n,
+          relayInput,
+        ),
+        continuation,
+      );
+
+      const tx = await callAs(0, "testPipe", userAccount, state, steps, { value: 7n });
+      await expect(tx).to.emit(host, "RelayCalled")
+        .withArgs(portal, resources, userAccount, state, continuation);
+      const receipt = await tx.wait();
+      const calls = receipt!.logs.filter((log) => {
+        try {
+          return remote.interface.parseLog(log)?.name === "CommandCalled";
+        } catch {
+          return false;
+        }
+      });
+      expect(calls).to.have.length(0);
     });
 
     it("settles trusted returned value once after the pipeline closes", async () => {
