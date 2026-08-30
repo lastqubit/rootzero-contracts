@@ -187,9 +187,9 @@ reserve [reserved:5]
 flags   [flags:1]
 ```
 
-Flag bits 0 and 1 are the protocol-defined `funded` and `admin` flags. Bits 6
-and 7 are reserved for endpoint-defined custom flags; bits 2 through 5 remain
-reserved for future protocol flags.
+Flag bits 0 and 1 are the protocol-defined `funded` and `admin` flags. Bit 7 is
+the protocol-defined `handoff` flag, bit 6 is reserved for endpoint-defined
+behavior, and bits 2 through 5 remain reserved for future protocol flags.
 
 Each lane directly identifies its top-level block key. Output lanes retain their
 size bounds and allocation hint so execution can reconstruct the output spec and
@@ -231,6 +231,13 @@ Raw forwarding deliberately trusts the command and does not validate the
 forwarded lane against descriptor metadata.
 
 ## Live Pipeline State
+
+STEP command IDs use subtype `0x03` and copy their descriptor flags into the
+last byte of the ID type field. Flag bit 7 and the envelope
+`relay { #bytes as input, #bytes as steps }` identify handoff commands.
+`Pipeline.pipe` automatically places the flagged STEP's ordinary input and the
+untouched remaining STEP stream in this envelope, then transfers ownership of
+that continuation to the command.
 
 `#balance`, `#debt`, `#custody`, and `#position` are live state carried between
 command steps for the active account. Balance carries only the asset side, debt

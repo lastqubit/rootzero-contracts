@@ -126,7 +126,7 @@ Structured IDs keep the Rootzero prefix taxonomy and make the payload
 local-first:
 
 ```text
-[255:224] uint32 shared type prefix = [runtime:8][width:8][category:8][subtype:8]
+[255:224] uint32 shared type prefix = [representation:8][category:8][subtype:8][flags:8]
 [223:192] uint32 local domain / reserved field
 [191:160] uint32 dispatch tag
 [159:0]   uint160 local identity fingerprint
@@ -153,12 +153,13 @@ payload layout is actually EVM-compatible. Cross-chain ports can expose their
 own representation-specific helpers while preserving the same Account, Node,
 and Asset taxonomy where it applies.
 
-The representation bytes describe how a structured payload should be
+The representation byte describes how a structured payload should be
 interpreted. EVM uses `Layout.Evm` because its payloads are built around
 20-byte addresses. Non-EVM ports should define chain-appropriate representation
 tags, such as `Solana`, `CosmWasm`, or `Near`, while still keeping the
 same `Account`, `Node`, `Asset`, `Admin`, `User`, `Host`,
-`Command`, `Port`, `Query`, and `Guard` taxonomy where it applies.
+`Command`, `Port`, `Query`, and `Guard` taxonomy where it applies. Endpoint
+behavior such as handoff is carried in the shared flags byte.
 
 The bits after the shared prefix are chain-specific. The `local domain / reserved field` is not a global chain ID. A chain can set it to zero, a host-local namespace, a deployment generation, or another local-only value if useful. No library should maintain constants like `SOLANA_MAINNET`, `COSMOS_HUB`, or `NEAR_MAINNET`.
 
@@ -197,7 +198,12 @@ structured ID payload, use an opaque `0x00 || bytes31(hash)` ID and store the
 full native identity in local host state, or require it as witness data when it
 is used. Any registry is chain-local; it is not a directory of other chains.
 
-The constructors should not invent new category meanings. A chain-specific account constructor still returns an ID with the shared Account category. A chain-specific command constructor still returns an ID with the shared Node category and Command subtype. The chain-specific part is the representation tag and payload, not the high-level protocol meaning.
+The constructors should not invent new category meanings. A chain-specific
+account constructor still returns an ID with the shared Account category. A
+chain-specific command constructor still returns an ID with the shared Node
+category and Command subtype, copying its endpoint flags into the final type
+byte. The chain-specific part is the representation tag and payload, not the
+high-level protocol meaning.
 
 ### Inline vs Lookup-Backed IDs
 
@@ -330,6 +336,11 @@ On the destination side:
 4. The host unpacks each CONTEXT block and threads the remaining budget through
    `budget = pipe(account, state, input, budget)`.
 5. `pipe()` dispatches local STEP commands exactly like a same-chain pipeline.
+
+The default convention treats peer trust as authorization to use every port the
+host exposes without a second policy decision inside each port. Runtimes that
+need narrower capabilities may add per-port or per-operation checks, but that is
+a host-specific trust model rather than the default protocol convention.
 
 In EVM today, the entrypoint is:
 
@@ -472,7 +483,7 @@ These are equivalents of the Solidity abstract contracts, expressed in local pri
 
 State:
 
-- `commander`: local privileged admin identity
+- `commander`: local commander host ID plus its resolved privileged native identity
 - `nodes`: local trusted node IDs
 - `guardians`: user account IDs assigned the guardian role
 
@@ -485,11 +496,14 @@ Examples:
 
 | Chain | Access model |
 |-------|--------------|
-| Solana | `commander: Pubkey`; trusted nodes in account state; instruction-level checks. |
-| CosmWasm | `commander: Addr`; `NODES: Map<LocalNodeId, bool>`; assertions in `execute()`. |
-| NEAR | `commander: AccountId`; `nodes: UnorderedMap<LocalNodeId, bool>`; method preconditions. |
+| Solana | Commander host ID resolved to a `Pubkey`; trusted nodes in account state; instruction-level checks. |
+| CosmWasm | Commander host ID resolved to an `Addr`; `NODES: Map<LocalNodeId, bool>`; assertions in `execute()`. |
+| NEAR | Commander host ID resolved to an `AccountId`; `nodes: UnorderedMap<LocalNodeId, bool>`; method preconditions. |
 
-The authorization set should store protocol IDs where possible. Resolve to native signer/caller identities only for the comparison that cannot be done directly on protocol IDs.
+External configuration and authorization sets should use protocol IDs. Validate
+and resolve the commander host ID once during initialization, then retain its
+native signer/caller identity internally for comparisons that cannot be done
+directly on protocol IDs.
 
 #### Host Identity
 
@@ -546,8 +560,25 @@ The `pipe()` loop is pure protocol logic:
    handled result uses the hook-authorized optimized internal output. An
    unhandled result is validated for trust before calling the command's normal
    entrypoint. Validate trust and call other local-chain command targets directly.
-4. Thread the returned state bytes into the next step and add the returned native credit to the shared budget before executing the next step.
+4. Thread the returned state bytes into the next step and add the returned native
+   credit to the shared budget before executing the next step.
 5. Require the final state to be empty.
+
+The handoff flag and `relay { #bytes as input, #bytes as steps }` envelope let
+the EVM pipeline transfer its untouched continuation to a flagged command.
+Callers encode the command's ordinary input; the pipeline constructs the relay
+envelope and stops executing the transferred steps locally.
+
+A local execute hook must return unhandled for a handoff ID so the normal
+pipeline path can construct the continuation envelope. Handoff transfers the
+remaining STEP bytes, not the source pipeline's complete native-value budget:
+the command receives only its assigned STEP value, while returned credit and
+the remaining source budget are settled normally on the source. The handoff
+command must consume or forward its current state and return empty state because
+no local continuation remains to consume returned state. Asynchronous transports
+must not relinquish debt, position, or other state whose destination processing
+may fail after the source has consumed it; the standard convention permits only
+empty or balance state.
 
 `pipe()` returns the remaining native-value budget to its caller. Per-command
 native credit replenishes this budget, allowing one command to fund later

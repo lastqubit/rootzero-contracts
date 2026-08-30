@@ -38,7 +38,7 @@ import { CommandHost, Balances } from "@rootzero/contracts/Core.sol";
 import { Deposit } from "@rootzero/contracts/Endpoints.sol";
 
 contract ExampleHost is CommandHost, Balances, Deposit {
-    constructor(address commander) CommandHost(commander) {}
+    constructor(uint commander) CommandHost(commander) {}
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
         uint balance = creditTo(account, asset, amount);
@@ -47,17 +47,17 @@ contract ExampleHost is CommandHost, Balances, Deposit {
 }
 ```
 
-`CommandHost` requires a nonzero commander and accepts command calls only from
-that address. It has no built-in admin commands, peer registry, guardians,
+`CommandHost` requires a nonzero local commander host ID and accepts command
+calls only from its embedded native caller. It has no built-in admin commands, peer registry, guardians,
 inbound introduction endpoint, generic execution command, or native-token
 receive function. Use `Host` instead when the application needs those advanced
 facilities; its commands accept the commander, the host itself, and explicitly
 authorized host callers.
 
-Both host types introduce themselves during deployment when the commander is a
-contract. That commander must implement `introduce(uint,uint)` and accept the
-call, otherwise deployment reverts. EOA commanders do not receive an
-introduction call.
+Both host types introduce themselves during deployment when the native target
+encoded by the commander host ID is a contract. That commander must implement
+`introduce(uint,uint)` and accept the call, otherwise deployment reverts. Host
+IDs encoding EOAs do not receive an introduction call.
 
 Host contracts are designed for fresh deployment rather than proxy upgrades.
 Releases may change inheritance storage layout, immutable configuration, and
@@ -68,16 +68,18 @@ Commands using trusted outbound `NodeCalls` also require a `TrustAccess`
 implementation. The advanced `Host` supplies one through its composed node access, while
 `CommandHost` deliberately does not. A minimal host can explicitly compose a
 custom trust policy, or a command that intentionally targets arbitrary nodes
-can inherit `RawNodeCalls` instead.
+can import the free raw-call helpers instead.
 
-Deploy it with your own address as commander and you can call its commands
+Deploy it with the local host ID encoding your native identity as commander and you can call its commands
 directly. A input is a run of binary blocks — here, a single `#amount` block
 asking to deposit an asset (the encoders are a few lines each; see
+[`test/helpers/setup.ts`](test/helpers/setup.ts) and
 [`test/helpers/blocks.ts`](test/helpers/blocks.ts) for reference
 implementations):
 
 ```ts
-const host = await ethers.deployContract("ExampleHost", [deployer.address]);
+const commander = await hostId(deployer.address);
+const host = await ethers.deployContract("ExampleHost", [commander]);
 
 const account = encodeUserAccount(user.address); // receiving account
 const input = encodeAmountBlock(asset, 100n); // what to deposit
@@ -188,7 +190,8 @@ Structured EVM IDs use:
 [uint32 type][uint32 chainid][192-bit payload]
 ```
 
-where `type` packs `[uint16 representation][uint8 category][uint8 subtype]`. A
+where `type` packs
+`[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`. A
 structured ID announces what it is (an account, an asset, a node) and which
 chain it lives on, and the payload usually embeds the underlying address. User
 accounts are chain-agnostic, while admin accounts are chain-local. Guardians
@@ -229,8 +232,10 @@ which accepts `hostAsset { uint host, bytes32 asset }` entries and always applie
 a zero allowance. The full `Host` composes
 both, while smaller hosts can inherit either bundle separately.
 
-Trust is explicit and minimal. Each host has an immutable **commander**
-address fixed at construction, from which its **admin account** is derived.
+Trust is explicit and minimal. Each host receives an immutable **commander host
+ID** at construction. The EVM port validates that it is local, extracts its
+native address internally for caller checks, and derives the **admin account**
+from that native identity.
 Other contracts become callers only when their node ID is authorized into the
 host's trusted set, and **guardians** are accounts allowed to take protective
 actions. At deployment, a host introduces itself to its commander, which is how
@@ -341,13 +346,16 @@ abstract contract MyCommand is CommandBase {
 
 The final argument is a packed flags byte. Pass `0` for an ordinary endpoint,
 or compose values such as `Flags.Funded`, `Flags.Admin`, and
-`Flags.AdminFunded` from the command or endpoint package entry point. Bits 6
-and 7 are reserved for endpoint-defined custom flags. Bits 2 through 5 remain
-reserved for future protocol flags.
+`Flags.AdminFunded` from the command or endpoint package entry point.
+The same flags byte is copied into the endpoint ID, keeping runtime behavior and
+published descriptor metadata aligned. `Flags.Handoff` marks a command that
+takes ownership of the remaining pipeline, while `Flags.HandoffFunded` combines
+handoff behavior with native-value funding;
+bit 6 remains endpoint-defined, and bits 2 through 5 remain reserved.
 
 The standard commands cover the common ledger movements: `bootstrap` (source
-an initial balance and native-value budget), `cashout` (withdraw a requested
-native-asset amount), `deposit` and
+an initial balance and native-value budget), `cashout` (withdraw native
+`#balance` state), `deposit` and
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
 `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
@@ -383,23 +391,18 @@ metadata but is only executable through local pipeline execution. This is the co
 `Pipeline.pipe`:
 
 ```solidity
-while (cur.more()) {
-    (uint cmd, uint value, bytes calldata input) = cur.unpackStep();
-    (bytes4 selector, address target) = unpackCommand(cmd);
-    if (budget < value) revert InsufficientValue();
+uint cursor;
+assembly ("memory-safe") {
+    cursor := or(steps.offset, shl(32, add(steps.offset, steps.length)))
+}
+while (uint32(cursor) < uint32(cursor >> 32)) {
+    uint cmd;
+    uint value;
+    (cmd, value, cursor) = takeStep(cursor);
+    if (value > budget) revert InsufficientValue();
     unchecked { budget -= value; }
-    bool handled;
-    bytes memory output;
-    uint credit;
-    if (target == address(this)) {
-        (handled, output, credit) = execute(cmd, account, state, input, value);
-    }
-    if (!handled) {
-        ensureTrusted(cmd);
-        (output, credit) = rawCommandCall(selector, target, value, account, state, input);
-    }
-    state = output;
-    budget += credit;
+    (state, value, cursor) = run(cmd, account, state, value, cursor);
+    budget += value;
 }
 if (state.length != 0) revert UnexpectedState();
 ```
@@ -407,6 +410,42 @@ if (state.length != 0) revert UnexpectedState();
 `Pipeline.pipe` takes the available native-value budget as a `uint` and returns
 the remaining budget after every step has executed. The enclosing entrypoint
 settles that final value once.
+
+The EVM pipeline is deliberately coupled to the canonical wire layout for gas
+efficiency. It extracts command selectors, targets, and flags directly from
+command IDs and writes CONTEXT, BYTES, and RELAY blocks directly in assembly.
+Any change to those ID fields or block encodings must update `Pipeline` at the
+same time; the general node and block helpers are not used on this hot path.
+
+A handoff command retains the ordinary command subtype and carries
+`Flags.Handoff` in both its ID and descriptor. The reserved handoff envelope is:
+
+```txt
+relay { #bytes as input, #bytes as steps }
+```
+
+`input` is the handoff STEP's ordinary command input, while `steps` is the
+untouched remainder of the original pipeline. `Pipeline.pipe` constructs this
+envelope automatically for commands carrying `Flags.Handoff`, calls the command,
+and stops executing the transferred continuation locally. Pipeline authors
+therefore encode only the command's ordinary input in the handoff STEP.
+
+Handoff has four operational rules:
+
+- A host-local `execute` hook must return `handled = false` for handoff command
+  IDs. The hook sees only ordinary STEP input; delegation lets `Pipeline`
+  construct the RELAY envelope containing the continuation.
+- Handoff transfers STEP bytes, not the pipeline's complete native-value
+  budget. The handoff command receives its assigned STEP value. Returned credit
+  rejoins the source budget, and the enclosing source entrypoint settles the
+  final remainder normally.
+- The handoff command must consume or forward the current state and return empty
+  state. Because the continuation is no longer executed locally, returned
+  non-empty state fails pipeline finalization with `UnexpectedState`.
+- A transport that completes asynchronously should relinquish only state that
+  is safe before destination success is known. The standard relay commands are
+  intended for empty or balance state; debt, position, and similarly fallible
+  state must not be relayed this way.
 
 A transfer, for instance, is a two-step pipeline: `debitAccount` turns an
 `#amount` input into `#balance` state, and `payout` consumes that state
@@ -423,9 +462,9 @@ Hosts that implement a pipeline locally can inherit `Bootstrap`,
 `ExecuteRepay` to register canonical command metadata while executing
 their local command IDs through `executeBootstrap`, `executeCashout`,
 `executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
-`executeRepay`. The bootstrap, cashout, and debit adapters decode fixed-stride
-calldata input directly; the other three
-decode memory-backed pipeline state. All return `handled = true` and avoid an
+`executeRepay`. The bootstrap and debit adapters decode fixed-stride calldata
+input directly; cashout, credit, settle, and repay decode memory-backed pipeline
+state. All return `handled = true` and avoid an
 external self-call. The host's `execute` hook must authorize a command before
 returning true. Returning `handled = false` delegates a local command to its
 trusted normal external entrypoint. Pass the step value into each adapter.
@@ -467,8 +506,14 @@ the descriptor's lanes through the published block schemas.
 
 ## Ports
 
-Ports are the host-to-host surfaces, callable only by trusted peer hosts. The two
-central ones are batches all the way down:
+Ports are the host-to-host surfaces, callable only by trusted peer hosts. By
+default, trusting a peer means the host has verified that peer and permits it to
+use the functionality of every port the host exposes without another policy
+decision inside each port. A host that needs narrower capabilities can add
+per-port or per-operation checks in its hook implementations, or expose custom
+ports with a different access model.
+
+The central ports are batches all the way down:
 
 - `portPost` consumes `transaction { bytes32 from, bytes32 to, bytes32 asset,
   uint amount }` blocks, debiting `from` and crediting `to` per
@@ -477,14 +522,16 @@ central ones are batches all the way down:
   passes the authenticated peer, asset, and amount to a host hook. The hook
   validates asset support and applies the host's request and transfer policy.
 - `portRequestAllowance` consumes the same amount blocks and lets the
-  authenticated peer request an asset allowance. The hook decides what
-  allowance, if any, to grant.
+  authenticated peer set its own asset allowance through the same authoritative
+  hook used by the admin allowance command.
 - `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
 
-This is also the cross-portal mechanism. `relayPayable`, `relayBalancePayable`,
-or `portDispatchPayable` wraps a pipe and addresses it to a portal, commonly the destination host ID;
+This is also the cross-portal mechanism. `relayPayable` and
+`relayBalancePayable` are handoff commands whose transport hooks decode their
+own destination and resource input, while `portDispatchPayable` dispatches an
+explicit portal payload. The adapter wraps and addresses the destination pipe;
 a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step commands

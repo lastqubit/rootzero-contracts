@@ -125,7 +125,7 @@ Keep the external CosmWasm message surface small. Most Rootzero logic should ope
 ```rust
 pub enum InstantiateMsg {
     Init {
-        commander: String,
+        commander: Binary,
     },
 }
 
@@ -168,7 +168,8 @@ Use protocol IDs as storage keys whenever possible.
 
 ```text
 CONFIG:
-  commander: Addr
+  commander_id: [u8; 32]
+  commander: Addr // resolved internal identity
   host_id: [u8; 32]
 
 TRUSTED_NODES:
@@ -325,7 +326,8 @@ Access control belongs in the CosmWasm contract crate because it depends on `Mes
 State:
 
 ```text
-commander: Addr
+commander_id: LocalHostId
+commander: Addr // resolved internal identity
 trusted nodes: LocalNodeId -> bool
 guardians: User AccountId -> bool
 ```
@@ -337,7 +339,11 @@ Rules:
 - direct commander calls to peer entrypoints should follow the EVM behavior if the port exposes equivalent peer restrictions
 - store trusted nodes as protocol node IDs, not as raw `Addr` unless a native comparison requires a resolver
 
-CosmWasm comparison usually starts from `MessageInfo.sender`. If the caller is a bridge contract or trusted peer contract, resolve or derive its local node ID and compare against `TRUSTED_NODES`.
+Instantiation accepts the protocol commander host ID, validates and resolves it
+once, and retains the native `Addr` only for runtime caller checks. CosmWasm
+comparison usually starts from `MessageInfo.sender`. If the caller is a bridge
+contract or trusted peer contract, resolve or derive its local node ID and
+compare against `TRUSTED_NODES`.
 
 ## Pipeline
 

@@ -33,20 +33,20 @@ contains its full endpoint catalog:
 event Endpoint(uint indexed host, uint id, uint descriptor)
 ```
 
-- `descriptor` packs `[state key:4][group:1]`,
-  `[input key:4][group:1]`,
-  `[output key:4][min:4][max:4][hint:3][group:1]`, four reserved bytes,
-  one transaction-count byte, and one flags byte.
-  Flag bits 0 and 1 mean `funded` and `admin`; bits 6 and 7 are reserved for
-  endpoint-defined custom flags, while bits 2 through 5 remain reserved for
-  future protocol flags.
-  A zero group byte means group size 1 for a non-empty lane;
+- `descriptor` packs `[state key:4][stride:1]`,
+  `[input key:4][stride:1]`,
+  `[output key:4][min:4][max:4][hint:3][stride:1]`, five reserved bytes,
+  and one flags byte.
+  Flag bits 0 and 1 mean `funded` and `admin`; bit 7 means `handoff`, bit 6 is
+  reserved for endpoint-defined behavior, and bits 2 through 5 remain reserved
+  for future protocol flags.
+  A zero stride means group size 1 for a non-empty lane;
   `group(lane, size)` supplies an explicit size.
   The output bounds and hint allow a writer to be initialized directly from
   the descriptor. The Solidity output decoder returns a left-aligned spec with
-  its encoded group retained and its reserved fields cleared.
-  `Specs.group` returns the effective group, including the zero-to-one default
-  for non-empty specs.
+  its encoded stride retained and its reserved fields cleared.
+  `Specs.count` applies the zero-to-one stride default for non-empty specs;
+  `Specs.group` assigns an explicit stride.
   A top-level list uses a context-local input key whose published schema body
   consists of one `many #item`, optionally wrapped in braces; nested lists in a
   body with sibling items continue to use the generic `#list` key.
@@ -110,23 +110,29 @@ replaying them yields the exact current access sets.
 All account, asset, and node IDs are 32-byte values with one top-byte rule:
 `0x00` means opaque `0x00 || bytes31(hash)`, and nonzero means structured.
 Structured EVM IDs use `[uint32 type][uint32 chainid][192-bit payload]`, where
-`type` packs `[uint16 representation][uint8 category][uint8 subtype]`; see
+`type` packs
+`[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`; see
 `utils/Layout.sol`. Indexers can decode structured IDs directly. Opaque IDs need
 host-specific lookup or witness data when the underlying account, asset
 metadata, or node target is needed.
+Command subtype `0x03` identifies every command. Flag bit 7 identifies a
+pipeline handoff command whose STEP input and remaining continuation are wrapped
+automatically in a RELAY block.
+Endpoint IDs and descriptors carry the same flags, so indexers can verify their
+metadata directly.
 Opaque preimages start with a one-byte format/hash tag; `0x01` means
 keccak256. The remaining bytes are host/domain-specific for now.
 
 ### Cold-Start Recipe
 
-1. Start from the chain's configured commander host address. Replay its
-   deployment logs: `EventAbi` gives the event ABIs,
+1. Start from the chain's configured commander host ID, resolve its native
+   target, and replay its deployment logs: `EventAbi` gives the event ABIs,
    the discovery events give the endpoint catalog, and `Annotation` label blocks
    give names.
 2. Follow `Introduction` events on the commander to enumerate hosts. The `peer`
    ID embeds the introduced host's address; the receiving `host` is the
    commander that accepted the introduction, and the peer's admin account
-   derives from the commander address (`Accounts.toAdmin`).
+   derives from the native identity encoded by the commander host ID.
 3. For each host, repeat step 1 against its deployment logs, then replay
    `Node` and `Guardian` for live access sets.
 4. Subscribe to the state events below for balances and flows.
@@ -167,9 +173,9 @@ host that omits them still works on-chain, but its ledger is invisible to
 log-based tooling - there is no fallback channel, because command output
 (`state` and native `credit`) is return data and inputs are calldata.
 
-**Root identity.** The trusted commander address and chain context are off-chain
-configuration. Indexers derive its host ID from that address and chain ID, and
-derive the native asset ID from the chain ID. A root host labels itself with an
+**Root identity.** The trusted commander host ID is off-chain configuration.
+Indexers resolve its runtime-native target and derive the native asset ID from
+its chain context. A root host labels itself with an
 `Annotation` containing a `#label` block. Child hosts are discovered through
 `Introduction` on their commander.
 
