@@ -2,19 +2,18 @@
 pragma solidity ^0.8.33;
 
 import {Execution, Executions, CommandBase, Specs} from "./Base.sol";
-import {Blocks} from "../codec/Blocks.sol";
+import {Memory} from "../codec/Blocks.sol";
 import {Sizes} from "../codec/Specs.sol";
-import {Cursors} from "../utils/Cursors.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
-import {UnexpectedState} from "../utils/Errors.sol";
+import {InvalidAsset, UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that withdraw native assets from accounts.
 abstract contract CashoutHook {
     /// @notice Withdraw an exact native-asset amount from `account`.
-    /// Called once per CASHOUT input block.
+    /// Called once per native BALANCE block in state.
     /// @dev Implementations must revert when the requested amount cannot be withdrawn.
     /// @param account Account whose native asset is withdrawn.
     /// @param amount Native-asset amount to withdraw.
@@ -28,7 +27,7 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
     uint private immutable id;
 
     constructor() {
-        (id, descriptor) = command("cashout", Specs.Empty, Specs.Cashout, Specs.Empty, 0);
+        (id, descriptor) = command("cashout", Specs.Balance, Specs.Empty, Specs.Empty, 0);
         action(id, Actions.Cashout);
     }
 
@@ -37,8 +36,8 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
         return id;
     }
 
-    /// @notice Withdraw native-asset amounts from the command account.
-    /// @param context Command context carrying a CASHOUT input stream.
+    /// @notice Withdraw native BALANCE state from the command account.
+    /// @param context Command context carrying a BALANCE state stream.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
     function cashout(
@@ -47,7 +46,9 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            cashout(exec.account, exec.unpackCashout());
+            (bytes32 asset, uint amount) = exec.unpackBalance();
+            if (asset != nativeAsset) revert InvalidAsset();
+            cashout(exec.account, amount);
         }
 
         return exec.close();
@@ -57,10 +58,10 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
 /// @title ExecuteCashout
 /// @notice Extends cashout with optimized local pipeline execution.
 abstract contract ExecuteCashout is Cashout {
-    /// @notice Execute cashout directly against a calldata CASHOUT stream.
+    /// @notice Execute cashout directly against native BALANCE state held in memory.
     /// @param account Account whose native asset is withdrawn.
-    /// @param state Empty pipeline state required by the command schema.
-    /// @param input CASHOUT block stream.
+    /// @param state BALANCE block stream held in pipeline memory.
+    /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to this command; must be zero.
     /// @return handled Always true because this helper executed the command.
     /// @return output Empty output state.
@@ -72,14 +73,15 @@ abstract contract ExecuteCashout is Cashout {
         uint value
     ) internal returns (bool handled, bytes memory output, uint credit) {
         if (value != 0) revert ValueNotAllowed();
-        if (state.length != 0) revert UnexpectedState();
-        if (input.length % Sizes.Cashout != 0) revert Blocks.InvalidBlock();
+        if (input.length != 0) revert UnexpectedInput();
 
-        (uint abs, uint end) = Cursors.bounds(input);
+        (uint abs, uint end) = Memory.bounds(state, Sizes.Balance);
         while (abs < end) {
-            cashout(account, Blocks.unpackCashout(abs));
+            (bytes32 asset, uint amount) = Memory.unpackBalance(abs);
+            if (asset != nativeAsset) revert InvalidAsset();
+            cashout(account, amount);
             unchecked {
-                abs += Sizes.Cashout;
+                abs += Sizes.Balance;
             }
         }
         return (true, "", 0);
