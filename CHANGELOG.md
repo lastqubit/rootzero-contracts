@@ -8,6 +8,70 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.30.0
+
+### Breaking Changes
+
+- Replaced the obsolete second representation/width byte in every structured
+  ID with a trailing flags byte. The type prefix is now
+  `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`, changing
+  every structured account, asset, and node ID. Endpoint IDs copy the same flags
+  published in their descriptors.
+- Added the canonical handoff command flag. Relay commands now publish command
+  IDs carrying `Flags.Handoff`. `Pipeline.pipe` now wraps a flagged STEP's
+  ordinary input and untouched continuation in a RELAY block, calls the handoff
+  command once, and stops local execution of that continuation.
+  The internal RELAY block changed from `(portal, resources, input)` to two
+  nested byte streams: command-specific `input` and remaining `steps`. Relay
+  hooks now receive `account`, complete `state`, opaque command input, remaining
+  steps, and their value budget; each transport implementation decodes its own
+  command input.
+- Added `Flags.HandoffFunded` as the canonical combination used by funded
+  handoff commands, matching the existing `Flags.AdminFunded` convention.
+- Removed the free `rawCommandCall` API and moved its cursor-aware assembly path
+  into `Pipeline` as a private implementation detail. Pipeline's private `run`
+  path now owns local execution, trust, command unpacking, handoff selection,
+  invocation, and cursor advancement. `pipe` accepts the STEP stream as
+  calldata and packs its current position, end, command-input offset, and
+  command-input length into one private cursor. The invocation path uses those
+  fields directly for ordinary input or to wrap a handoff continuation in a
+  RELAY block.
+- Removed the free `unpackCommand` utility. Pipeline now privately validates
+  command IDs and extracts the target and direct handoff decision needed for
+  routing; the private invoker derives selector and target directly from the ID.
+- Aligned no-argument `raw` access across cursors, decoders, and executions to
+  return only the unread region from the current position. `rawState`,
+  `rawInput`, `takeRawState`, and `takeRawInput` now follow the same rule;
+  explicitly bounded `raw(from, to)` slices remain frame-relative.
+
+- Replaced the stateless `RawNodeCalls` inheritance contract with imported
+  `tryRawCall`, `rawCall`, and `rawQuery` free functions. Added overloads that
+  accept a selector and native target separately from selector-free ABI
+  arguments, without allocating a concatenated calldata buffer.
+- Changed `Host`, `CommandHost`, `CommanderAccess`, and `HostIntroduction`
+  constructors from an EVM `address` to a protocol-native `uint` commander host
+  ID. Nonzero commanders must be valid local host IDs; the EVM address is
+  extracted internally for caller checks and introductions, while zero retains
+  the self-commanded `Host` convention and remains invalid for `CommandHost`.
+- Removed `RequestAllowanceHook`. `RequestAllowancePort` now reuses the
+  authoritative `AllowanceHook` and scopes each allowance update to the
+  authenticated peer before calling `allowance(peer, asset, amount)`.
+- Changed `Cashout` from a `#cashout { uint amount }` input command into a
+  native-only `#balance` state consumer. Removed the CASHOUT block key, spec,
+  schema, codec helpers, and test encoder; cashout now reverts `InvalidAsset`
+  for non-native balance state.
+- Reordered `Settlement` hook inheritance to `PostHook`,
+  `DebitAccountHook`, `CreditAccountHook`, `SettleHook`, and `RepayHook`.
+  Downstream hosts combining `Settlement` with hook-bearing endpoints may need
+  to reorder their base contracts.
+
+### Changed
+
+- Reduced per-step pipeline overhead by replacing the general lane cursor with
+  a private four-field pipeline cursor, specializing STEP advancement around
+  decoder-established bounds, preparing handoff input once, and avoiding
+  command and flag work on paths that do not need it.
+
 ## 1.29.0
 
 ### Breaking Changes
