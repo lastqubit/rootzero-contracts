@@ -44,7 +44,7 @@ abstract contract SettleHook {
 
 /// @title Settlement
 /// @notice Default account-hook implementation for transaction posting and position settlement.
-abstract contract Settlement is PostHook, SettleHook, RepayHook, DebitAccountHook, CreditAccountHook {
+abstract contract Settlement is PostHook, DebitAccountHook, CreditAccountHook, SettleHook, RepayHook {
     /// @notice Post one transaction by debiting its source and crediting its destination.
     /// Returns without calling either hook when `amount` is zero and skips either
     /// operation when the corresponding account is zero.
