@@ -380,20 +380,6 @@ library Blocks {
         }
     }
 
-    /// @notice Write a CASHOUT block at `i`.
-    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Cashout` bytes first.
-    /// @param dst Destination buffer.
-    /// @param i Relative write position.
-    /// @param amount Native-asset amount to withdraw.
-    function writeCashout(bytes memory dst, uint i, uint amount) internal pure {
-        uint spec = Specs.Cashout;
-        assembly ("memory-safe") {
-            let p := add(add(dst, 0x20), i)
-            mstore(p, spec)
-            mstore(add(p, 0x08), amount)
-        }
-    }
-
     // Two-word payloads
 
     /// @notice Write an AMOUNT block at `i`.
@@ -808,23 +794,23 @@ library Blocks {
     /// block size and ensure the encoded payload length fits in uint32.
     /// @param dst Destination buffer.
     /// @param i Relative write position.
-    /// @param portal Destination portal.
-    /// @param resources Packed resources.
-    /// @param input Relay input.
-    function writeRelay(bytes memory dst, uint i, uint portal, uint resources, bytes memory input) internal pure {
-        uint len = 64 + Sizes.Header + input.length;
+    /// @param input Command-specific handoff input.
+    /// @param steps Remaining pipeline steps.
+    function writeRelay(bytes memory dst, uint i, bytes memory input, bytes memory steps) internal pure {
+        uint len = 2 * Sizes.Header + input.length + steps.length;
         uint key = uint32(Keys.Relay);
         uint byteskey = uint32(Keys.Bytes);
         assembly ("memory-safe") {
             let p := add(add(dst, 0x20), i)
             mstore(p, or(shl(224, key), shl(192, len)))
-            mstore(add(p, 0x08), portal)
-            mstore(add(p, 0x28), resources)
-
-            let q := add(p, 0x48)
+            let q := add(p, 0x08)
             let inputlen := mload(input)
             mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
             mcopy(add(q, 0x08), add(input, 0x20), inputlen)
+            q := add(add(q, 0x08), inputlen)
+            let stepslen := mload(steps)
+            mstore(q, or(shl(224, byteskey), shl(192, stepslen)))
+            mcopy(add(q, 0x08), add(steps, 0x20), stepslen)
         }
     }
 
@@ -1053,9 +1039,23 @@ library Blocks {
         copyComposite(dst, i, Keys.Call, target, resources, payload);
     }
 
-    /// @notice Encode a RELAY block at `i`, copying its nested input from calldata.
-    function copyRelay(bytes memory dst, uint i, uint portal, uint resources, bytes calldata input) internal pure {
-        copyComposite(dst, i, Keys.Relay, portal, resources, input);
+    /// @notice Encode a RELAY block at `i`, copying its nested streams from calldata.
+    function copyRelay(bytes memory dst, uint i, bytes calldata input, bytes calldata steps) internal pure {
+        uint len = 2 * Sizes.Header + input.length + steps.length;
+        uint key = uint32(Keys.Relay);
+        uint byteskey = uint32(Keys.Bytes);
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, or(shl(224, key), shl(192, len)))
+            let q := add(p, 0x08)
+            let inputlen := input.length
+            mstore(q, or(shl(224, byteskey), shl(192, inputlen)))
+            calldatacopy(add(q, 0x08), input.offset, inputlen)
+            q := add(add(q, 0x08), inputlen)
+            let stepslen := steps.length
+            mstore(q, or(shl(224, byteskey), shl(192, stepslen)))
+            calldatacopy(add(q, 0x08), steps.offset, stepslen)
+        }
     }
 
     /// @notice Encode a DISPATCH block at `i`, copying its nested payload from calldata.
@@ -1458,18 +1458,6 @@ library Blocks {
         if (head >> 192 != Specs.Status >> 192) revert InvalidBlock();
     }
 
-    /// @notice Decode a low-level fixed-width CASHOUT block at `abs`.
-    /// @param abs Absolute block position.
-    /// @return amount Native-asset amount to withdraw.
-    function unpackCashout(uint abs) internal pure returns (uint amount) {
-        uint head;
-        assembly ("memory-safe") {
-            head := calldataload(abs)
-            amount := calldataload(add(abs, 0x08))
-        }
-        if (head >> 192 != Specs.Cashout >> 192) revert InvalidBlock();
-    }
-
     // Two-word payloads
 
     /// @notice Decode a low-level fixed-width AMOUNT block at `abs`.
@@ -1866,22 +1854,18 @@ library Blocks {
         if (end != limit) revert InvalidBlock();
     }
 
-    /// @notice Decode one RELAY block and its nested input.
+    /// @notice Decode one RELAY block and its nested input and continuation.
     /// @param abs Absolute block position.
-    /// @return portal Decoded destination portal.
-    /// @return resources Decoded packed resources.
-    /// @return input Decoded relay input.
+    /// @return input Decoded command-specific input.
+    /// @return steps Decoded remaining pipeline steps.
     /// @return end Absolute position after the block.
     function unpackRelay(
         uint abs
-    ) internal pure returns (uint portal, uint resources, bytes calldata input, uint end) {
+    ) internal pure returns (bytes calldata input, bytes calldata steps, uint end) {
         uint limit;
         (abs, limit) = expectKey(abs, Keys.Relay);
-        assembly ("memory-safe") {
-            portal := calldataload(abs)
-            resources := calldataload(add(abs, 0x20))
-        }
-        (input, end) = unpackBytes(abs + 64);
+        (input, abs) = unpackBytes(abs);
+        (steps, end) = unpackBytes(abs);
         if (end != limit) revert InvalidBlock();
     }
 
@@ -2119,14 +2103,6 @@ library Blocks {
         writeBootstrap(value, 0, asset, amount, budget);
     }
 
-    /// @notice Encode a CASHOUT block.
-    /// @param amount Native-asset amount to withdraw.
-    /// @return value Encoded CASHOUT block bytes.
-    function createCashout(uint amount) internal pure returns (bytes memory value) {
-        value = allocate(Sizes.Cashout);
-        writeCashout(value, 0, amount);
-    }
-
     /// @notice Encode an AMOUNT block.
     /// @param asset Asset identifier.
     /// @param amount Token amount.
@@ -2235,22 +2211,20 @@ library Blocks {
     }
 
     /// @notice Encode a RELAY block.
-    /// @param portal Destination portal implementation's host ID, passed through
-    /// without semantic validation.
-    /// @param resources Chain-specific resources for the destination context.
-    /// @param input Nested input block stream.
+    /// @param input Nested command-specific input block stream.
+    /// @param steps Nested remaining STEP block stream.
     /// @return value Encoded RELAY block bytes.
-    function createRelay(uint portal, uint resources, bytes memory input) internal pure returns (bytes memory value) {
-        uint len = max32(Sizes.B64 + Sizes.Header + input.length);
+    function createRelay(bytes memory input, bytes memory steps) internal pure returns (bytes memory value) {
+        uint len = max32(3 * Sizes.Header + input.length + steps.length);
         value = allocate(len);
-        writeRelay(value, 0, portal, resources, input);
+        writeRelay(value, 0, input, steps);
     }
 
-    /// @notice Encode a RELAY block by copying its nested input from calldata.
-    function createRelayCopy(uint portal, uint resources, bytes calldata input) internal pure returns (bytes memory value) {
-        uint len = max32(Sizes.B64 + Sizes.Header + input.length);
+    /// @notice Encode a RELAY block by copying its nested streams from calldata.
+    function createRelayCopy(bytes calldata input, bytes calldata steps) internal pure returns (bytes memory value) {
+        uint len = max32(3 * Sizes.Header + input.length + steps.length);
         value = allocate(len);
-        copyRelay(value, 0, portal, resources, input);
+        copyRelay(value, 0, input, steps);
     }
 
     /// @notice Encode a DISPATCH block.

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {Flags} from "../codec/Descriptors.sol";
+import {Flags} from "../utils/Flags.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 

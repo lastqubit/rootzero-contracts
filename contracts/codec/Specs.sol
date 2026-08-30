@@ -25,8 +25,6 @@ library Sizes {
     uint constant Step = 2 * Header + 2 * Word;
     /// @dev STATUS block: 8 header + 32 status code = 40 bytes
     uint constant Status = B32;
-    /// @dev CASHOUT block: 8 header + 32 native-asset amount = 40 bytes
-    uint constant Cashout = B32;
     /// @dev BOOTSTRAP block: 8 header + 32 asset + 32 amount + 32 budget = 104 bytes
     uint constant Bootstrap = B96;
     /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
@@ -63,13 +61,13 @@ library Specs {
     uint private constant Exact96 = 96 * SizeFields;
     uint private constant Exact128 = 128 * SizeFields;
     uint private constant UnboundedHint128 = uint(128) << 136;
+    uint private constant UnboundedMin16Hint256 = (uint(16) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin40Hint256 = (uint(40) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin72Hint256 = (uint(72) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin48Hint512 = (uint(48) << 192) | (uint(512) << 136);
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
 
     uint constant Empty = uint(bytes32(Keys.Empty));
-    uint constant Cashout = uint(bytes32(Keys.Cashout)) | Exact32;
     uint constant Bootstrap = uint(bytes32(Keys.Bootstrap)) | Exact96;
     uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
     uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
@@ -85,7 +83,7 @@ library Specs {
     uint constant Account = uint(bytes32(Keys.Account)) | Exact32;
     uint constant Transaction = uint(bytes32(Keys.Transaction)) | Exact128;
     uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin72Hint256;
-    uint constant Relay = uint(bytes32(Keys.Relay)) | UnboundedMin72Hint256;
+    uint constant Relay = uint(bytes32(Keys.Relay)) | UnboundedMin16Hint256;
     uint constant Context = uint(bytes32(Keys.Context)) | UnboundedMin48Hint512;
     uint constant Recover = uint(bytes32(Keys.Recover)) | UnboundedMin104Hint256;
     uint constant Dispatch = uint(bytes32(Keys.Dispatch)) | UnboundedMin72Hint256;

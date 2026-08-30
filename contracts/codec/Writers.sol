@@ -433,13 +433,12 @@ library Writers {
 
     /// @notice Append a RELAY block.
     /// @param writer Destination writer.
-    /// @param portal Destination portal to encode.
-    /// @param resources Packed resources to encode.
     /// @param input Relay input to encode.
-    function appendRelay(Writer memory writer, uint portal, uint resources, bytes memory input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    /// @param steps Remaining steps to encode.
+    function appendRelay(Writer memory writer, bytes memory input, bytes memory steps) internal pure {
+        uint size = 3 * Sizes.Header + input.length + steps.length;
         uint i = reserve(writer, size);
-        Blocks.writeRelay(writer.dst, i, portal, resources, input);
+        Blocks.writeRelay(writer.dst, i, input, steps);
     }
 
     /// @notice Append a DISPATCH block.
@@ -574,11 +573,11 @@ library Writers {
         Blocks.copyCall(writer.dst, i, target, resources, payload);
     }
 
-    /// @notice Append a RELAY block by copying its nested input from calldata.
-    function copyRelay(Writer memory writer, uint portal, uint resources, bytes calldata input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    /// @notice Append a RELAY block by copying its nested streams from calldata.
+    function copyRelay(Writer memory writer, bytes calldata input, bytes calldata steps) internal pure {
+        uint size = 3 * Sizes.Header + input.length + steps.length;
         uint i = reserve(writer, size);
-        Blocks.copyRelay(writer.dst, i, portal, resources, input);
+        Blocks.copyRelay(writer.dst, i, input, steps);
     }
 
     /// @notice Append a DISPATCH block by copying its nested payload from calldata.

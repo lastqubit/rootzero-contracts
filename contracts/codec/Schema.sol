@@ -89,8 +89,6 @@ library Schemas {
     string constant Account = "bytes32 account";
     string constant Asset = "bytes32 asset";
     string constant Status = "uint code";
-    string constant Cashout = "uint amount";
-
     // Two-word payloads
 
     string constant Amount = "bytes32 asset, uint amount";
@@ -119,7 +117,7 @@ library Schemas {
 
     string constant Step = "uint cmd, uint value, #bytes as input";
     string constant Call = "uint target, uint resources, #bytes as payload";
-    string constant Relay = "uint portal, uint resources, #bytes as input";
+    string constant Relay = "#bytes as input, #bytes as steps";
     string constant Dispatch = "uint portal, uint resources, #bytes as payload";
     string constant Context = "bytes32 account, #bytes as state, #bytes as input";
     string constant Recover = "uint handler, uint resources, bytes32 key, #bytes as witness";
