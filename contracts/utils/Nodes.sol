@@ -6,21 +6,6 @@ import {InvalidId} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
-/// @notice Validate and unpack a command node into its ABI selector and target address.
-/// @dev Validates only the command type prefix; chain locality and authorization are caller concerns.
-/// @param cmd Command node ID to unpack.
-/// @return selector ABI selector stored in bits [191:160].
-/// @return target Contract address stored in bits [159:0].
-function unpackCommand(uint cmd) pure returns (bytes4 selector, address target) {
-    uint32 command = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
-    if (uint32(cmd >> 224) != command) revert InvalidId();
-
-    assembly ("memory-safe") {
-        selector := shl(224, and(shr(160, cmd), 0xffffffff))
-        target := and(cmd, 0xffffffffffffffffffffffffffffffffffffffff)
-    }
-}
-
 /// @title Nodes
 /// @notice Encoding and decoding helpers for 256-bit node identifiers.
 ///
@@ -36,20 +21,20 @@ function unpackCommand(uint cmd) pure returns (bytes4 selector, address target) 
 ///
 /// The helpers in this library validate and deconstruct structured node IDs.
 library Nodes {
-    /// @dev 24-bit family tag shared by all node types (Evm + Node category).
-    uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Node);
+    /// @dev 16-bit family tag shared by all node types (Evm + Node category).
+    uint16 constant Family = (uint16(Layout.Evm) << 8) | uint16(Layout.Node);
     /// @dev Full 4-byte type prefix for chain/domain nodes.
-    uint32 constant Chain = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Chain);
+    uint32 constant Chain = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Chain) << 8);
     /// @dev Full 4-byte type prefix for host nodes.
-    uint32 constant Host = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Host);
+    uint32 constant Host = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Host) << 8);
     /// @dev Full 4-byte type prefix for command nodes.
-    uint32 constant Command = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Command);
+    uint32 constant Command = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Command) << 8);
     /// @dev Full 4-byte type prefix for port nodes.
-    uint32 constant Port = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Port);
+    uint32 constant Port = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Port) << 8);
     /// @dev Full 4-byte type prefix for query nodes.
-    uint32 constant Query = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Query);
+    uint32 constant Query = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Query) << 8);
     /// @dev Full 4-byte type prefix for guard action nodes.
-    uint32 constant Guard = (uint32(Layout.Evm) << 16) | (uint32(Layout.Node) << 8) | uint32(Layout.Guard);
+    uint32 constant Guard = (uint32(Layout.Evm) << 24) | (uint32(Layout.Node) << 16) | (uint32(Layout.Guard) << 8);
 
     /// @notice Return true if `node` is a host node ID.
     function isHost(uint node) internal pure returns (bool) {
@@ -58,22 +43,22 @@ library Nodes {
 
     /// @notice Return true if `node` is a command node ID.
     function isCommand(uint node) internal pure returns (bool) {
-        return uint32(node >> 224) == Command;
+        return (uint32(node >> 224) & 0xffffff00) == Command;
     }
 
     /// @notice Return true if `node` is a port node ID.
     function isPort(uint node) internal pure returns (bool) {
-        return uint32(node >> 224) == Port;
+        return (uint32(node >> 224) & 0xffffff00) == Port;
     }
 
     /// @notice Return true if `node` is a query node ID.
     function isQuery(uint node) internal pure returns (bool) {
-        return uint32(node >> 224) == Query;
+        return (uint32(node >> 224) & 0xffffff00) == Query;
     }
 
     /// @notice Return true if `node` is a guard action node ID.
     function isGuard(uint node) internal pure returns (bool) {
-        return uint32(node >> 224) == Guard;
+        return (uint32(node >> 224) & 0xffffff00) == Guard;
     }
 
     /// @notice Return true if `node` belongs to the EVM node family.
@@ -210,7 +195,12 @@ library Nodes {
     /// @param target Command contract address.
     /// @return node Command node ID embedding both the selector and address.
     function toCommand(string memory name, address target) internal view returns (uint node) {
-        node = toLocalBase(Command) | uint(uint160(target));
+        return toCommand(name, target, 0);
+    }
+
+    /// @notice Build a chain-local command ID carrying endpoint behavior flags.
+    function toCommand(string memory name, address target, uint8 flags) internal view returns (uint node) {
+        node = toLocalBase(Command | uint32(flags)) | uint(uint160(target));
         node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
@@ -219,7 +209,12 @@ library Nodes {
     /// @param target Port contract address.
     /// @return node Port node ID embedding both the selector and address.
     function toPort(string memory name, address target) internal view returns (uint node) {
-        node = toLocalBase(Port) | uint(uint160(target));
+        return toPort(name, target, 0);
+    }
+
+    /// @notice Build a chain-local port ID carrying endpoint behavior flags.
+    function toPort(string memory name, address target, uint8 flags) internal view returns (uint node) {
+        node = toLocalBase(Port | uint32(flags)) | uint(uint160(target));
         node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
@@ -228,7 +223,12 @@ library Nodes {
     /// @param target Query contract address.
     /// @return node Query node ID embedding both the selector and address.
     function toQuery(string memory name, address target) internal view returns (uint node) {
-        node = toLocalBase(Query) | uint(uint160(target));
+        return toQuery(name, target, 0);
+    }
+
+    /// @notice Build a chain-local query ID carrying endpoint behavior flags.
+    function toQuery(string memory name, address target, uint8 flags) internal view returns (uint node) {
+        node = toLocalBase(Query | uint32(flags)) | uint(uint160(target));
         node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 
@@ -237,7 +237,12 @@ library Nodes {
     /// @param target Guard action contract address.
     /// @return node Guard action node ID embedding both the selector and address.
     function toGuard(string memory name, address target) internal view returns (uint node) {
-        node = toLocalBase(Guard) | uint(uint160(target));
+        return toGuard(name, target, 0);
+    }
+
+    /// @notice Build a chain-local guard ID carrying endpoint behavior flags.
+    function toGuard(string memory name, address target, uint8 flags) internal view returns (uint node) {
+        node = toLocalBase(Guard | uint32(flags)) | uint(uint160(target));
         node |= uint(uint32(toSelector(name, "(bytes)"))) << 160;
     }
 

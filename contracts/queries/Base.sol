@@ -38,7 +38,7 @@ abstract contract QueryBase is InputEndpointBase {
         string memory name,
         uint descriptor
     ) internal returns (uint id, uint published) {
-        id = Nodes.toQuery(name, address(this));
+        id = Nodes.toQuery(name, address(this), uint8(descriptor));
         published = endpoint(id, name, descriptor);
     }
 }

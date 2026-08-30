@@ -7,7 +7,7 @@ pragma solidity ^0.8.33;
 ///
 /// IDs are structured as:
 ///   `[uint32 type][uint32 chainid][192-bit payload]`
-/// where `type` is `[uint16 representation][uint8 category][uint8 subtype]`.
+/// where `type` is `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`.
 ///
 /// Values whose first byte is zero are opaque IDs:
 ///   `[0x00][bytes31 truncated hash]`
@@ -17,11 +17,11 @@ pragma solidity ^0.8.33;
 /// Values whose first byte is nonzero follow the structured layout above.
 library Layout {
     // -------------------------------------------------------------------------
-    // Representation tags (top 2 bytes of the ID type field)
+    // Representation tags (first byte of the ID type field)
     // -------------------------------------------------------------------------
 
     /// @dev EVM-compatible ID; lower 20 payload bytes hold an address when present.
-    uint16 constant Evm = 0x0120;
+    uint8 constant Evm = 0x01;
 
     // -------------------------------------------------------------------------
     // Category tags (uint8, third byte of the ID type field)

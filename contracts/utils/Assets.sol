@@ -21,12 +21,12 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 ///
 /// All asset IDs are chain-local (include `block.chainid` in bits [223:192]).
 library Assets {
-    /// @dev 24-bit family tag shared by all EVM-backed asset types.
-    uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Asset);
+    /// @dev 16-bit family tag shared by all EVM-backed asset types.
+    uint16 constant Family = (uint16(Layout.Evm) << 8) | uint16(Layout.Asset);
     /// @dev Full 4-byte type prefix for the native chain coin/token asset.
-    uint32 constant Native = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Native);
+    uint32 constant Native = (uint32(Layout.Evm) << 24) | (uint32(Layout.Asset) << 16) | (uint32(Layout.Native) << 8);
     /// @dev Full 4-byte type prefix for ERC-20 assets.
-    uint32 constant Erc20 = (uint32(Layout.Evm) << 16) | (uint32(Layout.Asset) << 8) | uint32(Layout.Erc20);
+    uint32 constant Erc20 = (uint32(Layout.Evm) << 24) | (uint32(Layout.Asset) << 16) | (uint32(Layout.Erc20) << 8);
 
     /// @notice Return true if `asset` belongs to the EVM asset family.
     function isEvm(bytes32 asset) internal pure returns (bool) {
@@ -126,7 +126,6 @@ library Assets {
         if (erc20Addr(asset) != token) revert InvalidAsset();
         return asset;
     }
-
 }
 
 /// @title Amounts

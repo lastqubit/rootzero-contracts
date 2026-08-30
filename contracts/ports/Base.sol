@@ -12,6 +12,9 @@ import { Descriptors } from "../codec/Descriptors.sol";
 /// @notice Abstract base for peer-facing rootzero ports.
 /// Ports handle inter-host operations between cooperating hosts.
 /// Access is restricted to trusted peer callers via `onlyPeer`.
+/// @dev By convention, trusting a peer authorizes it to use every port exposed
+/// by the host without an additional policy decision in each port. Hosts that
+/// need narrower capabilities may enforce them in hooks or custom port bases.
 abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
 
     /// @dev Restrict execution to trusted callers, excluding the commander.
@@ -55,7 +58,7 @@ abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
         string memory name,
         uint descriptor
     ) internal returns (uint id, uint published) {
-        id = Nodes.toPort(name, address(this));
+        id = Nodes.toPort(name, address(this), uint8(descriptor));
         published = endpoint(id, name, descriptor);
     }
 }

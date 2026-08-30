@@ -7,7 +7,8 @@ import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
 import {HostAmount, Position} from "../core/Types.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
-import {Descriptors, Flags} from "../codec/Descriptors.sol";
+import {Descriptors} from "../codec/Descriptors.sol";
+import {Flags} from "../utils/Flags.sol";
 import {Nodes} from "../utils/Nodes.sol";
 
 using Executions for Execution;
@@ -62,7 +63,7 @@ abstract contract CommandBase is CallerAccess, EndpointBase {
     /// @return id Command node ID.
     /// @return published Published endpoint descriptor.
     function command(string memory name, uint descriptor) internal returns (uint id, uint published) {
-        id = Nodes.toCommand(name, address(this));
+        id = Nodes.toCommand(name, address(this), uint8(descriptor));
         published = endpoint(id, name, descriptor);
     }
 

@@ -19,12 +19,12 @@ import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol"
 ///
 /// The helpers in this library validate and deconstruct structured account IDs.
 library Accounts {
-    /// @dev 24-bit family tag shared by all EVM-backed account types.
-    uint24 constant Family = (uint24(Layout.Evm) << 8) | uint24(Layout.Account);
+    /// @dev 16-bit family tag shared by all EVM-backed account types.
+    uint16 constant Family = (uint16(Layout.Evm) << 8) | uint16(Layout.Account);
     /// @dev Full 4-byte type prefix for admin accounts (chain-local EVM address).
-    uint32 constant Admin = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.Admin);
+    uint32 constant Admin = (uint32(Layout.Evm) << 24) | (uint32(Layout.Account) << 16) | (uint32(Layout.Admin) << 8);
     /// @dev Full 4-byte type prefix for user accounts (chain-agnostic EVM address).
-    uint32 constant User = (uint32(Layout.Evm) << 16) | (uint32(Layout.Account) << 8) | uint32(Layout.User);
+    uint32 constant User = (uint32(Layout.Evm) << 24) | (uint32(Layout.Account) << 16) | (uint32(Layout.User) << 8);
 
     /// @notice Extract the 4-byte type prefix from an account ID.
     /// @param account Account identifier.

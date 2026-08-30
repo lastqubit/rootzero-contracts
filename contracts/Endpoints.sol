@@ -5,7 +5,7 @@ pragma solidity ^0.8.33;
 // Import this file to inherit from the full rootzero callable host surface without managing individual paths.
 
 // Shared endpoint hooks
-import {Flags} from "./codec/Descriptors.sol";
+import {Flags} from "./utils/Flags.sol";
 import {ExecuteHook, PipeHook} from "./core/Pipeline.sol";
 import {CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} from "./core/Settlement.sol";
 
@@ -48,7 +48,7 @@ import {Unauthorize} from "./commands/admin/Unauthorize.sol";
 // Port endpoints
 import {PortBase} from "./ports/Base.sol";
 import {AllowAssetsPort, DenyAssetsPort, RequestAssetPort, RequestAssetHook} from "./ports/Assets.sol";
-import {RequestAllowancePort, RequestAllowanceHook} from "./ports/Allowance.sol";
+import {RequestAllowancePort} from "./ports/Allowance.sol";
 import {RedeemBalancePort, RedeemBalanceHook} from "./ports/Redeem.sol";
 import {CreditAccountPort} from "./ports/Credit.sol";
 import {DebitAccountPort} from "./ports/Debit.sol";

@@ -28,11 +28,13 @@ interface IHostIntroduction {
 /// Calls a deployed commander during construction without adding an inbound
 /// introduction endpoint to the inheriting host.
 abstract contract HostIntroduction is Runtime {
-    /// @param cmdr Commander address to introduce this host to when it is a deployed contract.
+    /// @param cmdr Local host ID to introduce this host to, or zero for no introduction.
     /// @dev Deployment reverts if a contract commander does not accept `introduce(uint,uint)`.
-    constructor(address cmdr) {
-        if (cmdr == address(0) || cmdr == address(this) || cmdr.code.length == 0) return;
-        introduceTo(Nodes.toHost(cmdr));
+    constructor(uint cmdr) {
+        if (cmdr == 0 || cmdr == host) return;
+        address target = Nodes.hostAddr(cmdr);
+        if (target.code.length == 0) return;
+        IHostIntroduction(target).introduce(host, block.number);
     }
 
     /// @notice Introduce this host to the contract address embedded in a local EVM node ID.
@@ -53,9 +55,9 @@ abstract contract CommandHost is CommanderAccess, CallerAccess, HostIntroduction
     /// @dev Thrown when a commander-only host is deployed without an external commander.
     error InvalidCommander();
 
-    /// @param cmdr Nonzero address allowed to invoke hosted commands.
-    constructor(address cmdr) CommanderAccess(cmdr) HostIntroduction(cmdr) {
-        if (cmdr == address(0)) revert InvalidCommander();
+    /// @param cmdr Nonzero local host ID allowed to invoke hosted commands.
+    constructor(uint cmdr) CommanderAccess(cmdr) HostIntroduction(cmdr) {
+        if (cmdr == 0) revert InvalidCommander();
     }
 
     function enforceCaller(address caller) internal view virtual override returns (address) {
@@ -82,10 +84,10 @@ abstract contract Guardians is Appoint, Dismiss, Revoke {
 /// optionally introduces itself to a commander host at deployment.
 /// Accepts native ETH payments via the `receive` function.
 abstract contract Host is Admins, Guardians, HostIntroduction, IntroductionEvent, IHostIntroduction {
-    /// @param cmdr Commander address; used by the composed access capabilities.
-    ///        If `cmdr` is a deployed contract, the host calls `introduce`
-    ///        on it during construction.
-    constructor(address cmdr) CommanderAccess(cmdr) HostIntroduction(cmdr) {}
+    /// @param cmdr Commander host ID; used by the composed access capabilities.
+    ///        If the encoded native target is a deployed contract, the host
+    ///        calls `introduce` on it during construction.
+    constructor(uint cmdr) CommanderAccess(cmdr) HostIntroduction(cmdr) {}
 
     /// @notice Assert that `caller` may invoke commands on a peer-aware host.
     function enforceCaller(address caller) internal view virtual override returns (address) {

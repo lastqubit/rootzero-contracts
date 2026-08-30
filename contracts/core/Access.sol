@@ -6,7 +6,6 @@ import {GuardianEvent} from "../events/Guardian.sol";
 import {Runtime} from "./Runtime.sol";
 import {Accounts} from "../utils/Accounts.sol";
 import {Nodes} from "../utils/Nodes.sol";
-import {addrOr} from "../utils/Utils.sol";
 
 /// @dev Thrown when a caller, account, or node lacks required access.
 error AccessDenied();
@@ -37,20 +36,23 @@ abstract contract TrustAccess {
 /// @title CommanderAccess
 /// @notice Minimal commander-based access control shared by host access policies.
 abstract contract CommanderAccess is Runtime {
-    /// @dev Trusted commander address.
-    /// Defaults to `address(this)` when no external commander is provided.
-    address internal immutable commander;
+    /// @dev Commander host ID. Defaults to this contract's host ID when self-managed.
+    uint internal immutable commander;
 
-    /// @param cmdr Commander address, or zero to make this contract self-managed.
-    constructor(address cmdr) {
-        commander = addrOr(cmdr, address(this));
+    /// @dev Native commander address resolved from `commander` at construction.
+    address internal immutable commanderAddr;
+
+    /// @param cmdr Local host ID of the commander, or zero to make this contract self-managed.
+    constructor(uint cmdr) {
+        commander = cmdr == 0 ? host : cmdr;
+        commanderAddr = cmdr == 0 ? address(this) : Nodes.hostAddr(cmdr);
     }
 
     /// @notice Assert that `caller` is the commander and return it.
     /// @param caller Address to validate.
     /// @return The same `caller` value if it is the commander.
     function enforceCommander(address caller) internal view returns (address) {
-        if (caller == address(0) || caller != commander) {
+        if (caller == address(0) || caller != commanderAddr) {
             revert AccessDenied();
         }
         return caller;
@@ -61,11 +63,11 @@ abstract contract CommanderAccess is Runtime {
 /// @title AdminAccess
 /// @notice Commander access with the admin account derived from the commander.
 abstract contract AdminAccess is CommanderAccess {
-    /// @dev Admin account ID derived from the commander address at construction time.
+    /// @dev Admin account ID derived from the resolved commander address at construction time.
     bytes32 internal immutable admin;
 
     constructor() {
-        admin = Accounts.toAdmin(commander);
+        admin = Accounts.toAdmin(commanderAddr);
     }
 
     /// @notice Assert that `account` is the admin account and `caller` is the commander.
@@ -99,7 +101,7 @@ abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
     /// whose host ID has been explicitly authorized.
     /// @param caller Address to check.
     function isTrustedCaller(address caller) internal view returns (bool) {
-        return caller == commander || caller == address(this) || nodes[Nodes.toHost(caller)];
+        return caller == commanderAddr || caller == address(this) || nodes[Nodes.toHost(caller)];
     }
 
     /// @notice Assert that `node` is in the trusted set and return it.
@@ -112,7 +114,7 @@ abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
 
     /// @notice Assert that `caller` is a trusted peer other than the commander.
     function enforcePeer(address caller) internal view returns (address) {
-        if (caller == commander) revert CommanderNotAllowed();
+        if (caller == commanderAddr) revert CommanderNotAllowed();
         if (caller == address(0) || !isTrustedCaller(caller)) {
             revert AccessDenied();
         }

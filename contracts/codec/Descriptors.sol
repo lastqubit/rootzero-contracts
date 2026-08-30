@@ -5,18 +5,7 @@ import {Blocks} from "./Blocks.sol";
 import {Buffers} from "./Buffers.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Lanes} from "../utils/Lanes.sol";
-
-/// @title Flags
-/// @notice Packed endpoint behavior flags.
-/// @dev Bits 6 and 7 are reserved for endpoint-defined custom flags.
-library Flags {
-    /// @dev Endpoint accepts nonzero native value.
-    uint8 internal constant Funded = 1 << 0;
-    /// @dev Endpoint is restricted to the admin account.
-    uint8 internal constant Admin = 1 << 1;
-    /// @dev Endpoint accepts nonzero native value and is restricted to the admin account.
-    uint8 internal constant AdminFunded = Admin | Funded;
-}
+import {Flags} from "../utils/Flags.sol";
 
 /// @title Descriptors
 /// @notice Packing and lane metadata helpers for endpoint descriptors.
@@ -26,8 +15,8 @@ library Descriptors {
     /// `[input key:4][stride:1]`
     /// `[output key:4][min:4][max:4][hint:3][stride:1]`
     /// `[reserved:5]`
-    /// `[flags:1]`. Flag bits: funded = 0, admin = 1; bits 6 and 7 are
-    /// reserved for endpoint-defined custom flags.
+    /// `[flags:1]`. Flag bits: funded = 0, admin = 1, handoff = 7;
+    /// bit 6 is reserved for endpoint-defined custom behavior.
     /// @dev TODO: Add per-lane cardinality metadata so off-chain consumers can
     /// distinguish exactly-one lanes from batches. Command decoding must remain
     /// the runtime source of truth; this metadata should not restore eager scans.
