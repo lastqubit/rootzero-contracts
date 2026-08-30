@@ -207,13 +207,13 @@ function toUnspecifiedBase(uint32 prefix) pure returns (uint) {
     return uint(prefix) << 224;
 }
 
-/// @notice Check whether `value` belongs to the given 24-bit family.
-/// Only tests the top 3 bytes (bits [255:232]); does not check chainid.
+/// @notice Check whether `value` belongs to the given 16-bit representation/category family.
+/// Only tests the top 2 bytes (bits [255:240]); does not check subtype, flags, or chainid.
 /// @param value ID to test.
 /// @param family Expected family tag.
-/// @return True if the top 3 bytes of `value` match `family`.
-function isFamily(uint value, uint24 family) pure returns (bool) {
-    return uint24(value >> 232) == family;
+/// @return True if the top 2 bytes of `value` match `family`.
+function isFamily(uint value, uint16 family) pure returns (bool) {
+    return uint16(value >> 240) == family;
 }
 
 /// @notice Check whether two IDs share the same 64-bit base (type tag + chainid).
