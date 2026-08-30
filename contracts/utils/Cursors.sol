@@ -81,7 +81,30 @@ library Cursors {
         end = abs + uint32(cur >> 64);
     }
 
-    /// @notice Create a cursor backed by a calldata slice.
+    /// @notice Return the unread calldata region represented by the lower cursor.
+    /// @dev DANGER: This trusts the packed cursor and does not validate the frame
+    /// against `msg.data`. Assumes the cursor invariant `i <= len`; any upper
+    /// cursor is ignored.
+    /// @param cur Packed cursor or cursor pair whose unread region is returned.
+    /// @return data Lower-cursor calldata from its current position through its end.
+    function raw(uint cur) internal pure returns (bytes calldata data) {
+        assembly ("memory-safe") {
+            let i := and(cur, 0xffffffff)
+            data.offset := add(and(shr(32, cur), 0xffffffff), i)
+            data.length := sub(and(shr(64, cur), 0xffffffff), i)
+        }
+    }
+
+    /// @notice Create an untagged cursor backed by a calldata slice.
+    /// @param source Calldata slice represented by the cursor.
+    /// @return cur Packed cursor positioned at the slice beginning.
+    function wrap(bytes calldata source) internal pure returns (uint cur) {
+        assembly ("memory-safe") {
+            cur := or(shl(32, source.offset), shl(64, source.length))
+        }
+    }
+
+    /// @notice Create a tagged cursor backed by a calldata slice.
     /// @param source Calldata slice represented by the cursor.
     /// @param tag Cursor identity tag.
     /// @return cur Packed cursor positioned at the slice beginning.

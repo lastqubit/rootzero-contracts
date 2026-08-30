@@ -22,7 +22,7 @@ library Decoders {
     /// @param source Calldata region to open.
     /// @return cur Cursor spanning the complete source.
     function open(bytes calldata source) internal pure returns (Cur memory cur) {
-        cur.state = Cursors.wrap(source, 0);
+        cur.state = Cursors.wrap(source);
     }
 
     /// @notice Return whether `cur` has unread bytes.
@@ -138,13 +138,15 @@ library Decoders {
         out.state = cur.state.slice(from, to, 0);
     }
 
-    /// @notice Return the complete calldata region represented by `cur`.
+    /// @notice Return the unread calldata region represented by `cur`.
     /// @param cur Cursor whose calldata is returned.
-    /// @return Complete cursor region.
-    function raw(Cur memory cur) internal pure returns (bytes calldata) {
-        (uint abs, uint end) = cur.state.bounds();
-        if (end > msg.data.length) revert Blocks.MalformedBlocks();
-        return msg.data[abs:end];
+    /// @return data Unread cursor region from its current position.
+    function raw(Cur memory cur) internal pure returns (bytes calldata data) {
+        (uint i, uint offset, uint len) = cur.state.decode();
+        if (len > msg.data.length || offset > msg.data.length - len) {
+            revert Blocks.MalformedBlocks();
+        }
+        data = msg.data[offset + i:offset + len];
     }
 
     /// @notice Return relative calldata range `[from, to)` from `cur`.
@@ -374,15 +376,6 @@ library Decoders {
         uint abs;
         (cur.state, abs) = cur.state.consume(Sizes.B32);
         node = Blocks.unpackNode(abs);
-    }
-
-    /// @notice Decode and consume one CASHOUT block.
-    /// @param cur Cursor advanced past the block.
-    /// @return amount Native-asset amount to withdraw.
-    function unpackCashout(Cur memory cur) internal pure returns (uint amount) {
-        uint abs;
-        (cur.state, abs) = cur.state.consume(Sizes.Cashout);
-        amount = Blocks.unpackCashout(abs);
     }
 
     /// @notice Decode and consume one BOOTSTRAP block.
@@ -749,15 +742,14 @@ library Decoders {
 
     /// @notice Decode and consume one RELAY block.
     /// @param cur Cursor advanced past the block.
-    /// @return portal Decoded destination portal.
-    /// @return resources Decoded packed resources.
     /// @return input Decoded relay input.
+    /// @return steps Decoded remaining pipeline steps.
     function unpackRelay(
         Cur memory cur
-    ) internal pure returns (uint portal, uint resources, bytes calldata input) {
+    ) internal pure returns (bytes calldata input, bytes calldata steps) {
         uint abs = cur.state.absolute();
         uint end;
-        (portal, resources, input, end) = Blocks.unpackRelay(abs);
+        (input, steps, end) = Blocks.unpackRelay(abs);
         cur.state = cur.state.seekAbs(end);
     }
 

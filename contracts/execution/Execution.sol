@@ -71,29 +71,29 @@ library Executions {
         return exec.decoders.absolute();
     }
 
-    /// @dev Return the complete bounded calldata source for a decoder lane.
-    /// @dev Does not consume or depend on the lane's current position. A lane
-    /// absent because its descriptor is EMPTY returns an empty calldata slice.
+    /// @dev Return the unread bounded calldata source for a decoder lane.
+    /// A lane absent because its descriptor is EMPTY returns an empty calldata slice.
     /// @param exec Execution whose input or state source is requested.
-    /// @return data Complete calldata region represented by the lane.
+    /// @return data Unread calldata region from the lane's current position.
     function raw(Execution memory exec, uint8 lane) private pure returns (bytes calldata data) {
         if (!exec.decoders.contains(lane)) return msg.data[0:0];
 
         uint cur = exec.decoders.select(lane);
         if (uint8(cur >> 96) == 0) return msg.data[0:0];
-        (uint abs, uint end) = cur.bounds();
-        if (end > msg.data.length) revert Blocks.MalformedBlocks();
-        return msg.data[abs:end];
+        (uint i, uint offset, uint len) = cur.decode();
+        if (len > msg.data.length || offset > msg.data.length - len) {
+            revert Blocks.MalformedBlocks();
+        }
+        return msg.data[offset + i:offset + len];
     }
 
-    /// @notice Return the complete bounded command state without consuming it.
-    /// @dev Remains the complete original state after the state cursor advances.
+    /// @notice Return the unread bounded command state without consuming it.
     function rawState(Execution memory exec) internal pure returns (bytes calldata) {
         return raw(exec, Lanes.State);
     }
 
-    /// @notice Return the complete state lane and mark it fully consumed.
-    /// @dev Intended for commands that forward their state intact without decoding it.
+    /// @notice Return the unread state lane and mark it fully consumed.
+    /// @dev Intended for commands that forward their remaining state without decoding it.
     /// A lane declared EMPTY is returned empty and remains unconsumed so close
     /// still rejects any state supplied against the descriptor.
     function takeRawState(Execution memory exec) internal pure returns (bytes calldata data) {
@@ -106,14 +106,13 @@ library Executions {
         exec.decoders = cur.seek(len);
     }
 
-    /// @notice Return the complete bounded endpoint input without consuming it.
-    /// @dev Remains the complete original input after the input cursor advances.
+    /// @notice Return the unread bounded endpoint input without consuming it.
     function rawInput(Execution memory exec) internal pure returns (bytes calldata) {
         return raw(exec, Lanes.Input);
     }
 
-    /// @notice Return the complete input lane and mark it fully consumed.
-    /// @dev Intended for endpoints that forward their input intact without decoding it.
+    /// @notice Return the unread input lane and mark it fully consumed.
+    /// @dev Intended for endpoints that forward their remaining input without decoding it.
     /// A lane declared EMPTY is returned empty and remains unconsumed so close
     /// still rejects any input supplied against the descriptor.
     function takeRawInput(Execution memory exec) internal pure returns (bytes calldata data) {
@@ -328,15 +327,6 @@ library Executions {
         uint abs;
         (exec.decoders, abs) = exec.decoders.consume(Sizes.B32);
         node = Blocks.unpackNode(abs);
-    }
-
-    /// @notice Decode and consume one CASHOUT block from the active lane.
-    /// @param exec Execution whose decoder is advanced.
-    /// @return amount Native-asset amount to withdraw.
-    function unpackCashout(Execution memory exec) internal pure returns (uint amount) {
-        uint abs;
-        (exec.decoders, abs) = exec.decoders.consume(Sizes.Cashout);
-        amount = Blocks.unpackCashout(abs);
     }
 
     /// @notice Decode and consume one BOOTSTRAP block from the active lane.
@@ -664,13 +654,12 @@ library Executions {
 
     /// @notice Decode and consume one RELAY block from the active lane.
     /// @param exec Execution whose decoder is advanced.
-    /// @return portal Decoded destination portal.
-    /// @return resources Decoded packed resources.
     /// @return input Decoded nested input.
-    function unpackRelay(Execution memory exec) internal pure returns (uint portal, uint resources, bytes calldata input) {
+    /// @return steps Decoded remaining pipeline steps.
+    function unpackRelay(Execution memory exec) internal pure returns (bytes calldata input, bytes calldata steps) {
         uint cur = exec.decoders;
         uint end;
-        (portal, resources, input, end) = Blocks.unpackRelay(cur.absolute());
+        (input, steps, end) = Blocks.unpackRelay(cur.absolute());
         exec.decoders = cur.seekAbs(end);
     }
 
@@ -1048,13 +1037,12 @@ library Executions {
 
     /// @notice Append a RELAY block to execution output.
     /// @param exec Execution receiving the block.
-    /// @param portal Destination portal to encode.
-    /// @param resources Packed resources to encode.
     /// @param input Relay input to encode.
-    function outputRelay(Execution memory exec, uint portal, uint resources, bytes memory input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    /// @param steps Remaining pipeline steps to encode.
+    function outputRelay(Execution memory exec, bytes memory input, bytes memory steps) internal pure {
+        uint size = 3 * Sizes.Header + input.length + steps.length;
         uint i = reserve(exec, size);
-        Blocks.writeRelay(exec.output, i, portal, resources, input);
+        Blocks.writeRelay(exec.output, i, input, steps);
     }
 
     /// @notice Append a DISPATCH block to execution output.
@@ -1177,11 +1165,11 @@ library Executions {
         Blocks.copyCall(exec.output, i, target, resources, payload);
     }
 
-    /// @notice Append a RELAY block to execution output by copying its nested input from calldata.
-    function outputCopyRelay(Execution memory exec, uint portal, uint resources, bytes calldata input) internal pure {
-        uint size = Sizes.B64 + Sizes.Header + input.length;
+    /// @notice Append a RELAY block to execution output by copying its nested streams from calldata.
+    function outputCopyRelay(Execution memory exec, bytes calldata input, bytes calldata steps) internal pure {
+        uint size = 3 * Sizes.Header + input.length + steps.length;
         uint i = reserve(exec, size);
-        Blocks.copyRelay(exec.output, i, portal, resources, input);
+        Blocks.copyRelay(exec.output, i, input, steps);
     }
 
     /// @notice Append a DISPATCH block to execution output by copying its nested payload from calldata.
