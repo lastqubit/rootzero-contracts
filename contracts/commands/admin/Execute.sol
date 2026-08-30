@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {AdminBase, Execution, Executions, Flags, Specs} from "./Base.sol";
-import {RawNodeCalls} from "../../core/Calls.sol";
+import {rawCall} from "../../core/Calls.sol";
 
 using Executions for Execution;
 
@@ -13,7 +13,7 @@ using Executions for Execution;
 /// through `useResourceValue`.
 /// Only callable by the admin account.
 /// Unspent top-level `msg.value` is returned as native budget credit.
-abstract contract ExecutePayable is RawNodeCalls, AdminBase {
+abstract contract ExecutePayable is AdminBase {
     uint private immutable descriptor;
 
     constructor() {

@@ -12,7 +12,7 @@ import { Balances, InsufficientFunds } from "./core/Balances.sol";
 import { Escrows, InsufficientEscrow } from "./core/Escrows.sol";
 import { NativeAsset, Runtime } from "./core/Runtime.sol";
 import { Admins, CommandHost, Guardians, Host, HostIntroduction, IHostIntroduction } from "./core/Host.sol";
-import { FailedCall, NodeCalls, PortCalls, RawNodeCalls, rawCommandCall } from "./core/Calls.sol";
+import { FailedCall, NodeCalls, PortCalls, rawCall, rawQuery, tryRawCall } from "./core/Calls.sol";
 import { EndpointBase, InputEndpointBase } from "./core/Endpoint.sol";
 import { ExecuteHook, PipeHook, Pipeline } from "./core/Pipeline.sol";
 import { Budget, Budgets } from "./execution/Budget.sol";
