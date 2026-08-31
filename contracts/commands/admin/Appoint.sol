@@ -9,7 +9,7 @@ using Executions for Execution;
 /// @notice Admin command that grants guardian status to a list of account IDs.
 /// Each USER ACCOUNT block in the input is assigned the guardian role on the host.
 /// Only callable by the admin account.
-abstract contract Appoint is GuardianAccess, AdminBase {
+abstract contract Appoint is AdminBase, GuardianAccess {
     uint private immutable descriptor;
 
     constructor() {

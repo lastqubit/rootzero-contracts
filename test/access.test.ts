@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
-import { deploy, getProvider, getSigner, getSigners, hostId } from "./helpers/setup.js";
+import { commandId, deploy, getProvider, getSigner, getSigners, hostId, portId } from "./helpers/setup.js";
 import { encodeAccountBlock, encodeContextBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
 
 describe("Access Control", () => {
@@ -119,6 +119,42 @@ describe("Access Control", () => {
 
   it("isAuthorized mapping returns false for node 0", async () => {
     expect(await host.isAuthorized(0n)).to.be.false;
+  });
+
+  it("enforces endpoint type and trust together for commands and ports", async () => {
+    const command = await commandId("trusted(bytes)", host);
+    const port = await portId("trusted(bytes)", host);
+    const adminAccount: string = await host.getAdminAccount();
+    const signers = await getSigners(1);
+
+    for (const node of [command, port]) {
+      await host.connect(signers[0]).authorize(
+        encodeContextBlock(adminAccount, "0x", encodeNodeBlock(node)),
+      );
+    }
+
+    const commandEndpoint = await host.testEnforceCommand(command);
+    expect(commandEndpoint[0]).to.equal(ethers.id("trusted(bytes)").slice(0, 10));
+    expect(commandEndpoint[1]).to.equal(hostAddress);
+    const portEndpoint = await host.testEnforcePort(port);
+    expect(portEndpoint[0]).to.equal(ethers.id("trusted(bytes)").slice(0, 10));
+    expect(portEndpoint[1]).to.equal(hostAddress);
+    const trustedEndpoint = await host.testEnforceTrusted(command);
+    expect(trustedEndpoint[0]).to.equal(commandEndpoint[0]);
+    expect(trustedEndpoint[1]).to.equal(commandEndpoint[1]);
+    await expect(host.testEnforceCommand(port))
+      .to.be.revertedWithCustomError(host, "InvalidId");
+    await expect(host.testEnforcePort(command))
+      .to.be.revertedWithCustomError(host, "InvalidId");
+
+    const untrustedCommand = await commandId("untrusted(bytes)", host);
+    const untrustedPort = await portId("untrusted(bytes)", host);
+    await expect(host.testEnforceCommand(untrustedCommand))
+      .to.be.revertedWithCustomError(host, "AccessDenied");
+    await expect(host.testEnforcePort(untrustedPort))
+      .to.be.revertedWithCustomError(host, "AccessDenied");
+    await expect(host.testEnforceTrusted(untrustedPort))
+      .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
   it("isGuardian converts an address to its user account", async () => {

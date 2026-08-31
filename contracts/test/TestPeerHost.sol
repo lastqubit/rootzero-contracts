@@ -24,6 +24,17 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
     constructor(uint cmdr) Host(cmdr) {}
 
+    /// @notice Test-only helper for invoking commands on a host commanded by this contract.
+    function testCall(address target, bytes calldata data) external payable returns (bytes memory out) {
+        bool success;
+        (success, out) = target.call{value: msg.value}(data);
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(out, 0x20), mload(out))
+            }
+        }
+    }
+
     function allowance(uint peer, bytes32 asset, uint amount) internal override {
         emit PortRequestAllowanceCalled(peer, asset, amount);
     }

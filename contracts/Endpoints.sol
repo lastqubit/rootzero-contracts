@@ -52,7 +52,7 @@ import {RequestAllowancePort} from "./ports/Allowance.sol";
 import {RedeemBalancePort, RedeemBalanceHook} from "./ports/Redeem.sol";
 import {CreditAccountPort} from "./ports/Credit.sol";
 import {DebitAccountPort} from "./ports/Debit.sol";
-import {PipePayablePort} from "./ports/Pipe.sol";
+import {PipePayablePort, PortPipePayableSelector} from "./ports/Pipe.sol";
 import {DispatchPayablePort, DispatchPayableHook} from "./ports/Dispatch.sol";
 import {PostPort} from "./ports/Post.sol";
 

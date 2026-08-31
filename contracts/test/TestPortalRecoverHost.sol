@@ -3,22 +3,33 @@ pragma solidity ^0.8.33;
 
 import {RecoverPayable} from "../commands/Recover.sol";
 import {Host} from "../core/Host.sol";
-import {Portal} from "../core/Portal.sol";
+import {ForwardHook, Portal} from "../core/Portal.sol";
+import {rawCall, rawCallCopy} from "../core/Calls.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
+abstract contract TestTransport is ForwardHook {
+    function receiveMessage(
+        bytes32 key,
+        bytes calldata message,
+        uint value
+    ) internal returns (bytes32) {
+        return forward(key, message, value);
+    }
+}
+
+contract TestPortalRecoverHost is Host, Portal, TestTransport, RecoverPayable {
     constructor(uint rootzero) Host(rootzero) {}
 
-    function testForward(uint handler, bytes32 key, bytes calldata message, uint value) external payable {
-        bytes32 miss = forward(handler, key, message, value);
-        if (miss != bytes32(0)) emit Unresolved(host, key, miss);
+    function testForward(bytes32 key, bytes calldata message, uint value) external payable {
+        receiveMessage(key, message, value);
     }
 
     function testCallPortMemory(uint port, bytes calldata input, uint value) external payable returns (bytes memory) {
         bytes memory data = input;
-        return callPort(port, value, data);
+        (bytes4 selector, address target) = enforcePort(port);
+        return rawCall(selector, target, value, data);
     }
 
     function getAdminAccount() external view returns (bytes32) {
@@ -32,7 +43,9 @@ contract TestPortalRecoverHost is Host, Portal, RecoverPayable {
         bytes calldata witness,
         Execution memory funds
     ) internal override {
-        resolve(handler, key, witness, funds.useResourceValue(resources));
+        resolve(key, witness);
+        (bytes4 selector, address target) = enforcePort(handler);
+        rawCallCopy(selector, target, funds.useResourceValue(resources), witness);
         emit Resolved(host, key);
     }
 }

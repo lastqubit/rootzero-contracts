@@ -9,7 +9,7 @@ import {Nodes} from "../utils/Nodes.sol";
 /// @title GuardBase
 /// @notice Abstract base for guardian-only direct host actions.
 /// Guard actions are non-payable direct calls with no command context, state, or response.
-abstract contract GuardBase is GuardianAccess, InputEndpointBase {
+abstract contract GuardBase is InputEndpointBase, GuardianAccess {
     /// @dev Restrict execution to active guardian addresses.
     modifier onlyGuardian() {
         enforceGuardian(msg.sender);

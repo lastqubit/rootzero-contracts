@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {rawCall, rawQuery, tryRawCall} from "../core/Calls.sol";
+import {
+    rawCall,
+    rawCallCopy,
+    rawQuery,
+    tryRawCall,
+    tryRawCallCopy
+} from "../core/Calls.sol";
 import {Pipeline} from "../core/Pipeline.sol";
+import {Nodes} from "../utils/Nodes.sol";
 
 contract TestCommandCalls is Pipeline {
     error TargetFailure(uint value);
+    event BytesCalled(bytes data, uint value);
 
     function testPipe(
         bytes32 account,
@@ -19,42 +27,61 @@ contract TestCommandCalls is Pipeline {
         bytes4 selector,
         address target,
         uint value,
-        bytes memory args
+        bytes memory input
     ) external payable returns (bool) {
-        return tryRawCall(selector, target, value, args);
+        return tryRawCall(selector, target, value, input);
+    }
+
+    function testTryRawCallCopy(
+        bytes4 selector,
+        address target,
+        uint value,
+        bytes calldata input
+    ) external payable returns (bool) {
+        return tryRawCallCopy(selector, target, value, input);
     }
 
     function testRawCall(
         bytes4 selector,
         address target,
         uint value,
-        bytes memory args
+        bytes memory input
     ) external payable returns (bytes memory) {
-        return rawCall(selector, target, value, args);
+        return rawCall(selector, target, value, input);
+    }
+
+    function testRawCallCopy(
+        bytes4 selector,
+        address target,
+        uint value,
+        bytes calldata input
+    ) external payable returns (bytes memory) {
+        return rawCallCopy(selector, target, value, input);
     }
 
     function testRawQuery(
         bytes4 selector,
         address target,
-        bytes memory args
+        bytes memory input
     ) external view returns (bytes memory) {
-        return rawQuery(selector, target, args);
-    }
-
-    function echo(uint amount, bytes calldata data) external payable returns (uint, bytes memory, uint) {
-        return (amount, data, msg.value);
-    }
-
-    function query(uint amount, bytes calldata data) external view returns (uint, bytes memory, address) {
-        return (amount, data, msg.sender);
+        return rawQuery(selector, target, input);
     }
 
     function noArgs() external pure returns (uint) {
         return 42;
     }
 
-    function fail(uint value) external pure {
-        revert TargetFailure(value);
+    function echoBytes(bytes calldata data) external payable returns (bytes memory) {
+        emit BytesCalled(data, msg.value);
+        return data;
+    }
+
+    function queryBytes(bytes calldata data) external pure returns (bytes memory) {
+        return data;
+    }
+
+    function failBytes(bytes calldata data) external pure {
+        revert TargetFailure(data.length);
     }
 
     function command(bytes calldata context) external payable returns (bytes memory, uint) {
@@ -99,8 +126,10 @@ contract TestCommandCalls is Pipeline {
         }
     }
 
-    function ensureTrusted(uint node) internal pure override returns (uint) {
-        return node;
+    function enforceCommand(uint cmd) internal pure override returns (bytes4 selector, address target) {
+        uint node = Nodes.command(cmd);
+        selector = bytes4(uint32(node >> 160));
+        target = address(uint160(node));
     }
 
     function execute(

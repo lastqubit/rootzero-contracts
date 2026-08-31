@@ -64,11 +64,12 @@ Releases may change inheritance storage layout, immutable configuration, and
 encoded identity formats; storage compatibility across versions is not
 supported.
 
-Commands using trusted outbound `NodeCalls` also require a `TrustAccess`
-implementation. The advanced `Host` supplies one through its composed node access, while
-`CommandHost` deliberately does not. A minimal host can explicitly compose a
-custom trust policy, or a command that intentionally targets arbitrary nodes
-can import the free raw-call helpers instead.
+Pipelines and trusted outbound port callers require `CommandAccess` and
+`PortAccess` implementations respectively. The advanced `Host` supplies both
+through its composed node access, while `CommandHost` deliberately does not. A
+minimal host can compose narrow custom policies. Both access capabilities
+return the authorized endpoint's selector and address for direct use with the
+free raw-call helpers.
 
 Deploy it with the local host ID encoding your native identity as commander and you can call its commands
 directly. A input is a run of binary blocks — here, a single `#amount` block
@@ -547,9 +548,11 @@ The central ports are batches all the way down:
 This is also the cross-portal mechanism. `relayPayable` and
 `relayBalancePayable` are handoff commands whose transport hooks decode their
 own destination and resource input and forward an already constructed command
-context, while `portDispatchPayable` dispatches an explicit portal payload. The
-adapter wraps and addresses the destination pipe;
-a bridge adapter moves the **raw
+context, while `portDispatchPayable` dispatches an explicit portal payload. A
+`Portal` forwards ordinary incoming CONTEXT streams directly to its commander
+host's `portPipePayable` endpoint. Failed messages are retained by digest and
+may be replayed through a separately selected trusted recovery-handler port. A
+bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step commands
 are destination-local command IDs, and only the adapter boundary (native
@@ -582,7 +585,8 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Settlement`, `ExecuteHook`, `PipeHook`, `Pipeline`, `Portal`, validator
+  `Settlement`, `ExecuteHook`, `PipeHook`, `ForwardHook`, `Pipeline`, `Portal`,
+  validator
 - `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
   codec helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query

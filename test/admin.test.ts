@@ -363,6 +363,14 @@ describe("Admin Commands", () => {
         .withArgs(await host.getAddress(), 0n, 123n, "0x123456");
     });
 
+    it("ignores arbitrary successful returndata", async () => {
+      const target = await deploy("TestExecuteTarget");
+      const targetId = await hostId(await target.getAddress());
+      const calldata = target.interface.encodeFunctionData("number");
+
+      await callAs(0, "executePayable", adminCtx(encodeCallBlock(targetId, 0n, calldata)));
+    });
+
     it("can govern another host through its commander host", async () => {
       const source = await deploy("TestCommanderHost", await hostId(commander));
       const sourceAdminAccount = await source.getAdminAccount();

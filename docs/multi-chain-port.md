@@ -331,7 +331,9 @@ On the source side:
 On the destination side:
 
 1. The bridge endpoint verifies the bridge message using its own security model.
-2. The bridge endpoint calls the destination host's port pipe entrypoint with the raw CONTEXT bytes.
+2. The destination portal forwards the raw CONTEXT bytes to its commander
+   host's port pipe entrypoint. The commander is fixed by portal deployment;
+   ordinary delivery does not select an arbitrary destination port.
 3. The host checks that the local caller is trusted, just like `PortBase.onlyPeer` does on EVM.
 4. The host unpacks each CONTEXT block and threads the remaining budget through
    `budget = pipe(account, state, input, budget)`.
@@ -355,6 +357,11 @@ fn peer_pipe(input: &[u8], attached_value: NativeValue) -> Result<Vec<u8>>
 ```
 
 The bridge adapter is the only component that cares about remote chain identity. The host only sees a trusted local caller and a byte payload.
+
+If ordinary forwarding fails, the portal records the message digest under its
+recovery key. Recovery may deliberately select a different trusted port instead
+of the commander's pipe endpoint, allowing transports to provide specialized
+error handlers without making the normal delivery path configurable.
 
 ### Context Payload Shape
 

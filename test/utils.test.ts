@@ -429,6 +429,27 @@ describe("Utils", () => {
       expect(addr.toLowerCase()).to.equal(signerAddress.toLowerCase());
     });
 
+    it("decode resolves a local endpoint selector and address", async () => {
+      const id: bigint = await utils.testToPortId("portPipePayable", signerAddress);
+      const [selector, target] = await utils.testDecodeNode(id);
+
+      expect(selector).to.equal(ethers.id("portPipePayable(bytes)").slice(0, 10));
+      expect(target.toLowerCase()).to.equal(signerAddress.toLowerCase());
+    });
+
+    it("decode rejects foreign and opaque nodes but preserves a zero address", async () => {
+      const local = await utils.testToPortId("portPipePayable", signerAddress);
+      const foreign = (local & ~(0xffffffffn << 192n)) | (999n << 192n);
+      const opaque = BigInt(opaqueKeccak(ethers.concat(["0x01", ethers.toUtf8Bytes("decode")])));
+      const zero = await utils.testToPortId("portPipePayable", ethers.ZeroAddress);
+
+      await expectCustomError(utils.testDecodeNode(foreign), "InvalidId");
+      await expectCustomError(utils.testDecodeNode(opaque), "InvalidId");
+      const [selector, target] = await utils.testDecodeNode(zero);
+      expect(selector).to.equal(ethers.id("portPipePayable(bytes)").slice(0, 10));
+      expect(target).to.equal(ethers.ZeroAddress);
+    });
+
     it("localHostAddr extracts address from host ID", async () => {
       const id: bigint = await utils.testToHostId(signerAddress);
       const addr = await utils.testLocalHostAddr(id);

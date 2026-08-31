@@ -247,6 +247,10 @@ contract TestUtils is CommandBase, CommanderAccess {
         return Nodes.addr(node);
     }
 
+    function testDecodeNode(uint node) external view returns (bytes4, address) {
+        return Nodes.decode(node);
+    }
+
     function testLocalHostAddr(uint host) external view returns (address) {
         return Nodes.hostAddr(host);
     }

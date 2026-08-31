@@ -267,6 +267,18 @@ library Nodes {
         return node;
     }
 
+    /// @notice Decode any local node ID into its selector and contract address.
+    /// @dev Validates only that `node` belongs to the local EVM node family.
+    /// Callers may validate a specific node type or require a nonzero address first.
+    /// @param node Local EVM node ID to decode.
+    /// @return selector ABI selector stored in bits [191:160].
+    /// @return target Contract address stored in bits [159:0].
+    function decode(uint node) internal view returns (bytes4 selector, address target) {
+        node = local(node);
+        selector = bytes4(uint32(node >> 160));
+        target = address(uint160(node));
+    }
+
     /// @notice Extract the contract address from any local node ID.
     /// Reverts if `node` does not belong to the local node family or carries `address(0)`.
     /// @param node Node ID.

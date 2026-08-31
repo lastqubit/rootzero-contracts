@@ -9,6 +9,9 @@ import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
+// Canonical selector of the payable pipeline port.
+bytes4 constant PortPipePayableSelector = bytes4(keccak256("portPipePayable(bytes)"));
+
 /// @title PipePayablePort
 /// @notice Port that consumes CONTEXT blocks and executes each input as a step stream.
 /// Each context's input bytes are passed to the shared pipeline.

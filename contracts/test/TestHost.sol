@@ -225,27 +225,27 @@ contract TestHost is
         uint value
     ) internal override returns (bool handled, bytes memory nextState, uint credit) {
         if (cid == bootstrapId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeBootstrap(account, state, input, value);
         }
         if (cid == cashoutId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeCashout(account, state, input, value);
         }
         if (cid == debitAccountId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeDebitAccount(account, state, input, value);
         }
         if (cid == creditAccountId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeCreditAccount(account, state, input, value);
         }
         if (cid == settleId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeSettle(account, state, input, value);
         }
         if (cid == repayId()) {
-            ensureTrusted(cid);
+            enforceCommand(cid);
             return executeRepay(account, state, input, value);
         }
         return (false, state, 0);
@@ -275,6 +275,18 @@ contract TestHost is
 
     function isAuthorized(uint node) external view returns (bool) {
         return nodes[node];
+    }
+
+    function testEnforceTrusted(uint node) external view returns (bytes4, address) {
+        return enforceTrusted(node);
+    }
+
+    function testEnforceCommand(uint cmd) external view returns (bytes4, address) {
+        return enforceCommand(cmd);
+    }
+
+    function testEnforcePort(uint port) external view returns (bytes4, address) {
+        return enforcePort(port);
     }
 
     function testAuthorizeId() external view returns (uint) {

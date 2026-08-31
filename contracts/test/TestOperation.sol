@@ -3,12 +3,11 @@ pragma solidity ^0.8.33;
 
 import {Specs} from "../codec/Specs.sol";
 import {Descriptors} from "../codec/Descriptors.sol";
-import { NodeCalls } from "../core/Calls.sol";
 import { CommanderAccess, NodeAccess } from "../core/Access.sol";
 
 using Descriptors for uint;
 
-contract TestOperation is NodeCalls, NodeAccess {
+contract TestOperation is NodeAccess {
     constructor() CommanderAccess(0) {}
 
     function testCheckCursorRatio(

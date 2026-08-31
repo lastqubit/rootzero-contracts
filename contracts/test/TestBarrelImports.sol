@@ -24,6 +24,7 @@ import {
     RequestAssetHook,
     RequestAssetPort,
     RequestAllowancePort,
+    PortPipePayableSelector,
     RevokeAllowance,
     RevokeAsset,
     SettlePayable,
@@ -43,14 +44,19 @@ import {Flags as EndpointFlags} from "../Endpoints.sol";
 import {ResolvedEvent, UnresolvedEvent} from "../Events.sol";
 import {
     AccessDenied,
+    CommandAccess,
     CommanderNotAllowed,
     ExecuteHook as CoreExecuteHook,
     PipeHook as CorePipeHook,
     enforceSender,
     InputEndpointBase,
+    PortAccess,
     rawCall,
+    rawCallCopy,
     rawQuery,
-    tryRawCall
+    tryRawCall,
+    tryRawCallCopy,
+    ForwardHook
 } from "../Core.sol";
 import {
     ZeroAddress,

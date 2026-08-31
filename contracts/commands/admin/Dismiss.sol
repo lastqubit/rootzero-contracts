@@ -9,7 +9,7 @@ using Executions for Execution;
 /// @notice Admin command that revokes guardian status from a list of account IDs.
 /// Each USER ACCOUNT block in the input loses the guardian role on the host.
 /// Only callable by the admin account.
-abstract contract Dismiss is GuardianAccess, AdminBase {
+abstract contract Dismiss is AdminBase, GuardianAccess {
     uint private immutable descriptor;
 
     constructor() {

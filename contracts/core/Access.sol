@@ -26,11 +26,22 @@ abstract contract CallerAccess is Runtime {
     function enforceCaller(address caller) internal view virtual returns (address);
 }
 
-/// @title TrustAccess
-/// @notice Authorization capability required by trusted outbound node calls.
-abstract contract TrustAccess {
-    /// @notice Assert that `node` is trusted and return it.
-    function ensureTrusted(uint node) internal view virtual returns (uint);
+/// @title CommandAccess
+/// @notice Authorization capability required by outbound command execution.
+abstract contract CommandAccess {
+    /// @notice Assert that `command` is a trusted command ID and resolve its EVM endpoint.
+    /// @return selector ABI selector encoded by the command ID.
+    /// @return target Contract address encoded by the command ID.
+    function enforceCommand(uint command) internal view virtual returns (bytes4 selector, address target);
+}
+
+/// @title PortAccess
+/// @notice Authorization capability required by outbound port calls.
+abstract contract PortAccess {
+    /// @notice Assert that `port` is a trusted port ID and resolve its EVM endpoint.
+    /// @return selector ABI selector encoded by the port ID.
+    /// @return target Contract address encoded by the port ID.
+    function enforcePort(uint port) internal view virtual returns (bytes4 selector, address target);
 }
 
 /// @title PeerAccess
@@ -90,7 +101,7 @@ abstract contract AdminAccess is CommanderAccess {
 /// Inbound trust is host-based:
 /// trusted hosts, the commander, and this contract itself may interact
 /// with the host through the guarded command and peer entrypoints.
-abstract contract NodeAccess is PeerAccess, AdminAccess, TrustAccess, NodeEvent {
+abstract contract NodeAccess is PeerAccess, AdminAccess, CommandAccess, PortAccess, NodeEvent {
     /// @dev Mapping from node ID to trust status.
     mapping(uint node => bool) internal nodes;
 
@@ -111,12 +122,21 @@ abstract contract NodeAccess is PeerAccess, AdminAccess, TrustAccess, NodeEvent 
         return caller == commanderAddr || caller == address(this) || nodes[Nodes.toHost(caller)];
     }
 
-    /// @notice Assert that `node` is in the trusted set and return it.
-    /// @param node Node ID to validate.
-    /// @return The same `node` value if trusted.
-    function ensureTrusted(uint node) internal view override returns (uint) {
+    /// @notice Assert that `node` is in the trusted set and resolve its endpoint.
+    function enforceTrusted(uint node) internal view returns (bytes4 selector, address target) {
         if (!nodes[node]) revert AccessDenied();
-        return node;
+        selector = bytes4(uint32(node >> 160));
+        target = address(uint160(node));
+    }
+
+    /// @notice Assert that `command` is a command ID in the trusted set and resolve its endpoint.
+    function enforceCommand(uint command) internal view override returns (bytes4 selector, address target) {
+        return enforceTrusted(Nodes.command(command));
+    }
+
+    /// @notice Assert that `port` is a port ID in the trusted set and resolve its endpoint.
+    function enforcePort(uint port) internal view override returns (bytes4 selector, address target) {
+        return enforceTrusted(Nodes.port(port));
     }
 
     /// @notice Assert that `caller` is a trusted peer other than the commander.
@@ -131,8 +151,8 @@ abstract contract NodeAccess is PeerAccess, AdminAccess, TrustAccess, NodeEvent 
 }
 
 /// @title GuardianAccess
-/// @notice Node access extended with guardian identity and authorization.
-abstract contract GuardianAccess is NodeAccess, GuardianEvent {
+/// @notice Guardian identity storage and authorization capability.
+abstract contract GuardianAccess is GuardianEvent {
     /// @dev Mapping from user account ID to guardian status.
     mapping(bytes32 account => bool) internal guardians;
 
@@ -142,7 +162,7 @@ abstract contract GuardianAccess is NodeAccess, GuardianEvent {
     function setGuardian(bytes32 account, bool active) internal {
         account = Accounts.user(account);
         guardians[account] = active;
-        emit Guardian(host, account, active);
+        emit Guardian(Nodes.toHost(address(this)), account, active);
     }
 
     /// @notice Return true if `addr` is an active guardian.

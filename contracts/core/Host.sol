@@ -50,7 +50,7 @@ abstract contract HostIntroduction is Runtime {
 /// @notice Minimal host base for commander-only command execution.
 /// Does not include admin commands, peer authorization, guardians, inbound
 /// introductions, generic execution, or a native-token receive function.
-/// Commands using trusted `NodeCalls` must separately compose a `TrustAccess` policy.
+/// Pipelines must separately compose a `CommandAccess` policy.
 abstract contract CommandHost is CommanderAccess, CallerAccess, HostIntroduction {
     /// @dev Thrown when a commander-only host is deployed without an external commander.
     error InvalidCommander();

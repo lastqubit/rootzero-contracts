@@ -10,6 +10,10 @@ contract TestExecuteTarget {
         emit Ping(msg.sender, msg.value, amount, data);
     }
 
+    function number() external pure returns (uint) {
+        return 42;
+    }
+
     function callTarget(address target, bytes calldata data) external payable returns (bytes memory result) {
         bool success;
         (success, result) = target.call{value: msg.value}(data);

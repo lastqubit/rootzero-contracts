@@ -3,6 +3,7 @@ pragma solidity ^0.8.33;
 
 import {AllowanceHook} from "../commands/admin/Allowance.sol";
 import {DenyAssetsHook} from "../commands/admin/DenyAssets.sol";
+import {NodeAccess} from "../core/Access.sol";
 import {GuardBase} from "./Base.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
@@ -12,7 +13,7 @@ using Executions for Execution;
 /// @notice Guardian action that quickly revokes authorization from a list of node IDs.
 /// Each NODE block in the input is deauthorized on the host.
 /// Only callable by active guardian addresses.
-abstract contract Revoke is GuardBase {
+abstract contract Revoke is NodeAccess, GuardBase {
     uint private immutable descriptor;
 
     constructor() {

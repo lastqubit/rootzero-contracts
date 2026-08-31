@@ -3,9 +3,8 @@ pragma solidity ^0.8.33;
 
 import {Blocks} from "../codec/Blocks.sol";
 import {Keys} from "../codec/Keys.sol";
-import {TrustAccess} from "./Access.sol";
+import {CommandAccess} from "./Access.sol";
 import {InsufficientValue, OutOfBounds, UnexpectedState} from "../utils/Errors.sol";
-import {Nodes} from "../utils/Nodes.sol";
 import {Flags} from "../utils/Flags.sol";
 
 /// @notice Hook implemented by hosts that execute encoded step streams.
@@ -42,7 +41,7 @@ abstract contract ExecuteHook {
 /// layout and the CONTEXT, BYTES, and RELAY block encodings. Changes to command
 /// selector, target, or flag placement, or to those block layouts, must update
 /// the corresponding assembly and packed-cursor logic here.
-abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
+abstract contract Pipeline is CommandAccess, PipeHook, ExecuteHook {
     /// @dev Private pipeline cursor layout:
     /// bits 0-31 current STEP offset, 32-63 stream end,
     /// 64-95 command-input offset, 96-127 command-input length.
@@ -80,7 +79,8 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
 
     /// @dev Execute the prepared command call and strictly decode `(bytes, uint)`.
     function invokeCommand(
-        uint cmd,
+        bytes4 selector,
+        address target,
         uint value,
         bytes32 account,
         bytes memory state,
@@ -95,7 +95,7 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
                 let inputlen := and(shr(32, input), 0xffffffff)
                 ctxlen := add(56, add(statelen, inputlen))
 
-                mstore(scratch, shl(224, and(shr(160, cmd), 0xffffffff)))
+                mstore(scratch, selector)
                 mstore(add(scratch, 0x04), 0x20)
                 mstore(add(scratch, 0x24), ctxlen)
 
@@ -116,7 +116,7 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
                 let relaylen := add(16, add(inputlen, stepslen))
                 ctxlen := add(64, add(statelen, relaylen))
 
-                mstore(scratch, shl(224, and(shr(160, cmd), 0xffffffff)))
+                mstore(scratch, selector)
                 mstore(add(scratch, 0x04), 0x20)
                 mstore(add(scratch, 0x24), ctxlen)
 
@@ -142,7 +142,7 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
             let inputend := and(add(add(scratch, ctxlen), 0x1f), not(0x1f))
             let success := call(
                 gas(),
-                and(cmd, 0xffffffffffffffffffffffffffffffffffffffff),
+                and(target, 0xffffffffffffffffffffffffffffffffffffffff),
                 value,
                 scratch,
                 ctxlen,
@@ -152,8 +152,8 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
             let retlen := returndatasize()
             if iszero(success) {
                 mstore(scratch, shl(224, 0x20577b07))
-                mstore(add(scratch, 0x04), and(cmd, 0xffffffffffffffffffffffffffffffffffffffff))
-                mstore(add(scratch, 0x24), shl(224, and(shr(160, cmd), 0xffffffff)))
+                mstore(add(scratch, 0x04), and(target, 0xffffffffffffffffffffffffffffffffffffffff))
+                mstore(add(scratch, 0x24), shl(224, shr(224, selector)))
                 mstore(add(scratch, 0x44), 0x60)
                 mstore(add(scratch, 0x64), retlen)
                 mstore(add(add(scratch, 0x84), retlen), 0)
@@ -199,9 +199,9 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
             (handled, output, credit) = execute(cmd, account, state, rawInput(cursor), value);
             if (handled) return (output, credit, cursor);
         }
-        ensureTrusted(Nodes.command(cmd));
+        (bytes4 selector, address target) = enforceCommand(cmd);
         bool handoff = uint8(cmd >> 224) & Flags.Handoff != 0;
-        (output, credit) = invokeCommand(cmd, value, account, state, handoff ? cursor : cursor >> 64);
+        (output, credit) = invokeCommand(selector, target, value, account, state, handoff ? cursor : cursor >> 64);
         updated = handoff ? (cursor & ~uint(type(uint32).max)) | uint32(cursor >> 32) : cursor;
     }
 
