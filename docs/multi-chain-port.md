@@ -574,8 +574,10 @@ with four values: the account, command-specific `input`, a canonical destination
 `#context`, and the command's funds. The context also contains the account,
 complete forwarded state, and remaining STEP stream, so adapters can use the
 account directly and forward the context without reconstructing protocol data.
-A qualified `relay.input` schema describes the otherwise transport-defined input
-bytes.
+A qualified `relay.input` schema describes the keyed block stream inside the
+otherwise transport-defined input bytes. An adapter can use
+`Blocks.exact` for exactly one block, or use the ordinary decoder and
+close-validation pattern for a batch.
 
 A local execute hook must return unhandled for a handoff ID so the normal
 pipeline path can construct the continuation envelope. Handoff transfers the

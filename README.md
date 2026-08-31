@@ -121,9 +121,10 @@ list, and aliases and dotted field paths give off-chain tooling presentation
 names without changing a single byte on the wire. Declared child headers are
 always present; a zero payload length represents an empty block. An `at N` hint
 can reposition one field in off-chain presentation without changing its wire
-position. Qualified schema names such as `relay.input` describe the raw
-contents of aliased `#bytes` fields; schemas emitted locally by the active host
-take precedence over trusted-context and standard schemas with the same name.
+position. Qualified schema names such as `relay.input` describe encoded block
+streams inside aliased `#bytes` fields, preserving ordinary block headers and
+decoder helpers; schemas emitted locally by the active host take precedence
+over trusted-context and standard schemas with the same name.
 Standard block aliases are intrinsic protocol metadata: indexers resolve names
 such as `balance`, `step`, and `context` from their standard keys even when no
 named schema annotation is emitted.
@@ -436,12 +437,14 @@ envelope automatically for commands carrying `Flags.Handoff`, calls the command,
 and stops executing the transferred continuation locally. Pipeline authors
 therefore encode only the command's ordinary input in the handoff STEP. Relay
 implementations can publish a qualified `relay.input` schema to describe how
-offchain tooling should decode that otherwise opaque byte payload. The standard
-relay commands pass the account and this input to their transport hook alongside
-a fully constructed canonical `#context` containing the account, forwarded
-state, and remaining steps, plus the handoff command's funds. The transport can
-therefore use the account directly and forward the context without reconstructing
-its protocol payload.
+offchain tooling should decode the ordinary keyed blocks inside that byte
+payload. Implementations can use `Blocks.exact` for exactly one block, or open
+the standard decoder and close it after consuming a batch. The standard relay
+commands pass the account and this input to their transport hook alongside a
+fully constructed canonical `#context` containing the account, forwarded state,
+and remaining steps, plus the handoff command's funds. The transport can
+therefore use the account directly and forward the context without
+reconstructing its protocol payload.
 
 Handoff has four operational rules:
 

@@ -99,9 +99,11 @@ name for a nonstandard key remains unnamed; qualified bindings such as
 For name-based schema resolution, schemas emitted by the active host about its
 own host ID take precedence over schemas from active trusted contexts, followed
 by standard schemas. The latest local claim with the requested name wins.
-Qualified names such as `relay.input` bind a schema to the raw contents of the
-aliased `#bytes` field at that structural path. Invalid local bindings are
-reported and do not fall back to a lower-precedence schema.
+Qualified names such as `relay.input` bind a schema to the encoded block stream
+inside the aliased `#bytes` field at that structural path. Every contained
+top-level block carries the selected schema's key, and its payload must satisfy
+that schema's bounds and body. Invalid local bindings are reported and do not
+fall back to a lower-precedence schema.
 
 New annotation types must document their logical identity, whether values
 replace or accumulate, and how values are revoked when revocation is supported.

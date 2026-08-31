@@ -138,8 +138,10 @@ alias to give those bytes a presentation name:
 
 An aliased `#bytes` field remains opaque unless its active schema context
 contains a schema whose name exactly matches the field's qualified structural
-path. That named schema describes the contents of the byte payload directly;
-the bytes do not contain an additional block header for the content schema.
+path. That named schema identifies the top-level blocks encoded inside the byte
+payload. Each contained block uses the ordinary header and payload format, so
+onchain implementations can open the bytes with a decoder, use existing unpack
+helpers, and close the decoder to reject trailing or malformed data.
 
 For example, the standard relay envelope is:
 
@@ -158,11 +160,33 @@ schema(
 );
 ```
 
-Tooling then decodes the payload of `relay.input` as the two declared fields.
-The key in `inputSpec` remains the stable identity of the schema claim and its
-size fields constrain the byte payload, but that key is not encoded inside the
-`#bytes` value. Without a matching qualified schema, tooling leaves the bytes
-opaque. The standard `relay.steps` binding describes a STEP stream.
+Tooling then decodes `relay.input` as a stream of blocks carrying the key from
+`inputSpec`; each block payload contains the two declared fields. The spec's
+size fields constrain each block payload exactly as they do elsewhere. A
+single-value implementation can validate the complete slice directly, while a
+batch implementation loops with a decoder and then closes it. Without a
+matching qualified schema, tooling leaves the bytes opaque. The standard
+`relay.steps` convention likewise contains an encoded STEP stream.
+
+For example, a relay implementation can consume exactly one configuration block
+without defining a second headerless decoding convention:
+
+```solidity
+(uint body, ) = Blocks.exact(input, inputSpec);
+uint portal = uint(Blocks.read32(body));
+uint resources = uint(Blocks.read32(body + 32));
+```
+
+`Blocks.exact` requires the decoded block to occupy the complete calldata slice.
+The lower-level `Blocks.enter` helper instead returns the slice's absolute
+`limit` without enforcing `end <= limit` or `end == limit`, allowing direct
+callers to perform the comparison they require. A `uint abs` overload provides
+the same raw entry operation without a slice limit when the caller already has
+an absolute calldata position.
+
+If an application truly needs opaque bytes, it can encode a `#bytes` or custom
+raw-payload block inside the qualified field. The containing block header remains
+present.
 
 Qualified schema names and dotted field aliases use the same path syntax but
 serve different purposes. A dotted alias inside a schema body controls
