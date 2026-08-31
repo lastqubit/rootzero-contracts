@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { NodeCalls } from "../core/Calls.sol";
-import { NodeAccess } from "../core/Access.sol";
+import { PeerAccess } from "../core/Access.sol";
 import { Specs } from "../codec/Specs.sol";
 import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
@@ -15,7 +14,7 @@ import { Descriptors } from "../codec/Descriptors.sol";
 /// @dev By convention, trusting a peer authorizes it to use every port exposed
 /// by the host without an additional policy decision in each port. Hosts that
 /// need narrower capabilities may enforce them in hooks or custom port bases.
-abstract contract PortBase is NodeCalls, NodeAccess, InputEndpointBase {
+abstract contract PortBase is PeerAccess, InputEndpointBase {
 
     /// @dev Restrict execution to trusted callers, excluding the commander.
     modifier onlyPeer() {

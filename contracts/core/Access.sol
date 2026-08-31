@@ -33,6 +33,13 @@ abstract contract TrustAccess {
     function ensureTrusted(uint node) internal view virtual returns (uint);
 }
 
+/// @title PeerAccess
+/// @notice Authorization capability required by inbound peer endpoints.
+abstract contract PeerAccess {
+    /// @notice Assert that `caller` is an authorized peer and return it.
+    function enforcePeer(address caller) internal view virtual returns (address);
+}
+
 /// @title CommanderAccess
 /// @notice Minimal commander-based access control shared by host access policies.
 abstract contract CommanderAccess is Runtime {
@@ -83,7 +90,7 @@ abstract contract AdminAccess is CommanderAccess {
 /// Inbound trust is host-based:
 /// trusted hosts, the commander, and this contract itself may interact
 /// with the host through the guarded command and peer entrypoints.
-abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
+abstract contract NodeAccess is PeerAccess, AdminAccess, TrustAccess, NodeEvent {
     /// @dev Mapping from node ID to trust status.
     mapping(uint node => bool) internal nodes;
 
@@ -113,7 +120,7 @@ abstract contract NodeAccess is AdminAccess, TrustAccess, NodeEvent {
     }
 
     /// @notice Assert that `caller` is a trusted peer other than the commander.
-    function enforcePeer(address caller) internal view returns (address) {
+    function enforcePeer(address caller) internal view override returns (address) {
         if (caller == commanderAddr) revert CommanderNotAllowed();
         if (caller == address(0) || !isTrustedCaller(caller)) {
             revert AccessDenied();

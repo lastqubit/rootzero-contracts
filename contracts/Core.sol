@@ -7,7 +7,7 @@ pragma solidity ^0.8.33;
 import { Action } from "./annotations/Action.sol";
 import { Label } from "./annotations/Label.sol";
 import { Schema } from "./annotations/Schema.sol";
-import { AccessDenied, AdminAccess, CallerAccess, CommanderAccess, CommanderNotAllowed, enforceSender, GuardianAccess, NodeAccess, TrustAccess } from "./core/Access.sol";
+import { AccessDenied, AdminAccess, CallerAccess, CommanderAccess, CommanderNotAllowed, enforceSender, GuardianAccess, NodeAccess, PeerAccess, TrustAccess } from "./core/Access.sol";
 import { Balances, InsufficientFunds } from "./core/Balances.sol";
 import { Escrows, InsufficientEscrow } from "./core/Escrows.sol";
 import { NativeAsset, Runtime } from "./core/Runtime.sol";
