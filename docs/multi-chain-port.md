@@ -569,6 +569,13 @@ the EVM pipeline transfer its untouched continuation to a flagged command.
 Callers encode the command's ordinary input; the pipeline constructs the relay
 envelope and stops executing the transferred steps locally.
 
+The standard relay commands decode the envelope and call their transport hook
+with three values: the command-specific `input`, a canonical destination
+`#context`, and the command's funds. The context already contains the account,
+complete forwarded state, and remaining STEP stream, so adapters can forward it
+without reconstructing protocol data. A qualified `relay.input` schema describes
+the otherwise transport-defined input bytes.
+
 A local execute hook must return unhandled for a handoff ID so the normal
 pipeline path can construct the continuation envelope. Handoff transfers the
 remaining STEP bytes, not the source pipeline's complete native-value budget:

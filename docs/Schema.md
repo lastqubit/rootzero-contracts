@@ -3,8 +3,9 @@
 Rootzero input and response data is encoded as a stream of typed blocks. A
 schema string describes the payload body for discovery events and tooling; the
 runtime block key is the compact type tag that identifies that payload layout in
-the active schema context. The block alias is published separately from the
-payload schema.
+the active schema context. The block alias comes from the protocol's standard
+catalog or an explicit schema annotation name; it is not part of the payload
+schema string.
 
 ## Wire Format
 
@@ -23,9 +24,18 @@ Standard built-in block keys use:
 bytes4(keccak256("#name"))
 ```
 
-For example, the standard `amount` alias uses the key derived from `#amount`
-and the schema body `{ bytes32 asset, uint amount }`. Custom block keys do not
-have to be keccak-derived. They
+The protocol's standard schema catalog defines each built-in key together with
+its canonical alias, specification, and body. Indexers must preload this catalog
+and therefore know, for example, that the key derived from `#amount` is named
+`amount` and has the body `{ bytes32 asset, uint amount }`. This does not depend
+on a host emitting a named schema annotation.
+
+If an emitted `#schema` block has `name == bytes32(0)` and its key is standard,
+tooling uses that key's canonical standard alias. A zero name on a nonstandard
+key remains unnamed. An explicit nonzero name is still required for qualified
+bindings such as `relay.input`.
+
+Custom block keys do not have to be keccak-derived. They
 are opaque `bytes4` tags and only need to be unique in the context where they are
 used. A host can publish the meaning of a custom key as an annotation:
 
@@ -123,6 +133,55 @@ alias to give those bytes a presentation name:
 ```txt
 #bytes as payload
 ```
+
+### Qualified byte-content schemas
+
+An aliased `#bytes` field remains opaque unless its active schema context
+contains a schema whose name exactly matches the field's qualified structural
+path. That named schema describes the contents of the byte payload directly;
+the bytes do not contain an additional block header for the content schema.
+
+For example, the standard relay envelope is:
+
+```txt
+relay { #bytes as input, #bytes as steps }
+```
+
+A relay implementation can publish its transport-specific input shape with the
+existing schema annotation helper:
+
+```solidity
+schema(
+    inputSpec,
+    "uint portal, uint resources",
+    bytes32("relay.input")
+);
+```
+
+Tooling then decodes the payload of `relay.input` as the two declared fields.
+The key in `inputSpec` remains the stable identity of the schema claim and its
+size fields constrain the byte payload, but that key is not encoded inside the
+`#bytes` value. Without a matching qualified schema, tooling leaves the bytes
+opaque. The standard `relay.steps` binding describes a STEP stream.
+
+Qualified schema names and dotted field aliases use the same path syntax but
+serve different purposes. A dotted alias inside a schema body controls
+offchain projection, while a dotted name on a `#schema` annotation binds a
+content schema to an aliased byte field. For example:
+
+```txt
+#bytes as dst.payload       // projection path inside a body
+relay.dst.payload           // qualified content-schema name
+```
+
+Schema resolution prefers claims emitted locally by the host exposing the
+endpoint over schemas available from active trusted contexts, which in turn
+take precedence over standard schemas. A claim is local only when both its
+emitter is the active host and its annotated entity is that host's own ID. For
+the same name, the latest local claim in log order wins and replaces the
+fallback rather than merging with it. If that selected local schema is invalid
+or has unresolved references, tooling reports the error instead of silently
+falling back to another schema.
 
 ## Modifiers
 
@@ -292,8 +351,9 @@ cross-host claims, fees, and netting can use the same position state.
 
 ## Field Aliases
 
-Block aliases are published in `#schema` annotations. Field aliases are presentation
-metadata for tooling. They do not change payload layout or runtime keys.
+Standard block aliases come from the protocol catalog; custom block aliases may
+be published in `#schema` annotations. Field aliases are presentation metadata
+for tooling. They do not change payload layout or runtime keys.
 
 ```txt
 maybe #account as recipient
@@ -309,12 +369,12 @@ Child blocks are schema references:
 { uint handler, uint resources, bytes32 key, #bytes as witness }
 ```
 
-Alias resolution is context-dependent. A consumer may resolve `#context` from
-standard block events, from app-specific block events, or from another active
-schema context. Custom parents should define nested custom blocks from the
-bottom up and reference them by alias. Consumers should reject schemas with
-unresolved aliases. The runtime encoding is still an embedded child block with
-the referenced key and layout.
+Alias resolution is context-dependent. A consumer resolves `#context` from the
+standard catalog and may resolve custom aliases from app-specific annotations
+or another active schema context. Custom parents should define nested custom
+blocks from the bottom up and reference them by alias. Consumers should reject
+schemas with unresolved aliases. The runtime encoding is still an embedded
+child block with the referenced key and layout.
 
 ## Field Paths
 
@@ -480,8 +540,9 @@ the layout of an ID only apply to structured IDs.
 
 ## Identifiers
 
-Block aliases use lower camelCase ASCII identifiers. Field names and aliases
-use one or more lower camelCase path segments separated by dots:
+Block aliases and unqualified schema names use lower camelCase ASCII
+identifiers. Field names, field aliases, and qualified byte-content schema
+names use one or more lower camelCase path segments separated by dots:
 
 ```txt
 [a-z][a-zA-Z0-9]*
@@ -525,18 +586,43 @@ schema string describes only the payload body.
 
 ## Standard Blocks
 
-Common protocol schemas live in `contracts/codec/Schema.sol`:
+The complete canonical name/body catalog lives in `contracts/codec/Schema.sol`;
+the corresponding keys and packed specifications live in `Keys.sol` and
+`Specs.sol`. These names are intrinsic standard metadata and need not be emitted
+in `#schema.name`:
 
 ```txt
-amount   { bytes32 asset, uint amount }
-budget   { uint amount }
-balance  { bytes32 asset, uint amount }
-custody  { uint host, bytes32 asset, uint amount }
-step     { uint cmd, uint value, #bytes as input }
-call     { uint target, uint resources, #bytes as payload }
-context  { bytes32 account, #bytes as state, #bytes as input }
-recover  { uint handler, uint resources, bytes32 key, #bytes as witness }
-schema   { uint spec, #string as body, bytes32 name }
+bytes              ""
+string             ""
+list               ""
+evm                ""
+node               uint node
+account            bytes32 account
+asset              bytes32 asset
+status             uint code
+amount             bytes32 asset, uint amount
+balance            bytes32 asset, uint amount
+debt               bytes32 liability, uint debt
+accountAsset       bytes32 account, bytes32 asset
+hostAsset          uint host, bytes32 asset
+bootstrap          bytes32 asset, uint amount, uint budget
+allocation         uint host, bytes32 asset, uint amount
+allowance          uint host, bytes32 asset, uint amount
+custody            uint host, bytes32 asset, uint amount
+accountAmount      bytes32 account, bytes32 asset, uint amount
+hostAmount         uint host, bytes32 asset, uint amount
+hostAccountAsset   uint host, bytes32 account, bytes32 asset
+position           bytes32 asset, uint amount, bytes32 liability, uint debt
+transaction        bytes32 from, bytes32 to, bytes32 asset, uint amount
+hostAccountAmount  uint host, bytes32 account, bytes32 asset, uint amount
+step               uint cmd, uint value, #bytes as input
+call               uint target, uint resources, #bytes as payload
+relay              #bytes as input, #bytes as steps
+dispatch           uint portal, uint resources, #bytes as payload
+context            bytes32 account, #bytes as state, #bytes as input
+recover            uint handler, uint resources, bytes32 key, #bytes as witness
+annotation         uint entity, #bytes as data
+action             uint action
+label              bytes32 namespace, #string as name
+schema             uint spec, #string as body, bytes32 name
 ```
-
-`Keys.sol` contains the corresponding standard runtime keys.

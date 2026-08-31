@@ -121,7 +121,13 @@ list, and aliases and dotted field paths give off-chain tooling presentation
 names without changing a single byte on the wire. Declared child headers are
 always present; a zero payload length represents an empty block. An `at N` hint
 can reposition one field in off-chain presentation without changing its wire
-position. The full schema language is specified in
+position. Qualified schema names such as `relay.input` describe the raw
+contents of aliased `#bytes` fields; schemas emitted locally by the active host
+take precedence over trusted-context and standard schemas with the same name.
+Standard block aliases are intrinsic protocol metadata: indexers resolve names
+such as `balance`, `step`, and `context` from their standard keys even when no
+named schema annotation is emitted.
+The full schema language is specified in
 [`docs/Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md). The standard block schemas live in
 `Schemas` and their runtime keys in `Keys` (both via
 `@rootzero/contracts/Codec.sol`).
@@ -428,7 +434,13 @@ relay { #bytes as input, #bytes as steps }
 untouched remainder of the original pipeline. `Pipeline.pipe` constructs this
 envelope automatically for commands carrying `Flags.Handoff`, calls the command,
 and stops executing the transferred continuation locally. Pipeline authors
-therefore encode only the command's ordinary input in the handoff STEP.
+therefore encode only the command's ordinary input in the handoff STEP. Relay
+implementations can publish a qualified `relay.input` schema to describe how
+offchain tooling should decode that otherwise opaque byte payload. The standard
+relay commands pass this input to their transport hook alongside a fully
+constructed canonical `#context` containing the account, forwarded state, and
+remaining steps, plus the handoff command's funds. The transport can therefore
+forward the context directly without reconstructing its protocol payload.
 
 Handoff has four operational rules:
 
@@ -530,8 +542,9 @@ The central ports are batches all the way down:
 
 This is also the cross-portal mechanism. `relayPayable` and
 `relayBalancePayable` are handoff commands whose transport hooks decode their
-own destination and resource input, while `portDispatchPayable` dispatches an
-explicit portal payload. The adapter wraps and addresses the destination pipe;
+own destination and resource input and forward an already constructed command
+context, while `portDispatchPayable` dispatches an explicit portal payload. The
+adapter wraps and addresses the destination pipe;
 a bridge adapter moves the **raw
 bytes**; the destination host parses them with the same cursor rules and runs
 the same pipeline loop. Nothing in the payload is EVM-specific — step commands

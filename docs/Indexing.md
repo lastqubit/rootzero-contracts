@@ -89,6 +89,20 @@ The standard types currently use these rules:
   coexist, while the latest trusted schema claim for the same key replaces the
   earlier claim.
 
+Indexers must ship the protocol's standard schema catalog: every built-in key
+has a canonical alias, specification, and body. Standard aliases are known even
+when no schema annotation is emitted or an emitted `#schema.name` is zero. For
+example, `bytes4(keccak256("#balance"))` is canonically named `balance`. A zero
+name for a nonstandard key remains unnamed; qualified bindings such as
+`relay.input` require an explicit name.
+
+For name-based schema resolution, schemas emitted by the active host about its
+own host ID take precedence over schemas from active trusted contexts, followed
+by standard schemas. The latest local claim with the requested name wins.
+Qualified names such as `relay.input` bind a schema to the raw contents of the
+aliased `#bytes` field at that structural path. Invalid local bindings are
+reported and do not fall back to a lower-precedence schema.
+
 New annotation types must document their logical identity, whether values
 replace or accumulate, and how values are revoked when revocation is supported.
 

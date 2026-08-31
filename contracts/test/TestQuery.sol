@@ -6,6 +6,7 @@ import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
 import {Execution, Executions, Lanes} from "../execution/Execution.sol";
 import {QueryBase} from "../queries/Base.sol";
+import {Schema} from "../annotations/Schema.sol";
 
 using Executions for Execution;
 
@@ -64,5 +65,19 @@ contract TestKeyedLocalQuery is QueryBase {
         }
 
         out = close(exec);
+    }
+}
+
+contract TestQualifiedSchema is Schema {
+    constructor() {
+        uint32 size = 64;
+        schema(
+            3,
+            size,
+            size,
+            size,
+            "uint portal, uint resources",
+            bytes32("relay.input")
+        );
     }
 }

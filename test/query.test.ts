@@ -17,6 +17,8 @@ const Value = localKey(1);
 const KeyedValue = localKey(2);
 const ValueSpec = exactSpec(Value, 32);
 const KeyedValueSpec = exactSpec(KeyedValue, 32);
+const RelayInput = localKey(3);
+const RelayInputSpec = exactSpec(RelayInput, 64);
 
 describe("Queries", () => {
   let query: Awaited<ReturnType<typeof deploy>>;
@@ -102,5 +104,24 @@ describe("Queries", () => {
 
       expect(result).to.equal(encodeBlock(KeyedValue, pad32(9n)));
     });
+  });
+});
+
+describe("Qualified schemas", () => {
+  it("publishes a relay.input byte-content binding with the existing helper", async () => {
+    const schema = await deploy("TestQualifiedSchema");
+    const tx = schema.deploymentTransaction();
+    expect(tx).to.not.equal(null);
+
+    await expect(tx!)
+      .to.emit(schema, "Annotation")
+      .withArgs(
+        await schema.host(),
+        encodeSchemaBlock(
+          RelayInputSpec,
+          "uint portal, uint resources",
+          ethers.encodeBytes32String("relay.input"),
+        ),
+      );
   });
 });

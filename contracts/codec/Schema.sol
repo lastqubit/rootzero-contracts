@@ -7,7 +7,8 @@ pragma solidity ^0.8.33;
 // - payload layout is block-specific
 //
 // Schema:
-// - block aliases are published separately from payload schemas
+// - block aliases come from the standard catalog or explicit schema annotation
+//   names; they are not part of the payload schema string
 // - payload schemas are `""` or a comma-separated item sequence; one optional
 //   pair of outer braces may wrap a non-empty sequence without changing meaning
 // - an empty schema string means the block has no structured payload
@@ -37,10 +38,20 @@ pragma solidity ^0.8.33;
 //   chain-specific resources word
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
+// - a dotted schema annotation name, e.g. `relay.input`, instead binds that
+//   schema to the raw contents of the aliased `#bytes` field at that structural
+//   path; the content schema's block key is metadata and is not encoded there
+// - locally emitted schemas take precedence over active trusted-context and
+//   standard schemas with the same name; an invalid selected local schema does
+//   not silently fall back
 // - `at N` assigns an offchain presentation position to one sibling; explicit
 //   positions are reserved first and unannotated siblings retain relative order
 // - child blocks resolve by alias in the active schema context; unresolved aliases are invalid
-// - schema strings describe the payload body only; the `Block` event carries the alias
+// - schema strings describe the payload body only; the standard catalog or an
+//   explicit annotation name supplies the alias
+// - standard keys have protocol-defined canonical aliases even when an emitted
+//   `#schema` block has a zero name; indexers resolve the alias from the standard
+//   key catalog, while a zero name on a nonstandard key remains unnamed
 // - items are encoded in declaration order
 // - fixed fields are packed inline and any number of child blocks are embedded directly
 // - child blocks may appear between fixed fields because each block carries its own length
@@ -73,8 +84,10 @@ pragma solidity ^0.8.33;
 /// @title Schemas
 /// @notice Human-readable schema string constants for each block type.
 /// These strings describe payload layout for discovery events and docs; block
-/// aliases map to standard keys by convention. Custom blocks may use any unique
-/// bytes4 key in their active context.
+/// aliases and their corresponding keys form the protocol's standard schema
+/// catalog. Indexers know these canonical aliases without requiring named
+/// schema annotations. Custom blocks may use any unique bytes4 key in their
+/// active context.
 library Schemas {
     // Empty and reserved payloads
 
