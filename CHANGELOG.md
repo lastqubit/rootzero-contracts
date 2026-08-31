@@ -8,6 +8,32 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.31.0
+
+### Added
+
+- Defined qualified byte-content schemas such as `relay.input`. A dotted
+  schema annotation name binds its schema body directly to the raw contents of
+  the aliased `#bytes` field at that structural path without changing the wire
+  format. Locally emitted schemas take precedence over trusted-context and
+  standard schemas with the same name.
+- Clarified that built-in block names are part of the protocol's standard
+  schema catalog. Indexers resolve a standard key to its canonical name even
+  when no schema annotation is emitted or its `name` field is zero.
+
+### Breaking Changes
+
+- Relay hooks now receive the command `account`, command-specific `input`, a
+  fully constructed canonical destination `context`, and `funds`. Relay commands
+  also place the account, complete forwarded state, and remaining STEP stream
+  into that context before calling the transport hook.
+- Decoupled inbound port endpoints from the full `NodeAccess` and outbound
+  `NodeCalls` inheritance trees. `PortBase` now depends only on the narrow
+  `PeerAccess` capability implemented by `NodeAccess`, reducing shared-base
+  constraints when composing port and command bundles. Custom port hosts must
+  now provide `PeerAccess`, and custom ports that make outbound calls must
+  inherit or import that functionality explicitly.
+
 ## 1.30.0
 
 ### Breaking Changes
