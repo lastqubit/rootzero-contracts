@@ -8,6 +8,38 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.32.0
+
+### Added
+
+- Added `Blocks.enter` overloads for validating either a block specification or
+  only its key and returning absolute payload bounds from a calldata slice or
+  absolute position. The slice overload also returns its absolute limit. These
+  low-level helpers deliberately leave region-length validation to the caller.
+- Added spec and key `Blocks.enter` prefix overloads returning `(body, next,
+  end)`. Decoder and execution prefix entry now delegate prefix validation and
+  next-position calculation to these low-level helpers, and both layers expose
+  matching key-based entry overloads.
+- Added `Specs.matches` to validate a block key and payload length against a
+  specification in one operation.
+- Added `Blocks.exact` to validate that a calldata slice consists of exactly one
+  block matching a specification.
+
+### Changed
+
+- Renamed the key-only `Blocks.expectKey` helper to the `Blocks.enter` overload.
+
+### Breaking Changes
+
+- Removed the unused standard `#evm` block and its dedicated key, spec, schema,
+  block, writer, execution, and test helper APIs. Opaque payloads use `#bytes`.
+- Qualified byte-content schemas now identify ordinary encoded block streams
+  inside aliased `#bytes` fields. Each contained top-level block carries the
+  selected schema's key and obeys its payload bounds, allowing implementations
+  to use `Blocks.exact` for a single block or the standard decoder and
+  close-validation helpers for batches. This replaces the v1.31.0 convention
+  that treated qualified contents as headerless fields.
+
 ## 1.31.0
 
 ### Added
