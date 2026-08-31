@@ -437,10 +437,11 @@ and stops executing the transferred continuation locally. Pipeline authors
 therefore encode only the command's ordinary input in the handoff STEP. Relay
 implementations can publish a qualified `relay.input` schema to describe how
 offchain tooling should decode that otherwise opaque byte payload. The standard
-relay commands pass this input to their transport hook alongside a fully
-constructed canonical `#context` containing the account, forwarded state, and
-remaining steps, plus the handoff command's funds. The transport can therefore
-forward the context directly without reconstructing its protocol payload.
+relay commands pass the account and this input to their transport hook alongside
+a fully constructed canonical `#context` containing the account, forwarded
+state, and remaining steps, plus the handoff command's funds. The transport can
+therefore use the account directly and forward the context without reconstructing
+its protocol payload.
 
 Handoff has four operational rules:
 

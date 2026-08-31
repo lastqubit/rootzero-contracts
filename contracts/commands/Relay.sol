@@ -14,6 +14,7 @@ abstract contract RelayPayableHook {
     /// `funds` contains only this handoff STEP's assigned value, not the source
     /// pipeline's complete remaining budget. Implementations must consume or
     /// forward `context`; the command returns empty state when the hook completes.
+    /// @param account Destination command account, also encoded in `context`.
     /// @param input Command-specific input supplied by the handoff step.
     /// Implementations define and decode this stream according to their transport.
     /// @param context Canonical CONTEXT block containing the command account,
@@ -21,6 +22,7 @@ abstract contract RelayPayableHook {
     /// @param funds Execution carrying value available for transport fees and
     /// destination resource funding.
     function relay(
+        bytes32 account,
         bytes calldata input,
         bytes memory context,
         Execution memory funds
@@ -40,7 +42,7 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
     function relayPayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
         (bytes calldata input, bytes calldata steps) = exec.oninput().unpackRelay();
-        relay(input, Blocks.createContextCopy(exec.account, context[0:0], steps), exec);
+        relay(exec.account, input, Blocks.createContextCopy(exec.account, context[0:0], steps), exec);
         return exec.close();
     }
 }
@@ -65,7 +67,7 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
         Execution memory exec = openCommand(context, descriptor);
         (bytes calldata input, bytes calldata steps) = exec.oninput().unpackRelay();
         bytes calldata state = exec.takeRawState();
-        relay(input, Blocks.createContextCopy(exec.account, state, steps), exec);
+        relay(exec.account, input, Blocks.createContextCopy(exec.account, state, steps), exec);
         return exec.close();
     }
 }
