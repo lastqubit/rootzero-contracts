@@ -68,7 +68,7 @@ contract TestHost is
     event PayoutCalled(bytes32 account, bytes32 to, bytes32 asset, uint amount);
     event ProvisionCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
-    event RelayCalled(uint portal, uint resources, bytes32 account, bytes state, bytes steps);
+    event RelayCalled(uint portal, uint resources, bytes context);
     event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint value);
     event SettleCalled(
         bytes32 account,
@@ -180,10 +180,8 @@ contract TestHost is
     }
 
     function relay(
-        bytes32 account,
-        bytes calldata state,
         bytes calldata input,
-        bytes calldata steps,
+        bytes memory context,
         Execution memory
     ) internal override {
         uint portal;
@@ -194,7 +192,7 @@ contract TestHost is
                 resources := calldataload(add(input.offset, 0x20))
             }
         }
-        emit RelayCalled(portal, resources, account, state, steps);
+        emit RelayCalled(portal, resources, context);
     }
 
     function recover(

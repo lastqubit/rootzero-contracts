@@ -1038,7 +1038,7 @@ describe("Commands", () => {
 
       const tx = await callAs(0, "relayPayable", ctx({ input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, resources, userAccount, "0x", steps);
+        .withArgs(portal, resources, encodeContextBlock(userAccount, "0x", steps));
     });
 
     it("reverts when state is supplied", async () => {
@@ -1077,7 +1077,7 @@ describe("Commands", () => {
         .withArgs(await cmd("relayBalancePayable"), encodeLabelBlock(ethers.ZeroHash, "relayBalancePayable"));
     });
 
-    it("passes account, state, and RELAY input separately to the hook", async () => {
+    it("passes transport input and a complete destination context to the hook", async () => {
       const state = encodeBalanceBlock(relayAsset, 12n);
       const portal = portalNode(31337n);
       const resources = 9n;
@@ -1089,7 +1089,7 @@ describe("Commands", () => {
 
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input: input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, resources, userAccount, state, steps);
+        .withArgs(portal, resources, encodeContextBlock(userAccount, state, steps));
     });
 
     it("rejects empty input while decoding its required RELAY block", async () => {
@@ -1129,7 +1129,7 @@ describe("Commands", () => {
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
-        .withArgs(portal, 0n, userAccount, state, steps);
+        .withArgs(portal, 0n, encodeContextBlock(userAccount, state, steps));
     });
 
     it("forwards the complete raw state lane including mixed trailing blocks", async () => {
@@ -1143,7 +1143,7 @@ describe("Commands", () => {
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
-        .withArgs(portal, 0n, userAccount, state, steps);
+        .withArgs(portal, 0n, encodeContextBlock(userAccount, state, steps));
     });
 
     it("rejects unread trailing RELAY input when closing", async () => {
@@ -1170,7 +1170,7 @@ describe("Commands", () => {
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
-        .withArgs(portal, 0n, userAccount, state, steps);
+        .withArgs(portal, 0n, encodeContextBlock(userAccount, state, steps));
     });
 
     it("passes relay resources through even when it exceeds msg.value", async () => {
@@ -1180,7 +1180,7 @@ describe("Commands", () => {
       const state = encodeBalanceBlock(relayAsset, 1n);
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input }));
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, 2n, userAccount, state, steps);
+        .withArgs(portal, 2n, encodeContextBlock(userAccount, state, steps));
     });
 
     it("returns unspent command value after relay dispatch as credit", async () => {
@@ -1695,7 +1695,7 @@ describe("Commands", () => {
 
       const tx = await callAs(0, "testPipe", userAccount, state, steps, { value: 7n });
       await expect(tx).to.emit(host, "RelayCalled")
-        .withArgs(portal, resources, userAccount, state, continuation);
+        .withArgs(portal, resources, encodeContextBlock(userAccount, state, continuation));
       const receipt = await tx.wait();
       const calls = receipt!.logs.filter((log) => {
         try {

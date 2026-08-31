@@ -1,31 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
+import {Execution, Executions, CommandBase, Flags, Specs, Blocks} from "./Base.sol";
 
 using Executions for Execution;
 
 /// @notice Hook implemented by hosts that relay command contexts.
 abstract contract RelayPayableHook {
-    /// @notice Override to relay a command context and its pipeline continuation.
+    /// @notice Override to relay a complete destination command context.
     /// @dev Relay hooks may forward only EMPTY or BALANCE state. They must not
     /// relay DEBT, POSITION, or other state whose destination handling can fail:
     /// the source state is consumed before destination success is known.
     /// `funds` contains only this handoff STEP's assigned value, not the source
     /// pipeline's complete remaining budget. Implementations must consume or
-    /// forward `state`; the command returns empty state when the hook completes.
-    /// @param account Destination command account.
-    /// @param state Complete state forwarded into the destination context.
+    /// forward `context`; the command returns empty state when the hook completes.
     /// @param input Command-specific input supplied by the handoff step.
     /// Implementations define and decode this stream according to their transport.
-    /// @param steps Remaining STEP stream owned by the handoff.
+    /// @param context Canonical CONTEXT block containing the command account,
+    /// complete forwarded state, and remaining STEP stream as its input.
     /// @param funds Execution carrying value available for transport fees and
     /// destination resource funding.
     function relay(
-        bytes32 account,
-        bytes calldata state,
         bytes calldata input,
-        bytes calldata steps,
+        bytes memory context,
         Execution memory funds
     ) internal virtual;
 }
@@ -43,7 +40,7 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
     function relayPayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
         (bytes calldata input, bytes calldata steps) = exec.oninput().unpackRelay();
-        relay(exec.account, context[0:0], input, steps, exec);
+        relay(input, Blocks.createContextCopy(exec.account, context[0:0], steps), exec);
         return exec.close();
     }
 }
@@ -67,7 +64,8 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
     function relayBalancePayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
         (bytes calldata input, bytes calldata steps) = exec.oninput().unpackRelay();
-        relay(exec.account, exec.takeRawState(), input, steps, exec);
+        bytes calldata state = exec.takeRawState();
+        relay(input, Blocks.createContextCopy(exec.account, state, steps), exec);
         return exec.close();
     }
 }
