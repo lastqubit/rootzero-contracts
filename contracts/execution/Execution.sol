@@ -138,11 +138,11 @@ library Executions {
     /// @notice Validate and consume the next block from an execution decoder lane.
     /// @param exec Execution whose active decoder cursor is advanced over the complete block.
     /// @param spec Expected block specification.
-    /// @return abs Absolute position of the first payload byte.
+    /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function consume(Execution memory exec, uint spec) internal pure returns (uint abs, uint end) {
+    function consume(Execution memory exec, uint spec) internal pure returns (uint body, uint end) {
         uint cur = exec.decoders;
-        (abs, end) = Blocks.expect(cur.absolute(), spec);
+        (body, end) = Blocks.enter(cur.absolute(), spec);
         exec.decoders = cur.seekAbs(end);
     }
 
@@ -151,11 +151,11 @@ library Executions {
     /// lies within the active lane's logical region.
     /// @param exec Execution whose active decoder cursor is advanced over the complete block.
     /// @param key Expected block key.
-    /// @return abs Absolute position of the first payload byte.
+    /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function consume(Execution memory exec, bytes4 key) internal pure returns (uint abs, uint end) {
+    function consume(Execution memory exec, bytes4 key) internal pure returns (uint body, uint end) {
         uint cur = exec.decoders;
-        (abs, end) = Blocks.expectKey(cur.absolute(), key);
+        (body, end) = Blocks.enter(cur.absolute(), key);
         exec.decoders = cur.seekAbs(end);
     }
 
@@ -190,10 +190,21 @@ library Executions {
     /// with `exec.expectAbs(end)` after decoding the children from the same lane.
     /// @param exec Execution whose active decoder cursor advances over the block header.
     /// @param spec Expected parent block specification.
-    /// @return abs Absolute position of the first payload byte.
+    /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function enter(Execution memory exec, uint spec) internal pure returns (uint abs, uint end) {
+    function enter(Execution memory exec, uint spec) internal pure returns (uint body, uint end) {
         return enter(exec, spec, 0);
+    }
+
+    /// @notice Validate and enter the payload of the next keyed block on an execution lane.
+    /// @dev Validates no payload-size constraint. Callers should prove complete
+    /// payload consumption with `exec.expectAbs(end)` after decoding.
+    /// @param exec Execution whose active decoder advances over the block header.
+    /// @param key Expected parent block key.
+    /// @return body Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(Execution memory exec, bytes4 key) internal pure returns (uint body, uint end) {
+        return enter(exec, key, 0);
     }
 
     /// @notice Validate a parent block and advance over a fixed payload prefix.
@@ -202,17 +213,36 @@ library Executions {
     /// @param exec Execution whose active decoder advances over the header and fixed prefix.
     /// @param spec Expected parent block specification.
     /// @param amount Number of initial payload bytes to advance over.
-    /// @return abs Absolute position of the first payload byte.
+    /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function enter(
         Execution memory exec,
         uint spec,
         uint amount
-    ) internal pure returns (uint abs, uint end) {
+    ) internal pure returns (uint body, uint end) {
         uint cur = exec.decoders;
-        (abs, end) = Blocks.expect(cur.absolute(), spec);
-        if (amount > end - abs) revert Blocks.InvalidBlock();
-        exec.decoders = cur.seekAbs(abs + amount);
+        uint next;
+        (body, next, end) = Blocks.enter(cur.absolute(), spec, amount);
+        exec.decoders = cur.seekAbs(next);
+    }
+
+    /// @notice Validate a keyed parent block and advance over a fixed payload prefix.
+    /// @dev Validates no payload-size constraint beyond the requested prefix.
+    /// The returned `body` remains the payload start.
+    /// @param exec Execution whose active decoder advances over the header and fixed prefix.
+    /// @param key Expected parent block key.
+    /// @param amount Number of initial payload bytes to advance over.
+    /// @return body Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    function enter(
+        Execution memory exec,
+        bytes4 key,
+        uint amount
+    ) internal pure returns (uint body, uint end) {
+        uint cur = exec.decoders;
+        uint next;
+        (body, next, end) = Blocks.enter(cur.absolute(), key, amount);
+        exec.decoders = cur.seekAbs(next);
     }
 
     /// @notice Advance an execution decoder lane by a raw byte count.
@@ -262,40 +292,40 @@ library Executions {
     // -------------------------------------------------------------------------
 
     /// @dev Return the next raw calldata word from the active lane and advance by `size` bytes.
-    function next(Execution memory exec, uint size) private pure returns (bytes32 value) {
+    function nextN(Execution memory exec, uint size) private pure returns (bytes32 value) {
         value = Blocks.read32(take(exec, size));
     }
 
     /// @notice Return the next raw byte from a decoder lane and advance it by one byte.
     function next1(Execution memory exec) internal pure returns (bytes1 value) {
-        value = bytes1(next(exec, 1));
+        value = bytes1(nextN(exec, 1));
     }
 
     /// @notice Return the next two raw bytes from a decoder lane and advance it by two bytes.
     function next2(Execution memory exec) internal pure returns (bytes2 value) {
-        value = bytes2(next(exec, 2));
+        value = bytes2(nextN(exec, 2));
     }
 
     /// @notice Return the next four raw bytes from a decoder lane and advance it by four bytes.
     function next4(Execution memory exec) internal pure returns (bytes4 value) {
-        value = bytes4(next(exec, 4));
+        value = bytes4(nextN(exec, 4));
     }
 
     /// @notice Return the next eight raw bytes from a decoder lane and advance it by eight bytes.
     function next8(Execution memory exec) internal pure returns (bytes8 value) {
-        value = bytes8(next(exec, 8));
+        value = bytes8(nextN(exec, 8));
     }
 
     /// @notice Return the next sixteen raw bytes from a decoder lane and advance it by sixteen bytes.
     function next16(Execution memory exec) internal pure returns (bytes16 value) {
-        value = bytes16(next(exec, 16));
+        value = bytes16(nextN(exec, 16));
     }
 
     /// @notice Return the next raw calldata word from a decoder lane and advance it.
     /// @param exec Execution whose active decoder cursor advances by one word.
     /// @return value Raw word at the active lane's previous position.
     function next32(Execution memory exec) internal pure returns (bytes32 value) {
-        value = next(exec, Sizes.Word);
+        value = nextN(exec, Sizes.Word);
     }
 
     /// @notice Decode one fixed 32-byte payload from the active lane.
@@ -986,15 +1016,6 @@ library Executions {
         Blocks.writeList(exec.output, i, value);
     }
 
-    /// @notice Append an EVM block to execution output.
-    /// @param exec Execution receiving the block.
-    /// @param value EVM payload to encode.
-    function outputEvm(Execution memory exec, bytes memory value) internal pure {
-        uint size = Sizes.Header + value.length;
-        uint i = reserve(exec, size);
-        Blocks.writeEvm(exec.output, i, value);
-    }
-
     /// @notice Append a BYTES block to execution output.
     /// @param exec Execution receiving the block.
     /// @param value Byte payload to encode.
@@ -1128,13 +1149,6 @@ library Executions {
         uint size = Sizes.Header + value.length;
         uint i = reserve(exec, size);
         Blocks.copyList(exec.output, i, value);
-    }
-
-    /// @notice Append an EVM block to execution output by copying its payload from calldata.
-    function outputCopyEvm(Execution memory exec, bytes calldata value) internal pure {
-        uint size = Sizes.Header + value.length;
-        uint i = reserve(exec, size);
-        Blocks.copyEvm(exec.output, i, value);
     }
 
     /// @notice Append a BYTES block to execution output by copying its payload from calldata.

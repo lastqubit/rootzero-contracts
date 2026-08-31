@@ -77,7 +77,6 @@ library Specs {
     uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;
     uint constant Position = uint(bytes32(Keys.Position)) | Exact128;
     uint constant List = uint(bytes32(Keys.List)) | UnboundedHint128;
-    uint constant Evm = uint(bytes32(Keys.Evm)) | UnboundedHint128;
     uint constant Bytes = uint(bytes32(Keys.Bytes)) | UnboundedHint128;
     uint constant String = uint(bytes32(Keys.String)) | UnboundedHint128;
     uint constant Account = uint(bytes32(Keys.Account)) | Exact32;
@@ -187,6 +186,17 @@ library Specs {
         uint32 min = uint32(spec >> 192);
         uint32 max = uint32(spec >> 160);
         return size >= min && (max == 0 || size <= max);
+    }
+
+    /// @notice Return whether a keyed payload matches a block specification.
+    /// @param spec Packed block specification.
+    /// @param blockkey Block key to test.
+    /// @param size Payload length to test.
+    /// @return Whether both the key and payload length are accepted.
+    function matches(uint spec, bytes4 blockkey, uint size) internal pure returns (bool) {
+        uint32 min = uint32(spec >> 192);
+        uint32 max = uint32(spec >> 160);
+        return uint32(blockkey) == uint32(spec >> 224) && size >= min && (max == 0 || size <= max);
     }
 
     /// @notice Validate a payload size against a specification's bounds.

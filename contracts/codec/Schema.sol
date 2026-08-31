@@ -39,8 +39,8 @@ pragma solidity ^0.8.33;
 // - dotted field names and aliases, e.g. `dst.portal` or `#bytes as dst.payload`,
 //   are offchain projection metadata only and do not change runtime encoding
 // - a dotted schema annotation name, e.g. `relay.input`, instead binds that
-//   schema to the raw contents of the aliased `#bytes` field at that structural
-//   path; the content schema's block key is metadata and is not encoded there
+//   schema to the encoded block stream inside the aliased `#bytes` field at that
+//   structural path; each top-level block carries the content schema's key
 // - locally emitted schemas take precedence over active trusted-context and
 //   standard schemas with the same name; an invalid selected local schema does
 //   not silently fall back
@@ -94,7 +94,6 @@ library Schemas {
     string constant Bytes = "";
     string constant String = "";
     string constant List = "";
-    string constant Evm = "";
 
     // One-word payloads
 

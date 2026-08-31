@@ -108,7 +108,7 @@ describe("Queries", () => {
 });
 
 describe("Qualified schemas", () => {
-  it("publishes a relay.input byte-content binding with the existing helper", async () => {
+  it("publishes a relay.input block-stream binding with the existing helper", async () => {
     const schema = await deploy("TestQualifiedSchema");
     const tx = schema.deploymentTransaction();
     expect(tx).to.not.equal(null);

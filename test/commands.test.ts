@@ -10,12 +10,14 @@ import {
   encodeAmountBlock,
   encodeBalanceBlock, encodeDebtBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
-  encodeActionBlock, encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeTxBlock, encodeLabelBlock,
+  encodeActionBlock, encodeContextBlock, encodeRecoverBlock, encodeRelayBlock, encodeRelayInputBlock,
+  encodeTxBlock, encodeLabelBlock, encodeSchemaBlock, localKey,
   concat
 } from "./helpers/blocks.js";
 
 describe("Commands", () => {
   const HandoffFunded = 0x81n;
+  const RelayInputSpec = exactSpec(localKey(3), 64);
   let host: Awaited<ReturnType<typeof deploy>>;
   let remote: Awaited<ReturnType<typeof deploy>>;
   let utils: Awaited<ReturnType<typeof deploy>>;
@@ -1025,13 +1027,22 @@ describe("Commands", () => {
         );
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd("relayPayable"), encodeLabelBlock(ethers.ZeroHash, "relayPayable"));
+      await expect(deployment!).to.emit(host, "Annotation")
+        .withArgs(
+          await host.host(),
+          encodeSchemaBlock(
+            RelayInputSpec,
+            "uint portal, uint resources",
+            ethers.encodeBytes32String("relay.input"),
+          ),
+        );
     });
 
     it("passes the destination context fields to the relay hook", async () => {
       const portal = portalNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
-      const input = encodeRelayBlock(portal, resources, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, resources), steps);
       const [result, transactions] = await host.relayPayable.staticCall(...ctx({ input }));
       expect(result).to.equal("0x");
       expect(transactions).to.equal(0n);
@@ -1043,10 +1054,29 @@ describe("Commands", () => {
 
     it("reverts when state is supplied", async () => {
       const state = encodeBalanceBlock(ethers.zeroPadValue("0x80", 32), 1n);
-      const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeRelayBlock(
+        encodeRelayInputBlock(portalNode(31337n), 0n),
+        encodeStepBlock(0n, 0n, "0x"),
+      );
 
       await expect(callAs(0, "relayPayable", ctx({ state, input })))
         .to.be.revertedWithCustomError(host, "UnconsumedData");
+    });
+
+    it("rejects headerless qualified input fields", async () => {
+      const config = encodeRelayInputBlock(portalNode(31337n), 9n);
+      const input = encodeRelayBlock(ethers.dataSlice(config, 8), "0x");
+
+      await expect(callAs(0, "relayPayable", ctx({ input })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+
+    it("rejects trailing blocks when the implementation expects one input block", async () => {
+      const config = encodeRelayInputBlock(portalNode(31337n), 9n);
+      const input = encodeRelayBlock(concat(config, config), "0x");
+
+      await expect(callAs(0, "relayPayable", ctx({ input })))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
     it("rejects empty input while decoding its required RELAY block", async () => {
@@ -1082,7 +1112,7 @@ describe("Commands", () => {
       const portal = portalNode(31337n);
       const resources = 9n;
       const steps = encodeStepBlock(0n, 0n, "0x1234");
-      const input = encodeRelayBlock(portal, resources, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, resources), steps);
       const [result, transactions] = await host.relayBalancePayable.staticCall(...ctx({ state, input: input }));
       expect(result).to.equal("0x");
       expect(transactions).to.equal(0n);
@@ -1099,14 +1129,20 @@ describe("Commands", () => {
     });
 
     it("forwards an empty raw state lane", async () => {
-      const input = encodeRelayBlock(portalNode(31337n), 0n, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeRelayBlock(
+        encodeRelayInputBlock(portalNode(31337n), 0n),
+        encodeStepBlock(0n, 0n, "0x"),
+      );
       await expect(callAs(0, "relayBalancePayable", ctx({ input })))
         .to.emit(host, "RelayCalled");
     });
 
     it("reverts AccessDenied for untrusted caller", async () => {
       const portal = portalNode(31337n);
-      const input = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeRelayBlock(
+        encodeRelayInputBlock(portal, 0n),
+        encodeStepBlock(0n, 0n, "0x"),
+      );
 
       await expect(callAs(1, "relayBalancePayable", ctx({ input: input })))
         .to.be.revertedWithCustomError(host, "AccessDenied");
@@ -1125,7 +1161,7 @@ describe("Commands", () => {
       const state = encodePositionBlock(relayAsset, 1n, relayAsset, 1n);
       const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
-      const input = encodeRelayBlock(portal, 0n, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, 0n), steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
@@ -1139,7 +1175,7 @@ describe("Commands", () => {
       );
       const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
-      const input = encodeRelayBlock(portal, 0n, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, 0n), steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
@@ -1149,8 +1185,8 @@ describe("Commands", () => {
     it("rejects unread trailing RELAY input when closing", async () => {
       const portal = portalNode(31337n);
       const input = concat(
-        encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x")),
-        encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"))
+        encodeRelayBlock(encodeRelayInputBlock(portal, 0n), encodeStepBlock(0n, 0n, "0x")),
+        encodeRelayBlock(encodeRelayInputBlock(portal, 0n), encodeStepBlock(0n, 0n, "0x"))
       );
       const state = encodeBalanceBlock(relayAsset, 1n);
 
@@ -1166,7 +1202,7 @@ describe("Commands", () => {
       );
       const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
-      const input = encodeRelayBlock(portal, 0n, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, 0n), steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
         .to.emit(host, "RelayCalled")
@@ -1176,7 +1212,7 @@ describe("Commands", () => {
     it("passes relay resources through even when it exceeds msg.value", async () => {
       const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
-      const input = encodeRelayBlock(portal, 2n, steps);
+      const input = encodeRelayBlock(encodeRelayInputBlock(portal, 2n), steps);
       const state = encodeBalanceBlock(relayAsset, 1n);
       const tx = await callAs(0, "relayBalancePayable", ctx({ state, input }));
       await expect(tx).to.emit(host, "RelayCalled")
@@ -1185,7 +1221,10 @@ describe("Commands", () => {
 
     it("returns unspent command value after relay dispatch as credit", async () => {
       const portal = portalNode(31337n);
-      const input = encodeRelayBlock(portal, 0n, encodeStepBlock(0n, 0n, "0x"));
+      const input = encodeRelayBlock(
+        encodeRelayInputBlock(portal, 0n),
+        encodeStepBlock(0n, 0n, "0x"),
+      );
       const state = encodeBalanceBlock(relayAsset, 1n);
 
       const [output, transactions] = await host.relayBalancePayable.staticCall(...ctx({ state, input }), { value: 1n });
@@ -1680,10 +1719,7 @@ describe("Commands", () => {
       const resources = 9n;
       const state = encodeBalanceBlock(ethers.zeroPadValue("0x80", 32), 12n);
       const continuation = encodeStepBlock(await remoteCmd("noop"), 7n, "0x1234");
-      const relayInput = ethers.concat([
-        ethers.zeroPadValue(ethers.toBeHex(portal), 32),
-        ethers.zeroPadValue(ethers.toBeHex(resources), 32),
-      ]);
+      const relayInput = encodeRelayInputBlock(portal, resources);
       const steps = concat(
         encodeStepBlock(
           await cmd("relayBalancePayable"),

@@ -382,15 +382,6 @@ library Writers {
         Blocks.writeList(writer.dst, i, value);
     }
 
-    /// @notice Append an EVM block.
-    /// @param writer Destination writer.
-    /// @param value EVM payload to encode.
-    function appendEvm(Writer memory writer, bytes memory value) internal pure {
-        uint size = Sizes.Header + value.length;
-        uint i = reserve(writer, size);
-        Blocks.writeEvm(writer.dst, i, value);
-    }
-
     /// @notice Append a BYTES block.
     /// @param writer Destination writer.
     /// @param value Byte payload to encode.
@@ -536,13 +527,6 @@ library Writers {
         uint size = Sizes.Header + value.length;
         uint i = reserve(writer, size);
         Blocks.copyList(writer.dst, i, value);
-    }
-
-    /// @notice Append an EVM block by copying its payload from calldata.
-    function copyEvm(Writer memory writer, bytes calldata value) internal pure {
-        uint size = Sizes.Header + value.length;
-        uint i = reserve(writer, size);
-        Blocks.copyEvm(writer.dst, i, value);
     }
 
     /// @notice Append a BYTES block by copying its payload from calldata.

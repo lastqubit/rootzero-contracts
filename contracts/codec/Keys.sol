@@ -27,8 +27,6 @@ library Keys {
     bytes4 constant Position = bytes4(keccak256("#position"));
     /// @dev List wrapper; payload is an embedded repeated block stream
     bytes4 constant List = bytes4(keccak256("#list"));
-    /// @dev EVM-encoded payload field; layout follows standard ABI tuple encoding
-    bytes4 constant Evm = bytes4(keccak256("#evm"));
     /// @dev Reserved raw bytes child block.
     bytes4 constant Bytes = bytes4(keccak256("#bytes"));
     /// @dev Reserved UTF-8 string child block.

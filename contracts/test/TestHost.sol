@@ -24,6 +24,8 @@ import { Allowance } from "../commands/admin/Allowance.sol";
 import { RevokeAllowance, RevokeAsset } from "../guards/Revoke.sol";
 import { HostAmount } from "../core/Types.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
+import { Blocks } from "../codec/Blocks.sol";
+import { Specs } from "../codec/Specs.sol";
 
 using Executions for Execution;
 
@@ -94,7 +96,9 @@ contract TestHost is
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
-    constructor(uint rootzero) Host(rootzero) Allocate() Deposit() Provision() {}
+    constructor(uint rootzero) Host(rootzero) Allocate() Deposit() Provision() {
+        schema(3, 64, "uint portal, uint resources", bytes32("relay.input"));
+    }
 
     function allocate(bytes32 account, HostAmount memory custody) internal override {
         emit AllocateCalled(custody.host, account, custody.asset, custody.amount);
@@ -185,14 +189,9 @@ contract TestHost is
         bytes memory context,
         Execution memory
     ) internal override {
-        uint portal;
-        uint resources;
-        if (input.length >= 64) {
-            assembly ("memory-safe") {
-                portal := calldataload(input.offset)
-                resources := calldataload(add(input.offset, 0x20))
-            }
-        }
+        (uint abs, ) = Blocks.exact(input, Specs.create(3, 64));
+        uint portal = uint(Blocks.read32(abs));
+        uint resources = uint(Blocks.read32(abs + 32));
         emit RelayCalled(portal, resources, account, context);
     }
 

@@ -84,7 +84,41 @@ library Blocks {
         if (len > end - abs - Sizes.Header) revert MalformedBlocks();
     }
 
-    /// @notice Validate a block header at an absolute calldata position.
+    /// @notice Validate and enter a block at the start of a calldata slice.
+    /// @dev DANGER: This extracts the slice's absolute base but does not prove
+    /// that the header or declared payload lies within the slice. The caller
+    /// must validate the returned bounds against `source.length`.
+    /// @param source Calldata slice beginning with the expected block.
+    /// @param spec Expected block specification.
+    /// @return body Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload.
+    /// @return limit Absolute position immediately after the calldata slice.
+    function enter(
+        bytes calldata source,
+        uint spec
+    ) internal pure returns (uint body, uint end, uint limit) {
+        uint abs;
+        assembly ("memory-safe") {
+            abs := source.offset
+            limit := add(abs, source.length)
+        }
+        (body, end) = enter(abs, spec);
+    }
+
+    /// @notice Validate that a calldata slice is exactly one matching block.
+    /// @dev The specification may accept a payload-size range; exactness means
+    /// that the decoded block occupies the complete calldata slice.
+    /// @param source Complete calldata slice occupied by the expected block.
+    /// @param spec Expected block specification.
+    /// @return body Absolute position of the first payload byte.
+    /// @return end Absolute position immediately after the payload and slice.
+    function exact(bytes calldata source, uint spec) internal pure returns (uint body, uint end) {
+        uint limit;
+        (body, end, limit) = enter(source, spec);
+        if (end != limit) revert InvalidBlock();
+    }
+
+    /// @notice Validate and enter a block at an absolute calldata position.
     /// @dev DANGER: This performs an unchecked calldata read and does not ensure `end`
     /// lies within the caller's logical calldata region. Only the key, minimum,
     /// and maximum fields of `spec` are used.
@@ -92,12 +126,39 @@ library Blocks {
     /// @param spec Expected block specification.
     /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function expect(uint abs, uint spec) internal pure returns (uint body, uint end) {
-        uint len = header(abs, Specs.key(spec));
-        if (!Specs.accepts(spec, len)) revert InvalidBlock();
+    function enter(uint abs, uint spec) internal pure returns (uint body, uint end) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+        }
+        uint len = uint32(head >> 192);
+        if (!Specs.matches(spec, bytes4(uint32(head >> 224)), len)) revert InvalidBlock();
 
-        body = abs + Sizes.Header;
-        end = body + len;
+        unchecked {
+            body = abs + Sizes.Header;
+            end = body + len;
+        }
+    }
+
+    /// @notice Validate a block specification and enter after a fixed payload prefix.
+    /// @dev DANGER: This performs an unchecked calldata read and does not ensure
+    /// that the returned positions lie within the caller's logical calldata region.
+    /// @param abs Absolute calldata position of the header.
+    /// @param spec Expected block specification.
+    /// @param amount Number of initial payload bytes to advance over.
+    /// @return body Absolute position of the first payload byte.
+    /// @return next Absolute payload position after the fixed prefix.
+    /// @return end Absolute position immediately after the payload.
+    function enter(
+        uint abs,
+        uint spec,
+        uint amount
+    ) internal pure returns (uint body, uint next, uint end) {
+        (body, end) = enter(abs, spec);
+        if (amount > end - body) revert InvalidBlock();
+        unchecked {
+            next = body + amount;
+        }
     }
 
     /// @notice Validate a known block key and return its payload bounds.
@@ -107,7 +168,7 @@ library Blocks {
     /// @param key Expected block key.
     /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
-    function expectKey(uint abs, bytes4 key) internal pure returns (uint body, uint end) {
+    function enter(uint abs, bytes4 key) internal pure returns (uint body, uint end) {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
@@ -117,6 +178,28 @@ library Blocks {
         unchecked {
             body = abs + Sizes.Header;
             end = body + len;
+        }
+    }
+
+    /// @notice Validate a block key and enter after a fixed payload prefix.
+    /// @dev DANGER: This performs an unchecked calldata read, validates no
+    /// payload-size constraint, and does not ensure the returned positions lie
+    /// within the caller's logical calldata region.
+    /// @param abs Absolute calldata position of the header.
+    /// @param key Expected block key.
+    /// @param amount Number of initial payload bytes to advance over.
+    /// @return body Absolute position of the first payload byte.
+    /// @return next Absolute payload position after the fixed prefix.
+    /// @return end Absolute position immediately after the payload.
+    function enter(
+        uint abs,
+        bytes4 key,
+        uint amount
+    ) internal pure returns (uint body, uint next, uint end) {
+        (body, end) = enter(abs, key);
+        if (amount > end - body) revert InvalidBlock();
+        unchecked {
+            next = body + amount;
         }
     }
 
@@ -691,22 +774,6 @@ library Blocks {
         }
     }
 
-    /// @notice Write an EVM block at `i`.
-    /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
-    /// block size and ensure the payload length fits in uint32.
-    /// @param dst Destination buffer.
-    /// @param i Relative write position.
-    /// @param value EVM payload.
-    function writeEvm(bytes memory dst, uint i, bytes memory value) internal pure {
-        uint len = value.length;
-        uint key = uint32(Keys.Evm);
-        assembly ("memory-safe") {
-            let p := add(add(dst, 0x20), i)
-            mstore(p, or(shl(224, key), shl(192, len)))
-            mcopy(add(p, 0x08), add(value, 0x20), len)
-        }
-    }
-
     /// @notice Write a BYTES block at `i`.
     /// @dev DANGER: Unchecked memory write. The caller must reserve the complete
     /// block size and ensure the payload length fits in uint32.
@@ -976,11 +1043,6 @@ library Blocks {
         copy(dst, i, Keys.List, value);
     }
 
-    /// @notice Encode an EVM block at `i`, copying its payload from calldata.
-    function copyEvm(bytes memory dst, uint i, bytes calldata value) internal pure {
-        copy(dst, i, Keys.Evm, value);
-    }
-
     /// @notice Encode a BYTES block at `i`, copying its payload from calldata.
     function copyBytes(bytes memory dst, uint i, bytes calldata value) internal pure {
         copy(dst, i, Keys.Bytes, value);
@@ -1229,7 +1291,7 @@ library Blocks {
     /// @return value Decoded payload.
     /// @return end Absolute position after the block.
     function unpackRaw(uint abs, uint spec) internal pure returns (bytes calldata value, uint end) {
-        (abs, end) = expect(abs, spec);
+        (abs, end) = enter(abs, spec);
         value = msg.data[abs:end];
     }
 
@@ -1723,23 +1785,6 @@ library Blocks {
         end = abs + Sizes.Header + len;
     }
 
-    /// @notice Decode one EVM payload and its absolute end position.
-    /// @param abs Absolute block position.
-    /// @return value Decoded EVM payload.
-    /// @return end Absolute position after the block.
-    function unpackEvm(uint abs) internal pure returns (bytes calldata value, uint end) {
-        uint head;
-        uint len;
-        assembly ("memory-safe") {
-            head := calldataload(abs)
-            len := and(shr(192, head), 0xffffffff)
-            value.offset := add(abs, 0x08)
-            value.length := len
-        }
-        if (uint32(head >> 224) != uint32(Keys.Evm)) revert InvalidBlock();
-        end = abs + Sizes.Header + len;
-    }
-
     /// @notice Decode one BYTES payload and its absolute end position.
     /// @param abs Absolute block position.
     /// @return value Decoded byte payload.
@@ -1787,7 +1832,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint entity, bytes calldata stream, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Annotation);
+        (abs, limit) = enter(abs, Keys.Annotation);
         assembly ("memory-safe") {
             entity := calldataload(abs)
         }
@@ -1805,7 +1850,7 @@ library Blocks {
         uint abs
     ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Context);
+        (abs, limit) = enter(abs, Keys.Context);
         assembly ("memory-safe") {
             account := calldataload(abs)
         }
@@ -1826,7 +1871,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint cmd, uint value, bytes calldata input, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Step);
+        (abs, limit) = enter(abs, Keys.Step);
         assembly ("memory-safe") {
             cmd := calldataload(abs)
             value := calldataload(add(abs, 0x20))
@@ -1845,7 +1890,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint target, uint resources, bytes calldata payload, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Call);
+        (abs, limit) = enter(abs, Keys.Call);
         assembly ("memory-safe") {
             target := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1863,7 +1908,7 @@ library Blocks {
         uint abs
     ) internal pure returns (bytes calldata input, bytes calldata steps, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Relay);
+        (abs, limit) = enter(abs, Keys.Relay);
         (input, abs) = unpackBytes(abs);
         (steps, end) = unpackBytes(abs);
         if (end != limit) revert InvalidBlock();
@@ -1879,7 +1924,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint portal, uint resources, bytes calldata payload, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Dispatch);
+        (abs, limit) = enter(abs, Keys.Dispatch);
         assembly ("memory-safe") {
             portal := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -1895,7 +1940,7 @@ library Blocks {
     /// @return end Absolute position after the block.
     function unpackLabel(uint abs) internal pure returns (bytes32 namespace, string memory name, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Label);
+        (abs, limit) = enter(abs, Keys.Label);
         assembly ("memory-safe") {
             namespace := calldataload(abs)
         }
@@ -1913,7 +1958,7 @@ library Blocks {
     /// @return end Absolute position after the block.
     function unpackSchema(uint abs) internal pure returns (uint spec, string memory body, bytes32 name, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Schema);
+        (abs, limit) = enter(abs, Keys.Schema);
         assembly ("memory-safe") {
             spec := calldataload(abs)
         }
@@ -1940,7 +1985,7 @@ library Blocks {
         uint abs
     ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness, uint end) {
         uint limit;
-        (abs, limit) = expectKey(abs, Keys.Recover);
+        (abs, limit) = enter(abs, Keys.Recover);
         assembly ("memory-safe") {
             handler := calldataload(abs)
             resources := calldataload(add(abs, 0x20))
@@ -2004,20 +2049,6 @@ library Blocks {
         uint len = max32(value.length);
         blockdata = allocate(Sizes.Header + len);
         copyList(blockdata, 0, value);
-    }
-
-    /// @notice Encode an EVM block.
-    function createEvm(bytes memory value) internal pure returns (bytes memory blockdata) {
-        uint len = max32(value.length);
-        blockdata = allocate(Sizes.Header + len);
-        writeEvm(blockdata, 0, value);
-    }
-
-    /// @notice Encode an EVM block by copying its payload from calldata.
-    function createEvmCopy(bytes calldata value) internal pure returns (bytes memory blockdata) {
-        uint len = max32(value.length);
-        blockdata = allocate(Sizes.Header + len);
-        copyEvm(blockdata, 0, value);
     }
 
     /// @notice Encode a BYTES block with a raw payload.

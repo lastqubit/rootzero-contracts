@@ -471,6 +471,22 @@ contract TestCursorHelper {
         return (abs - offset, i, end - offset);
     }
 
+    function testEnterKeyAdvance(
+        bytes calldata source,
+        bytes4 key,
+        uint advance
+    ) external pure returns (uint body, uint i, uint end) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := source.offset
+        }
+
+        Cur memory cur = Decoders.open(source);
+        (body, end) = cur.enter(key, advance);
+        (i, , ) = cur.state.decode();
+        return (body - offset, i, end - offset);
+    }
+
     function testAdvance(
         bytes calldata source,
         uint amount

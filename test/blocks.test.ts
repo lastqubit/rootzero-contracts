@@ -18,7 +18,6 @@ import {
   encodeCallBlock,
   encodeRelayBlock,
   encodeDispatchBlock,
-  encodeEvmBlock,
   encodeListBlock,
   encodeCustodyBlock,
   encodeAccountBlock,
@@ -359,8 +358,6 @@ describe("Cursors", () => {
 
       expect(await blocksHelper.writeList(offset, raw))
         .to.equal(expected(encodeListBlock(raw)));
-      expect(await blocksHelper.writeEvm(offset, raw))
-        .to.equal(expected(encodeEvmBlock(raw)));
       expect(await blocksHelper.writeBytes(offset, raw))
         .to.equal(expected(encodeBytesBlock(raw)));
       expect(await blocksHelper.writeString(offset, "rootzero"))
@@ -370,7 +367,7 @@ describe("Cursors", () => {
       expect(await blocksHelper.writeCall(offset, target, resources, raw))
         .to.equal(expected(encodeCallBlock(target, resources, raw)));
       expect(await blocksHelper.writeRelay(offset, target, resources, input))
-        .to.equal(expected(encodeRelayBlock(target, resources, input)));
+        .to.equal(expected(encodeRelayBlock(ethers.concat([pad32(target), pad32(resources)]), input)));
       expect(await blocksHelper.writeDispatch(offset, target, resources, raw))
         .to.equal(expected(encodeDispatchBlock(target, resources, raw)));
       expect(await blocksHelper.writeContext(offset, account, state, input))
@@ -388,14 +385,11 @@ describe("Cursors", () => {
       const text = "rootzero";
       const stringdata = ethers.hexlify(ethers.toUtf8Bytes(text));
       const list = encodeListBlock(raw);
-      const evm = encodeEvmBlock(raw);
       const data = encodeBytesBlock(raw);
       const string = encodeStringBlock(text);
 
       expect(await blocksHelper.unpackList(list))
         .to.deep.equal([raw, BigInt(ethers.getBytes(list).length)]);
-      expect(await blocksHelper.unpackEvm(evm))
-        .to.deep.equal([raw, BigInt(ethers.getBytes(evm).length)]);
       expect(await blocksHelper.unpackBytes(data))
         .to.deep.equal([raw, BigInt(ethers.getBytes(data).length)]);
       expect(await blocksHelper.unpackString(string))
@@ -407,7 +401,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
-    it("expects a spec at an absolute calldata position", async () => {
+    it("enters a spec at an absolute calldata position", async () => {
       const raw = "0x0102030405";
       const block = encodeBytesBlock(raw);
       const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
@@ -416,19 +410,81 @@ describe("Cursors", () => {
         .to.deep.equal([Keys.Bytes, BigInt(ethers.getBytes(raw).length)]);
       expect(await blocksHelper["headerAbsolute(bytes,bytes4)"](block, Keys.Bytes))
         .to.equal(BigInt(ethers.getBytes(raw).length));
-      expect(await blocksHelper.expectAbsolute(block, spec))
+      expect(await blocksHelper.enterAbsolute(block, spec))
         .to.deep.equal([8n, BigInt(ethers.getBytes(block).length)]);
+      expect(await blocksHelper.enterSlice(block, spec))
+        .to.deep.equal([8n, BigInt(ethers.getBytes(block).length), BigInt(ethers.getBytes(block).length)]);
     });
 
     it("rejects absolute blocks outside the expected spec shape", async () => {
       const raw = "0x0102030405";
       const block = encodeBytesBlock(raw);
 
-      await expect(blocksHelper.expectAbsolute(block, exactSpec(Keys.String, 5)))
+      await expect(blocksHelper.enterAbsolute(block, exactSpec(Keys.String, 5)))
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
-      await expect(blocksHelper.expectAbsolute(block, exactSpec(Keys.Bytes, 4)))
+      await expect(blocksHelper.enterAbsolute(block, exactSpec(Keys.Bytes, 4)))
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
       await expect(blocksHelper["headerAbsolute(bytes,bytes4)"](block, Keys.String))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("enters the first block directly from a calldata slice", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+      const trailing = encodeStringBlock("rootzero");
+      const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
+
+      expect(await blocksHelper.enterSlice(ethers.concat([block, trailing]), spec))
+        .to.deep.equal([
+          8n,
+          BigInt(ethers.getBytes(block).length),
+          BigInt(ethers.getBytes(block).length + ethers.getBytes(trailing).length),
+        ]);
+    });
+
+    it("validates the spec when entering a calldata slice", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+
+      await expect(blocksHelper.enterSlice(block, exactSpec(Keys.String, 5)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper.enterSlice(block, exactSpec(Keys.Bytes, 4)))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("leaves calldata-slice length validation to the caller", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+      const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
+
+      expect(await blocksHelper.enterSlice(ethers.dataSlice(block, 0, 8), spec))
+        .to.deep.equal([8n, BigInt(ethers.getBytes(block).length), 8n]);
+    });
+
+    it("requires an exact block to occupy the complete calldata slice", async () => {
+      const raw = "0x0102030405";
+      const block = encodeBytesBlock(raw);
+      const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
+
+      expect(await blocksHelper.exactBlock(block, spec))
+        .to.deep.equal([8n, BigInt(ethers.getBytes(block).length)]);
+      await expect(blocksHelper.exactBlock(ethers.concat([block, encodeStringBlock("x")]), spec))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper.exactBlock(ethers.dataSlice(block, 0, 8), spec))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+    });
+
+    it("enters after a bounded fixed prefix by spec or key", async () => {
+      const block = encodeListBlock(ethers.hexlify(ethers.randomBytes(64)));
+      const spec = exactSpec(Keys.List, 64);
+
+      expect(await blocksHelper.enterAmountAbsolute(block, spec, 32n))
+        .to.deep.equal([8n, 40n, 72n]);
+      expect(await blocksHelper.enterKeyAmountAbsolute(block, Keys.List, 32n))
+        .to.deep.equal([8n, 40n, 72n]);
+      await expect(blocksHelper.enterAmountAbsolute(block, spec, 65n))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      await expect(blocksHelper.enterKeyAmountAbsolute(block, Keys.List, 65n))
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
@@ -599,11 +655,10 @@ describe("Cursors", () => {
         const expected = concat(
           encodeBlock(localKey(1), value),
           encodeListBlock(value),
-          encodeEvmBlock(value),
           encodeBytesBlock(value),
           encodeStepBlock(1n, 2n, value),
           encodeCallBlock(3n, 4n, value),
-          encodeRelayBlock(5n, 6n, value),
+          encodeRelayBlock(ethers.concat([pad32(5n), pad32(6n)]), value),
           encodeDispatchBlock(7n, 8n, value),
           encodeContextBlock(ethers.zeroPadValue("0x09", 32), value, value),
           encodeRecoverBlock(10n, 11n, ethers.zeroPadValue("0x0c", 32), value),
@@ -989,8 +1044,15 @@ describe("Cursors", () => {
       const spec = exactSpec(Keys.List, 64);
 
       expect(await helper.testEnterAdvance(source, spec, 32n)).to.deep.equal([8n, 40n, 72n]);
+      expect(await helper.testEnterKeyAdvance(source, Keys.List, 32n)).to.deep.equal([8n, 40n, 72n]);
+      expect(await blocksHelper.executionEnterKeyAdvance(source, Keys.List, 32n))
+        .to.deep.equal([8n, 40n, 72n]);
       await expect(helper.testEnterAdvance(source, spec, 65n))
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
+      await expect(helper.testEnterKeyAdvance(source, Keys.List, 65n))
+        .to.be.revertedWithCustomError(helper, "InvalidBlock");
+      await expect(blocksHelper.executionEnterKeyAdvance(source, Keys.List, 65n))
+        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
     it("reports the absolute position separately from advancing over raw bytes", async () => {
@@ -1377,7 +1439,7 @@ describe("Cursors", () => {
     it("unpackRelay consumes implementation-specific input and remaining steps", async () => {
       const portal: bigint = await utils.testLocalChainId();
       const input = encodeStepBlock(0n, 0n, encodeAmountBlock(asset, 7n));
-      const relay = encodeRelayBlock(portal, 55n, input);
+      const relay = encodeRelayBlock(ethers.concat([pad32(portal), pad32(55n)]), input);
       const [outPortal, resources, outInput, i] = await helper.testUnpackRelay(relay);
       expect(outPortal).to.equal(portal);
       expect(resources).to.equal(55n);

@@ -101,7 +101,6 @@ export const Keys = {
   Bytes: blockKey("#bytes"),
   String: blockKey("#string"),
   List: blockKey("#list"),
-  Evm: blockKey("#evm"),
   Status: blockKey("#status"),
   AccountAsset: blockKey("#accountAsset"),
   HostAsset: blockKey("#hostAsset"),
@@ -227,18 +226,16 @@ export function encodeContextBlock(account: string, state: string, input: string
   return encodeBlock(Keys.Context, ethers.concat([pad32(account), encodeBytesBlock(state), encodeBytesBlock(input)]));
 }
 
+export function encodeRelayInputBlock(portal: bigint, resources: bigint): string {
+  return encodeBlock(localKey(3), ethers.concat([pad32(portal), pad32(resources)]));
+}
+
 export function encodeRecoverBlock(handler: bigint, resources: bigint, key: string, witness: string): string {
   return encodeBlock(Keys.Recover, ethers.concat([pad32(handler), pad32(resources), pad32(key), encodeBytesBlock(witness)]));
 }
 
-export function encodeRelayBlock(input: string, steps: string): string;
-export function encodeRelayBlock(portal: bigint, resources: bigint, steps: string): string;
-export function encodeRelayBlock(inputOrPortal: string | bigint, stepsOrResources: string | bigint, steps?: string): string {
-  const input = typeof inputOrPortal === "bigint"
-    ? ethers.concat([pad32(inputOrPortal), pad32(stepsOrResources as bigint)])
-    : inputOrPortal;
-  const continuation = steps ?? (stepsOrResources as string);
-  return encodeBlock(Keys.Relay, ethers.concat([encodeBytesBlock(input), encodeBytesBlock(continuation)]));
+export function encodeRelayBlock(input: string, steps: string): string {
+  return encodeBlock(Keys.Relay, ethers.concat([encodeBytesBlock(input), encodeBytesBlock(steps)]));
 }
 
 export function encodeDispatchBlock(portal: bigint, resources: bigint, payload: string): string {
@@ -267,10 +264,6 @@ export function encodeActionBlock(action: bigint): string {
 
 export function encodeSchemaBlock(spec: bigint, body: string, name: string): string {
   return encodeBlock(Keys.Schema, ethers.concat([pad32(spec), encodeStringBlock(body), pad32(name)]));
-}
-
-export function encodeEvmBlock(data: string): string {
-  return encodeBlock(Keys.Evm, data);
 }
 
 export function encodeStatusBlock(code: bigint): string {

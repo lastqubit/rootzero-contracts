@@ -48,8 +48,8 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
     /// 64-95 command-input offset, 96-127 command-input length.
     function unpackBytes(uint abs) private pure returns (uint input, uint end) {
         uint body;
-        (body, end) = Blocks.expectKey(abs, Keys.Bytes);
-        // `expectKey` constructs `end` as `body + uint32(length)`.
+        (body, end) = Blocks.enter(abs, Keys.Bytes);
+        // Key-only `enter` constructs `end` as `body + uint32(length)`.
         unchecked {
             input = uint32(body) | ((end - body) << 32);
         }
@@ -58,7 +58,7 @@ abstract contract Pipeline is TrustAccess, PipeHook, ExecuteHook {
     function takeStep(uint cursor) private pure returns (uint cmd, uint value, uint updated) {
         uint abs = uint32(cursor);
         uint limit;
-        (abs, limit) = Blocks.expectKey(abs, Keys.Step);
+        (abs, limit) = Blocks.enter(abs, Keys.Step);
         assembly ("memory-safe") {
             cmd := calldataload(abs)
             value := calldataload(add(abs, 0x20))

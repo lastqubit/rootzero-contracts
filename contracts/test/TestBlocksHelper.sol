@@ -269,6 +269,23 @@ contract TestBlocksHelper is Action {
         Executions.expectAbs(exec, end);
     }
 
+    function executionEnterKeyAdvance(
+        bytes calldata input,
+        bytes4 key,
+        uint amount
+    ) external view returns (uint body, uint i, uint end) {
+        uint offset;
+        assembly ("memory-safe") {
+            offset := input.offset
+        }
+
+        uint descriptor = Descriptors.create(Specs.Empty, Specs.List, Specs.Empty, 0);
+        Execution memory exec = openInput(input, descriptor);
+        (body, end) = exec.enter(key, amount);
+        i = exec.absolute();
+        return (body - offset, i - offset, end - offset);
+    }
+
     function executionAdvance(
         bytes calldata input,
         uint amount
@@ -327,7 +344,6 @@ contract TestBlocksHelper is Action {
         Writer memory writer = Writers.init(0);
         writer.copyBlock(Specs.create(TestKey, 0, 0, 0), value);
         writer.copyList(value);
-        writer.copyEvm(value);
         writer.copyBytes(value);
         writer.copyStep(1, 2, value);
         writer.copyCall(3, 4, value);
@@ -374,7 +390,6 @@ contract TestBlocksHelper is Action {
         bytes memory leaves = bytes.concat(
             Blocks.createCopy(TestKey, value),
             Blocks.createListCopy(value),
-            Blocks.createEvmCopy(value),
             Blocks.createBytesCopy(value)
         );
         bytes memory composites = bytes.concat(
@@ -396,7 +411,6 @@ contract TestBlocksHelper is Action {
         Execution memory exec = openInput(msg.data[0:0], descriptor);
         Executions.outputCopyBlock(exec, Specs.create(TestKey, 0, 0, 0), value);
         Executions.outputCopyList(exec, value);
-        Executions.outputCopyEvm(exec, value);
         Executions.outputCopyBytes(exec, value);
         Executions.outputCopyStep(exec, 1, 2, value);
         Executions.outputCopyCall(exec, 3, 4, value);
@@ -567,14 +581,59 @@ contract TestBlocksHelper is Action {
         return uint(Blocks.read32(position(source) + i));
     }
 
-    function expectAbsolute(
+    function enterAbsolute(
         bytes calldata source,
         uint spec
     ) external pure returns (uint i, uint end) {
         uint head = position(source);
-        (uint abs, uint limit) = Blocks.expect(head, spec);
+        (uint abs, uint limit) = Blocks.enter(head, spec);
         i = abs - head;
         end = limit - head;
+    }
+
+    function enterAmountAbsolute(
+        bytes calldata source,
+        uint spec,
+        uint amount
+    ) external pure returns (uint body, uint next, uint end) {
+        uint base = position(source);
+        (body, next, end) = Blocks.enter(base, spec, amount);
+        body -= base;
+        next -= base;
+        end -= base;
+    }
+
+    function enterKeyAmountAbsolute(
+        bytes calldata source,
+        bytes4 key,
+        uint amount
+    ) external pure returns (uint body, uint next, uint end) {
+        uint base = position(source);
+        (body, next, end) = Blocks.enter(base, key, amount);
+        body -= base;
+        next -= base;
+        end -= base;
+    }
+
+    function enterSlice(
+        bytes calldata source,
+        uint spec
+    ) external pure returns (uint body, uint end, uint limit) {
+        uint base = position(source);
+        (body, end, limit) = Blocks.enter(source, spec);
+        body -= base;
+        end -= base;
+        limit -= base;
+    }
+
+    function exactBlock(
+        bytes calldata source,
+        uint spec
+    ) external pure returns (uint body, uint end) {
+        uint base = position(source);
+        (body, end) = Blocks.exact(source, spec);
+        body -= base;
+        end -= base;
     }
 
     function headerAbsolute(bytes calldata source) external pure returns (bytes4 key, uint len) {
@@ -617,11 +676,6 @@ contract TestBlocksHelper is Action {
     function writeList(uint offset, bytes memory value) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.Header + value.length);
         Blocks.writeList(dst, offset, value);
-    }
-
-    function writeEvm(uint offset, bytes memory value) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.Header + value.length);
-        Blocks.writeEvm(dst, offset, value);
     }
 
     function writeBytes(uint offset, bytes memory value) external pure returns (bytes memory dst) {
@@ -806,15 +860,6 @@ contract TestBlocksHelper is Action {
         bytes calldata value;
         uint end;
         (value, end) = Blocks.unpackList(abs);
-        data = value;
-        length = end - abs;
-    }
-
-    function unpackEvm(bytes calldata source) external pure returns (bytes memory data, uint length) {
-        uint abs = position(source);
-        bytes calldata value;
-        uint end;
-        (value, end) = Blocks.unpackEvm(abs);
         data = value;
         length = end - abs;
     }
