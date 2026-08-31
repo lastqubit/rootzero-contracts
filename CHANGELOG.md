@@ -8,6 +8,60 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.33.0
+
+### Added
+
+- Added `addValue` to standalone `Budget` and `Execution` values so trusted
+  hooks can contribute backed native value to the current budget in place.
+- Added selector/address `tryRawCall` and `rawCall` helper families. They encode
+  supplied memory or calldata as a function's single `bytes` argument; non-try
+  helpers expose the returned `bytes` directly. Calldata variants use a `Copy`
+  suffix and avoid intermediate ABI allocation.
+- Added `ForwardHook` as the transport-facing portal forwarding capability.
+- Added the canonical `PortPipePayableSelector` beside `PipePayablePort` and
+  exported it through the endpoint barrel.
+- Added `Nodes.decode` for resolving any local node ID into its ABI selector
+  and embedded address, including zero-valued fields.
+
+### Changed
+
+- Replaced generic outbound `TrustAccess` validation with narrow
+  `CommandAccess.enforceCommand` and `PortAccess.enforcePort` capabilities.
+  `NodeAccess` implements both by validating the endpoint type and its trusted
+  node entry together and returning its selector and address, while retaining
+  `enforceTrusted` as its concrete generic trusted endpoint resolver.
+- Decoupled `GuardianAccess` from `NodeAccess`; only the `Revoke` guard now
+  requires node access explicitly, reducing inheritance requirements for other
+  guardian actions.
+- Specialized `ExecutePayable` with a private arbitrary-call path that ignores
+  successful returndata and copies returndata only when reporting failure.
+- Added one memory-based `rawQuery` helper for infrequent dynamic protocol
+  queries. It encodes a single `bytes` argument and exposes the returned bytes
+  directly.
+- Specialized `Portal` ordinary delivery to forward CONTEXT streams directly
+  to its commander's `portPipePayable` endpoint. Recovery continues to accept a
+  separately selected trusted handler port for transport-specific failures.
+  Failed delivery now records its digest and emits `Unresolved` atomically.
+- Narrowed `Portal.resolve` to validate and delete an unresolved witness. The
+  recovery implementation now chooses and invokes its handler, so `Portal` no
+  longer depends on `PortCalls` or the broader `NodeAccess` capability.
+
+### Breaking Changes
+
+- Removed the `NodeCalls` and `PortCalls` inheritance helpers. Callers now
+  authorize commands or ports through the access layer and invoke the free raw
+  call helpers directly.
+- Removed the unused complete-calldata encoded call and query helper family.
+- Selector/address raw helpers now treat supplied bytes as the raw contents of
+  one `bytes` argument.
+- Removed the destination port argument from `Portal.forward`; portal
+  implementations now use `forward(bytes32 key, bytes calldata message, uint
+  value)` and ordinary delivery always targets the commander pipeline.
+- Changed `Portal.resolve` from `(uint handler, bytes32 key, bytes calldata
+  witness, uint value)` to `(bytes32 key, bytes calldata witness)`; recovery
+  implementations are responsible for their own handler calls and trust policy.
+
 ## 1.32.0
 
 ### Added
