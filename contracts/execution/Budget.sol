@@ -28,6 +28,15 @@ library Budgets {
         return value;
     }
 
+    /// @notice Add trusted native value to `budget`.
+    /// @dev This updates accounting only. The caller must ensure the added value
+    /// is backed by native value held by the host or otherwise made available.
+    /// @param budget Mutable budget to credit.
+    /// @param value Native value to add in wei.
+    function addValue(Budget memory budget, uint value) internal pure {
+        budget.remaining += value;
+    }
+
     /// @notice Deduct an exact native value from a scalar budget.
     /// @param budget Remaining native value in wei.
     /// @param value Native value to consume in wei.

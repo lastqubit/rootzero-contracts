@@ -741,6 +741,8 @@ describe("Cursors", () => {
         .to.deep.equal([3n, 2n]);
       expect(await blocksHelper.budgetUseValue.staticCall(3n, { value: 5n }))
         .to.deep.equal([3n, 2n]);
+      expect(await blocksHelper.budgetAddValue(2n, 3n)).to.equal(5n);
+      expect(await blocksHelper.executionAddValue(2n, 3n)).to.equal(5n);
       expect(await blocksHelper.budgetDrain.staticCall({ value: 5n }))
         .to.deep.equal([5n, 0n]);
       expect(await blocksHelper.takeBudget.staticCall({ value: 5n }))
@@ -751,6 +753,18 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InsufficientValue");
       await expect(blocksHelper.budgetUseValue.staticCall(1n << 128n))
         .to.be.revertedWithCustomError(blocksHelper, "InsufficientValue");
+      for (const addValue of [
+        () => blocksHelper.budgetAddValue(ethers.MaxUint256, 1n),
+        () => blocksHelper.executionAddValue(ethers.MaxUint256, 1n),
+      ]) {
+        let overflowed = false;
+        try {
+          await addValue();
+        } catch {
+          overflowed = true;
+        }
+        expect(overflowed).to.equal(true);
+      }
     });
 
     it("grows when appending past initial logical writer capacity", async () => {

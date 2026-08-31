@@ -1248,6 +1248,15 @@ library Executions {
         return value;
     }
 
+    /// @notice Add trusted native value to the execution budget.
+    /// @dev This updates accounting only. The caller must ensure the added value
+    /// is backed by native value held by the host or otherwise made available.
+    /// @param exec Mutable execution whose budget is credited.
+    /// @param value Native value to add in wei.
+    function addValue(Execution memory exec, uint value) internal pure {
+        exec.budget += value;
+    }
+
     /// @notice Deduct the EVM value lane of `resources` from the execution budget.
     /// @dev `resources` is not a native value. This helper explicitly extracts
     /// its low 128-bit EVM value lane and widens that lane to a plain `uint`.

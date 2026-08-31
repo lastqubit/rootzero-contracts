@@ -485,6 +485,22 @@ contract TestBlocksHelper is Action {
         remaining = budget.drain();
     }
 
+    /// @notice Add trusted value to a standalone budget.
+    function budgetAddValue(uint initial, uint value) external pure returns (uint remaining) {
+        Budget memory budget;
+        budget.remaining = initial;
+        budget.addValue(value);
+        remaining = budget.remaining;
+    }
+
+    /// @notice Add trusted value to an execution budget.
+    function executionAddValue(uint initial, uint value) external pure returns (uint remaining) {
+        Execution memory exec;
+        exec.budget = initial;
+        exec.addValue(value);
+        remaining = exec.budget;
+    }
+
     /// @notice Drain a standalone budget and expose its cleared state.
     function budgetDrain() external payable returns (uint drained, uint remaining) {
         Budget memory budget = Budgets.open();
