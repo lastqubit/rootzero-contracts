@@ -3,7 +3,6 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { RequestAllowancePort } from "../ports/Allowance.sol";
-import { RedeemBalancePort } from "../ports/Redeem.sol";
 import { CreditAccountPort } from "../ports/Credit.sol";
 import { DebitAccountPort } from "../ports/Debit.sol";
 import { PipePayablePort } from "../ports/Pipe.sol";
@@ -15,9 +14,8 @@ import { Pipeline } from "../core/Pipeline.sol";
 import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, RedeemBalancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
+contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
     event PortRequestAllowanceCalled(uint peer, bytes32 asset, uint amount);
-    event PortRedeemBalanceCalled(uint peer, bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
@@ -37,10 +35,6 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Redee
 
     function allowance(uint peer, bytes32 asset, uint amount) internal override {
         emit PortRequestAllowanceCalled(peer, asset, amount);
-    }
-
-    function redeemBalance(uint peer, bytes32 asset, uint amount) internal override {
-        emit PortRedeemBalanceCalled(peer, asset, amount);
     }
 
     function requestAsset(uint peer, bytes32 asset, uint amount) internal override {

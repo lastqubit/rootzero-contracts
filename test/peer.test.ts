@@ -66,17 +66,6 @@ describe("Port Entrypoints", () => {
       .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
-        await port("portRedeemBalance(bytes)"),
-        endpointDescriptor({ input: Keys.Balance }),
-      );
-    await expect(tx!)
-      .to.emit(host, "Annotation")
-      .withArgs(await port("portRedeemBalance(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portRedeemBalance"));
-
-    await expect(tx!)
-      .to.emit(host, "Endpoint")
-      .withArgs(
-        await host.host(),
         await port("portRequestAsset(bytes)"),
         endpointDescriptor({ input: Keys.Amount }),
       );
@@ -138,7 +127,6 @@ describe("Port Entrypoints", () => {
     signerIndex: number,
     method:
       | "portRequestAllowance(bytes)"
-      | "portRedeemBalance(bytes)"
       | "portCreditAccount(bytes)"
       | "portDebitAccount(bytes)"
       | "portPost(bytes)"
@@ -192,59 +180,13 @@ describe("Port Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts CommanderNotAllowed for the commander", async () => {
+    it("reverts AccessDenied for the commander", async () => {
       await expect(callAs(0, method, encodeAmountBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
       await expect(callAs(2, method, encodeAmountBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "AccessDenied");
-    });
-
-    it("accepts an empty input batch", async () => {
-      await callAs(1, method);
-    });
-  });
-
-  describe("portRedeemBalance", () => {
-    const method = "portRedeemBalance(bytes)";
-    const asset = ethers.zeroPadValue("0xaa", 32);
-
-    it("emits PortRedeemBalanceCalled for a single BALANCE block", async () => {
-      const peer = await callerHost(1);
-      const tx = await callAs(1, method, encodeBalanceBlock(asset, 123n));
-      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset, 123n);
-    });
-
-    it("emits PortRedeemBalanceCalled for each BALANCE block when multiple are present", async () => {
-      const peer = await callerHost(1);
-      const asset2 = ethers.zeroPadValue("0xcc", 32);
-      const tx = await callAs(
-        1,
-        method,
-        concat(
-          encodeBalanceBlock(asset, 123n),
-          encodeBalanceBlock(asset2, 456n),
-        )
-      );
-      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset, 123n);
-      await expect(tx).to.emit(host, "PortRedeemBalanceCalled").withArgs(peer, asset2, 456n);
-    });
-
-    it("returns empty bytes after processing balance blocks", async () => {
-      const signer = await getSigner(1);
-      const result: string = await (host.connect(signer) as any)[method].staticCall(encodeBalanceBlock(asset, 123n));
-      expect(result).to.equal("0x");
-    });
-
-    it("reverts CommanderNotAllowed for the commander", async () => {
-      await expect(callAs(0, method, encodeBalanceBlock(asset, 123n)))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
-    });
-
-    it("reverts AccessDenied for an untrusted caller", async () => {
-      await expect(callAs(2, method, encodeBalanceBlock(asset, 123n)))
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
@@ -286,9 +228,9 @@ describe("Port Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts CommanderNotAllowed for the commander", async () => {
+    it("reverts AccessDenied for the commander", async () => {
       await expect(callAs(0, method, encodeAmountBlock(suppliedAsset, 123n)))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
@@ -335,9 +277,9 @@ describe("Port Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts CommanderNotAllowed for the commander", async () => {
+    it("reverts AccessDenied for the commander", async () => {
       await expect(callAs(0, method, encodeAccountAmountBlock(account, asset, 123n)))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
@@ -389,9 +331,9 @@ describe("Port Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts CommanderNotAllowed for the commander", async () => {
+    it("reverts AccessDenied for the commander", async () => {
       await expect(callAs(0, method, encodeAccountAmountBlock(account, asset, 123n)))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {
@@ -623,10 +565,10 @@ describe("Port Entrypoints", () => {
       expect(result).to.equal("0x");
     });
 
-    it("reverts CommanderNotAllowed for the commander", async () => {
+    it("reverts AccessDenied for the commander", async () => {
       const input = encodeDispatchBlock(await localPortal(), 0n, "0x");
       await expect(callAs(0, method, input))
-        .to.be.revertedWithCustomError(host, "CommanderNotAllowed");
+        .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
     it("reverts AccessDenied for an untrusted caller", async () => {

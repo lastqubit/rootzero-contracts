@@ -3,14 +3,12 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Deposit } from "../commands/Deposit.sol";
-import { RedeemBalancePort } from "../ports/Redeem.sol";
 import { GetBalances } from "../queries/Balances.sol";
 
-contract TestCompositeHost is Host, Deposit, RedeemBalancePort, GetBalances {
+contract TestCompositeHost is Host, Deposit, GetBalances {
     constructor(uint cmdr)
         Host(0)
         Deposit()
-        RedeemBalancePort()
         GetBalances()
     {
         if (cmdr != 0) setNode(cmdr, true);
@@ -18,10 +16,6 @@ contract TestCompositeHost is Host, Deposit, RedeemBalancePort, GetBalances {
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal pure override {
         account; asset; amount;
-    }
-
-    function redeemBalance(uint peer, bytes32 asset, uint amount) internal pure override {
-        peer; asset; amount;
     }
 
     function getBalance(bytes32 account, bytes32 asset) internal pure override returns (uint amount) {
