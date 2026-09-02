@@ -76,15 +76,25 @@ export function endpointDescriptor({
 export const Keys = {
   Empty: "0x00000000",
   Local: localKey(1),
-  Bootstrap: blockKey("#bootstrap"),
-  Amount: blockKey("#amount"),
+  Bytes: blockKey("#bytes"),
+  String: blockKey("#string"),
+  List: blockKey("#list"),
+
+  // Live pipeline state
   Balance: blockKey("#balance"),
   Debt: blockKey("#debt"),
-  Allocation: blockKey("#allocation"),
-  Allowance: blockKey("#allowance"),
   Custody: blockKey("#custody"),
   Position: blockKey("#position"),
+
+  // Input and value blocks
+  Amount: blockKey("#amount"),
+  Bootstrap: blockKey("#bootstrap"),
+  Allocation: blockKey("#allocation"),
+  Allowance: blockKey("#allowance"),
   Account: blockKey("#account"),
+  Transaction: blockKey("#transaction"),
+
+  // Composite and annotation blocks
   Node: blockKey("#node"),
   Asset: blockKey("#asset"),
   Step: blockKey("#step"),
@@ -93,14 +103,10 @@ export const Keys = {
   Recover: blockKey("#recover"),
   Relay: blockKey("#relay"),
   Dispatch: blockKey("#dispatch"),
-  Transaction: blockKey("#transaction"),
   Label: blockKey("#label"),
   Annotation: blockKey("#annotation"),
   Action: blockKey("#action"),
   Schema: blockKey("#schema"),
-  Bytes: blockKey("#bytes"),
-  String: blockKey("#string"),
-  List: blockKey("#list"),
   Status: blockKey("#status"),
   AccountAsset: blockKey("#accountAsset"),
   HostAsset: blockKey("#hostAsset"),

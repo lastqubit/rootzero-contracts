@@ -49,8 +49,7 @@ error BadAmount(uint amount);
 /// @dev Thrown when an opaque ID preimage is missing or unsupported.
 error InvalidPreimage();
 
-/// @dev Thrown when a cursor is not positioned at the expected offset.
+/// @dev Thrown when a cursor is not at the expected absolute position.
 error UnexpectedPosition();
 
 /// @dev Thrown when no packed cursor matches a requested identity.
-error MissingCursor();

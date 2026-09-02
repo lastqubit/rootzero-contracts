@@ -15,7 +15,6 @@ import {
   encodeContextBlock,
   encodeBytesBlock,
   encodeListBlock,
-  encodePositionBlock,
   encodeTxBlock,
   encodeUserAccount,
   localKey,
@@ -194,7 +193,10 @@ describe("Examples", () => {
         int32(-5n),
         pad32(9n),
         encodeBytesBlock(hookData),
-        encodePositionBlock(asset, 100n, liability, 25n),
+        asset,
+        pad32(100n),
+        liability,
+        pad32(25n),
         encodeListBlock(firstHop, secondHop),
       ));
 

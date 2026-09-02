@@ -35,7 +35,7 @@ contract TestErc20CursorHelper {
 
     function testExpectErc20Amount(bytes calldata source, uint i) external view returns (address token, uint amount) {
         Cur memory cur = Decoders.open(source);
-        return expectErc20Amount(cur, i);
+        return expectErc20Amount(cur, Cursors.base(source) + i);
     }
 
     function testRequireErc20Amount(bytes calldata source) external view returns (address token, uint amount, uint i) {
@@ -43,12 +43,12 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         (asset, amount) = Decoders.unpackAmount(cur);
         token = Assets.erc20Addr(asset);
-        (i, , ) = Cursors.decode(cur.state);
+        i = cur.state.position() - Cursors.base(source);
     }
 
     function testExpectErc20Balance(bytes calldata source, uint i) external view returns (address token, uint amount) {
         Cur memory cur = Decoders.open(source);
-        return expectErc20Balance(cur, i);
+        return expectErc20Balance(cur, Cursors.base(source) + i);
     }
 
     function testRequireErc20Balance(bytes calldata source) external view returns (address token, uint amount, uint i) {
@@ -56,7 +56,7 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         (asset, amount) = Decoders.unpackBalance(cur);
         token = Assets.erc20Addr(asset);
-        (i, , ) = Cursors.decode(cur.state);
+        i = cur.state.position() - Cursors.base(source);
     }
 
     function testExpectErc20Custody(
@@ -65,7 +65,7 @@ contract TestErc20CursorHelper {
         uint host
     ) external view returns (address token, uint amount) {
         Cur memory cur = Decoders.open(source);
-        return expectErc20Custody(cur, i, host);
+        return expectErc20Custody(cur, Cursors.base(source) + i, host);
     }
 
     function testRequireErc20Custody(
@@ -78,7 +78,7 @@ contract TestErc20CursorHelper {
         (actualHost, asset, amount) = Decoders.unpackCustody(cur);
         if (actualHost != host) revert Blocks.UnexpectedValue();
         token = Assets.erc20Addr(asset);
-        (i, , ) = Cursors.decode(cur.state);
+        i = cur.state.position() - Cursors.base(source);
     }
 
 }

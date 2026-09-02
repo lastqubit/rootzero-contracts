@@ -7,12 +7,10 @@ import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
 import {HostAmount, Position} from "../core/Types.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
 import {Flags} from "../utils/Flags.sol";
 import {Nodes} from "../utils/Nodes.sol";
 
 using Executions for Execution;
-using Descriptors for uint;
 
 /// @title CommandBase
 /// @notice Abstract base for all rootzero command contracts.
@@ -52,7 +50,7 @@ abstract contract CommandBase is CallerAccess, EndpointBase {
         uint output,
         uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(state, input, output, flags);
+        descriptor = Executions.describe(state, input, output, flags);
         return command(name, descriptor);
     }
 
@@ -67,10 +65,10 @@ abstract contract CommandBase is CallerAccess, EndpointBase {
         published = endpoint(id, name, descriptor);
     }
 
-    /// @notice Decode one command context and open bounded state and input lanes.
+    /// @notice Decode one command context and open bounded state and input sources.
     /// @dev Rejects empty input, trailing bytes, and additional context blocks.
-    /// The command's decode and loop implementation defines lane semantics.
-    /// Closing requires both lanes to have been consumed completely.
+    /// The command's decode and loop implementation defines source semantics.
+    /// Closing requires both sources to have been consumed completely.
     /// @param context Exactly one CONTEXT block carrying the account, state, and input.
     /// @param descriptor Packed command endpoint descriptor.
     /// @return exec Execution with a resizable output writer initialized from its descriptor hint.
@@ -83,8 +81,6 @@ abstract contract CommandBase is CallerAccess, EndpointBase {
         (bytes32 account, bytes calldata state, bytes calldata input, uint end) = Blocks.unpackContext(abs);
         if (end != abs + context.length) revert Blocks.InvalidBlock();
 
-        (exec.decoders, exec.writer) = descriptor.open(state, input);
-        exec.account = account;
-        exec.budget = msg.value;
+        exec.open(descriptor, account, msg.value, state, input);
     }
 }

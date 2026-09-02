@@ -3,7 +3,7 @@ pragma solidity ^0.8.33;
 
 // Example 9: Nested Swap Input
 //
-// A SWAP block contains a POSITION, compact inline configuration, hook data,
+// A SWAP block contains position-shaped inline input, compact configuration, hook data,
 // and an always-present list of context-local SWAP_HOP blocks:
 //
 //   #swap {
@@ -11,7 +11,10 @@ pragma solidity ^0.8.33;
 //       int32 tickSpacing,
 //       uint hook,
 //       #bytes as hookData,
-//       #position at 0,
+//       bytes32 asset,
+//       uint amount,
+//       bytes32 liability,
+//       uint debt,
 //       many #swapHop
 //   }
 //
@@ -55,13 +58,13 @@ abstract contract SwapHopInput is Schema {
         value.hook = uint(Blocks.read32(abs + 40));
         value.hookData = hops.unpackBytes();
 
-        hops.expectAbs(end);
+        hops.expect(end);
     }
 }
 
 abstract contract SwapInput is Schema {
     string private constant INPUT =
-        "{ uint32 fee, int32 tickSpacing, uint hook, #bytes as hookData, #position at 0, many #swapHop }";
+        "{ uint32 fee, int32 tickSpacing, uint hook, #bytes as hookData, bytes32 asset, uint amount, bytes32 liability, uint debt, many #swapHop }";
 
     uint internal immutable swapSpec;
 
@@ -73,7 +76,7 @@ abstract contract SwapInput is Schema {
     }
 
     constructor(uint32 key) {
-        swapSpec = schema(key, 192, 0, 512, INPUT);
+        swapSpec = schema(key, 184, 0, 512, INPUT);
     }
 
     function unpackSwap(
@@ -85,7 +88,11 @@ abstract contract SwapInput is Schema {
         context.tickSpacing = int32(uint32(Blocks.read4(abs + 4)));
         context.hook = uint(Blocks.read32(abs + 8));
         context.hookData = exec.unpackBytes();
-        position = exec.unpackPositionValue();
+        uint positionAbs = exec.take(128);
+        position.asset = Blocks.read32(positionAbs);
+        position.amount = uint(Blocks.read32(positionAbs + 32));
+        position.liability = Blocks.read32(positionAbs + 64);
+        position.debt = uint(Blocks.read32(positionAbs + 96));
         hops = exec.list();
 
         exec.expectAbs(end);

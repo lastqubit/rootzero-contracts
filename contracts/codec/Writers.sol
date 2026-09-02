@@ -8,7 +8,7 @@ import {Sizes, Specs} from "./Specs.sol";
 
 /// @notice Sequential block stream writer backed by a pre-allocated memory buffer.
 struct Writer {
-    /// @dev Packed cursor metadata. `len` is the current logical capacity.
+    /// @dev Packed cursor metadata. `end` is the current logical capacity.
     uint cur;
     /// @dev Destination buffer. Physical capacity may be padded up to a full 32-byte word;
     /// final length is set to the packed write position by `finish`.
@@ -20,7 +20,7 @@ struct Writer {
 /// Initializes logical capacity from raw metadata or a block specification,
 /// then lazily allocates and writes binary-encoded blocks sequentially.
 /// Physical allocation is rounded up to whole 32-byte words for scratch space,
-/// while the writer cursor length tracks logical capacity. Call `finish` to trim the buffer.
+/// while the writer cursor end tracks logical capacity. Call `finish` to trim the buffer.
 /// `append*` helpers consume memory inputs; `copy*` helpers consume calldata inputs.
 library Writers {
     // -------------------------------------------------------------------------
@@ -31,7 +31,7 @@ library Writers {
     /// @param len Initial logical byte capacity of the writer.
     /// @return writer Unallocated writer positioned at index 0.
     function init(uint len) internal pure returns (Writer memory writer) {
-        writer.cur = Buffers.cursor(len, 0, 0);
+        writer.cur = Buffers.cursor(len, 0);
     }
 
     /// @notice Initialize writer metadata for `groups` of blocks described by `spec`.
@@ -40,7 +40,7 @@ library Writers {
     /// @return writer Unallocated writer with initial capacity derived from the specification.
     function init(uint spec, uint groups) internal pure returns (Writer memory writer) {
         uint capacity = Specs.allocation(spec, groups);
-        writer.cur = Buffers.cursor(capacity, Specs.stride(Specs.normalize(spec)), 0);
+        writer.cur = Buffers.cursor(capacity, Specs.stride(Specs.normalize(spec)));
     }
 
     // -------------------------------------------------------------------------
@@ -254,7 +254,7 @@ library Writers {
     /// @param asset Asset identifier to encode.
     /// @param amount Custody amount to encode.
     function appendCustody(Writer memory writer, uint host, bytes32 asset, uint amount) internal pure {
-        uint i = reserve(writer, Sizes.B96);
+        uint i = reserve(writer, Sizes.Custody);
         Blocks.writeCustody(writer.dst, i, host, asset, amount);
     }
 

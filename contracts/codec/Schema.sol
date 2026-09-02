@@ -67,6 +67,12 @@ pragma solidity ^0.8.33;
 // - command input and state streams are each a single run of blocks under the
 //   current protocol convention; the block format may support other shapes in
 //   future protocol surfaces
+// - balance, debt, custody, and position are the closed set of typed state
+//   blocks; custom and dynamic schemas are input and do not extend that set
+// - execution generic navigation consumes input, while each typed state block
+//   has a dedicated unpacker that consumes state without source selection
+// - raw state forwarding is the explicit exception: it consumes state without
+//   interpreting or validating the forwarded block types
 // - `balance(...)`, `debt(...)`, `custody(...)`, and `position(...)` are live, linear state in the active command pipeline
 // - pipeline state belongs to the active account while the pipeline is executing
 // - while a balance, debt, or custody is in-flight as pipeline state, it is not simultaneously persisted
@@ -95,6 +101,13 @@ library Schemas {
     string constant String = "";
     string constant List = "";
 
+    // Live pipeline state
+
+    string constant Balance = "bytes32 asset, uint amount";
+    string constant Debt = "bytes32 liability, uint debt";
+    string constant Custody = "uint host, bytes32 asset, uint amount";
+    string constant Position = "bytes32 asset, uint amount, bytes32 liability, uint debt";
+
     // One-word payloads
 
     string constant Node = "uint node";
@@ -104,8 +117,6 @@ library Schemas {
     // Two-word payloads
 
     string constant Amount = "bytes32 asset, uint amount";
-    string constant Balance = "bytes32 asset, uint amount";
-    string constant Debt = "bytes32 liability, uint debt";
     string constant AccountAsset = "bytes32 account, bytes32 asset";
     string constant HostAsset = "uint host, bytes32 asset";
 
@@ -114,14 +125,12 @@ library Schemas {
     string constant Bootstrap = "bytes32 asset, uint amount, uint budget";
     string constant Allocation = "uint host, bytes32 asset, uint amount";
     string constant Allowance = "uint host, bytes32 asset, uint amount";
-    string constant Custody = "uint host, bytes32 asset, uint amount";
     string constant AccountAmount = "bytes32 account, bytes32 asset, uint amount";
     string constant HostAmount = "uint host, bytes32 asset, uint amount";
     string constant HostAccountAsset = "uint host, bytes32 account, bytes32 asset";
 
     // Four-word payloads
 
-    string constant Position = "bytes32 asset, uint amount, bytes32 liability, uint debt";
     string constant Transaction = "bytes32 from, bytes32 to, bytes32 asset, uint amount";
     string constant HostAccountAmount = "uint host, bytes32 account, bytes32 asset, uint amount";
 

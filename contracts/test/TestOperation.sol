@@ -2,13 +2,11 @@
 pragma solidity ^0.8.33;
 
 import {Specs} from "../codec/Specs.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
-import { CommanderAccess, NodeAccess } from "../core/Access.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 
-using Descriptors for uint;
+using Executions for Execution;
 
-contract TestOperation is NodeAccess {
-    constructor() CommanderAccess(0) {}
+contract TestOperation {
 
     function testCheckCursorRatio(
         bytes calldata state,
@@ -16,13 +14,14 @@ contract TestOperation is NodeAccess {
         bytes calldata input,
         uint inputStride
     ) external pure returns (bool) {
-        uint descriptor = Descriptors.create(
+        uint descriptor = Executions.describe(
             Specs.group(Specs.Balance, uint8(stateStride)),
             Specs.group(Specs.Amount, uint8(inputStride)),
             Specs.Empty,
             0
         );
-        descriptor.open(state, input);
+        Execution memory exec;
+        exec.open(descriptor, 0, 0, state, input);
         return true;
     }
 }

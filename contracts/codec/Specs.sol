@@ -25,22 +25,30 @@ library Sizes {
     uint constant Step = 2 * Header + 2 * Word;
     /// @dev STATUS block: 8 header + 32 status code = 40 bytes
     uint constant Status = B32;
-    /// @dev BOOTSTRAP block: 8 header + 32 asset + 32 amount + 32 budget = 104 bytes
-    uint constant Bootstrap = B96;
-    /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
-    uint constant Amount = B64;
+
+    // Live pipeline state
+
     /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
     uint constant Balance = B64;
     /// @dev DEBT block: 8 header + 32 liability + 32 debt = 72 bytes
     uint constant Debt = B64;
+    /// @dev CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
+    uint constant Custody = B96;
+    /// @dev POSITION block: 8 header + four-word asset-liability pair = 136 bytes
+    uint constant Position = B128;
+
+    // Input and structural blocks
+
+    /// @dev BOOTSTRAP block: 8 header + 32 asset + 32 amount + 32 budget = 104 bytes
+    uint constant Bootstrap = B96;
+    /// @dev AMOUNT block: 8 header + 32 asset + 32 amount = 72 bytes
+    uint constant Amount = B64;
     /// @dev HOST_ASSET block: 8 header + 32 host + 32 asset = 72 bytes
     uint constant HostAsset = B64;
-    /// @dev ALLOCATION/CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
+    /// @dev Three-word host amount block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
     uint constant HostAmount = B96;
     /// @dev TRANSACTION block: 8 header + 32 from + 32 to + 32 asset + 32 amount = 136 bytes
     uint constant Transaction = B128;
-    /// @dev POSITION block: 8 header + four-word asset-liability pair = 136 bytes
-    uint constant Position = B128;
 }
 
 /// @title Specs
@@ -67,20 +75,31 @@ library Specs {
     uint private constant UnboundedMin48Hint512 = (uint(48) << 192) | (uint(512) << 136);
     uint private constant UnboundedMin104Hint256 = (uint(104) << 192) | (uint(256) << 136);
 
+    // Empty and reserved blocks
+
     uint constant Empty = uint(bytes32(Keys.Empty));
-    uint constant Bootstrap = uint(bytes32(Keys.Bootstrap)) | Exact96;
-    uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
-    uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
-    uint constant Debt = uint(bytes32(Keys.Debt)) | Exact64;
-    uint constant Allocation = uint(bytes32(Keys.Allocation)) | Exact96;
-    uint constant Allowance = uint(bytes32(Keys.Allowance)) | Exact96;
-    uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;
-    uint constant Position = uint(bytes32(Keys.Position)) | Exact128;
     uint constant List = uint(bytes32(Keys.List)) | UnboundedHint128;
     uint constant Bytes = uint(bytes32(Keys.Bytes)) | UnboundedHint128;
     uint constant String = uint(bytes32(Keys.String)) | UnboundedHint128;
+
+    // Live pipeline state
+
+    uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
+    uint constant Debt = uint(bytes32(Keys.Debt)) | Exact64;
+    uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;
+    uint constant Position = uint(bytes32(Keys.Position)) | Exact128;
+
+    // Input and value blocks
+
+    uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
+    uint constant Bootstrap = uint(bytes32(Keys.Bootstrap)) | Exact96;
+    uint constant Allocation = uint(bytes32(Keys.Allocation)) | Exact96;
+    uint constant Allowance = uint(bytes32(Keys.Allowance)) | Exact96;
     uint constant Account = uint(bytes32(Keys.Account)) | Exact32;
     uint constant Transaction = uint(bytes32(Keys.Transaction)) | Exact128;
+
+    // Composite and annotation blocks
+
     uint constant Step = uint(bytes32(Keys.Step)) | UnboundedMin72Hint256;
     uint constant Relay = uint(bytes32(Keys.Relay)) | UnboundedMin16Hint256;
     uint constant Context = uint(bytes32(Keys.Context)) | UnboundedMin48Hint512;

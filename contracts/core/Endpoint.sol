@@ -5,9 +5,8 @@ import {Execution, Executions} from "../execution/Execution.sol";
 import {EndpointEvent} from "../events/Endpoint.sol";
 import {Label} from "../annotations/Label.sol";
 import {Schema} from "../annotations/Schema.sol";
-import {Descriptors} from "../codec/Descriptors.sol";
 
-using Descriptors for uint;
+using Executions for Execution;
 
 /// @title EndpointBase
 /// @notice Shared endpoint metadata helpers.
@@ -28,7 +27,7 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
         uint output,
         uint8 flags
     ) internal returns (uint descriptor) {
-        descriptor = Descriptors.create(state, input, output, flags);
+        descriptor = Executions.describe(state, input, output, flags);
         return endpoint(id, name, descriptor);
     }
 
@@ -52,7 +51,7 @@ abstract contract EndpointBase is EndpointEvent, Label, Schema {
 }
 
 /// @title InputEndpointBase
-/// @notice Shared input opening for endpoint families that have only an input lane.
+/// @notice Shared input opening for endpoint families that have only an input source.
 /// Commands intentionally do not inherit this base because they must open state
 /// and input together through `openCommand`.
 abstract contract InputEndpointBase is EndpointBase {
@@ -61,7 +60,6 @@ abstract contract InputEndpointBase is EndpointBase {
         bytes calldata input,
         uint descriptor
     ) internal view returns (Execution memory exec) {
-        exec.budget = msg.value;
-        (exec.decoders, exec.writer) = descriptor.openInput(input);
+        exec.openInput(descriptor, msg.value, input);
     }
 }

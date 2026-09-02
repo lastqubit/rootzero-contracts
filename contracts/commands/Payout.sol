@@ -40,8 +40,8 @@ abstract contract Payout is CommandBase, PayoutHook, Action {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.onstate().unpackBalance();
-            payout(exec.account, exec.oninput().unpackAccount(), asset, amount);
+            (bytes32 asset, uint amount) = exec.unpackBalance();
+            payout(exec.account, exec.unpackAccount(), asset, amount);
         }
 
         return exec.close();

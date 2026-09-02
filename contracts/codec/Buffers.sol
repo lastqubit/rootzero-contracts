@@ -15,11 +15,10 @@ library Buffers {
     /// @notice Create a packed buffer cursor at write position zero.
     /// @param len Initial logical byte capacity.
     /// @param stride Optional blocks per group represented by the buffer.
-    /// @param tag Cursor identity tag.
     /// @return cur Packed buffer cursor.
-    function cursor(uint len, uint8 stride, uint8 tag) internal pure returns (uint cur) {
+    function cursor(uint len, uint8 stride) internal pure returns (uint cur) {
         if (len > type(uint32).max) revert ValueOverflow();
-        cur = (len << 64) | (uint(stride) << 96) | (uint(tag) << 120);
+        cur = (len << 32) | (uint(stride) << 64);
     }
 
     /// @notice Reserve relative write space and return the updated packed buffer cursor.
@@ -39,7 +38,7 @@ library Buffers {
         uint touch
     ) internal pure returns (uint updated, bytes memory dst, uint i) {
         i = uint32(cur);
-        uint len = uint32(cur >> 64);
+        uint len = uint32(cur >> 32);
         uint required = i + (advance > touch ? advance : touch);
         bool empty = buffer.length == 0;
         dst = buffer;
@@ -50,7 +49,7 @@ library Buffers {
                 len *= 2;
             }
             if (len > type(uint32).max) revert ValueOverflow();
-            cur = (cur & ~(uint(type(uint32).max) << 64)) | (len << 64);
+            cur = (cur & ~(uint(type(uint32).max) << 32)) | (len << 32);
             if (!empty) dst = resize(dst, i, len);
         }
 
@@ -172,7 +171,7 @@ library Buffers {
     /// @return out Empty bytes when unused, otherwise the written prefix.
     function finish(uint cur, bytes memory buffer) internal pure returns (bytes memory out) {
         uint i = uint32(cur);
-        uint len = uint32(cur >> 64);
+        uint len = uint32(cur >> 32);
         if (i == 0) return new bytes(0);
         if (i > len || i > buffer.length) revert IncompleteBuffer();
         assembly ("memory-safe") {

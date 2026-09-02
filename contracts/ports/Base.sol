@@ -5,7 +5,7 @@ import { PeerAccess } from "../core/Access.sol";
 import { Specs } from "../codec/Specs.sol";
 import { InputEndpointBase } from "../core/Endpoint.sol";
 import { Nodes } from "../utils/Nodes.sol";
-import { Descriptors } from "../codec/Descriptors.sol";
+import { Executions } from "../execution/Execution.sol";
 
 /// @title PortBase
 /// @notice Abstract base for peer-facing rootzero ports.
@@ -43,7 +43,7 @@ abstract contract PortBase is PeerAccess, InputEndpointBase {
         uint output,
         uint8 flags
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(Specs.Empty, input, output, flags);
+        descriptor = Executions.describe(Specs.Empty, input, output, flags);
         return port(name, descriptor);
     }
 

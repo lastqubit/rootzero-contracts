@@ -7,7 +7,6 @@ pragma solidity ^0.8.33;
 import {CommandBase} from "./commands/Base.sol";
 import {Flags} from "./utils/Flags.sol";
 import {Execution, Executions} from "./execution/Execution.sol";
-import {Lanes} from "./utils/Lanes.sol";
 import {Blocks} from "./codec/Blocks.sol";
 import {Sizes, Specs} from "./codec/Specs.sol";
 import {Decoders} from "./codec/Decoders.sol";

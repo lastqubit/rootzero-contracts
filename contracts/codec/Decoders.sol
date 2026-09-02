@@ -42,7 +42,7 @@ library Decoders {
     /// @param cur Cursor to inspect.
     /// @return Current absolute calldata position.
     function absolute(Cur memory cur) internal pure returns (uint) {
-        return cur.state.absolute();
+        return cur.state.position();
     }
 
     /// @notice Validate and consume the next block from a cursor.
@@ -51,8 +51,8 @@ library Decoders {
     /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function consume(Cur memory cur, uint spec) internal pure returns (uint body, uint end) {
-        (body, end) = Blocks.enter(cur.state.absolute(), spec);
-        cur.state = cur.state.seekAbs(end);
+        (body, end) = Blocks.enter(cur.state.position(), spec);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Validate a known key and consume the next block from a cursor.
@@ -63,8 +63,8 @@ library Decoders {
     /// @return body Absolute position of the first payload byte.
     /// @return end Absolute position immediately after the payload.
     function consume(Cur memory cur, bytes4 key) internal pure returns (uint body, uint end) {
-        (body, end) = Blocks.enter(cur.state.absolute(), key);
-        cur.state = cur.state.seekAbs(end);
+        (body, end) = Blocks.enter(cur.state.position(), key);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Consume a matching empty block from a cursor when present.
@@ -72,17 +72,17 @@ library Decoders {
     /// @param key Expected block key.
     /// @return Whether an empty block was consumed.
     function tryConsumeEmpty(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        (uint i, uint offset, uint size) = cur.state.decode();
-        (bytes4 current, uint len) = Blocks.peek(offset + i, offset + size);
+        (uint position, uint end) = cur.state.bounds();
+        (bytes4 current, uint len) = Blocks.peek(position, end);
         if (current != key || len != 0) return false;
-        cur.state = cur.state.seek(i + Sizes.Header);
+        cur.state = cur.state.seek(position + Sizes.Header);
         return true;
     }
 
     /// @notice Validate and enter the payload of the next block in a cursor.
     /// @dev The cursor remains in its existing frame so callers can decode child
     /// blocks in place. Callers should prove complete payload consumption with
-    /// `cur.state.expectAbs(end)` after decoding the children.
+    /// `cur.state.expect(end)` after decoding the children.
     /// @param cur Cursor advanced over the block header to its payload.
     /// @param spec Expected parent block specification.
     /// @return body Absolute position of the first payload byte.
@@ -93,7 +93,7 @@ library Decoders {
 
     /// @notice Validate and enter the payload of the next keyed block in a cursor.
     /// @dev Validates no payload-size constraint. Callers should prove complete
-    /// payload consumption with `cur.state.expectAbs(end)` after decoding.
+    /// payload consumption with `cur.state.expect(end)` after decoding.
     /// @param cur Cursor advanced over the block header to its payload.
     /// @param key Expected parent block key.
     /// @return body Absolute position of the first payload byte.
@@ -112,8 +112,8 @@ library Decoders {
     /// @return end Absolute position immediately after the payload.
     function enter(Cur memory cur, uint spec, uint amount) internal pure returns (uint body, uint end) {
         uint next;
-        (body, next, end) = Blocks.enter(cur.state.absolute(), spec, amount);
-        cur.state = cur.state.seekAbs(next);
+        (body, next, end) = Blocks.enter(cur.state.position(), spec, amount);
+        cur.state = cur.state.seek(next);
     }
 
     /// @notice Validate a keyed parent block and advance over a fixed payload prefix.
@@ -126,8 +126,8 @@ library Decoders {
     /// @return end Absolute position immediately after the payload.
     function enter(Cur memory cur, bytes4 key, uint amount) internal pure returns (uint body, uint end) {
         uint next;
-        (body, next, end) = Blocks.enter(cur.state.absolute(), key, amount);
-        cur.state = cur.state.seekAbs(next);
+        (body, next, end) = Blocks.enter(cur.state.position(), key, amount);
+        cur.state = cur.state.seek(next);
     }
 
     /// @notice Advance a cursor by a raw byte count.
@@ -150,78 +150,77 @@ library Decoders {
     /// @notice Require a decoder cursor to be at absolute position `abs`.
     /// @param cur Cursor whose position is validated.
     /// @param abs Expected absolute position.
-    function expectAbs(Cur memory cur, uint abs) internal pure {
-        cur.state.expectAbs(abs);
+    function expect(Cur memory cur, uint abs) internal pure {
+        cur.state.expect(abs);
     }
 
-    /// @notice Create a child cursor over relative range `[from, to)`.
+    /// @notice Create a child cursor over unread absolute range `[from, to)`.
     /// @param cur Parent cursor.
-    /// @param from Inclusive relative start.
-    /// @param to Exclusive relative end.
+    /// @param from Inclusive absolute start.
+    /// @param to Exclusive absolute end.
     /// @return out Child cursor spanning the selected range.
     function slice(Cur memory cur, uint from, uint to) internal pure returns (Cur memory out) {
-        out.state = cur.state.slice(from, to, 0);
+        out.state = cur.state.slice(from, to);
     }
 
     /// @notice Return the unread calldata region represented by `cur`.
     /// @param cur Cursor whose calldata is returned.
     /// @return data Unread cursor region from its current position.
     function raw(Cur memory cur) internal pure returns (bytes calldata data) {
-        (uint i, uint offset, uint len) = cur.state.decode();
-        if (len > msg.data.length || offset > msg.data.length - len) {
+        (uint position, uint end) = cur.state.bounds();
+        if (end > msg.data.length) {
             revert Blocks.MalformedBlocks();
         }
-        data = msg.data[offset + i:offset + len];
+        data = msg.data[position:end];
     }
 
-    /// @notice Return relative calldata range `[from, to)` from `cur`.
+    /// @notice Return absolute calldata range `[from, to)` from `cur`.
     /// @param cur Cursor containing the range.
-    /// @param from Inclusive relative start.
-    /// @param to Exclusive relative end.
+    /// @param from Inclusive absolute start.
+    /// @param to Exclusive absolute end.
     /// @return data Selected calldata range.
     function raw(Cur memory cur, uint from, uint to) internal pure returns (bytes calldata data) {
-        (, uint offset, uint len) = cur.state.decode();
-        if (from > to || to > len) revert Blocks.MalformedBlocks();
-        if (len > msg.data.length || offset > msg.data.length - len) revert Blocks.MalformedBlocks();
-        data = msg.data[offset + from:offset + to];
+        (uint position, uint end) = cur.state.bounds();
+        if (from < position || from > to || to > end || end > msg.data.length) revert Blocks.MalformedBlocks();
+        data = msg.data[from:to];
     }
 
-    /// @notice Hash relative calldata range `[from, to)` from `cur`.
+    /// @notice Hash absolute calldata range `[from, to)` from `cur`.
     /// @param cur Cursor containing the range.
-    /// @param from Inclusive relative start.
-    /// @param to Exclusive relative end.
+    /// @param from Inclusive absolute start.
+    /// @param to Exclusive absolute end.
     /// @return Hash of the selected calldata.
     function hash(Cur memory cur, uint from, uint to) internal pure returns (bytes32) {
         return keccak256(raw(cur, from, to));
     }
 
-    /// @notice Read the block header at relative position `i` without advancing.
+    /// @notice Read the block header at absolute `position` without advancing.
     /// @param cur Cursor containing the block.
-    /// @param i Relative block position.
+    /// @param position Absolute block position.
     /// @return key Block key.
     /// @return len Payload length.
-    function peek(Cur memory cur, uint i) internal pure returns (bytes4 key, uint len) {
-        (, uint offset, uint size) = cur.state.decode();
-        return Blocks.peek(offset + i, offset + size);
+    function peek(Cur memory cur, uint position) internal pure returns (bytes4 key, uint len) {
+        if (position < cur.state.position()) revert Blocks.MalformedBlocks();
+        return Blocks.peek(position, cur.state.limit());
     }
 
-    /// @notice Return the relative position immediately after the current block.
+    /// @notice Return the absolute position immediately after the current block.
     /// @param cur Cursor positioned at a block.
-    /// @return Relative position after the block.
+    /// @return Absolute position after the block.
     function past(Cur memory cur) internal pure returns (uint) {
-        (uint i, , ) = cur.state.decode();
-        (, uint len) = peek(cur, i);
-        return i + Sizes.Header + len;
+        uint position = cur.state.position();
+        (, uint len) = peek(cur, position);
+        return position + Sizes.Header + len;
     }
 
-    /// @notice Return whether `key` occurs at relative position `i`.
+    /// @notice Return whether `key` occurs at absolute `position`.
     /// @param cur Cursor containing the position.
-    /// @param i Relative block position.
+    /// @param position Absolute block position.
     /// @param key Expected block key.
     /// @return Whether the key occurs at the position.
-    function hasAt(Cur memory cur, uint i, bytes4 key) internal pure returns (bool) {
-        (, uint offset, uint len) = cur.state.decode();
-        return Blocks.hasAt(offset + i, offset + len, key);
+    function hasAt(Cur memory cur, uint position, bytes4 key) internal pure returns (bool) {
+        if (position < cur.state.position()) return false;
+        return Blocks.hasAt(position, cur.state.limit(), key);
     }
 
     /// @notice Return whether the current block has `key`.
@@ -229,8 +228,7 @@ library Decoders {
     /// @param key Expected block key.
     /// @return Whether the current block has the key.
     function isAt(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        (uint i, uint offset, uint len) = cur.state.decode();
-        return Blocks.hasAt(offset + i, offset + len, key);
+        return Blocks.hasAt(cur.state.position(), cur.state.limit(), key);
     }
 
     /// @notice Return whether the current block has `key` and an empty payload.
@@ -238,27 +236,25 @@ library Decoders {
     /// @param key Expected block key.
     /// @return Whether a complete matching empty block header occurs at the current position.
     function isEmpty(Cur memory cur, bytes4 key) internal pure returns (bool) {
-        (uint i, uint offset, uint len) = cur.state.decode();
-        return Blocks.isEmpty(offset + i, offset + len, key);
+        return Blocks.isEmpty(cur.state.position(), cur.state.limit(), key);
     }
 
-    /// @notice Find `key` at or after relative position `i`.
+    /// @notice Find `key` at or after absolute `position`.
     /// @param cur Cursor to search.
-    /// @param i Relative search position.
+    /// @param position Absolute search position.
     /// @param key Block key to find.
-    /// @return Relative position of the matching block.
-    function find(Cur memory cur, uint i, bytes4 key) internal pure returns (uint) {
-        (, uint offset, uint end) = cur.state.decode();
-        return Blocks.find(offset + i, offset + end, key) - offset;
+    /// @return Absolute position of the matching block.
+    function find(Cur memory cur, uint position, bytes4 key) internal pure returns (uint) {
+        if (position < cur.state.position()) revert Blocks.MalformedBlocks();
+        return Blocks.find(position, cur.state.limit(), key);
     }
 
     /// @notice Find `key` at or after the current cursor position.
     /// @param cur Cursor to search from its current position.
     /// @param key Block key to find.
-    /// @return Relative position of the matching block.
+    /// @return Absolute position of the matching block.
     function find(Cur memory cur, bytes4 key) internal pure returns (uint) {
-        (uint i, uint offset, uint end) = cur.state.decode();
-        return Blocks.find(offset + i, offset + end, key) - offset;
+        return Blocks.find(cur.state.position(), cur.state.limit(), key);
     }
 
     /// @notice Count consecutive blocks with `key` from the current cursor position.
@@ -267,8 +263,7 @@ library Decoders {
     /// @param key Block key forming the run.
     /// @return count Number of consecutive matching blocks.
     function run(Cur memory cur, bytes4 key) internal pure returns (uint count) {
-        (uint i, uint offset, uint len) = cur.state.decode();
-        (count, ) = Blocks.run(offset + i, offset + len, key);
+        (count, ) = Blocks.run(cur.state.position(), cur.state.limit(), key);
     }
 
     /// @notice Consume one LIST block and return a cursor over its items.
@@ -284,7 +279,7 @@ library Decoders {
     /// @return items Cursor spanning the list payload.
     function list(Cur memory cur, uint spec) internal pure returns (Cur memory items) {
         (uint abs, uint end) = consume(cur, spec);
-        items.state = Cursors.create(abs, end - abs, 0, 0, 0);
+        items.state = Cursors.create(abs, end, 0, 0);
     }
 
     /// @notice Consume one block with `key` and return its complete encoded region.
@@ -292,9 +287,9 @@ library Decoders {
     /// @param key Expected block key.
     /// @return out Cursor spanning the complete encoded block.
     function takeBlock(Cur memory cur, bytes4 key) internal pure returns (Cur memory out) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         (, uint end) = consume(cur, key);
-        out.state = Cursors.create(abs, end - abs, 0, 0, 0);
+        out.state = Cursors.create(abs, end, 0, 0);
     }
 
     // -------------------------------------------------------------------------
@@ -307,8 +302,8 @@ library Decoders {
     /// @return data Decoded payload.
     function unpackRaw(Cur memory cur, uint spec) internal pure returns (bytes calldata data) {
         uint end;
-        (data, end) = Blocks.unpackRaw(cur.state.absolute(), spec);
-        cur.state = cur.state.seekAbs(end);
+        (data, end) = Blocks.unpackRaw(cur.state.position(), spec);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one BYTES block.
@@ -316,8 +311,8 @@ library Decoders {
     /// @return data Decoded byte payload.
     function unpackBytes(Cur memory cur) internal pure returns (bytes calldata data) {
         uint end;
-        (data, end) = Blocks.unpackBytes(cur.state.absolute());
-        cur.state = cur.state.seekAbs(end);
+        (data, end) = Blocks.unpackBytes(cur.state.position());
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one STRING block.
@@ -326,9 +321,9 @@ library Decoders {
     function unpackString(Cur memory cur) internal pure returns (string memory data) {
         bytes calldata value;
         uint end;
-        (value, end) = Blocks.unpackString(cur.state.absolute());
-        cur.state = cur.state.seekAbs(end);
+        (value, end) = Blocks.unpackString(cur.state.position());
         data = string(value);
+        cur.state = cur.state.seek(end);
     }
 
     // -------------------------------------------------------------------------
@@ -543,10 +538,10 @@ library Decoders {
     function unpackCall(
         Cur memory cur
     ) internal pure returns (uint target, uint resources, bytes calldata data) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (target, resources, data, end) = Blocks.unpackCall(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one ANNOTATION block.
@@ -556,10 +551,10 @@ library Decoders {
     function unpackAnnotation(
         Cur memory cur
     ) internal pure returns (uint entity, bytes calldata data) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (entity, data, end) = Blocks.unpackAnnotation(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one CONTEXT block.
@@ -570,10 +565,10 @@ library Decoders {
     function unpackContext(
         Cur memory cur
     ) internal pure returns (bytes32 account, bytes calldata state, bytes calldata input) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (account, state, input, end) = Blocks.unpackContext(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one DISPATCH block.
@@ -584,10 +579,10 @@ library Decoders {
     function unpackDispatch(
         Cur memory cur
     ) internal pure returns (uint portal, uint resources, bytes calldata payload) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (portal, resources, payload, end) = Blocks.unpackDispatch(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one LABEL block.
@@ -595,10 +590,10 @@ library Decoders {
     /// @return namespace Decoded label namespace.
     /// @return name Decoded label text.
     function unpackLabel(Cur memory cur) internal pure returns (bytes32 namespace, string memory name) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (namespace, name, end) = Blocks.unpackLabel(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one SCHEMA block.
@@ -607,10 +602,10 @@ library Decoders {
     /// @return body Decoded schema body.
     /// @return name Decoded schema name.
     function unpackSchema(Cur memory cur) internal pure returns (uint spec, string memory body, bytes32 name) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (spec, body, name, end) = Blocks.unpackSchema(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one RECOVER block.
@@ -622,10 +617,10 @@ library Decoders {
     function unpackRecover(
         Cur memory cur
     ) internal pure returns (uint handler, uint resources, bytes32 key, bytes calldata witness) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (handler, resources, key, witness, end) = Blocks.unpackRecover(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     // -------------------------------------------------------------------------
@@ -719,7 +714,7 @@ library Decoders {
     /// @return amount Decoded custody amount.
     function unpackCustody(Cur memory cur) internal pure returns (uint host, bytes32 asset, uint amount) {
         uint abs;
-        (cur.state, abs) = cur.state.consume(Sizes.B96);
+        (cur.state, abs) = cur.state.consume(Sizes.Custody);
         (host, asset, amount) = Blocks.unpackCustody(abs);
     }
 
@@ -759,10 +754,10 @@ library Decoders {
     function unpackStep(
         Cur memory cur
     ) internal pure returns (uint cmd, uint value, bytes calldata input) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (cmd, value, input, end) = Blocks.unpackStep(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
     /// @notice Decode and consume one RELAY block.
@@ -772,10 +767,10 @@ library Decoders {
     function unpackRelay(
         Cur memory cur
     ) internal pure returns (bytes calldata input, bytes calldata steps) {
-        uint abs = cur.state.absolute();
+        uint abs = cur.state.position();
         uint end;
         (input, steps, end) = Blocks.unpackRelay(abs);
-        cur.state = cur.state.seekAbs(end);
+        cur.state = cur.state.seek(end);
     }
 
 }

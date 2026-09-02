@@ -466,8 +466,7 @@ describe("Cursors", () => {
       const block = encodeBytesBlock(raw);
       const spec = exactSpec(Keys.Bytes, ethers.getBytes(raw).length);
 
-      expect(await blocksHelper.exactBlock(block, spec))
-        .to.deep.equal([8n, BigInt(ethers.getBytes(block).length)]);
+      expect(await blocksHelper.exactBlock(block, spec)).to.equal(8n);
       await expect(blocksHelper.exactBlock(ethers.concat([block, encodeStringBlock("x")]), spec))
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
       await expect(blocksHelper.exactBlock(ethers.dataSlice(block, 0, 8), spec))
@@ -539,7 +538,7 @@ describe("Cursors", () => {
       expect(await blocksHelper.groupedCapacity()).to.equal(6n * 72n);
     });
 
-    it("initializes execution output capacity from the active decoder run", async () => {
+    it("initializes execution output capacity from the input run", async () => {
       const amountSpec = exactSpec(Keys.Amount, 64);
       const balanceSpec = exactSpec(Keys.Balance, 64);
       const groupedInput = amountSpec | (2n << 128n);
@@ -555,7 +554,7 @@ describe("Cursors", () => {
         .to.deep.equal([6n * 72n, 3n]);
     });
 
-    it("uses only the selected lower decoder lane for the output hint", async () => {
+    it("uses input before state as the output hint source", async () => {
       const balanceSpec = exactSpec(Keys.Balance, 64);
       const amountSpec = exactSpec(Keys.Amount, 64);
       const positionSpec = exactSpec(Keys.Position, 128);
@@ -576,7 +575,7 @@ describe("Cursors", () => {
       ).to.deep.equal([2n * 136n, 1n]);
     });
 
-    it("uses state as the output-hint lane when descriptor input is empty", async () => {
+    it("uses state as the output-hint source when descriptor input is empty", async () => {
       const balanceSpec = exactSpec(Keys.Balance, 64);
       const amountSpec = exactSpec(Keys.Amount, 64);
       const state = concat(
@@ -606,19 +605,17 @@ describe("Cursors", () => {
       const [stateCursor, stateWriter, inputCursor, inputWriter] =
         await blocksHelper.descriptorOpens("0x1234", "0xaabbcc");
 
-      expect((stateCursor >> 64n) & 0xffffffffn).to.equal(2n);
-      expect((stateCursor >> 96n) & 0xffn).to.equal(2n);
-      expect((stateCursor >> 120n) & 0xffn).to.equal(2n);
-      expect((inputCursor >> 64n) & 0xffffffffn).to.equal(3n);
-      expect((inputCursor >> 96n) & 0xffn).to.equal(3n);
-      expect((inputCursor >> 120n) & 0xffn).to.equal(1n);
-      expect((stateWriter >> 64n) & 0xffffffffn).to.equal(0n);
-      expect((stateWriter >> 96n) & 0xffn).to.equal(4n);
-      expect((inputWriter >> 64n) & 0xffffffffn).to.equal(0n);
-      expect((inputWriter >> 96n) & 0xffn).to.equal(4n);
+      expect(((stateCursor >> 160n) & 0xffffffffn) - ((stateCursor >> 128n) & 0xffffffffn)).to.equal(2n);
+      expect((stateCursor >> 192n) & 0xffn).to.equal(2n);
+      expect(((inputCursor >> 32n) & 0xffffffffn) - (inputCursor & 0xffffffffn)).to.equal(3n);
+      expect((inputCursor >> 64n) & 0xffn).to.equal(3n);
+      expect((stateWriter >> 32n) & 0xffffffffn).to.equal(0n);
+      expect((stateWriter >> 64n) & 0xffn).to.equal(4n);
+      expect((inputWriter >> 32n) & 0xffffffffn).to.equal(0n);
+      expect((inputWriter >> 64n) & 0xffn).to.equal(4n);
     });
 
-    it("enters a parent on one execution lane and preserves the paired lane", async () => {
+    it("enters an input parent while preserving execution state", async () => {
       const stateAsset = ethers.zeroPadValue("0x31", 32);
       const inputAsset = ethers.zeroPadValue("0x32", 32);
       const state = encodeBalanceBlock(stateAsset, 41n);
@@ -626,6 +623,15 @@ describe("Cursors", () => {
 
       expect(await blocksHelper.executionEnterAmount(state, input))
         .to.deep.equal([stateAsset, 41n, inputAsset, 42n]);
+    });
+
+    it("uses less gas than tagged relative cursors when switching between state and input", async () => {
+      const state = encodeBalanceBlock(ethers.zeroPadValue("0x31", 32), 41n);
+      const input = encodeListBlock(encodeAmountBlock(ethers.zeroPadValue("0x32", 32), 42n));
+
+      const specialized = await blocksHelper.executionEnterAmount.estimateGas(state, input);
+      const legacy = await blocksHelper.legacyExecutionEnterAmount.estimateGas(state, input);
+      expect(specialized).to.be.lessThan(legacy);
     });
 
     it("next32 consumes raw words from an entered execution parent", async () => {
@@ -713,14 +719,14 @@ describe("Cursors", () => {
       expect(await blocksHelper.emptyWriter()).to.deep.equal([0n, 0n, 0n]);
     });
 
-    it("lazily allocates a buffer while preserving cursor metadata", async () => {
-      expect(await blocksHelper.reserveBuffer(33, 7, 9, 2, 32))
-        .to.deep.equal([0n, 2n, 33n, 7n, 9n, 96n]);
+    it("lazily allocates a buffer while preserving cursor stride", async () => {
+      expect(await blocksHelper.reserveBuffer(33, 7, 2, 32))
+        .to.deep.equal([0n, 2n, 33n, 7n, 96n]);
     });
 
     it("uses touch for capacity and advance for the logical position", async () => {
-      expect(await blocksHelper.reserveBuffer(16, 1, 0, 2, 32))
-        .to.deep.equal([0n, 2n, 32n, 1n, 0n, 64n]);
+      expect(await blocksHelper.reserveBuffer(16, 1, 2, 32))
+        .to.deep.equal([0n, 2n, 32n, 1n, 64n]);
     });
 
     it("grows an allocated buffer and preserves its written prefix", async () => {
@@ -731,8 +737,8 @@ describe("Cursors", () => {
     });
 
     it("grows every buffer beyond its initial capacity", async () => {
-      expect(await blocksHelper.reserveBuffer(8, 1, 0, 16, 16))
-        .to.deep.equal([0n, 16n, 16n, 1n, 0n, 64n]);
+      expect(await blocksHelper.reserveBuffer(8, 1, 16, 16))
+        .to.deep.equal([0n, 16n, 16n, 1n, 64n]);
     });
 
     it("opens, spends, drains, and detaches standalone value budgets", async () => {
@@ -868,62 +874,16 @@ describe("Cursors", () => {
     const otherAsset = ethers.zeroPadValue("0xbb", 32);
     const amount = 9999n;
 
-    it("pairs tagged lanes, updates the selected lane, and restores input orientation", async () => {
-      const input = 1n | (2n << 32n) | (10n << 64n);
-      const state = 3n | (4n << 32n) | (20n << 64n);
-      const taggedInput = input | (1n << 120n);
-      const stateTag = 2n << 120n;
-      const updatedState = 7n | (4n << 32n) | (20n << 64n) | stateTag;
+    it("packs optional stride and consumer flags into cursor metadata", async () => {
+      const [cur, stride, flags] = await helper.testSpanMeta(0x34, 0x56);
 
-      const [selected, restored] = await helper.testCursorLanes(input, state, 7n);
-
-      expect(selected & ((1n << 128n) - 1n)).to.equal(updatedState);
-      expect(selected >> 128n).to.equal(taggedInput);
-      expect(restored & ((1n << 128n) - 1n)).to.equal(taggedInput);
-      expect(restored >> 128n).to.equal(updatedState);
-    });
-
-    it("selects creator-defined cursor tags", async () => {
-      const lower = 11n;
-      const higher = 22n;
-      const selected = await helper.testSelectTag(lower, 7, higher, 42, 42);
-
-      expect(selected & ((1n << 128n) - 1n)).to.equal((higher << 64n) | (42n << 120n));
-      expect(selected >> 128n).to.equal((lower << 64n) | (7n << 120n));
-    });
-
-    it("finds only nonzero cursor tags", async () => {
-      const cur = (10n << 64n) | (7n << 120n);
-
-      expect(await helper.testContains(cur, 7)).to.be.true;
-      expect(await helper.testContains(cur, 0)).to.be.false;
-      expect(await helper.testContains(0, 0)).to.be.false;
-    });
-
-    it("packs optional stride, consumer flags, and tag into cursor metadata", async () => {
-      const [cur, stride, flags, tag] = await helper.testSpanMeta(0x34, 0x56, 0x78);
-
-      expect(cur).to.equal((0x34n << 96n) | (0x56n << 112n) | (0x78n << 120n));
+      expect(cur).to.equal((0x34n << 64n) | (0x56n << 72n));
       expect(stride).to.equal(0x34n);
       expect(flags).to.equal(0x56n);
-      expect(tag).to.equal(0x78n);
     });
 
-    it("returns the active cursor frame without its position or paired cursor", async () => {
-      const frame = (10n << 32n) | (20n << 64n) | (3n << 96n) | (4n << 112n) | (1n << 120n);
-      expect(await helper.testFrame()).to.equal(frame);
-    });
-
-    it("returns the complete active cursor bounds independent of its position", async () => {
-      expect(await helper.testCursorBounds()).to.deep.equal([10n, 30n]);
-    });
-
-    it("detects whether both packed cursors remain at their initial positions", async () => {
-      const metadata = (10n << 64n) | ((20n << 64n) << 128n);
-
-      expect(await helper.testSpanInitial(metadata)).to.be.true;
-      expect(await helper.testSpanInitial(metadata | 1n)).to.be.false;
-      expect(await helper.testSpanInitial(metadata | (1n << 128n))).to.be.false;
+    it("returns the unread absolute cursor bounds", async () => {
+      expect(await helper.testCursorBounds()).to.deep.equal([15n, 30n]);
     });
 
     it("advances packed cursors while returning the pre-advance absolute position", async () => {
@@ -942,30 +902,6 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "OutOfBounds");
     });
 
-    it("reports remaining data across either cursor lane", async () => {
-      expect(await helper.testCursorAny(10n, 10n, 20n, 19n)).to.be.true;
-      expect(await helper.testCursorAny(10n, 10n, 20n, 20n)).to.be.false;
-    });
-
-    it("selects and consumes a tagged cursor without losing the other lane", async () => {
-      const [updated, abs] = await helper.testConsumeTag(10n, 8n, 100n, 12n, 2, 5n);
-      const laneMask = (1n << 128n) - 1n;
-      const selected = updated & laneMask;
-      const other = updated >> 128n;
-
-      expect(abs).to.equal(100n);
-      expect(selected & 0xffffffffn).to.equal(5n);
-      expect((selected >> 32n) & 0xffffffffn).to.equal(100n);
-      expect((selected >> 120n) & 0xffn).to.equal(2n);
-      expect((other >> 32n) & 0xffffffffn).to.equal(10n);
-      expect((other >> 120n) & 0xffn).to.equal(1n);
-    });
-
-    it("reverts MissingCursor when a cursor pair does not contain the requested tag", async () => {
-      await expect(helper.testSelectTag(11n, 7, 22n, 42, 9))
-        .to.be.revertedWithCustomError(helper, "MissingCursor");
-    });
-
     it("unpackBalanceForHost scopes a consumed BALANCE to the supplied host", async () => {
       const host = 1234n;
       const source = encodeBalanceBlock(asset, amount);
@@ -980,15 +916,17 @@ describe("Cursors", () => {
       const a = encodeAmountBlock(asset, 1n);
       const b = encodeBalanceBlock(asset, 2n);
       const source = concat(a, b);
-      const [offset, cursorI, len, stride] = await helper.testOpen(source);
-      expect(offset).to.equal(0n);
-      expect(cursorI).to.equal(0n);
-      expect(len).to.equal(BigInt(ethers.getBytes(source).length));
+      const [sourceStart, pos, end, stride] = await helper.testOpen(source);
+      expect(pos).to.equal(sourceStart);
+      expect(end - pos).to.equal(BigInt(ethers.getBytes(source).length));
       expect(stride).to.equal(0n);
     });
 
     it("open(source) accepts an empty source", async () => {
-      expect(await helper.testOpen("0x")).to.deep.equal([0n, 0n, 0n, 0n]);
+      const [sourceStart, pos, end, stride] = await helper.testOpen("0x");
+      expect(pos).to.equal(sourceStart);
+      expect(end).to.equal(pos);
+      expect(stride).to.equal(0n);
     });
 
     it("close succeeds after the complete decoder source is consumed", async () => {
@@ -1095,7 +1033,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "OutOfBounds");
     });
 
-    it("past returns the offset immediately past the current block without advancing", async () => {
+    it("past reports the position immediately after the current block without advancing", async () => {
       const source = encodeBalanceBlock(asset, amount);
       expect(await helper.testPastCurrent(source)).to.equal(72n);
     });
@@ -1137,7 +1075,19 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "OutOfBounds");
     });
 
-    it("detects and consumes empty blocks through execution lanes", async () => {
+    it("uses less gas than the removed relative generic cursor", async () => {
+      const source = concat(
+        encodeBytesBlock("0x0102"),
+        encodeBytesBlock("0x030405"),
+        encodeBytesBlock("0x06070809"),
+      );
+
+      const absolute = await helper.absoluteCursorBytes.estimateGas(source);
+      const relative = await helper.relativeCursorBytes.estimateGas(source);
+      expect(absolute).to.be.lessThan(relative);
+    });
+
+    it("detects and consumes empty blocks through execution input", async () => {
       const empty = encodeBlock(Keys.Balance, "0x");
       expect(await blocksHelper.executionIsEmpty(empty, exactSpec(Keys.Balance, 64), Keys.Balance))
         .to.equal(true);
@@ -1248,7 +1198,7 @@ describe("Cursors", () => {
       expect(await helper.testRawSlice(source, from, to)).to.equal(b);
     });
 
-    it("seek moves the cursor to the provided end offset", async () => {
+    it("seek moves the cursor to the provided source position", async () => {
       const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
       expect(await helper.testSeek(source, BigInt(ethers.getBytes(source).length))).to.equal(BigInt(ethers.getBytes(source).length));
     });
@@ -1270,17 +1220,6 @@ describe("Cursors", () => {
       const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
       const pos = BigInt(ethers.getBytes(encodeAssetBlock(asset)).length);
       await expect(helper.testExpectPositionMismatch(source, pos))
-        .to.be.revertedWithCustomError(helper, "UnexpectedPosition");
-    });
-
-    it("expectAbs succeeds at the cursor's absolute position", async () => {
-      const source = concat(encodeAssetBlock(asset), encodeAssetBlock(otherAsset));
-      expect(await helper.testExpectAbsolute(source, 1n)).to.be.greaterThan(1n);
-    });
-
-    it("expectAbs reverts UnexpectedPosition for a different absolute position", async () => {
-      const source = encodeAssetBlock(asset);
-      await expect(helper.testExpectAbsoluteMismatch(source))
         .to.be.revertedWithCustomError(helper, "UnexpectedPosition");
     });
 
@@ -1352,7 +1291,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(helper, "InvalidBlock");
     });
 
-    it("execution takeBlock returns the full block and preserves the other decoder lane", async () => {
+    it("execution takeBlock returns the full block and preserves state", async () => {
       const custom = localKey(1);
       const input = encodeBlock(custom, encodeAccountBlock(encodeUserAccount("0x12")));
       const state = encodeBalanceBlock(asset, amount);
@@ -1371,7 +1310,7 @@ describe("Cursors", () => {
         .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
     });
 
-    it("decoder and execution raw return unread lanes from the current position", async () => {
+    it("decoder and execution raw return unread sources from the current position", async () => {
       const state = encodeBalanceBlock(asset, amount);
       const input = encodeAmountBlock(asset, 7n);
       const first = ethers.zeroPadValue("0x41", 32);
@@ -1383,12 +1322,12 @@ describe("Cursors", () => {
       expect(await helper.testDecoderRaw(concat(first, second), 32n)).to.equal(second);
     });
 
-    it("takeRawState returns the unread lane and consumes it", async () => {
+    it("takeRawState returns the unread state source and consumes it", async () => {
       const state = encodeBalanceBlock(asset, amount);
       expect(await blocksHelper.executionTakeRawState(state)).to.deep.equal([state, true]);
     });
 
-    it("takeRawInput returns the unread lane and consumes it", async () => {
+    it("takeRawInput returns the unread input source and consumes it", async () => {
       const input = encodeAmountBlock(asset, amount);
       expect(await blocksHelper.executionTakeRawInput(input)).to.deep.equal([input, true]);
     });

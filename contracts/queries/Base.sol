@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import { InputEndpointBase } from "../core/Endpoint.sol";
-import { Descriptors } from "../codec/Descriptors.sol";
+import { Executions } from "../execution/Execution.sol";
 import { Specs } from "../codec/Specs.sol";
 import { Nodes } from "../utils/Nodes.sol";
 
@@ -24,7 +24,7 @@ abstract contract QueryBase is InputEndpointBase {
         uint input,
         uint output
     ) internal returns (uint id, uint descriptor) {
-        descriptor = Descriptors.create(Specs.Empty, input, output, 0);
+        descriptor = Executions.describe(Specs.Empty, input, output, 0);
         return query(name, descriptor);
     }
 

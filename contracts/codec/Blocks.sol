@@ -111,8 +111,8 @@ library Blocks {
     /// @param source Complete calldata slice occupied by the expected block.
     /// @param spec Expected block specification.
     /// @return body Absolute position of the first payload byte.
-    /// @return end Absolute position immediately after the payload and slice.
-    function exact(bytes calldata source, uint spec) internal pure returns (uint body, uint end) {
+    function exact(bytes calldata source, uint spec) internal pure returns (uint body) {
+        uint end;
         uint limit;
         (body, end, limit) = enter(source, spec);
         if (end != limit) revert InvalidBlock();
@@ -602,7 +602,7 @@ library Blocks {
     }
 
     /// @notice Write a CUSTODY block at `i`.
-    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B96` bytes first.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Custody` bytes first.
     /// @param dst Destination buffer.
     /// @param i Relative write position.
     /// @param host Host identifier to encode.
@@ -2167,7 +2167,7 @@ library Blocks {
     /// @param amount Token amount.
     /// @return value Encoded CUSTODY block bytes.
     function createCustody(uint host, bytes32 asset, uint amount) internal pure returns (bytes memory value) {
-        value = allocate(Sizes.B96);
+        value = allocate(Sizes.Custody);
         writeCustody(value, 0, host, asset, amount);
     }
 

@@ -205,7 +205,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("rejects state when the command declares an empty state lane", async () => {
+    it("rejects state when the command declares an empty state source", async () => {
       const asset = ethers.zeroPadValue("0x01", 32);
       const liability = ethers.zeroPadValue("0x02", 32);
       const state = encodePositionBlock(asset, 10n, liability, 5n);
@@ -418,7 +418,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("rejects input when the command declares an empty input lane", async () => {
+    it("rejects input when the command declares an empty input source", async () => {
       const state = encodePositionBlock(asset, 100n, liability, 40n);
       const input = encodeAmountBlock(asset, 1n);
 
@@ -487,7 +487,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "AccessDenied");
     });
 
-    it("rejects input because the input lane is empty", async () => {
+    it("rejects input because the input source is empty", async () => {
       const state = encodePositionBlock(asset, 3n, liability, 2n);
       const input = encodeAmountBlock(asset, 1n);
 
@@ -1128,7 +1128,7 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("forwards an empty raw state lane", async () => {
+    it("forwards an empty raw state source", async () => {
       const input = encodeRelayBlock(
         encodeRelayInputBlock(portalNode(31337n), 0n),
         encodeStepBlock(0n, 0n, "0x"),
@@ -1168,7 +1168,7 @@ describe("Commands", () => {
         .withArgs(portal, 0n, userAccount, encodeContextBlock(userAccount, state, steps));
     });
 
-    it("forwards the complete raw state lane including mixed trailing blocks", async () => {
+    it("forwards the complete raw state source including mixed trailing blocks", async () => {
       const state = concat(
         encodeBalanceBlock(relayAsset, 1n),
         encodePositionBlock(relayAsset, 1n, relayAsset, 1n),

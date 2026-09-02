@@ -7,34 +7,45 @@ pragma solidity ^0.8.33;
 /// Custom block keys only need to be unique in the context where they are used;
 /// hosts may publish custom key meanings with `#schema` annotations.
 library Keys {
+    // Empty and reserved blocks
+
     /// @dev Empty / unset key.
     bytes4 constant Empty = bytes4(0);
-    /// @dev Input amount - (bytes32 asset, uint amount)
-    bytes4 constant Amount = bytes4(keccak256("#amount"));
-    /// @dev Pipeline bootstrap request - (bytes32 asset, uint amount, uint budget)
-    bytes4 constant Bootstrap = bytes4(keccak256("#bootstrap"));
-    /// @dev Ledger balance - (bytes32 asset, uint amount)
-    bytes4 constant Balance = bytes4(keccak256("#balance"));
-    /// @dev Liability-only debt state - (bytes32 liability, uint debt)
-    bytes4 constant Debt = bytes4(keccak256("#debt"));
-    /// @dev Host-scoped input amount - (uint host, bytes32 asset, uint amount)
-    bytes4 constant Allocation = bytes4(keccak256("#allocation"));
-    /// @dev Host-scoped allowance cap - (uint host, bytes32 asset, uint amount)
-    bytes4 constant Allowance = bytes4(keccak256("#allowance"));
-    /// @dev Cross-host custody state - (uint host, bytes32 asset, uint amount)
-    bytes4 constant Custody = bytes4(keccak256("#custody"));
-    /// @dev Asset-liability position state - (bytes32 asset, uint amount, bytes32 liability, uint debt)
-    bytes4 constant Position = bytes4(keccak256("#position"));
-    /// @dev List wrapper; payload is an embedded repeated block stream
+    /// @dev List wrapper; payload is an embedded repeated block stream.
     bytes4 constant List = bytes4(keccak256("#list"));
     /// @dev Reserved raw bytes child block.
     bytes4 constant Bytes = bytes4(keccak256("#bytes"));
     /// @dev Reserved UTF-8 string child block.
     bytes4 constant String = bytes4(keccak256("#string"));
+
+    // Live pipeline state
+
+    /// @dev Asset balance state - (bytes32 asset, uint amount)
+    bytes4 constant Balance = bytes4(keccak256("#balance"));
+    /// @dev Liability-only debt state - (bytes32 liability, uint debt)
+    bytes4 constant Debt = bytes4(keccak256("#debt"));
+    /// @dev Cross-host custody state - (uint host, bytes32 asset, uint amount)
+    bytes4 constant Custody = bytes4(keccak256("#custody"));
+    /// @dev Asset-liability position state - (bytes32 asset, uint amount, bytes32 liability, uint debt)
+    bytes4 constant Position = bytes4(keccak256("#position"));
+
+    // Input and value blocks
+
+    /// @dev Input amount - (bytes32 asset, uint amount)
+    bytes4 constant Amount = bytes4(keccak256("#amount"));
+    /// @dev Pipeline bootstrap request - (bytes32 asset, uint amount, uint budget)
+    bytes4 constant Bootstrap = bytes4(keccak256("#bootstrap"));
+    /// @dev Host-scoped input amount - (uint host, bytes32 asset, uint amount)
+    bytes4 constant Allocation = bytes4(keccak256("#allocation"));
+    /// @dev Host-scoped allowance cap - (uint host, bytes32 asset, uint amount)
+    bytes4 constant Allowance = bytes4(keccak256("#allowance"));
     /// @dev Account identifier - (bytes32 account)
     bytes4 constant Account = bytes4(keccak256("#account"));
     /// @dev Transfer record passed through the pipeline - (bytes32 from, bytes32 to, bytes32 asset, uint amount)
     bytes4 constant Transaction = bytes4(keccak256("#transaction"));
+
+    // Composite and annotation blocks
+
     /// @dev Sub-command invocation - (uint cmd, uint value, #bytes as input)
     bytes4 constant Step = bytes4(keccak256("#step"));
     /// @dev Pipeline handoff envelope - (#bytes as input, #bytes as steps)

@@ -37,8 +37,8 @@ abstract contract Allocate is CommandBase, AllocateHook {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            uint host = exec.oninput().unpackNode();
-            HostAmount memory custody = exec.onstate().unpackBalanceForHost(host);
+            uint host = exec.unpackNode();
+            HostAmount memory custody = exec.unpackBalanceForHost(host);
             allocate(exec.account, custody);
             exec.outputCustody(custody);
         }

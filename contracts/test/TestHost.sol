@@ -189,7 +189,7 @@ contract TestHost is
         bytes memory context,
         Execution memory
     ) internal override {
-        (uint abs, ) = Blocks.exact(input, Specs.create(3, 64));
+        uint abs = Blocks.exact(input, Specs.create(3, 64));
         uint portal = uint(Blocks.read32(abs));
         uint resources = uint(Blocks.read32(abs + 32));
         emit RelayCalled(portal, resources, account, context);
