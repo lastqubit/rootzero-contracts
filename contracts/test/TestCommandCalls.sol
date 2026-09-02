@@ -45,18 +45,20 @@ contract TestCommandCalls is Pipeline {
         bytes4 selector,
         address target,
         uint value,
-        bytes memory input
+        bytes memory input,
+        bool expectEmpty
     ) external payable returns (bytes memory) {
-        return rawCall(selector, target, value, input);
+        return rawCall(selector, target, value, input, expectEmpty);
     }
 
     function testRawCallCopy(
         bytes4 selector,
         address target,
         uint value,
-        bytes calldata input
+        bytes calldata input,
+        bool expectEmpty
     ) external payable returns (bytes memory) {
-        return rawCallCopy(selector, target, value, input);
+        return rawCallCopy(selector, target, value, input, expectEmpty);
     }
 
     function testRawQuery(

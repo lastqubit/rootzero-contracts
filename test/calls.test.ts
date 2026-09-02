@@ -16,6 +16,7 @@ describe("Command calls", () => {
       await helper.getAddress(),
       value,
       input,
+      false,
       { value },
     );
     expect(out).to.equal(input);
@@ -29,9 +30,33 @@ describe("Command calls", () => {
       await helper.getAddress(),
       0n,
       input,
+      false,
     );
 
     expect(out).to.equal(input);
+  });
+
+  it("optionally requires empty decoded call output", async () => {
+    const helper = await deploy("TestCommandCalls");
+    const selector = helper.interface.getFunction("echoBytes")!.selector;
+    const target = await helper.getAddress();
+
+    expect(await helper.testRawCall.staticCall(selector, target, 0n, "0x", true))
+      .to.equal("0x");
+    expect(await helper.testRawCallCopy.staticCall(selector, target, 0n, "0x", true))
+      .to.equal("0x");
+    for (const call of [
+      () => helper.testRawCall.staticCall(selector, target, 0n, "0x01", true),
+      () => helper.testRawCallCopy.staticCall(selector, target, 0n, "0x01", true),
+    ]) {
+      let data: string | undefined;
+      try {
+        await call();
+      } catch (error: any) {
+        data = error.data ?? error.info?.error?.data;
+      }
+      expect(data).to.equal("0x");
+    }
   });
 
   it("handles bytes lengths around ABI word boundaries", async () => {
@@ -42,9 +67,9 @@ describe("Command calls", () => {
     for (const length of [0, 1, 31, 32, 33, 63, 64, 65]) {
       const input = ethers.hexlify(ethers.randomBytes(length));
 
-      expect(await helper.testRawCall.staticCall(selector, target, 0n, input))
+      expect(await helper.testRawCall.staticCall(selector, target, 0n, input, false))
         .to.equal(input);
-      expect(await helper.testRawCallCopy.staticCall(selector, target, 0n, input))
+      expect(await helper.testRawCallCopy.staticCall(selector, target, 0n, input, false))
         .to.equal(input);
       expect(await helper.testTryRawCall.staticCall(selector, target, 0n, input))
         .to.equal(true);
@@ -155,7 +180,7 @@ describe("Command calls", () => {
 
     let data: string | undefined;
     try {
-      await helper.testRawCall(selector, target, 0n, input);
+      await helper.testRawCall(selector, target, 0n, input, false);
     } catch (error: any) {
       data = error.data ?? error.info?.error?.data;
     }
@@ -175,6 +200,7 @@ describe("Command calls", () => {
         await helper.getAddress(),
         0n,
         "0x",
+        false,
       );
     } catch (error: any) {
       data = error.data ?? error.info?.error?.data;

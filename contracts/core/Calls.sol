@@ -73,12 +73,14 @@ function tryRawCallCopy(
 /// @param addr Target contract address.
 /// @param value Native value to forward in wei.
 /// @param input Raw contents of the function's `bytes` argument.
+/// @param expectEmpty Whether the decoded result must be empty.
 /// @return out Decoded `bytes` returned by the target.
 function rawCall(
     bytes4 selector,
     address addr,
     uint value,
-    bytes memory input
+    bytes memory input,
+    bool expectEmpty
 ) returns (bytes memory out) {
     bool success;
     assembly ("memory-safe") {
@@ -105,6 +107,9 @@ function rawCall(
                 revert(0, 0)
             }
             let outputLen := mload(add(encoded, 0x20))
+            if and(expectEmpty, outputLen) {
+                revert(0, 0)
+            }
             let padded := and(add(outputLen, 0x1f), not(0x1f))
             if or(gt(outputLen, sub(size, 0x40)), iszero(eq(size, add(0x40, padded)))) {
                 revert(0, 0)
@@ -124,12 +129,14 @@ function rawCall(
 /// @param addr Target contract address.
 /// @param value Native value to forward in wei.
 /// @param input Raw contents of the function's `bytes` argument.
+/// @param expectEmpty Whether the decoded result must be empty.
 /// @return out Decoded `bytes` returned by the target.
 function rawCallCopy(
     bytes4 selector,
     address addr,
     uint value,
-    bytes calldata input
+    bytes calldata input,
+    bool expectEmpty
 ) returns (bytes memory out) {
     bool success;
     assembly ("memory-safe") {
@@ -156,6 +163,9 @@ function rawCallCopy(
                 revert(0, 0)
             }
             let outputLen := mload(add(encoded, 0x20))
+            if and(expectEmpty, outputLen) {
+                revert(0, 0)
+            }
             let padded := and(add(outputLen, 0x1f), not(0x1f))
             if or(gt(outputLen, sub(size, 0x40)), iszero(eq(size, add(0x40, padded)))) {
                 revert(0, 0)
