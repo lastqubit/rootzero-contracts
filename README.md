@@ -66,8 +66,8 @@ supported.
 
 Pipelines and trusted outbound port callers require `CommandAccess` and
 `PortAccess` implementations respectively. The advanced `Host` supplies both
-through its composed node access, while `CommandHost` deliberately does not. A
-minimal host can compose narrow custom policies. Both access capabilities
+directly through its node policy, while `CommandHost` deliberately does not. A
+minimal host can implement narrow custom policies. Both access capabilities
 return the authorized endpoint's selector and address for direct use with the
 free raw-call helpers.
 
@@ -141,7 +141,7 @@ continues to use the generic `#list` key.
 
 ## Batches
 
-A input is not a single struct; it is a run of blocks. One `#amount` block
+An input is not a single struct; it is a run of blocks. One `#amount` block
 asks for one deposit, five blocks ask for five, and the code path is identical
 — every endpoint parses with a cursor and loops until the stream is exhausted.
 The descriptor lane key is the prime item: it is the block type that may repeat
@@ -232,13 +232,14 @@ implement commands that hold no persistent state in the host at all —
 forwarding funds elsewhere, or operating only on the state threaded through a
 pipeline.
 
-The built-in surface is also available as two independent feature bundles:
-`Admins` provides annotate, authorize, unauthorize, and executePayable;
-`Guardians` provides appoint, dismiss, and node revocation. Hosts that implement
-the allowance hook can additionally inherit the opt-in `RevokeAllowance` guard,
-which accepts `hostAsset { uint host, bytes32 asset }` entries and always applies
-a zero allowance. The full `Host` composes
-both, while smaller hosts can inherit either bundle separately.
+Access capabilities used by commands, ports, pipelines, and guards are abstract
+hooks. The two host bases provide the concrete policies: `CommandHost` accepts
+commands only from its commander, while `Host` directly implements commander,
+admin, node, peer, port, command, and guardian access. Guardian state and
+enforcement are part of `Host`; there is no separate guardian policy contract.
+Hosts that implement the allowance hook can additionally inherit the opt-in
+`RevokeAllowance` guard, which accepts `hostAsset { uint host, bytes32 asset }`
+entries and always applies a zero allowance.
 
 Trust is explicit and minimal. Each host receives an immutable **commander host
 ID** at construction. The EVM port validates that it is local, extracts its
@@ -276,9 +277,9 @@ the entire state stream it receives: it must validate and consume it, transform
 and return it, forward it intact, or revert. A command must never succeed while
 silently ignoring or dropping supplied state. Descriptor schemas remain
 discovery metadata; the command's decoding and loop implementation defines its
-runtime lane semantics. A command that does not consume supplied state rejects
+runtime source semantics. A command that does not consume supplied state rejects
 it when closing, while `takeRawState` explicitly consumes an intact forwarded
-state lane.
+state source.
 This is especially important for `#debt` and `#position`, because dropping
 either could silently discard an outstanding debt requirement.
 
@@ -286,8 +287,8 @@ The input carries instructions; the state carries live value. While a sequence
 of commands executes, `#balance`, `#debt`, `#custody`, and `#position` blocks in
 the state are the value being moved — produced by one command, consumed by the
 next. Balance carries `{ asset, amount }`, debt carries `{ liability, debt }`,
-and position carries their flat combination
-`{ asset, amount, liability, debt }`.
+custody carries `{ host, asset, amount }`, and position carries the flat
+asset-liability combination `{ asset, amount, liability, debt }`.
 
 Either side of a position may be absent. An absent asset side is encoded as
 `asset = 0, amount = 0`; an absent liability side is encoded as
@@ -308,7 +309,9 @@ transient representations and do not themselves create or erase an obligation
 recorded by an external system.
 
 The standard `Deposit` mixin shows the canonical shape: open the execution,
-decode its active input lane, call the hook, and write the output run:
+decode its input, call the hook, and write the output run. Execution helpers
+route known state blocks (`#balance`, `#debt`, `#custody`, and `#position`) to
+state automatically; generic and custom-schema decoding consumes input:
 
 ```solidity
 function deposit(
@@ -592,7 +595,7 @@ Import from the package entry points rather than deep paths:
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query
   mixins, their hooks (including `ExecuteHook` and `PipeHook`), and `Flags`
 - `@rootzero/contracts/Codec.sol` — `Blocks`, calldata `Cur`/`Cursors`, memory
-  `Memory`, `Writers`, `Schemas`, `Descriptors`, `Flags`, `Keys`, and
+  `Memory`, `Writers`, `Schemas`, `Execution`/`Executions`, `Flags`, `Keys`, and
   `Specs`
 - `@rootzero/contracts/Utils.sol` — `Ids`, `Nodes`, `Assets`, `Accounts`,
   layout and value helpers
@@ -605,7 +608,7 @@ Repo layout:
 - `contracts/ports` — port surfaces for inter-host and cross-portal flows
 - `contracts/guards` — guardian direct actions
 - `contracts/queries` — read-only query endpoints
-- `contracts/blocks` — block schema, cursor parsing, writers
+- `contracts/codec` — block schemas, cursor parsing, buffers, and writers
 - `contracts/utils` — ids, nodes, assets, accounts, layout, ECDSA
 - `contracts/events` — event contracts and emitters
 - `docs` — [`Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md) (wire format and schema DSL)

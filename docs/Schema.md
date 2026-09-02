@@ -172,7 +172,7 @@ For example, a relay implementation can consume exactly one configuration block
 without defining a second headerless decoding convention:
 
 ```solidity
-(uint body, ) = Blocks.exact(input, inputSpec);
+uint body = Blocks.exact(input, inputSpec);
 uint portal = uint(Blocks.read32(body));
 uint resources = uint(Blocks.read32(body + 32));
 ```
@@ -270,6 +270,25 @@ reserve [reserved:5]
 flags   [flags:1]
 ```
 
+Solidity code constructs this metadata with `Executions.describe`. The same
+library initializes an `Execution` through `exec.open` or `exec.openInput`;
+their packed state/input cursors are an internal execution representation and
+are not returned as general-purpose cursors. `exec.open` initializes the
+command account and an explicit native-value budget together with both sources
+and the output writer. Input-only endpoints use `exec.openInput`, which accepts
+an explicit budget but no command account. Passing the budget explicitly keeps
+both opening helpers pure and supports callers that forward an existing budget.
+Both in-place helpers expect a newly allocated or otherwise empty `Execution`.
+
+Standalone `Cur` values use a separate compact generic cursor containing only
+an absolute current position, absolute exclusive end, stride, and flags. They
+do not retain a source offset or expose a relative `decode` view. Low-level
+`seek`, `expect`, `slice`, `raw`, `peek`, `hasAt`, and `find` positions are
+absolute calldata positions; `past` and `find` also return absolute positions.
+The cursor is forward-only, so explicit ranges must remain within its unread
+`[position, end)` region. Buffer writers reuse the layout with origin zero,
+making their current position a write offset and their end a logical capacity.
+
 Flag bits 0 and 1 are the protocol-defined `funded` and `admin` flags. Bit 7 is
 the protocol-defined `handoff` flag, bit 6 is reserved for endpoint-defined
 behavior, and bits 2 through 5 remain reserved for future protocol flags.
@@ -294,24 +313,25 @@ An endpoint may accept the empty form of its prime block as a per-operation
 marker. The header remains present, so empty prime blocks still participate in
 run counting and batching.
 
-Endpoint execution opening is constant-time: it wraps the supplied state and
-input calldata without consulting their descriptor keys or strides. Those
-fields remain discovery metadata. The output stride and allocation hint
-initialize a resizable writer for one group. Block schema and boundary checks
-happen when command code consumes each block, and execution finalization
+Execution cursor opening wraps the supplied state and input calldata without
+validating their descriptor keys or strides. Those fields remain discovery
+metadata. When output is declared, writer pre-sizing may count the consecutive
+prime-block run from input, or from state when input is absent; this scan is an
+allocation hint only. The writer remains resizable. Block schema and boundary
+checks happen when command code consumes each block, and execution finalization
 rejects any unread state or input bytes. Command decoding and loop structure
-are therefore the runtime source of truth for lane cardinality and whether an
-empty lane is accepted.
+are therefore the runtime source of truth for source cardinality and whether an
+empty source is accepted.
 
-For commands, complete-lane validation is also a state-safety rule. State is a
+For commands, complete-source validation is also a state-safety rule. State is a
 linear value owned by the current pipeline step, not optional context that a
 command may disregard. Every command must account for the complete supplied
 state by consuming it, transforming and returning it, forwarding it intact with
-`takeRawState`, or reverting. Descriptor metadata alone does not reject a lane;
+`takeRawState`, or reverting. Descriptor metadata alone does not reject a source;
 a command that leaves supplied state unread rejects it when closing. Ordinary
 typed consumption validates blocks against the type requested by the command.
 Raw forwarding deliberately trusts the command and does not validate the
-forwarded lane against descriptor metadata.
+forwarded source against descriptor metadata.
 
 ## Live Pipeline State
 
@@ -329,8 +349,23 @@ carries only the liability side, and position carries both:
 ```txt
 balance  { bytes32 asset, uint amount }
 debt     { bytes32 liability, uint debt }
+custody  { uint host, bytes32 asset, uint amount }
 position { bytes32 asset, uint amount, bytes32 liability, uint debt }
 ```
+
+These four standard aliases form the protocol's closed set of typed state
+blocks. Custom schemas and dynamic composite blocks are command input, not new
+state types. This distinction is enforced by the execution API: generic
+navigation and custom-schema helpers consume input, while `unpackBalance`,
+`unpackDebt`, `unpackCustody`, and `unpackPosition` consume state directly.
+Callers do not select or switch an active decoder source.
+
+Standalone `Cur` decoders remain source-agnostic because they represent one
+explicit byte region. `takeRawState` is the deliberate execution exception: it
+may forward unread state without interpreting or validating its block types,
+but marks that complete region consumed. Adding another typed pipeline-state
+shape therefore requires a standard protocol block and a dedicated execution
+unpacker; publishing a custom schema alone does not create a state type.
 
 The two sides of a position are independently optional. Encode an absent asset
 side as `asset = 0, amount = 0`, and an absent liability side as
