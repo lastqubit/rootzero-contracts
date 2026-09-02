@@ -8,6 +8,45 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.34.0
+
+### Breaking Changes
+
+- Centralized commander identity and default access storage in `Runtime` and
+  `Host`. Removed `CommanderAccess`, the `Admins` and `Guardians` feature
+  bundles, and the distinct `CommanderNotAllowed` error; peer rejection now
+  uses `AccessDenied`. `CommandHost` remains the minimal commander-only base,
+  while access capability contracts are abstract hook surfaces.
+- Simplified generic `Cursors` to one source. Removed paired-cursor lanes,
+  selection and swapping, cursor identity tags, `Lanes`, and `MissingCursor`.
+  `Buffers.cursor` no longer accepts a tag and `Cursors.meta` now returns only
+  stride and consumer flags. Generic cursors now pack only absolute current/end
+  positions plus metadata; buffer positions use origin zero. Removed the stored
+  offset/relative length model and its `decode`, `frame`, `initial`, `seekAbs`,
+  and `expectAbs` helpers. Low-level `Cursors` and `Decoders` navigation,
+  slicing, inspection, and returned positions are now consistently absolute.
+- Specialized `Execution.decoders` as one packed word with fixed absolute input
+  and state positions. Input helpers always consume input; `unpackBalance`,
+  `unpackDebt`, `unpackCustody`, and `unpackPosition` always consume state, so
+  `oninput` and `onstate` were removed.
+- Defined Balance, Debt, Custody, and Position as the closed typed state-block
+  set and grouped them consistently in Keys, Sizes, Specs, Schemas, and test
+  encoding helpers. Custom and dynamic schemas remain input-only.
+- Moved endpoint description and execution cursor opening from `Descriptors`
+  into `Executions`. Use `Executions.describe` and initialize cursors through
+  `exec.open` or `exec.openInput`; raw specialized cursor tuples are no longer
+  exposed. `exec.open` now initializes the command account and explicit budget
+  together with state, input, and output, while `exec.openInput` initializes an
+  explicit budget with its input and output.
+- Removed the `Redeem` port surface.
+- Simplified `Blocks.exact` to return only the absolute payload position. Its
+  validated end is always the supplied calldata slice's end; callers needing
+  explicit bounds can use `Blocks.enter`.
+- Added an `expectEmpty` argument to `rawCall` and `rawCallCopy`. When enabled,
+  a successful call reverts unless its decoded `bytes` result is empty. Try-call
+  helpers remain output-agnostic so failed forwards can still be recorded for
+  recovery.
+
 ## 1.33.0
 
 ### Added
