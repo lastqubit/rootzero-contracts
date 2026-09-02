@@ -16,4 +16,16 @@ abstract contract NativeAsset {
 abstract contract Runtime is NativeAsset {
     /// @dev This contract's host node ID, set to `Nodes.toHost(address(this))` at construction.
     uint public immutable host = Nodes.toHost(address(this));
+
+    /// @dev Commander host ID. Defaults to this contract's host ID when self-managed.
+    uint internal immutable commander;
+
+    /// @dev Native address embedded in `commander`, resolved once at construction.
+    address internal immutable commanderAddr;
+
+    /// @param cmdr Local host ID of the commander, or zero to make this runtime self-managed.
+    constructor(uint cmdr) {
+        commander = cmdr == 0 ? host : cmdr;
+        commanderAddr = Nodes.hostAddr(commander);
+    }
 }

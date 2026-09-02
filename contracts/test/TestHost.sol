@@ -277,8 +277,8 @@ contract TestHost is
         return nodes[node];
     }
 
-    function testEnforceTrusted(uint node) external view returns (bytes4, address) {
-        return enforceTrusted(node);
+    function testEnforceNode(uint node) external view returns (bytes4, address) {
+        return enforceNode(node);
     }
 
     function testEnforceCommand(uint cmd) external view returns (bytes4, address) {

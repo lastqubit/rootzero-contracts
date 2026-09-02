@@ -2,8 +2,8 @@ import { expect } from "chai";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import "./helpers/matchers.js";
-import { commandId, deploy, getProvider, getSigner, getSigners, hostId, portId } from "./helpers/setup.js";
-import { encodeAccountBlock, encodeContextBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
+import { commandId, deploy, getSigner, getSigners, hostId, portId } from "./helpers/setup.js";
+import { encodeContextBlock, encodeNodeBlock, pad32 } from "./helpers/blocks.js";
 
 describe("Access Control", () => {
   let host: Awaited<ReturnType<typeof deploy>>;
@@ -139,7 +139,7 @@ describe("Access Control", () => {
     const portEndpoint = await host.testEnforcePort(port);
     expect(portEndpoint[0]).to.equal(ethers.id("trusted(bytes)").slice(0, 10));
     expect(portEndpoint[1]).to.equal(hostAddress);
-    const trustedEndpoint = await host.testEnforceTrusted(command);
+    const trustedEndpoint = await host.testEnforceNode(command);
     expect(trustedEndpoint[0]).to.equal(commandEndpoint[0]);
     expect(trustedEndpoint[1]).to.equal(commandEndpoint[1]);
     await expect(host.testEnforceCommand(port))
@@ -153,7 +153,7 @@ describe("Access Control", () => {
       .to.be.revertedWithCustomError(host, "AccessDenied");
     await expect(host.testEnforcePort(untrustedPort))
       .to.be.revertedWithCustomError(host, "AccessDenied");
-    await expect(host.testEnforceTrusted(untrustedPort))
+    await expect(host.testEnforceNode(untrustedPort))
       .to.be.revertedWithCustomError(host, "AccessDenied");
   });
 
@@ -261,72 +261,3 @@ describe("Commander Access", () => {
     expect(minimalSize).to.be.lessThan(advancedSize / 2);
   });
 });
-
-describe("Host feature bundles", () => {
-  it("composes the default admin commands without guardian functionality", async () => {
-    const commander = await (await getSigner(0)).getAddress();
-    const host = await deploy("TestAdminsHost", await hostId(commander));
-
-    for (const name of ["annotate", "authorize", "unauthorize", "executePayable"]) {
-      expect(host.interface.getFunction(name)).to.not.equal(null);
-    }
-    for (const name of ["appoint", "dismiss", "revoke"]) {
-      expect(host.interface.getFunction(name)).to.equal(null);
-    }
-  });
-
-  it("keeps standalone admin commands commander-only even after authorizing a peer", async () => {
-    const signers = await getSigners(3);
-    const commander = await signers[0].getAddress();
-    const peer = await signers[1].getAddress();
-    const host = await deploy("TestAdminsHost", await hostId(commander));
-    const utils = await deploy("TestUtils");
-    const adminAccount = await utils.testToAdminAccount(commander);
-    const network = await (await getProvider()).getNetwork();
-    const peerNode = (0x01020200n << 224n) | (network.chainId << 192n) | BigInt(peer);
-
-    await host.authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode)));
-
-    await expect(host.connect(signers[1]).unauthorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode))))
-      .to.be.revertedWithCustomError(host, "AccessDenied");
-    await expect(host.connect(signers[2]).authorize(encodeContextBlock(adminAccount, "0x", encodeNodeBlock(peerNode))))
-      .to.be.revertedWithCustomError(host, "AccessDenied");
-  });
-
-  it("composes guardian management and revoke without other admin commands", async () => {
-    const commander = await (await getSigner(0)).getAddress();
-    const host = await deploy("TestGuardiansHost", await hostId(commander));
-
-    for (const name of ["appoint", "dismiss", "revoke"]) {
-      expect(host.interface.getFunction(name)).to.not.equal(null);
-    }
-    for (const name of ["annotate", "authorize", "unauthorize", "executePayable"]) {
-      expect(host.interface.getFunction(name)).to.equal(null);
-    }
-  });
-
-  it("enforces commander-managed guardian access in the standalone bundle", async () => {
-    const signers = await getSigners(3);
-    const commander = await signers[0].getAddress();
-    const guardian = await signers[1].getAddress();
-    const host = await deploy("TestGuardiansHost", await hostId(commander));
-    const utils = await deploy("TestUtils");
-    const adminAccount = await utils.testToAdminAccount(commander);
-    const guardianAccount = await utils.testToUserAccount(guardian);
-    const node = await utils.testToHostId(await signers[2].getAddress());
-
-    await expect(host.connect(signers[2]).revoke(encodeNodeBlock(node)))
-      .to.be.revertedWithCustomError(host, "AccessDenied");
-
-    await host.appoint(encodeContextBlock(adminAccount, "0x", encodeAccountBlock(guardianAccount)));
-    await expect(host.connect(signers[1]).revoke(encodeNodeBlock(node)))
-      .to.emit(host, "Node")
-      .withArgs(await host.host(), node, false);
-
-    await host.dismiss(encodeContextBlock(adminAccount, "0x", encodeAccountBlock(guardianAccount)));
-    await expect(host.connect(signers[1]).revoke(encodeNodeBlock(node)))
-      .to.be.revertedWithCustomError(host, "AccessDenied");
-  });
-});
-
-

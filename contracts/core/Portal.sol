@@ -2,7 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {tryRawCallCopy} from "./Calls.sol";
-import {CommanderAccess} from "./Access.sol";
+import {Runtime} from "./Runtime.sol";
 import {ResolvedEvent} from "../events/Resolved.sol";
 import {UnresolvedEvent} from "../events/Unresolved.sol";
 import {PortPipePayableSelector} from "../ports/Pipe.sol";
@@ -19,7 +19,7 @@ abstract contract ForwardHook {
 
 /// @title Portal
 /// @notice Base contract that forwards incoming contexts to its commander's pipeline.
-abstract contract Portal is ForwardHook, CommanderAccess, UnresolvedEvent, ResolvedEvent {
+abstract contract Portal is ForwardHook, Runtime, UnresolvedEvent, ResolvedEvent {
     error BadWitness();
 
     mapping(bytes32 key => bytes32 digest) internal unresolved;
@@ -43,9 +43,11 @@ abstract contract Portal is ForwardHook, CommanderAccess, UnresolvedEvent, Resol
     /// If a later recovery operation reverts, this deletion is rolled back with it.
     /// @param key Recovery lookup key.
     /// @param witness Witness payload used to prove and replay recovery.
-    function resolve(bytes32 key, bytes calldata witness) internal {
+    /// @return resolved The validated witness payload.
+    function resolve(bytes32 key, bytes calldata witness) internal returns (bytes calldata resolved) {
         if (unresolved[key] != keccak256(witness)) revert BadWitness();
 
         delete unresolved[key];
+        return witness;
     }
 }

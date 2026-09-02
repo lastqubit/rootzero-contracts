@@ -4,9 +4,10 @@ pragma solidity ^0.8.33;
 import {Sizes} from "../Codec.sol";
 import {Blocks} from "../codec/Blocks.sol";
 import {Specs} from "../codec/Specs.sol";
-import {Execution, Executions, Lanes} from "../execution/Execution.sol";
+import {Execution, Executions} from "../execution/Execution.sol";
 import {QueryBase} from "../queries/Base.sol";
 import {Schema} from "../annotations/Schema.sol";
+import {Runtime} from "../core/Runtime.sol";
 
 using Executions for Execution;
 
@@ -22,7 +23,7 @@ contract TestQuery is QueryBase {
 
     uint private immutable descriptor;
 
-    constructor() {
+    constructor() Runtime(0) {
         uint32 size = uint32(Sizes.B32 - Sizes.Header);
         uint valueSpec = schema(1, size, size, size, INPUT);
         ValueSpec = valueSpec;
@@ -48,7 +49,7 @@ contract TestKeyedLocalQuery is QueryBase {
 
     uint private immutable descriptor;
 
-    constructor() {
+    constructor() Runtime(0) {
         uint32 size = uint32(Sizes.B32 - Sizes.Header);
         uint valueSpec = schema(2, size, size, size, INPUT);
         ValueSpec = valueSpec;
@@ -69,7 +70,7 @@ contract TestKeyedLocalQuery is QueryBase {
 }
 
 contract TestQualifiedSchema is Schema {
-    constructor() {
+    constructor() Runtime(0) {
         uint32 size = 64;
         schema(
             3,

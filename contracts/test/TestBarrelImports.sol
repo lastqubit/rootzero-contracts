@@ -32,10 +32,14 @@ import {
 } from "../Endpoints.sol";
 import {HostAsset as CodecHostAsset} from "../Codec.sol";
 import {Debt as CodecDebt} from "../Codec.sol";
+import {Execution as CodecExecution} from "../Codec.sol";
+import {Executions as CodecExecutions} from "../Codec.sol";
 import {Flags as CodecFlags} from "../Codec.sol";
 import {Memory as CodecMemory} from "../Codec.sol";
 import {HostAsset as CommandHostAsset} from "../Commands.sol";
 import {Debt as CommandDebt} from "../Commands.sol";
+import {Execution as CommandExecution} from "../Commands.sol";
+import {Executions as CommandExecutions} from "../Commands.sol";
 import {Flags as CommandFlags} from "../Commands.sol";
 import {HostAsset as CoreHostAsset} from "../Core.sol";
 import {Debt as CoreDebt} from "../Core.sol";
@@ -45,7 +49,6 @@ import {ResolvedEvent, UnresolvedEvent} from "../Events.sol";
 import {
     AccessDenied,
     CommandAccess,
-    CommanderNotAllowed,
     ExecuteHook as CoreExecuteHook,
     PipeHook as CorePipeHook,
     enforceSender,

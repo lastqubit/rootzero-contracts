@@ -5,6 +5,7 @@ import { Accounts } from "../utils/Accounts.sol";
 import { Assets } from "../utils/Assets.sol";
 import {InvalidAsset} from "../utils/Errors.sol";
 import { GetBalances } from "../queries/Balances.sol";
+import {Runtime} from "../core/Runtime.sol";
 
 contract TestErc20BalanceToken {
     mapping(address => uint) internal balances;
@@ -21,6 +22,8 @@ contract TestErc20BalanceToken {
 contract TestBalancesQuery is GetBalances {
     TestErc20BalanceToken public immutable token = new TestErc20BalanceToken();
     bytes32 public immutable tokenAsset = Assets.toErc20(address(token));
+
+    constructor() Runtime(0) {}
 
     function mint(address account, uint amount) external {
         token.mint(account, amount);

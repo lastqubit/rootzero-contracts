@@ -7,16 +7,18 @@ import { Ids } from "../utils/Ids.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, ensureContract, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
-import { CommanderAccess, enforceSender } from "../core/Access.sol";
+import { AccessDenied, enforceSender } from "../core/Access.sol";
+import {Runtime} from "../core/Runtime.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
 
-contract TestUtils is CommandBase, CommanderAccess {
-    constructor() CommanderAccess(0) {}
+contract TestUtils is CommandBase {
+    constructor() Runtime(0) {}
 
     function enforceCaller(address caller) internal view override returns (address) {
-        return enforceCommander(caller);
+        if (caller != address(this)) revert AccessDenied();
+        return caller;
     }
 
     function testAddrOr(address addr, address or_) external pure returns (address) {
