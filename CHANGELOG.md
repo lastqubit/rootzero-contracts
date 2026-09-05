@@ -8,6 +8,8 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.35.0
+
 ### Breaking Changes
 
 - `RelayBalancePayable` now validates the entire forwarded state with
