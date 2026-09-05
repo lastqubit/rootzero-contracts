@@ -82,6 +82,10 @@ The standard types currently use these rules:
 
 - An `#action` is identified by its entity. The latest trusted action replaces
   the previous value; `Actions.None` clears the primary action classification.
+- A `#clearinghouse` is identified by its entity. The latest trusted host
+  replaces the previous clearinghouse, and host zero clears the association.
+  Indexers interpret and validate the entity type in context and should require
+  a host-node value before accepting a nonzero claim.
 - A `#label` is identified by `(entity, namespace)`. The latest trusted label
   for that identity replaces its previous value; labels in different namespaces
   coexist.
@@ -124,11 +128,13 @@ guardian change through `setGuardian`, so `Node` and `Guardian` are exhaustive:
 replaying them yields the exact current access sets.
 
 All account, asset, and node IDs are 32-byte values with one top-byte rule:
-`0x00` means opaque `0x00 || bytes31(hash)`, and nonzero means structured.
+`0x00` is null/unset, `0x01` is Rootzero-native, `0x02` is opaque
+`[0x02][category][subtype][bytes29(hash)]`, and `0x03` is EVM structured.
 Structured EVM IDs use `[uint32 type][uint32 chainid][192-bit payload]`, where
 `type` packs
 `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`; see
-`utils/Layout.sol`. Indexers can decode structured IDs directly. Opaque IDs need
+`utils/Layout.sol`. Category and subtype are also present in opaque IDs, so
+indexers can classify them without resolving the hash. Opaque IDs still need
 host-specific lookup or witness data when the underlying account, asset
 metadata, or node target is needed.
 Command subtype `0x03` identifies every command. Flag bit 7 identifies a
@@ -136,8 +142,14 @@ pipeline handoff command whose STEP input and remaining continuation are wrapped
 automatically in a RELAY block.
 Endpoint IDs and descriptors carry the same flags, so indexers can verify their
 metadata directly.
-Opaque preimages start with a one-byte format/hash tag; `0x01` means
-keccak256. The remaining bytes are host/domain-specific for now.
+Opaque preimages use `[formatHash][category][subtype][payload...]`; `0x01`
+means keccak256. The category and subtype must match the ID. The remaining
+bytes are host/domain-specific for now.
+
+Opaque derived assets carry `[Opaque][Asset][Derived]` in their first three
+bytes. Their canonical preimage is
+`[0x01][Asset][Derived][host:32][underlyingAsset:32]`, allowing indexers to
+verify both the host namespace and underlying asset when those inputs are known.
 
 ### Cold-Start Recipe
 
@@ -161,7 +173,7 @@ today. No changes are proposed to the discovery layer.
 
 Most state-event emission remains a host responsibility: asset and ledger
 mutation flows through virtual hooks (`deposit`, `withdraw`, `burn`,
-`creditAccount`, `debitAccount`, `payout`, `provision`, `allowAsset`,
+`creditAccount`, `debitAccount`, `payout`, the realization commands, `provision`, `allowAsset`,
 `denyAsset`, ...), and the hook implementation is the layer that knows the
 host's ledger policy - in particular the asset binding and the resulting
 balance. Command-returned native credit replenishes the pipeline budget. The
@@ -195,9 +207,9 @@ its chain context. A root host labels itself with an
 `Annotation` containing a `#label` block. Child hosts are discovered through
 `Introduction` on their commander.
 
-**Balances.** Every ledger mutation emits `Balance` with the resulting total,
+**Account balances.** Every account-ledger mutation emits `Balance` with the resulting total,
 the signed change, and `access` set to the node ID of the endpoint that
-performed the change. Hosts using the built-in `Balances` ledger key balances
+performed the change. Hosts using the built-in `AccountBalances` ledger key balances
 directly by `(account, asset)`, so query results and events agree.
 
 **Positions.** An action that exposes a resulting live position may emit
@@ -217,6 +229,9 @@ with the matching `Actions` code:
 | creditAccount              | `Received` | `Actions.Transfer` |
 | debitAccount               | `Spent`    | `Actions.Transfer` |
 | payout                     | `Spent` / `Received` | `Actions.Payout` |
+| realize                    | host-defined | `Actions.Realize` |
+| realizeDebt                | host-defined | `Actions.Realize` |
+| realizePosition            | host-defined | `Actions.Realize` |
 | portPost                   | `Spent` / `Received` | `Actions.Post` |
 | final pipeline budget      | `Received` | host posting action |
 | provision (lock custody)   | `Locked`   | per operation      |
@@ -239,9 +254,9 @@ reverted as well.
 **Opaque assets.** Hosts that create or register opaque asset IDs emit `Asset`
 with the canonical preimage used to resolve the asset. Indexers should treat
 `asset` as the ledger key and can verify host-specific opaque IDs by checking
-`asset == 0x00 || bytes31(hash(preimage))`. The first preimage byte is a
-format/hash tag; `0x01` means keccak256. The rest of the payload is not yet
-standardized.
+`asset == 0x02 || preimage[1:3] || bytes29(hash(preimage))`. The preimage starts
+with `[formatHash][category][subtype]`; `0x01` means keccak256, and the category
+must be `Asset`. The rest of the payload is not yet standardized.
 
 **Invocations.** Top-level pipeline entrypoints emit `Rooted` once per
 invocation with the acting account, deadline, and attached value. Detailed
@@ -257,7 +272,8 @@ code from `utils/Actions.sol`:
 
 ```txt
 None 0, Transfer 1, Payout 2, Settle 3, Deposit 4, Withdraw 5, Fee 6,
-Mint 7, Burn 8, Swap 9, Borrow 10, Repay 11, Liquidate 12, Refund 13, Post 14
+Mint 7, Burn 8, Swap 9, Borrow 10, Repay 11, Liquidate 12, Refund 13, Post 14,
+Cashout 15, Cashin 16, Realize 17
 ```
 
 Joins available to an indexer: `access`/`context` -> the endpoint repository
@@ -272,7 +288,7 @@ non-breaking per the changelog conventions.
 
 ### Proposed: Emitting Ledger Helpers
 
-Add overloads to `Balances` that combine the mutation with the conforming
+Add overloads to `AccountBalances` that combine the mutation with the conforming
 emission:
 
 ```solidity
@@ -284,7 +300,7 @@ function debitFrom(bytes32 account, bytes32 asset, uint amount, uint access)
 
 Each applies the raw mutation keyed by `asset` and emits
 `Balance(account, asset, balance, +/-amount, access)`.
-`Balances` already inherits `BalanceEvent` and the raw functions already return
+`AccountBalances` already inherits `BalanceEvent` and the raw functions already return
 the new total, so the change is additive; hosts with custom ledger schemes keep
 using the raw overloads and emit on their own.
 

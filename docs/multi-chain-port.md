@@ -35,10 +35,11 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
    Existing EVM IDs include `block.chainid` for EVM-local safety. Non-EVM ports should not introduce a `ChainIds.sol`-style registry or a cross-chain numeric namespace. Each chain library only needs its own local ID constructors and validators.
 
 4. **Use one ID convention.**
-   Account, asset, and node IDs whose first byte is `0x00` are opaque
-   `0x00 || bytes31(hash)` handles. Resolve them with local lookup or witness
-   data only when native metadata is needed. IDs whose first byte is nonzero are
-   structured and may be deconstructed by their local runtime layout.
+   `0x00` is reserved for null/unset IDs. Account, asset, and node IDs whose
+   first byte is `0x02` are opaque
+   `[0x02][category][subtype][bytes29(hash)]` handles. Resolve them with local
+   lookup or witness data only when native metadata is needed.
+   Other assigned representation bytes identify their structured layout.
 
 5. **Routing metadata lives outside Rootzero core.**
    A bridge may keep a route like `(destination chain, destination bridge endpoint, destination host, raw payload)`, but the destination chain handle is not part of the command IDs inside the CONTEXT payload. When the destination host receives the input, each STEP command is already a local command ID for that host's runtime.
@@ -66,7 +67,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Block key constants | `codec/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
 | Pipeline state model | `core/Pipeline.sol` | STEP stream and threaded `bytes` state. Local execution, dispatch, and posting are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
-| Balance ledger | `core/Balances.sol` | `map(account => map(asset => amount))`; maps to any key/value store. |
+| Balance ledgers | `core/Balances.sol` | Host `map(asset => amount)` and account `map(account => map(asset => amount))`; map to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
 | Port pipe input shape | `ports/Pipe.sol`, `codec/Schema.sol` | CONTEXT blocks carry `(account, state, input)`; the input bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
@@ -104,8 +105,10 @@ That layout is appropriate for EVM because `block.chainid`, ABI selectors, and 2
 For portable ports, the ID model has two forms. Opaque IDs are:
 
 ```text
-[255:248] 0x00
-[247:0]   bytes31(hash)
+[255:248] 0x02
+[247:240] category
+[239:232] subtype
+[231:0]   bytes29(hash)
 ```
 
 Use opaque IDs when the native identity or metadata does not fit or should not
@@ -115,12 +118,12 @@ data at the boundary that needs it.
 Opaque preimages start with:
 
 ```text
-[formatHash:1][payload...]
+[formatHash:1][category:1][subtype:1][payload...]
 ```
 
-Only the first byte is protocol-level convention for now. `0x01` means
-keccak256. The remaining payload format is host/domain-specific until a future
-standard defines it.
+`0x01` means keccak256. Category and subtype are included in the hash and copied
+into the ID, binding its visible type to its opaque identity. The remaining
+payload format is host/domain-specific until a future standard defines it.
 
 Structured IDs keep the Rootzero prefix taxonomy and make the payload
 local-first:
@@ -132,12 +135,11 @@ local-first:
 [159:0]   uint160 local identity fingerprint
 ```
 
-The category and subtype bits are protocol-wide for structured IDs. Accounts
+The category and subtype bits are protocol-wide for structured and opaque IDs. Accounts
 from any chain should carry the `Layout.Account` category bit. Nodes from any
 chain should carry the `Layout.Node` category bit. Assets from any chain should
-carry the `Layout.Asset` category bit. Opaque IDs do not carry these bits; their
-protocol role comes from the field they appear in (`account`, `asset`, `target`,
-and so on).
+carry the `Layout.Asset` category bit. Opaque IDs expose these two classification
+bytes while keeping the underlying native identity hash-backed.
 
 In the EVM Solidity implementation, helpers should validate the full
 representation-specific family rather than only the shared category byte:
@@ -153,8 +155,10 @@ payload layout is actually EVM-compatible. Cross-chain ports can expose their
 own representation-specific helpers while preserving the same Account, Node,
 and Asset taxonomy where it applies.
 
-The representation byte describes how a structured payload should be
-interpreted. EVM uses `Layout.Evm` because its payloads are built around
+The representation byte describes how an ID payload should be interpreted.
+`0x00` is reserved, `Layout.Rootzero` (`0x01`) identifies protocol-native
+structured IDs, `Layout.Opaque` (`0x02`) identifies hash-backed IDs, and
+`Layout.Evm` (`0x03`) identifies EVM IDs whose payloads are built around
 20-byte addresses. Non-EVM ports should define chain-appropriate representation
 tags, such as `Solana`, `CosmWasm`, or `Near`, while still keeping the
 same `Account`, `Node`, `Asset`, `Admin`, `User`, `Host`,
@@ -194,7 +198,8 @@ Each chain gets its own `ids` module:
 | NEAR | `to_host(account_id)`, `to_command(method_tag, account_id)` |
 
 The constructors only need local data. If an identity does not fit in a
-structured ID payload, use an opaque `0x00 || bytes31(hash)` ID and store the
+structured ID payload, use an opaque
+`[0x02][category][subtype][bytes29(hash)]` ID and store the
 full native identity in local host state, or require it as witness data when it
 is used. Any registry is chain-local; it is not a directory of other chains.
 
@@ -223,10 +228,10 @@ Non-EVM ports should classify each native identity type:
 | Identity | Fits in ID payload? | Strategy |
 |----------|---------------------|----------|
 | 20-byte EVM address | Yes | Store directly in the ID. |
-| 32-byte Solana pubkey | No | Store `0x00 || bytes31(hash(pubkey))`; resolve by local lookup or witness. |
-| CosmWasm `Addr` string | Usually no | Store `0x00 || bytes31(hash(addr))`; resolve to the validated local `Addr`. |
-| NEAR `AccountId` string | No | Store `0x00 || bytes31(hash(account_id))`; resolve to the local account ID string. |
-| IBC denom / long asset key | No | Store `0x00 || bytes31(hash(asset_key))`; resolve to the denom/contract in local asset state or witness. |
+| 32-byte Solana pubkey | No | Store an opaque ID with the appropriate category/subtype; resolve by local lookup or witness. |
+| CosmWasm `Addr` string | Usually no | Store an opaque Account ID; resolve to the validated local `Addr`. |
+| NEAR `AccountId` string | No | Store an opaque Account ID; resolve to the local account ID string. |
+| IBC denom / long asset key | No | Store an opaque Asset ID; resolve to the denom/contract in local asset state or witness. |
 
 Lookup-backed IDs are still local IDs. The lookup table belongs to the destination host or chain adapter and only contains identities meaningful on that chain.
 
@@ -279,17 +284,23 @@ Ports should not recreate EVM-specific helpers like `erc20()`, `toErc20()`, or
 
 The pattern to port is:
 
-- keep the shared `Layout.Asset` category for structured IDs
+- keep the shared `Layout.Asset` category for all asset IDs
 - define local asset subtype tags for the target chain's asset model
 - construct asset IDs from native asset identities, using opaque
-  `0x00 || bytes31(hash)` IDs when the native key does not fit
+  `[0x02][Asset][subtype][bytes29(hash)]` IDs when the native key does not fit
 - resolve asset IDs only inside asset hooks when native transfers require it
+
+The shared asset subtype assignments are `Derived = 0x01`, `Virtual = 0x02`,
+and `Erc20 = 0x03`. Derived assets use the opaque representation with canonical
+preimage `[0x01][Asset][Derived][host:32][underlyingAsset:32]`. `Virtual` is a
+taxonomy value only; a port should not infer standard issuance or redemption
+behavior from it.
 
 Examples:
 
 | Chain | Helper examples |
 |-------|-----------------|
-| EVM | `toNative()`, `toErc20(address)` |
+| EVM | `toChain()`, `toDerived(asset, host)`, `toErc20(address)` |
 | Solana | `to_native_sol()`, `to_spl_mint(pubkey)`, `to_token_account(pubkey)` if token accounts are represented separately |
 | CosmWasm | `to_native_denom(denom)`, `to_cw20(contract_addr)`, `to_ibc_denom(denom)` |
 | NEAR | `to_native_near()`, `to_nep141(account_id)` |
@@ -339,10 +350,18 @@ On the destination side:
    `budget = pipe(account, state, input, budget)`.
 5. `pipe()` dispatches local STEP commands exactly like a same-chain pipeline.
 
-The default convention treats peer trust as authorization to use every port the
-host exposes without a second policy decision inside each port. Runtimes that
-need narrower capabilities may add per-port or per-operation checks, but that is
-a host-specific trust model rather than the default protocol convention.
+A trusted peer is a fully trusted extension of the receiving host. Admission
+authorizes every exposed port, without separate peer-specific permissions for
+ports, assets, directions, or operations. The runtime authenticates the peer
+once at port entry rather than repeating authorization for each batch item.
+
+Before admission, maintainers must fully validate the peer's behavior, caller
+validation, dependencies, and upgrade authority against the receiving host's
+invariants. A peer must prevent untrusted callers or incoming bridge messages
+from causing invalid actions through its trusted access. Changes require renewed
+validation of that trust decision. Partially trusted components must not be
+admitted as peers. Parsing and accounting invariants remain enforced; they are
+operation-validity checks, not a second peer authorization layer.
 
 In EVM today, the entrypoint is:
 
@@ -815,7 +834,12 @@ trait LocalIds {
     fn host(&self, identity: &Self::NativeIdentity) -> LocalNodeId;
     fn command(&self, tag: Self::DispatchTag, identity: &Self::NativeIdentity) -> LocalNodeId;
     fn peer(&self, tag: Self::DispatchTag, identity: &Self::NativeIdentity) -> LocalNodeId;
-    fn opaque_hash(&self, identity: &Self::NativeIdentity) -> [u8; 31];
+    fn opaque_hash(
+        &self,
+        category: u8,
+        subtype: u8,
+        identity: &Self::NativeIdentity,
+    ) -> [u8; 29];
 }
 ```
 
@@ -866,7 +890,7 @@ Backed by Solana account data, CosmWasm storage, NEAR collections, or EVM mappin
 4. **Local ID and resolver traits**: define `LocalIds` and `IdentityResolver` without any global chain registry.
 5. **Protocol abstractions**: port access control, pipeline loop, command context, balance store, and peer posting.
 6. **Port pipe port**: implement the local port pipe entrypoint that consumes CONTEXT blocks and calls `pipe()`.
-7. **Standard command ports**: debit, credit, deposit, withdraw, and payout.
+7. **Standard command ports**: debit, credit, deposit, withdraw, payout, and the realization command family.
 8. **CosmWasm host template**: wire `rootzero-protocol` to CosmWasm storage, `Addr` resolution, native denom/CW20/IBC assets, and bridge adapter entrypoints.
 9. **Solana and NEAR templates**: repeat the same pattern with their native identity and asset hooks.
 10. **TypeScript orchestrator SDK**: compose CONTEXT payloads for bridge delivery and keep route metadata outside the submitted bytes.

@@ -8,6 +8,96 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+### Breaking Changes
+
+- `RelayBalancePayable` now validates the entire forwarded state with
+  `takeRawBalances()`, rejecting non-BALANCE and malformed blocks. Empty state
+  remains supported.
+
+- Assigned explicit representation bytes `Rootzero = 0x01`, `Opaque = 0x02`,
+  and `Evm = 0x03`, reserving `0x00` for null/unset IDs. All structured EVM
+  IDs and opaque hash-backed IDs now encode with their new representation byte.
+
+- Changed opaque IDs from `[0x00][bytes31(hash)]` to
+  `[0x02][category][subtype][bytes29(hash)]`. Keccak preimages now use
+  `[0x01][category][subtype][payload...]`, cryptographically binding the visible
+  category and subtype to the opaque identity. Category-specific helpers reject
+  opaque IDs and preimages from other categories.
+
+- Added asset subtypes `Derived = 0x01` and `Virtual = 0x02`, and moved `Erc20`
+  from `0x02` to `0x03`. `Assets.toDerived(asset, host)` now creates a
+  deterministic opaque asset scoped to a host, with inspection, assertion, and
+  matching helpers. `Virtual` is reserved as a taxonomy value without helpers.
+
+- Renamed the chain coin/token identity from `NativeAsset`/`nativeAsset` to
+  `ChainAsset`/`chainAsset`. The asset helpers are now `Assets.toChain`,
+  `Assets.isChain`, and `Assets.chain`. The chain asset is now the
+  subtype-zero default EVM asset; its representation byte changes as described
+  above.
+
+- Changed `DepositHook` and `DepositPayableHook` to return the actual amount
+  received by the hook. Deposit execution now encodes that returned amount as
+  balance state, allowing external ingress fees or other differences from the
+  requested amount without overstating live value.
+
+- Renamed the account-scoped balance query from `GetBalances`/`getBalances` to
+  `GetAccountBalances`/`getAccountBalances`, changing its query ID accordingly.
+
+- Renamed the two-key `Balances` account ledger to `AccountBalances` and its
+  internal mapping to `accountBalances`.
+
+### Features
+
+- Added `GetBalances`/`getBalances`, a host-scoped holdings query that maps
+  `#asset` inputs to non-state `#amount` responses.
+
+- Added a host-scoped `Balances` ledger keyed directly by asset, with
+  `credit(asset, amount)` and exact-or-revert `debit(asset, amount)` mutations.
+
+- Added host-scoped `CreditPort`/`portCredit` and `DebitPort`/`portDebit`
+  endpoints. Both consume `#amount` blocks, complementing the account-scoped
+  ports that consume `#accountAmount`. Their `creditHost` and `debitHost` hooks
+  are separate from the `Balances.credit` and `Balances.debit` storage helpers.
+
+- Added the account-independent realization command family, all publishing
+  `Actions.Realize` (`17`). `realize` maps paired `#balance` and `#amount`
+  blocks to hook-adjusted `#balance` state, while `realizeDebt` does the same
+  for `#debt`. `realizePosition` pairs `#position` state with two `#amount`
+  inputs, realizes its two sides through the balance and debt hooks, and emits
+  their combined `Position`. Also added the reusable
+  `#assetLiability { bytes32 asset, bytes32 liability }` block.
+  Realization hooks take their source first, requested destination second, and
+  `uint limit` last. AMOUNT inputs carry the destination and minimum output
+  balance or maximum replacement debt. Hooks enforce limits; command loops
+  forward them and use the returned quantities. Position realization declares
+  input stride two and consumes asset/minimum first, then liability/maximum.
+
+- Added the singleton global Rootzero asset ID `[Rootzero][Asset][0][0]`, with
+  zero chain and payload fields. Its canonical value is available directly as
+  `Assets.Rootzero`, with inspection and validation helpers in `Assets`.
+
+- Added the standard `#clearinghouse { uint host }` annotation and
+  `Clearinghouse` helper for associating an entity with its clearing host. The
+  latest trusted value replaces the prior association, and host zero clears it.
+
+### Fixes
+
+- Documented trusted peers as fully validated extensions of the receiving host,
+  authorized across its entire port surface. Clarified admission requirements,
+  the single entrypoint peer check, and the absence of per-operation peer
+  permissions; retained the distinction between authorization and validity checks.
+
+- Defined debt realization to transform the entire source obligation
+  into its complete replacement or revert. Added realization tests for unequal
+  batches, mixed and malformed trailing blocks, and atomic rollback of hook
+  mutations, including asset mutations preceding a position's debt-hook failure.
+
+- `Pipeline.invokeCommand` now clears outgoing ABI padding even when temporary
+  memory contains old data, and retains only the returned buffer so later steps
+  can reuse memory occupied by large command inputs. Added ordinary and handoff
+  encoding boundary tests, state growth/shrinkage coverage, and a memory/gas
+  benchmark; documented the packed cursor's handoff discriminator.
+
 ## 1.34.0
 
 ### Breaking Changes

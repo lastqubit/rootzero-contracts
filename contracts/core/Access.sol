@@ -39,6 +39,8 @@ abstract contract PortAccess {
 
 /// @title PeerAccess
 /// @notice Authorization capability required by inbound peer endpoints.
+/// @dev Admission grants full trust across the host's port surface. Peers are
+/// validated host extensions, not holders of per-operation permissions.
 abstract contract PeerAccess {
     /// @notice Assert that `caller` is an authorized peer and return it.
     function enforcePeer(address caller) internal view virtual returns (address);

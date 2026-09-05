@@ -34,10 +34,10 @@ needs and implements their policy hooks:
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { CommandHost, Balances } from "@rootzero/contracts/Core.sol";
+import { AccountBalances, CommandHost } from "@rootzero/contracts/Core.sol";
 import { Deposit } from "@rootzero/contracts/Endpoints.sol";
 
-contract ExampleHost is CommandHost, Balances, Deposit {
+contract ExampleHost is CommandHost, AccountBalances, Deposit {
     constructor(uint commander) CommandHost(commander) {}
 
     function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -129,6 +129,11 @@ over trusted-context and standard schemas with the same name.
 Standard block aliases are intrinsic protocol metadata: indexers resolve names
 such as `balance`, `step`, and `context` from their standard keys even when no
 named schema annotation is emitted.
+
+Entities such as commands and assets may carry a `#clearinghouse { uint host }`
+annotation identifying the host responsible for clearing them. The latest
+trusted value replaces the earlier association, and host zero clears it. The
+helper emits the claim without validating either ID.
 The full schema language is specified in
 [`docs/Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md). The standard block schemas live in
 `Schemas` and their runtime keys in `Keys` (both via
@@ -171,26 +176,30 @@ is never a special case.
 Everything the protocol touches - accounts, assets, chains, hosts, endpoints -
 is identified by one 32-byte word. The first byte selects the convention:
 
-- `0x00`: opaque ID, encoded as `0x00 || bytes31(hash)`. The hash preimage is
+- `0x00`: null/unset ID.
+- `0x01`: Rootzero-native structured ID.
+- `0x02`: opaque ID, encoded as
+  `0x02 || category || subtype || bytes29(hash)`. The hash preimage is
   not recoverable from the ID; use a lookup table or witness data when the
   native account, asset metadata, or node target is needed.
-- nonzero: structured ID. The value can be deconstructed according to its
-  layout.
+- `0x03`: EVM structured ID. The value can be deconstructed according to its
+  EVM layout.
 
 Opaque preimages start with:
 
 ```txt
-[uint8 formatHash][payload...]
+[uint8 formatHash][uint8 category][uint8 subtype][payload...]
 ```
 
-Only the first byte is protocol-level convention for now. `0x01` means
-keccak256. The remaining payload format is host/domain-specific until a future
-standard defines it.
+`0x01` means keccak256. The category and subtype are copied into the ID and
+included in the hash, binding its visible type to the opaque identity. The
+remaining payload format is host/domain-specific until a future standard
+defines it.
 
-The field supplies the role for opaque IDs: a `bytes32 asset` with first byte
-`0x00` is still an asset, but its native metadata must come from lookup or
-witness data. The Solidity helpers below construct and deconstruct structured
-EVM IDs.
+Opaque and structured IDs share the same category and subtype taxonomy. This
+allows generic validation of an opaque account, asset, or node without exposing
+or resolving its native identity. The Solidity helpers below construct and
+deconstruct IDs.
 
 Structured EVM IDs use:
 
@@ -207,10 +216,26 @@ are normal user accounts assigned a host-specific role.
 Assets are unique IDs in the same single-word form as accounts and nodes.
 Nodes are hosts, commands, ports, queries, and guards.
 
-Opaque asset declarations use `Asset(host, asset, preimage)`. The preimage
-starts with a one-byte format/hash tag, letting offchain indexers or witnesses
-verify and resolve `0x00 || bytes31(hash(preimage))` assets. `0x01` means
-keccak256.
+Asset subtype `0x00` identifies the default asset for representations that
+define one, `0x01` identifies a host-scoped derived asset, `0x02` identifies a
+virtual asset, and `0x03` identifies an ERC-20 asset. `Virtual` is currently a
+taxonomy value without dedicated helpers.
+
+A derived asset is an opaque identity for an underlying asset within a host's
+namespace. `Assets.toDerived(asset, host)` hashes the canonical preimage
+`[0x01][Asset][Derived][host:32][asset:32]`. The same pair always produces the
+same ID, while changing either the host or underlying asset changes the ID.
+
+The Rootzero asset is the singleton global ID
+`[Rootzero][Asset][0][0]` with zero chain and payload fields. Its exact value is
+`0x0103000000000000000000000000000000000000000000000000000000000000`
+on every chain. Access it as `Assets.Rootzero`; EVM chain-coin
+and ERC-20 asset IDs remain chain-local.
+
+Opaque asset declarations use `Asset(host, asset, preimage)`. The preimage uses
+`[0x01][Asset][subtype][payload...]`, letting offchain indexers or witnesses
+verify and resolve
+`[0x02][Asset][subtype][bytes29(keccak256(preimage))]` assets.
 
 The `Utils.sol` entry point provides the constructors and inspectors:
 
@@ -218,7 +243,8 @@ The `Utils.sol` entry point provides the constructors and inspectors:
 bytes32 account = Accounts.toUser(msg.sender); // chain-agnostic user account
 bytes32 asset = Assets.toErc20(tokenAddress);  // ERC-20 asset ID
 uint hostId = Nodes.toHost(address(this));       // host node ID
-bytes32 opaque = Ids.toKeccak(preimage);  // 0x00-prefixed opaque ID
+bytes32 opaque = Ids.toKeccak(preimage);  // preimage: 0x01 || category || subtype || payload
+bytes32 derived = Assets.toDerived(asset, hostId); // host-scoped opaque asset
 ```
 
 ## Hosts
@@ -227,7 +253,8 @@ A host is one contract assembled from mixins. The base `Host` brings access
 control and the admin surface (authorize, unauthorize, appoint, dismiss,
 annotate, executePayable) plus the guardian `revoke` action; you add the
 endpoints you need and the policy hooks they require. Keeping a ledger is
-optional: the `Balances` mixin provides one, but a host can just as well
+optional: the `AccountBalances` and host-scoped `Balances` mixins provide
+standard implementations, but a host can just as well
 implement commands that hold no persistent state in the host at all —
 forwarding funds elsewhere, or operating only on the state threaded through a
 pipeline.
@@ -279,7 +306,8 @@ silently ignoring or dropping supplied state. Descriptor schemas remain
 discovery metadata; the command's decoding and loop implementation defines its
 runtime source semantics. A command that does not consume supplied state rejects
 it when closing, while `takeRawState` explicitly consumes an intact forwarded
-state source.
+state source. `takeRawBalances` additionally validates every forwarded block as
+BALANCE and is used by `relayBalancePayable`; empty state remains accepted.
 This is especially important for `#debt` and `#position`, because dropping
 either could silently discard an outstanding debt requirement.
 
@@ -308,6 +336,14 @@ claims, fees, netting, and other multi-step operations. Debt and position are
 transient representations and do not themselves create or erase an obligation
 recorded by an external system.
 
+The quantity in a debt side is an exact net obligation. A command that consumes
+`debt = 100` must deliver, make available, or otherwise satisfy all `100`, or
+revert. Transfer fees and other sourcing costs are paid in addition to the debt
+or reflected in the gross amount sourced upstream; they must not silently
+reduce the fulfilled quantity. When fulfillment produces custody, the amount
+that actually reaches custody must equal the debt. Partial fulfillment requires
+preserving the unsatisfied remainder as debt state rather than consuming it.
+
 The standard `Deposit` mixin shows the canonical shape: open the execution,
 decode its input, call the hook, and write the output run. Execution helpers
 route known state blocks (`#balance`, `#debt`, `#custody`, and `#position`) to
@@ -321,7 +357,7 @@ function deposit(
 
     while (exec.more()) {
         (bytes32 asset, uint amount) = exec.unpackAmount();
-        deposit(exec.account, asset, amount); // host policy hook
+        amount = deposit(exec.account, asset, amount); // host policy hook
         exec.outputBalance(asset, amount);
     }
 
@@ -355,6 +391,13 @@ abstract contract MyCommand is CommandBase {
 }
 ```
 
+Deposit hooks return the actual amount that becomes live `#balance` state.
+Implementations can therefore deduct external ingress fees or report an
+otherwise adjusted received amount without overstating the value passed to the
+next pipeline step. Account debits are exact internal bookkeeping operations:
+they must make the complete requested amount available or revert. Any account
+fee is charged in addition and does not reduce the resulting balance.
+
 The final argument is a packed flags byte. Pass `0` for an ordinary endpoint,
 or compose values such as `Flags.Funded`, `Flags.Admin`, and
 `Flags.AdminFunded` from the command or endpoint package entry point.
@@ -370,7 +413,13 @@ an initial balance and native-value budget), `cashout` (withdraw native
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
 `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
-state to other accounts), `allocate` (turn balance state into custody),
+state to other accounts), `realize` (convert each balance into its paired
+requested asset with an AMOUNT input carrying its minimum output), `realizeDebt`
+(convert debt with an AMOUNT input carrying the destination liability and maximum
+replacement debt), `realizePosition` (transform positions
+using two AMOUNT inputs per position: asset/minimum, then liability/maximum),
+`allocate` (turn balance state
+into custody),
 `provision` (provision custody from an external allocation), `settle` (consume
 asset-liability position state), `repay` and `repayPayable` (consume standalone
 debt state), `repayPosition` and `repayPositionPayable` (repay a position's debt
@@ -395,8 +444,8 @@ next step, allowing one command to fund later commands. The standard
 `#bootstrap { bytes32 asset, uint amount, uint budget }` requests and atomically
 debits each asset through the standard account hook, introduces matching
 `#balance` state, and debits each nonzero budget contribution from the account's
-native asset through the same hook. Its pipeline-local implementation uses assigned step value first when
-bootstrapping the native asset, debits any remainder from the account, and
+chain asset through the same hook. Its pipeline-local implementation uses assigned step value first when
+bootstrapping the chain asset, debits any remainder from the account, and
 returns unused assigned value as credit. Bootstrap is registered with command
 metadata but is only executable through local pipeline execution. This is the core of
 `Pipeline.pipe`:
@@ -489,7 +538,7 @@ external self-call. The host's `execute` hook must authorize a command before
 returning true. Returning `handled = false` delegates a local command to its
 trusted normal external entrypoint. Pass the step value into each adapter.
 Bootstrap is pipeline-local rather than an
-externally callable command and may consume value for native-asset balance;
+externally callable command and may consume value for chain-asset balance;
 the other five reject nonzero value because those commands are non-funded.
 
 Positions also support backward-composed pipelines. In an exact-output route,
@@ -513,8 +562,16 @@ other commands may transform the asset side, the liability side, or both.
 
 Queries are the read endpoints: view functions that take a block-stream input
 and return a block-stream response, with the same batch shape as commands. The
-standard `getBalances` query takes a run of positions and answers each one in
-order:
+standard `getBalances` query reports assets actually held or controlled by its
+host without creating pipeline state:
+
+```txt
+input:  asset { bytes32 asset }
+response: amount { bytes32 asset, uint amount }
+```
+
+The `getAccountBalances` query instead takes a run of account-asset positions
+and answers each one in order:
 
 ```txt
 input:  accountAsset { bytes32 account, bytes32 asset }
@@ -526,12 +583,27 @@ the descriptor's lanes through the published block schemas.
 
 ## Ports
 
-Ports are the host-to-host surfaces, callable only by trusted peer hosts. By
-default, trusting a peer means the host has verified that peer and permits it to
-use the functionality of every port the host exposes without another policy
-decision inside each port. A host that needs narrower capabilities can add
-per-port or per-operation checks in its hook implementations, or expose custom
-ports with a different access model.
+Ports are the host-to-host surfaces, callable only by trusted peer hosts.
+**A trusted peer is a fully trusted extension of the receiving host.** Admitting
+a peer authorizes it to use every port the host exposes. Peer trust is not a
+limited permission to perform selected operations.
+
+Before admission, the host's maintainers must fully validate the peer's behavior
+against the host's invariants, including its externally reachable entrypoints,
+dependencies, and upgrade authority. The peer must prevent its callers from
+causing unauthorized or invalid actions on the receiving host. For example, a
+peer that credits backing must establish that backing before calling the credit
+port. The receiving host relies on that guarantee instead of proving it again
+for each operation. Changes to the peer or its dependencies require renewed
+validation of the trust decision.
+
+The port authenticates the peer once at entry through `onlyPeer`. There is no
+additional peer-specific authorization by port, asset, direction, or individual
+operation inside the batch. This keeps repeated authorization out of the
+execution path. Parsing, balance sufficiency, arithmetic checks, and other
+operation invariants still apply; they establish validity, not different
+permissions for different trusted peers. A component that cannot be trusted
+with the full port surface must not be admitted as a trusted peer.
 
 The central ports are batches all the way down:
 
@@ -544,6 +616,10 @@ The central ports are batches all the way down:
 - `portRequestAllowance` consumes the same amount blocks and lets the
   authenticated peer set its own asset allowance through the same authoritative
   hook used by the admin allowance command.
+- `portCredit` and `portDebit` consume `amount` blocks and apply credits or
+  debits directly to the host. Their `portCreditAccount` and
+  `portDebitAccount` counterparts consume `accountAmount` blocks and apply the
+  operation to the specified account ledger.
 - `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
@@ -587,9 +663,9 @@ names, access sets, balances — from logs alone, with no artifact files.
 
 Import from the package entry points rather than deep paths:
 
-- `@rootzero/contracts/Core.sol` — `Host`, access control, `Balances`,
-  `Settlement`, `ExecuteHook`, `PipeHook`, `ForwardHook`, `Pipeline`, `Portal`,
-  validator
+- `@rootzero/contracts/Core.sol` — `Host`, annotation helpers including
+  `Clearinghouse`, access control, `AccountBalances`, `Balances`, `Settlement`, `ExecuteHook`,
+  `PipeHook`, `ForwardHook`, `Pipeline`, `Portal`, validator
 - `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
   codec helpers, and shared value types for authoring custom commands
 - `@rootzero/contracts/Endpoints.sol` — command, admin, port, guard, and query

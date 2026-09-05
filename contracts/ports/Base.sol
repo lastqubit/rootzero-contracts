@@ -11,9 +11,12 @@ import { Executions } from "../execution/Execution.sol";
 /// @notice Abstract base for peer-facing rootzero ports.
 /// Ports handle inter-host operations between cooperating hosts.
 /// Access is restricted to trusted peer callers via `onlyPeer`.
-/// @dev By convention, trusting a peer authorizes it to use every port exposed
-/// by the host without an additional policy decision in each port. Hosts that
-/// need narrower capabilities may enforce them in hooks or custom port bases.
+/// @dev A trusted peer is a fully trusted extension of the receiving host and
+/// may use every exposed port. Its behavior, caller validation, dependencies,
+/// and upgrade authority must be fully validated before admission. onlyPeer
+/// authenticates the caller once at entry; batch operations do not add separate
+/// peer-specific authorization by port, asset, or direction. Operation validity
+/// and accounting invariants still apply. Do not admit partially trusted peers.
 abstract contract PortBase is PeerAccess, InputEndpointBase {
 
     /// @dev Restrict execution to trusted callers, excluding the commander.

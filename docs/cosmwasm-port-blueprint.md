@@ -23,10 +23,11 @@ The goal is not to make CosmWasm look like Solidity. The goal is to preserve Roo
    CosmWasm account IDs, node IDs, and asset IDs should still carry the shared `Account`, `Node`, and `Asset` category bits. Do not use EVM representation tags such as `Evm` for CosmWasm identities. Define CosmWasm representation tags.
 
    If an identity does not fit or should stay opaque, encode it as
-   `0x00 || bytes31(hash)`. Resolve the full native identity through local
-   lookup or witness data only at adapter boundaries. Opaque preimages start
-   with a one-byte format/hash tag; `0x01` means keccak256. The remaining
-   payload format is intentionally left for a future convention.
+   `[0x02][category][subtype][bytes29(hash)]`. Resolve the full native identity
+   through local lookup or witness data only at adapter boundaries. Opaque
+   preimages use `[formatHash][category][subtype][payload...]`; `0x01` means
+   keccak256. The remaining payload format is intentionally left for a future
+   convention.
 
 4. No global chain IDs.
    CosmWasm code should not know about EVM chain IDs, Solana IDs, or a global chain registry. Bridge routes are transport metadata outside Rootzero core.
@@ -269,24 +270,29 @@ Example:
 [CosmWasm][Asset][NativeDenom][local handle payload]
 [CosmWasm][Asset][Cw20][local handle payload]
 [CosmWasm][Asset][IbcDenom][local handle payload]
-0x00 || bytes31(hash(native_identity))
+[0x02][category][subtype][bytes29(hash(canonical_preimage))]
 ```
 
-Category checks remain protocol-wide for structured IDs:
+Category checks remain protocol-wide for both structured and opaque IDs:
 
 ```rust
 fn is_account(id: &[u8; 32]) -> bool {
-    id[2] == CATEGORY_ACCOUNT
+    id[1] == CATEGORY_ACCOUNT
 }
 
 fn is_asset(id: &[u8; 32]) -> bool {
-    id[2] == CATEGORY_ASSET
+    id[1] == CATEGORY_ASSET
 }
 ```
 
-Opaque IDs do not carry category bytes; their role comes from the field where
-they appear. Do not create structured CosmWasm accounts that fail a shared
-`is_account` check, or structured CosmWasm assets that fail `is_asset`.
+Opaque IDs carry category and subtype in their second and third bytes. Do not
+create CosmWasm accounts that fail a shared `is_account` check, or CosmWasm
+assets that fail `is_asset`.
+
+Reserve the shared asset subtype assignments `Derived = 0x01`,
+`Virtual = 0x02`, and `Erc20 = 0x03`. A CosmWasm port may use Derived and
+Virtual where their shared meanings apply, but should not expose ERC-20 helpers.
+Chain-specific asset subtypes must not reuse these assigned values.
 
 ## CosmWasm Asset Helpers
 
@@ -421,6 +427,9 @@ creditAccount
 deposit
 withdraw
 payout
+realize
+realizeDebt
+realizePosition
 ```
 
 Command inputs and state outputs remain Rootzero block streams. Every command
@@ -453,12 +462,12 @@ pub struct CommandOutput {
 balance key = (account_id, asset_id)
 ```
 
-`deposit`, `withdraw`, and `payout` may cross into adapter logic because native tokens need bank/CW20 messages.
+`deposit`, `withdraw`, `payout`, and the realization commands may cross into adapter logic because native tokens need bank/CW20 messages or value conversion.
 
 As a rule of thumb:
 
 - `debit` and `credit` can mostly live in `rootzero-protocol` because they are ledger operations over protocol IDs.
-- `deposit`, `withdraw`, and `payout` should have protocol-level input parsing in `rootzero-protocol`, but native asset movement in `rootzero-cosmwasm`.
+- `deposit`, `withdraw`, `payout`, and the realization commands should have protocol-level input parsing in `rootzero-protocol`, but native asset movement or conversion in `rootzero-cosmwasm`.
 
 ## Native Asset Adapter
 
@@ -573,7 +582,7 @@ CosmWasm writer bytes -> TypeScript/Solidity parser -> exact byte match
 - `is_account`, `is_asset`, and node category checks work for CosmWasm IDs.
 - No EVM representation tags are used for CosmWasm identities.
 - No ERC helper names are used unless wrapping real EVM/ERC assets.
-- Balances use protocol account IDs as keys.
+- Account balances use protocol account IDs as keys.
 - Asset/account/node resolution happens only at native boundaries.
 - `PortPipe` accepts raw CONTEXT bytes and calls the same pipeline path as local execution.
 - STEP commands are local CosmWasm command IDs.

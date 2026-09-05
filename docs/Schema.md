@@ -54,6 +54,12 @@ The standard `#action { uint action }` annotation assigns one primary semantic
 action to an entity. The latest trusted value replaces the previous value, and
 `Actions.None` clears the classification.
 
+The standard `#clearinghouse { uint host }` annotation assigns a clearing host
+to an entity such as a command or asset. The latest trusted value replaces the
+previous host, and zero clears the association. Like other annotation helpers,
+it encodes the claim without validating either ID; consumers apply type and
+trust policy.
+
 For example, a host-specific payment block can use a small literal, the command
 selector, or any other chosen `bytes4` value as long as that key is not
 overloaded in the relevant host/schema context.
@@ -298,8 +304,8 @@ size bounds and allocation hint so execution can reconstruct the output spec and
 initialize its writer directly. Four descriptor-level bytes are reserved after
 the lane metadata. The Solidity output decoder returns a left-aligned,
 writer-ready spec that retains its encoded group and clears its reserved fields.
-`Specs.group` returns the effective group, interpreting an encoded zero as one
-for a non-empty spec.
+`Specs.group(spec, n)` assigns an explicit block stride. `Specs.normalize`
+resolves an encoded zero stride to one for a non-empty spec.
 
 Any non-empty lane resolves its key to a block alias and schema body through the
 active schema context. A top-level list lane uses the key of its emitted custom
@@ -363,9 +369,18 @@ Callers do not select or switch an active decoder source.
 Standalone `Cur` decoders remain source-agnostic because they represent one
 explicit byte region. `takeRawState` is the deliberate execution exception: it
 may forward unread state without interpreting or validating its block types,
-but marks that complete region consumed. Adding another typed pipeline-state
+but marks that complete region consumed. `takeRawBalances` validates every
+remaining block as BALANCE before returning the original calldata stream;
+`relayBalancePayable` uses it to reject other state types and malformed blocks.
+An empty stream is accepted. Adding another typed pipeline-state
 shape therefore requires a standard protocol block and a dedicated execution
 unpacker; publishing a custom schema alone does not create a state type.
+
+`debt` is an exact net obligation. Consuming a debt block means satisfying its
+complete quantity; a command that cannot do so must revert or return the
+unsatisfied remainder as debt state. Fees and sourcing costs are additional to
+that quantity and must not silently reduce it. If fulfillment creates custody,
+the amount actually placed in custody must equal the consumed debt quantity.
 
 The two sides of a position are independently optional. Encode an absent asset
 side as `asset = 0, amount = 0`, and an absent liability side as
@@ -389,7 +404,23 @@ accidentally.
 The repayment commands reflect the state shapes directly. `repay` and
 `repayPayable` consume `#debt` and return empty state. `repayPosition` and
 `repayPositionPayable` consume `#position`, repay its liability side, and return
-the released asset side as `#balance`.
+the released asset side as `#balance`. `realize` pairs each `#balance` with an
+`#amount(destination, limit)` input, where `limit` is the minimum output balance.
+`realizeDebt` pairs each `#debt` with the same input shape, where `limit` is the
+maximum replacement debt, and emits the complete replacement `#debt`. Limits
+are inclusive and denominated in destination units. Commands pass `limit` to
+their hooks; the hooks enforce it, with no additional check in the command loop.
+Zero is an unbounded asset minimum; max uint is an unbounded debt maximum.
+The debt realization
+hook must transform the entire source obligation or revert: no source remainder
+is emitted, and fees or rounding must not silently discard debt. Source and
+replacement amounts may use different units and need not be numerically equal
+or ordered. `realizePosition` pairs each `#position` with two consecutive
+`#amount` inputs: destination asset and minimum output first, then destination
+liability and maximum debt. It consumes each input immediately before invoking
+the corresponding `realize` or `realizeDebt` hook and emits the combined
+`#position`. A missing or malformed second input reverts the earlier asset hook's
+changes as well. Its descriptor declares an input stride of two.
 
 This representation supports ordinary forward transformations as well as
 backward composition. For example, an exact-output route can carry its desired
@@ -582,20 +613,29 @@ or require interpretation of a chain-specific packed resource word.
 
 Account, asset, and node ID fields use one 32-byte convention:
 
-- first byte `0x00`: opaque ID, encoded as `0x00 || bytes31(hash)`. The full
+- first byte `0x00`: null/unset ID.
+- first byte `0x01`: Rootzero-native structured ID.
+- first byte `0x02`: opaque ID, encoded as
+  `[0x02][category][subtype][bytes29(hash)]`. The full
   preimage must come from a lookup table or witness data when native metadata is
   needed.
-- first byte nonzero: structured ID. The value may be deconstructed according
-  to its chain/runtime layout.
+- first byte `0x03`: EVM structured ID. The value may be deconstructed
+  according to its EVM layout.
 
-Opaque preimages must start with a one-byte format/hash tag; `0x01` means
-keccak256. The remaining bytes are host/domain-specific until the protocol
+Opaque preimages use `[formatHash][category][subtype][payload...]`; `0x01`
+means keccak256. Category and subtype are included in the hash and copied into
+the ID. The remaining bytes are host/domain-specific until the protocol
 standardizes a fuller preimage payload format.
 
-The field name supplies the protocol role for opaque IDs. For example, a
-`bytes32 asset` whose first byte is zero is still an asset in that block; it
-just cannot be decoded without external context. Runtime helpers that inspect
-the layout of an ID only apply to structured IDs.
+Opaque IDs carry the same protocol category and subtype taxonomy as structured
+IDs, allowing their role to be validated without external context. Their native
+identity and metadata still require lookup or witness data.
+
+Asset subtypes are `0x00` for a representation's default asset, `0x01` for a
+host-scoped derived asset, `0x02` for a virtual asset, and `0x03` for ERC-20.
+A derived asset uses the opaque representation and the canonical preimage
+`[0x01][Asset][Derived][host:32][underlyingAsset:32]`. Virtual is currently a
+reserved taxonomy value without a standard constructor or behavior.
 
 ## Identifiers
 
@@ -663,6 +703,7 @@ amount             bytes32 asset, uint amount
 balance            bytes32 asset, uint amount
 debt               bytes32 liability, uint debt
 accountAsset       bytes32 account, bytes32 asset
+assetLiability     bytes32 asset, bytes32 liability
 hostAsset          uint host, bytes32 asset
 bootstrap          bytes32 asset, uint amount, uint budget
 allocation         uint host, bytes32 asset, uint amount
@@ -682,6 +723,7 @@ context            bytes32 account, #bytes as state, #bytes as input
 recover            uint handler, uint resources, bytes32 key, #bytes as witness
 annotation         uint entity, #bytes as data
 action             uint action
+clearinghouse      uint host
 label              bytes32 namespace, #string as name
 schema             uint spec, #string as body, bytes32 name
 ```
