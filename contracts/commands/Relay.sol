@@ -48,7 +48,7 @@ abstract contract RelayPayable is CommandBase, RelayPayableHook {
 }
 
 /// @title RelayBalancePayable
-/// @notice Command that forwards required BALANCE state with one RELAY block.
+/// @notice Command that forwards zero or more BALANCE state blocks with one RELAY block.
 /// Reverts unless the input contains exactly one RELAY block, preventing
 /// the same state from being duplicated across multiple relays.
 /// Produces no output state.
@@ -66,7 +66,7 @@ abstract contract RelayBalancePayable is CommandBase, RelayPayableHook {
     function relayBalancePayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
         (bytes calldata input, bytes calldata steps) = exec.unpackRelay();
-        bytes calldata state = exec.takeRawState();
+        bytes calldata state = exec.takeRawBalances();
         relay(exec.account, input, Blocks.createContextCopy(exec.account, state, steps), exec);
         return exec.close();
     }

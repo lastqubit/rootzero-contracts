@@ -47,6 +47,7 @@ describe("Commands", () => {
         "realize",
         "realizeDebt",
         "realizePosition",
+        "relayPayable",
         "relayBalancePayable",
       ].map((method) => cmd(method)),
     ]);
@@ -1471,18 +1472,17 @@ describe("Commands", () => {
         .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("forwards raw state without validating its block schema", async () => {
+    it("rejects POSITION state", async () => {
       const state = encodePositionBlock(relayAsset, 1n, relayAsset, 1n);
       const portal = portalNode(31337n);
       const steps = encodeStepBlock(0n, 0n, "0x");
       const input = encodeRelayBlock(encodeRelayInputBlock(portal, 0n), steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.emit(host, "RelayCalled")
-        .withArgs(portal, 0n, userAccount, encodeContextBlock(userAccount, state, steps));
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
 
-    it("forwards the complete raw state source including mixed trailing blocks", async () => {
+    it("rejects mixed trailing state blocks", async () => {
       const state = concat(
         encodeBalanceBlock(relayAsset, 1n),
         encodePositionBlock(relayAsset, 1n, relayAsset, 1n),
@@ -1492,9 +1492,24 @@ describe("Commands", () => {
       const input = encodeRelayBlock(encodeRelayInputBlock(portal, 0n), steps);
 
       await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
-        .to.emit(host, "RelayCalled")
-        .withArgs(portal, 0n, userAccount, encodeContextBlock(userAccount, state, steps));
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
+
+    for (const [label, malformed, error] of [
+      ["wrong BALANCE payload size", (state: string) => state.slice(0, 10) + "0000003f" + state.slice(18), "InvalidBlock"],
+      ["truncated BALANCE payload", (state: string) => state.slice(0, -2), "OutOfBounds"],
+      ["trailing partial header", (state: string) => state + "00", "OutOfBounds"],
+    ] as const) {
+      it(`rejects ${label}`, async () => {
+        const state = malformed(encodeBalanceBlock(relayAsset, 1n));
+        const input = encodeRelayBlock(
+          encodeRelayInputBlock(portalNode(31337n), 0n),
+          encodeStepBlock(0n, 0n, "0x"),
+        );
+        await expect(callAs(0, "relayBalancePayable", ctx({ state, input })))
+          .to.be.revertedWithCustomError(host, error);
+      });
+    }
 
     it("rejects unread trailing RELAY input when closing", async () => {
       const portal = portalNode(31337n);
@@ -1545,6 +1560,139 @@ describe("Commands", () => {
       expect(output).to.equal("0x");
       expect(transactions).to.equal(1n);
     });
+  });
+
+  describe("relay state safety", () => {
+    const asset = ethers.zeroPadValue("0x80", 32);
+    const liability = ethers.zeroPadValue("0x81", 32);
+    const portal = (0x03020100n << 224n) | 31337n;
+    const balance = encodeBalanceBlock(asset, 12n);
+    const balances = concat(balance, encodeBalanceBlock(liability, 34n));
+    const transport = encodeRelayInputBlock(portal, 0n);
+    const continuation = encodeStepBlock(0n, 0n, "0x1234");
+    const input = encodeRelayBlock(transport, continuation);
+    async function expectPipelineRevert(method: string, state: string, steps: string, errorName: string) {
+      let data: string | undefined;
+      try {
+        await callAs(0, "testPipe", userAccount, state, steps, { value: 1n });
+      } catch (error: any) {
+        data = error.data ?? error.info?.error?.data;
+      }
+      expect(data, "pipeline must revert with encoded failure data").to.be.a("string");
+      const errors = new ethers.Interface(["error FailedCall(address addr, bytes4 selector, bytes err)"]);
+      const failure = errors.parseError(data!);
+      expect(failure?.name).to.equal("FailedCall");
+      expect(failure?.args).to.deep.equal([
+        await host.getAddress(),
+        host.interface.getFunction(method)!.selector,
+        host.interface.encodeErrorResult(errorName),
+      ]);
+    }
+
+    const forbidden = [
+      ["POSITION with debt", encodePositionBlock(asset, 12n, liability, 7n)],
+      ["POSITION with debt and zero assets", encodePositionBlock(asset, 0n, liability, 7n)],
+      ["POSITION with maximum debt", encodePositionBlock(asset, 12n, liability, ethers.MaxUint256)],
+      ["POSITION with zero debt", encodePositionBlock(asset, 12n, liability, 0n)],
+      ["DEBT", encodeDebtBlock(liability, 7n)],
+      ["CUSTODY", encodeCustodyBlock(portal, asset, 12n)],
+      // AMOUNT has the same payload size as BALANCE, but must still be rejected.
+      ["AMOUNT", encodeAmountBlock(asset, 12n)],
+      ["unknown block key", "0xffffffff" + balance.slice(10)],
+    ] as const;
+
+    for (const method of ["relayPayable", "relayBalancePayable"] as const) {
+      describe(method, () => {
+        const schemaError = method === "relayPayable" ? "UnconsumedData" : "InvalidBlock";
+
+        for (const [kind, block] of forbidden) {
+          for (const [placement, state] of [
+            ["alone", block],
+            ["before balances", concat(block, balances)],
+            ["between balances", concat(balance, block, balance)],
+            ["after balances", concat(balances, block)],
+          ] as const) {
+            it(`rejects ${kind} ${placement}`, async () => {
+              await expect(callAs(0, method, ctx({ state, input }), { value: 1n }))
+                .to.be.revertedWithCustomError(host, schemaError);
+            });
+          }
+        }
+
+        // Exercise every partial header length and representative partial payloads.
+        for (const length of [1, 2, 3, 4, 5, 6, 7, 8, 39, 71]) {
+          for (const prefix of ["0x", balances]) {
+            it(`rejects a ${length}-byte truncated BALANCE ${prefix === "0x" ? "alone" : "after balances"}`, async () => {
+              const state = concat(prefix, ethers.dataSlice(balance, 0, length));
+              await expect(callAs(0, method, ctx({ state, input })))
+                .to.be.revertedWithCustomError(host, method === "relayPayable" ? "UnconsumedData" : "OutOfBounds");
+            });
+          }
+        }
+
+        for (const size of [0, 32, 63, 65, 128, 0xffffffff]) {
+          it(`rejects a BALANCE declaring ${size} payload bytes after valid balances`, async () => {
+            const malformed = concat(ethers.dataSlice(balance, 0, 4), ethers.toBeHex(size, 4), ethers.dataSlice(balance, 8));
+            await expect(callAs(0, method, ctx({ state: concat(balances, malformed), input })))
+              .to.be.revertedWithCustomError(host, schemaError);
+          });
+        }
+
+        for (const [kind, state] of forbidden) {
+          it(`reverts the pipeline handoff for ${kind} after balances`, async () => {
+            const steps = concat(
+              encodeStepBlock(await cmd(method), 1n, transport),
+              encodeStepBlock(await remoteCmd("noop"), 0n, "0x"),
+            );
+            await expectPipelineRevert(method, concat(balances, state), steps, schemaError);
+          });
+        }
+
+        it("rejects a second RELAY instead of handing state off twice", async () => {
+          const state = method === "relayPayable" ? "0x" : balances;
+          await expect(callAs(0, method, ctx({ state, input: concat(input, input) })))
+            .to.be.revertedWithCustomError(host, "UnconsumedData");
+        });
+
+        it("hands valid state off exactly once and leaves the continuation for the destination", async () => {
+          const state = method === "relayPayable" ? "0x" : balances;
+          const remaining = encodeStepBlock(await remoteCmd("noop"), 0n, "0x1234");
+          const steps = concat(encodeStepBlock(await cmd(method), 0n, transport), remaining);
+          const tx = await callAs(0, "testPipe", userAccount, state, steps);
+          await expect(tx).to.emit(host, "RelayCalled")
+            .withArgs(portal, 0n, userAccount, encodeContextBlock(userAccount, state, remaining));
+          const receipt = await tx.wait();
+          const relayTopic = host.interface.getEvent("RelayCalled")!.topicHash;
+          const commandTopic = remote.interface.getEvent("CommandCalled")!.topicHash;
+          expect(receipt!.logs.filter((log) => log.topics[0] === relayTopic)).to.have.length(1);
+          expect(receipt!.logs.filter((log) => log.topics[0] === commandTopic)).to.have.length(0);
+        });
+      });
+    }
+
+    for (const state of [balance, balances]) {
+      it(`relayPayable rejects ${state === balance ? "one BALANCE" : "multiple BALANCE blocks"} through a pipeline`, async () => {
+        const steps = encodeStepBlock(await cmd("relayPayable"), 0n, transport);
+        await expectPipelineRevert("relayPayable", state, steps, "UnconsumedData");
+      });
+    }
+
+    for (const count of [0, 1, 2, 16]) {
+      it(`relayBalancePayable forwards all ${count} balances exactly once without changing their bytes`, async () => {
+        const state = concat(...Array.from({ length: count }, (_, i) =>
+          encodeBalanceBlock(i % 2 === 0 ? asset : liability, i === 0 ? 0n : ethers.MaxUint256 - BigInt(i)),
+        ));
+        const [output, credit] = await host.relayBalancePayable.staticCall(...ctx({ state, input }), { value: 3n });
+        expect(output).to.equal("0x");
+        expect(credit).to.equal(3n);
+        const tx = await callAs(0, "relayBalancePayable", ctx({ state, input }), { value: 3n });
+        await expect(tx).to.emit(host, "RelayCalled")
+          .withArgs(portal, 0n, userAccount, encodeContextBlock(userAccount, state, continuation));
+        const receipt = await tx.wait();
+        const relayTopic = host.interface.getEvent("RelayCalled")!.topicHash;
+        expect(receipt!.logs.filter((log) => log.topics[0] === relayTopic)).to.have.length(1);
+      });
+    }
   });
 
   describe("recoverPayable", () => {

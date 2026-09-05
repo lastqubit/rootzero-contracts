@@ -176,6 +176,17 @@ library Executions {
         takeState(exec, data.length);
     }
 
+    /// @notice Validate and consume the unread state as zero or more BALANCE blocks.
+    /// @dev Checks every block's key and fixed payload size without re-encoding it.
+    /// Like rawState, an EMPTY source remains unconsumed for close to reject.
+    /// @return data Original calldata containing the validated BALANCE stream.
+    function takeRawBalances(Execution memory exec) internal pure returns (bytes calldata data) {
+        data = rawState(exec);
+        for (uint consumed; consumed < data.length; consumed += Sizes.Balance) {
+            unpackBalance(exec);
+        }
+    }
+
     /// @notice Return the unread bounded endpoint input without consuming it.
     function rawInput(Execution memory exec) internal pure returns (bytes calldata data) {
         uint decoders = exec.decoders;
