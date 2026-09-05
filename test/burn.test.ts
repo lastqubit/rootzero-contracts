@@ -14,7 +14,7 @@ describe("Burn", () => {
     const commander = await signer.getAddress();
     host = await deploy("TestBurnHost", await hostId(commander));
 
-    const USER_PREFIX = 0x01010300n;
+    const USER_PREFIX = 0x03010300n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (BigInt(commander) << 32n)),
       32

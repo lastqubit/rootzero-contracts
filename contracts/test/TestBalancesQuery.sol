@@ -4,7 +4,7 @@ pragma solidity ^0.8.33;
 import { Accounts } from "../utils/Accounts.sol";
 import { Assets } from "../utils/Assets.sol";
 import {InvalidAsset} from "../utils/Errors.sol";
-import { GetBalances } from "../queries/Balances.sol";
+import { GetBalances, GetAccountBalances } from "../queries/Balances.sol";
 import {Runtime} from "../core/Runtime.sol";
 
 contract TestErc20BalanceToken {
@@ -19,7 +19,7 @@ contract TestErc20BalanceToken {
     }
 }
 
-contract TestBalancesQuery is GetBalances {
+contract TestBalancesQuery is GetBalances, GetAccountBalances {
     TestErc20BalanceToken public immutable token = new TestErc20BalanceToken();
     bytes32 public immutable tokenAsset = Assets.toErc20(address(token));
 
@@ -29,13 +29,21 @@ contract TestBalancesQuery is GetBalances {
         token.mint(account, amount);
     }
 
-    function nativeAssetId() external view returns (bytes32) {
-        return nativeAsset;
+    function chainAssetId() external view returns (bytes32) {
+        return chainAsset;
+    }
+
+    receive() external payable {}
+
+    function getBalance(bytes32 asset) internal view override returns (uint amount) {
+        if (asset == chainAsset) return address(this).balance;
+        if (asset == tokenAsset) return token.balanceOf(address(this));
+        revert InvalidAsset();
     }
 
     function getBalance(bytes32 account, bytes32 asset) internal view override returns (uint amount) {
         address accountAddr = Accounts.addr(account);
-        if (asset == nativeAsset) return accountAddr.balance;
+        if (asset == chainAsset) return accountAddr.balance;
         if (asset == tokenAsset) return token.balanceOf(accountAddr);
         revert InvalidAsset();
     }

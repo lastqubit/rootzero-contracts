@@ -7,6 +7,7 @@ import {
   endpointDescriptor,
   exactSpec,
   encodeBootstrapBlock,
+  encodeAssetBlock,
   encodeAmountBlock,
   encodeBalanceBlock, encodeDebtBlock, encodePositionBlock, encodeAllocationBlock, encodeCustodyBlock,
   encodeAccountBlock, encodeNodeBlock, encodeStepBlock, encodeUserAccount,
@@ -43,6 +44,9 @@ describe("Commands", () => {
         "settle",
         "repay",
         "deposit",
+        "realize",
+        "realizeDebt",
+        "realizePosition",
         "relayBalancePayable",
       ].map((method) => cmd(method)),
     ]);
@@ -56,8 +60,8 @@ describe("Commands", () => {
 
     // Build a user account (unspecified prefix + address)
     const addrBig = BigInt(commander);
-    // USER_PREFIX = [Evm][Account][User][flags=0] = 0x01010300
-    const USER_PREFIX = 0x01010300n;
+    // USER_PREFIX = [Evm][Account][User][flags=0] = 0x03010300
+    const USER_PREFIX = 0x03010300n;
     userAccount = ethers.zeroPadValue(
       ethers.toBeHex((USER_PREFIX << 224n) | (addrBig << 32n)), 32
     );
@@ -82,6 +86,33 @@ describe("Commands", () => {
     });
     Promise.resolve(promise).catch(() => {});
     return promise;
+  }
+
+  async function withDepositFee(fee: bigint, test: () => Promise<void>) {
+    await host.setDepositFee(fee);
+    try {
+      await test();
+    } finally {
+      await host.setDepositFee(0n);
+    }
+  }
+
+  async function withRealizeFee(fee: bigint, test: () => Promise<void>) {
+    await host.setRealizeFee(fee);
+    try {
+      await test();
+    } finally {
+      await host.setRealizeFee(0n);
+    }
+  }
+
+  async function withRealizeDebtFee(fee: bigint, test: () => Promise<void>) {
+    await host.setRealizeDebtFee(fee);
+    try {
+      await test();
+    } finally {
+      await host.setRealizeDebtFee(0n);
+    }
   }
 
   async function cmd(method: string) {
@@ -120,6 +151,9 @@ describe("Commands", () => {
       ["repayPosition", 11n],
       ["repayPositionPayable", 11n],
       ["cashout", 15n],
+      ["realize", 17n],
+      ["realizeDebt", 17n],
+      ["realizePosition", 17n],
     ] as const) {
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd(method), encodeActionBlock(action));
@@ -163,6 +197,14 @@ describe("Commands", () => {
         encodeBalanceBlock(asset2, 20n)
       ));
       expect(transactions).to.equal(0n);
+    });
+
+    it("uses the amount actually received from the deposit hook", async () => {
+      const asset = ethers.zeroPadValue("0x01", 32);
+      await withDepositFee(3n, async () => {
+        const [result] = await host.deposit.staticCall(...ctx({ input: encodeAmountBlock(asset, 50n) }));
+        expect(result).to.equal(encodeBalanceBlock(asset, 47n));
+      });
     });
 
     it("accepts an ordinary command call from an authorized node", async () => {
@@ -249,6 +291,18 @@ describe("Commands", () => {
       expect(transactions).to.equal(1n);
     });
 
+    it("uses the amount actually received from the payable deposit hook", async () => {
+      const asset = ethers.zeroPadValue("0x05", 32);
+      await withDepositFee(2n, async () => {
+        const [result, credit] = await host.depositPayable.staticCall(
+          ...ctx({ input: encodeAmountBlock(asset, 8n) }),
+          { value: 8n },
+        );
+        expect(result).to.equal(encodeBalanceBlock(asset, 6n));
+        expect(credit).to.equal(0n);
+      });
+    });
+
     it("keeps plain deposit values full-width", async () => {
       const asset = ethers.zeroPadValue("0x07", 32);
       const input = encodeAmountBlock(asset, 1n << 128n);
@@ -327,9 +381,9 @@ describe("Commands", () => {
         );
     });
 
-    it("withdraws native BALANCE state through its hook", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
-      const state = encodeBalanceBlock(nativeAsset, 25n);
+    it("withdraws chain-asset BALANCE state through its hook", async () => {
+      const chainAsset = await utils.testToChain();
+      const state = encodeBalanceBlock(chainAsset, 25n);
       const tx = await callAs(0, "cashout", ctx({ state }));
 
       await expect(tx).to.emit(host, "CashoutCalled")
@@ -339,10 +393,10 @@ describe("Commands", () => {
     });
 
     it("cashes out batches and accepts an empty batch", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const state = concat(
-        encodeBalanceBlock(nativeAsset, 3n),
-        encodeBalanceBlock(nativeAsset, 5n),
+        encodeBalanceBlock(chainAsset, 3n),
+        encodeBalanceBlock(chainAsset, 5n),
       );
       const tx = await callAs(0, "cashout", ctx({ state }));
       await expect(tx).to.emit(host, "CashoutCalled").withArgs(userAccount, 3n);
@@ -351,7 +405,7 @@ describe("Commands", () => {
       expect(await host.cashout.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
     });
 
-    it("rejects non-native BALANCE state", async () => {
+    it("rejects non-chain-asset BALANCE state", async () => {
       const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
       await expect(callAs(0, "cashout", ctx({ state })))
         .to.be.revertedWithCustomError(host, "InvalidAsset");
@@ -770,6 +824,266 @@ describe("Commands", () => {
 
   // ── CreditTo ──────────────────────────────────────────────────────────────
 
+  describe("realizePosition", () => {
+    function positionInput(asset: string, liability: string, minimum = 0n, maximum = ethers.MaxUint256) {
+      return concat(encodeAmountBlock(asset, minimum), encodeAmountBlock(liability, maximum));
+    }
+    const asset = ethers.zeroPadValue("0x21", 32);
+    const liability = ethers.zeroPadValue("0x22", 32);
+    const toAsset = ethers.zeroPadValue("0x23", 32);
+    const toLiability = ethers.zeroPadValue("0x24", 32);
+
+    it("discovers POSITION state, two AMOUNT inputs, and POSITION output", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("realizePosition"),
+          endpointDescriptor({
+            state: Keys.Position,
+            input: Keys.Amount,
+            inputStride: 2,
+            output: exactSpec(Keys.Position, 128),
+          }),
+        );
+    });
+
+    it("realizes both source sides through their primitive hooks", async () => {
+      const state = encodePositionBlock(asset, 100n, liability, 80n);
+      const input = positionInput(toAsset, toLiability, 90n, 85n);
+      const tx = await callAs(0, "realizePosition", ctx({ state, input }));
+
+      await expect(tx).to.emit(host, "RealizeCalled")
+        .withArgs(asset, 100n, toAsset, 90n);
+      await expect(tx).to.emit(host, "RealizeDebtCalled")
+        .withArgs(liability, 80n, toLiability, 85n);
+      expect(await host.realizePosition.staticCall(...ctx({ state, input }))).to.deep.equal([
+        encodePositionBlock(toAsset, 100n, toLiability, 80n),
+        0n,
+      ]);
+    });
+
+    it("combines the amounts returned by both realization hooks", async () => {
+      await withRealizeFee(4n, async () => {
+        await withRealizeDebtFee(3n, async () => {
+          const [result] = await host.realizePosition.staticCall(...ctx({
+            state: encodePositionBlock(asset, 100n, liability, 80n),
+            input: positionInput(toAsset, toLiability, 96n, 77n),
+          }));
+          expect(result).to.equal(encodePositionBlock(toAsset, 96n, toLiability, 77n));
+        });
+      });
+    });
+
+    it("pairs positions and requested asset-liability shapes by position", async () => {
+      const asset2 = ethers.zeroPadValue("0x25", 32);
+      const liability2 = ethers.zeroPadValue("0x26", 32);
+      const toAsset2 = ethers.zeroPadValue("0x27", 32);
+      const toLiability2 = ethers.zeroPadValue("0x28", 32);
+      const state = concat(
+        encodePositionBlock(asset, 10n, liability, 8n),
+        encodePositionBlock(asset2, 20n, liability2, 16n),
+      );
+      const input = concat(
+        positionInput(toAsset, toLiability, 10n, 8n),
+        positionInput(toAsset2, toLiability2, 20n, 16n),
+      );
+
+      const [result, credit] = await host.realizePosition.staticCall(...ctx({ state, input }));
+      expect(result).to.equal(concat(
+        encodePositionBlock(toAsset, 10n, toLiability, 8n),
+        encodePositionBlock(toAsset2, 20n, toLiability2, 16n),
+      ));
+      expect(credit).to.equal(0n);
+    });
+
+    it("accepts empty streams and rejects malformed pairings", async () => {
+      expect(await host.realizePosition.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
+
+      await expect(callAs(0, "realizePosition", ctx({
+        state: encodePositionBlock(asset, 1n, liability, 1n),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+      await expect(callAs(0, "realizePosition", ctx({
+        state: encodePositionBlock(asset, 1n, liability, 1n),
+        input: encodeAssetBlock(toAsset),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+      await expect(callAs(0, "realizePosition", ctx({
+        input: positionInput(toAsset, toLiability),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("realize", () => {
+    const asset = ethers.zeroPadValue("0x2b", 32);
+    const to = ethers.zeroPadValue("0x2c", 32);
+
+    it("discovers BALANCE state, AMOUNT input, and BALANCE output", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("realize"),
+          endpointDescriptor({ state: Keys.Balance, input: Keys.Amount, output: exactSpec(Keys.Balance, 64) }),
+        );
+    });
+
+    it("passes source and requested assets to the hook and outputs the realized balance", async () => {
+      const state = encodeBalanceBlock(asset, 100n);
+      const input = encodeAmountBlock(to, 0n);
+      const tx = await callAs(0, "realize", ctx({ state, input }));
+
+      await expect(tx).to.emit(host, "RealizeCalled")
+        .withArgs(asset, 100n, to, 0n);
+      expect(await host.realize.staticCall(...ctx({ state, input }))).to.deep.equal([
+        encodeBalanceBlock(to, 100n),
+        0n,
+      ]);
+    });
+
+    it("uses the amount returned by the realization hook", async () => {
+      await withRealizeFee(4n, async () => {
+        const [result] = await host.realize.staticCall(...ctx({
+          state: encodeBalanceBlock(asset, 100n),
+          input: encodeAmountBlock(to, 0n),
+        }));
+        expect(result).to.equal(encodeBalanceBlock(to, 96n));
+      });
+    });
+
+    it("pairs each BALANCE with the AMOUNT at the same position", async () => {
+      const asset2 = ethers.zeroPadValue("0x2d", 32);
+      const to2 = ethers.zeroPadValue("0x2e", 32);
+      const state = concat(encodeBalanceBlock(asset, 10n), encodeBalanceBlock(asset2, 20n));
+      const input = concat(encodeAmountBlock(to, 0n), encodeAmountBlock(to2, 0n));
+
+      const [result, credit] = await host.realize.staticCall(...ctx({ state, input }));
+      expect(result).to.equal(concat(encodeBalanceBlock(to, 10n), encodeBalanceBlock(to2, 20n)));
+      expect(credit).to.equal(0n);
+    });
+
+    it("accepts empty streams and rejects mismatched pairs", async () => {
+      expect(await host.realize.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
+
+      await expect(callAs(0, "realize", ctx({
+        state: encodeBalanceBlock(asset, 1n),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+      await expect(callAs(0, "realize", ctx({
+        state: encodeBalanceBlock(asset, 1n),
+        input: encodeBalanceBlock(to, 1n),
+      }))).to.be.revertedWithCustomError(host, "InvalidBlock");
+      await expect(callAs(0, "realize", ctx({
+        input: encodeAmountBlock(to, 0n),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("realizeDebt", () => {
+    const liability = ethers.zeroPadValue("0x31", 32);
+    const to = ethers.zeroPadValue("0x32", 32);
+
+    it("discovers DEBT state, AMOUNT input, and DEBT output", async () => {
+      const deployment = host.deploymentTransaction();
+      expect(deployment).to.not.equal(null);
+
+      await expect(deployment!).to.emit(host, "Endpoint")
+        .withArgs(
+          await host.host(),
+          await cmd("realizeDebt"),
+          endpointDescriptor({ state: Keys.Debt, input: Keys.Amount, output: exactSpec(Keys.Debt, 64) }),
+        );
+    });
+
+    it("passes source and requested liabilities to the hook and outputs the realized debt", async () => {
+      const state = encodeDebtBlock(liability, 100n);
+      const input = encodeAmountBlock(to, ethers.MaxUint256);
+      const tx = await callAs(0, "realizeDebt", ctx({ state, input }));
+
+      await expect(tx).to.emit(host, "RealizeDebtCalled")
+        .withArgs(liability, 100n, to, ethers.MaxUint256);
+      expect(await host.realizeDebt.staticCall(...ctx({ state, input }))).to.deep.equal([
+        encodeDebtBlock(to, 100n),
+        0n,
+      ]);
+    });
+
+    it("uses the amount returned by the debt realization hook", async () => {
+      await withRealizeDebtFee(4n, async () => {
+        const [result] = await host.realizeDebt.staticCall(...ctx({
+          state: encodeDebtBlock(liability, 100n),
+          input: encodeAmountBlock(to, ethers.MaxUint256),
+        }));
+        expect(result).to.equal(encodeDebtBlock(to, 96n));
+      });
+    });
+
+    it("pairs each DEBT with the AMOUNT at the same position", async () => {
+      const liability2 = ethers.zeroPadValue("0x33", 32);
+      const to2 = ethers.zeroPadValue("0x34", 32);
+      const state = concat(encodeDebtBlock(liability, 10n), encodeDebtBlock(liability2, 20n));
+      const input = concat(encodeAmountBlock(to, ethers.MaxUint256), encodeAmountBlock(to2, ethers.MaxUint256));
+
+      const [result, credit] = await host.realizeDebt.staticCall(...ctx({ state, input }));
+      expect(result).to.equal(concat(encodeDebtBlock(to, 10n), encodeDebtBlock(to2, 20n)));
+      expect(credit).to.equal(0n);
+    });
+
+    it("accepts empty streams and rejects malformed pairings", async () => {
+      expect(await host.realizeDebt.staticCall(...ctx())).to.deep.equal(["0x", 0n]);
+
+      await expect(callAs(0, "realizeDebt", ctx({
+        state: encodeDebtBlock(liability, 1n),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+      await expect(callAs(0, "realizeDebt", ctx({
+        state: encodeDebtBlock(liability, 1n),
+        input: encodeBalanceBlock(to, 1n),
+      }))).to.be.revertedWithCustomError(host, "InvalidBlock");
+      await expect(callAs(0, "realizeDebt", ctx({
+        input: encodeAmountBlock(to, ethers.MaxUint256),
+      }))).to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("realization limits", () => {
+    const from = ethers.zeroPadValue("0x41", 32);
+    const to = ethers.zeroPadValue("0x42", 32);
+    for (const [method, encodeState, event, error] of [
+      ["realize", encodeBalanceBlock, "RealizeCalled", "AmountBelowLimit"],
+      ["realizeDebt", encodeDebtBlock, "RealizeDebtCalled", "DebtAboveLimit"],
+    ] as const) {
+      for (const [amount, limit] of [
+        [10n, 9n], [10n, 10n], [10n, 11n], [10n, 0n], [10n, ethers.MaxUint256],
+        [0n, 0n], [0n, 1n], [ethers.MaxUint256, ethers.MaxUint256],
+      ]) {
+        it(`${method} passes limit ${limit} to the hook for output ${amount}`, async () => {
+          const args = ctx({ state: encodeState(from, amount), input: encodeAmountBlock(to, limit) });
+          const fails = method === "realize" ? amount < limit : amount > limit;
+          if (fails) {
+            await expect(callAs(0, method, args)).to.be.revertedWithCustomError(host, error);
+          } else {
+            expect(await host[method].staticCall(...args)).to.deep.equal([encodeState(to, amount), 0n]);
+            await expect(callAs(0, method, args)).to.emit(host, event).withArgs(from, amount, to, limit);
+          }
+        });
+      }
+
+      it(`${method} lets the hook enforce its limit on the adjusted result`, async () => {
+        const withFee = method === "realize" ? withRealizeFee : withRealizeDebtFee;
+        await withFee(4n, async () => {
+          const state = encodeState(from, 100n);
+          expect(await host[method].staticCall(...ctx({ state, input: encodeAmountBlock(to, 96n) })))
+            .to.deep.equal([encodeState(to, 96n), 0n]);
+          const limit = method === "realize" ? 97n : 95n;
+          await expect(callAs(0, method, ctx({ state, input: encodeAmountBlock(to, limit) })))
+            .to.be.revertedWithCustomError(host, error);
+        });
+      });
+    }
+  });
+
   describe("creditAccount", () => {
     const asset = ethers.zeroPadValue("0x30", 32);
 
@@ -1009,7 +1323,7 @@ describe("Commands", () => {
   // ── Pipe ──────────────────────────────────────────────────────────────────
 
   describe("relayPayable", () => {
-    const PORTAL_PREFIX = 0x01020100n;
+    const PORTAL_PREFIX = 0x03020100n;
 
     function portalNode(id: bigint) {
       return (PORTAL_PREFIX << 224n) | id;
@@ -1086,7 +1400,7 @@ describe("Commands", () => {
   });
 
   describe("relayBalancePayable", () => {
-    const PORTAL_PREFIX = 0x01020100n;
+    const PORTAL_PREFIX = 0x03020100n;
     const relayAsset = ethers.zeroPadValue("0x80", 32);
 
     function portalNode(id: bigint) {
@@ -1278,10 +1592,10 @@ describe("Commands", () => {
 
   describe("pipeline", () => {
     it("executes cashout batches through optimized local execution", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const state = concat(
-        encodeBalanceBlock(nativeAsset, 23n),
-        encodeBalanceBlock(nativeAsset, 29n),
+        encodeBalanceBlock(chainAsset, 23n),
+        encodeBalanceBlock(chainAsset, 29n),
       );
       const steps = encodeStepBlock(await cmd("cashout"), 0n, "0x");
       const tx = await callAs(0, "testPipe", userAccount, state, steps);
@@ -1290,38 +1604,38 @@ describe("Commands", () => {
     });
 
     it("debits stored native value into state before cashing it out", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const amount = 31n;
       const steps = concat(
         encodeStepBlock(
           await cmd("debitAccount"),
           0n,
-          encodeAmountBlock(nativeAsset, amount),
+          encodeAmountBlock(chainAsset, amount),
         ),
         encodeStepBlock(await cmd("cashout"), 0n, "0x"),
       );
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", steps);
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, amount, amount);
+        .withArgs(userAccount, chainAsset, amount, amount);
       await expect(tx).to.emit(host, "CashoutCalled")
         .withArgs(userAccount, amount);
     });
 
     it("rejects step value and input for local cashout", async () => {
       const command = await cmd("cashout");
-      const nativeAsset = await utils.testToNativeAsset();
-      const state = encodeBalanceBlock(nativeAsset, 1n);
+      const chainAsset = await utils.testToChain();
+      const state = encodeBalanceBlock(chainAsset, 1n);
       const valued = encodeStepBlock(command, 1n, "0x");
       await expect(callAs(0, "testPipe", userAccount, state, valued, { value: 1n }))
         .to.be.revertedWithCustomError(host, "ValueNotAllowed");
 
-      const step = encodeStepBlock(command, 0n, encodeBalanceBlock(nativeAsset, 1n));
+      const step = encodeStepBlock(command, 0n, encodeBalanceBlock(chainAsset, 1n));
       await expect(callAs(0, "testPipe", userAccount, state, step))
         .to.be.revertedWithCustomError(host, "UnexpectedInput");
     });
 
-    it("rejects non-native state in optimized local cashout", async () => {
+    it("rejects non-chain-asset state in optimized local cashout", async () => {
       const state = encodeBalanceBlock(ethers.ZeroHash, 1n);
       const step = encodeStepBlock(await cmd("cashout"), 0n, "0x");
       await expect(callAs(0, "testPipe", userAccount, state, step))
@@ -1330,7 +1644,7 @@ describe("Commands", () => {
 
     it("bootstraps balance and makes its budget available to a later step", async () => {
       const asset = ethers.zeroPadValue("0xa0", 32);
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const amount = 17n;
       const input = concat(
         encodeStepBlock(await cmd("bootstrap"), 0n, encodeBootstrapBlock(asset, 9n, amount)),
@@ -1343,34 +1657,34 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, asset, 9n, 9n);
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, amount, amount);
+        .withArgs(userAccount, chainAsset, amount, amount);
     });
 
-    it("uses assigned value before debiting a native balance remainder", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+    it("uses assigned value before debiting a chain-asset balance remainder", async () => {
+      const chainAsset = await utils.testToChain();
       const input = concat(
         encodeStepBlock(
           await cmd("bootstrap"),
           4n,
-          encodeBootstrapBlock(nativeAsset, 7n, 0n),
+          encodeBootstrapBlock(chainAsset, 7n, 0n),
         ),
         encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 4n });
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, 3n, 3n);
+        .withArgs(userAccount, chainAsset, 3n, 3n);
       await expect(tx).to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 7n, 7n);
+        .withArgs(userAccount, chainAsset, 7n, 7n);
     });
 
-    it("merges a native balance remainder and budget into one debit", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+    it("merges a chain-asset balance remainder and budget into one debit", async () => {
+      const chainAsset = await utils.testToChain();
       const input = concat(
         encodeStepBlock(
           await cmd("bootstrap"),
           4n,
-          encodeBootstrapBlock(nativeAsset, 7n, 5n),
+          encodeBootstrapBlock(chainAsset, 7n, 5n),
         ),
         encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
@@ -1387,16 +1701,16 @@ describe("Commands", () => {
 
       expect(debits).to.have.length(1);
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, 8n, 8n);
+        .withArgs(userAccount, chainAsset, 8n, 8n);
     });
 
-    it("returns native value left after bootstrapping a native balance", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+    it("returns native value left after bootstrapping a chain-asset balance", async () => {
+      const chainAsset = await utils.testToChain();
       const input = concat(
         encodeStepBlock(
           await cmd("bootstrap"),
           5n,
-          encodeBootstrapBlock(nativeAsset, 3n, 0n),
+          encodeBootstrapBlock(chainAsset, 3n, 0n),
         ),
         encodeStepBlock(await cmd("creditAccount"), 0n, "0x"),
       );
@@ -1412,14 +1726,14 @@ describe("Commands", () => {
       });
       expect(debits).to.be.empty;
       await expect(tx).to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 3n, 3n);
+        .withArgs(userAccount, chainAsset, 3n, 3n);
       await expect(tx).to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 2n, 2n);
+        .withArgs(userAccount, chainAsset, 2n, 2n);
     });
 
     it("bootstraps batches through optimized local execution", async () => {
       const command = await cmd("bootstrap");
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const firstAsset = ethers.zeroPadValue("0xa2", 32);
       const secondAsset = ethers.zeroPadValue("0xa3", 32);
       const bootstrapInput = concat(
@@ -1434,11 +1748,11 @@ describe("Commands", () => {
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, firstAsset, 1n, 1n);
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, 2n, 2n);
+        .withArgs(userAccount, chainAsset, 2n, 2n);
       await expect(tx).to.emit(host, "DebitFromCalled")
         .withArgs(userAccount, secondAsset, 3n, 3n);
       await expect(tx).to.emit(host, "DebitFromCalled")
-        .withArgs(userAccount, nativeAsset, 4n, 4n);
+        .withArgs(userAccount, chainAsset, 4n, 4n);
     });
 
     it("requires bootstrap to start with empty pipeline state", async () => {
@@ -1715,7 +2029,7 @@ describe("Commands", () => {
     });
 
     it("hands ordinary input and the remaining steps to a handoff command", async () => {
-      const portal = (0x01020100n << 224n) | 31337n;
+      const portal = (0x03020100n << 224n) | 31337n;
       const resources = 9n;
       const state = encodeBalanceBlock(ethers.zeroPadValue("0x80", 32), 12n);
       const continuation = encodeStepBlock(await remoteCmd("noop"), 7n, "0x1234");
@@ -1745,17 +2059,17 @@ describe("Commands", () => {
 
     it("settles trusted returned value once after the pipeline closes", async () => {
       const input = encodeStepBlock(await remoteCmd("credit"), 0n, "0x1234");
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input);
 
       await expect(tx)
         .to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 123n, 123n);
+        .withArgs(userAccount, chainAsset, 123n, 123n);
     });
 
     it("makes command-returned value available to later steps", async () => {
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
       const creditCommand = await remoteCmd("credit");
       const spendCommand = await remoteCmd("noop");
       const input = concat(
@@ -1770,18 +2084,18 @@ describe("Commands", () => {
       await expect(tx).to.emit(remote, "CommandCalled")
         .withArgs(remote.interface.getFunction("noop")!.selector, 100n);
       await expect(tx).to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 23n, 23n);
+        .withArgs(userAccount, chainAsset, 23n, 23n);
     });
 
     it("settles the final pipeline budget after the pipeline closes", async () => {
       const input = encodeStepBlock(await remoteCmd("noop"), 0n, "0x");
-      const nativeAsset = await utils.testToNativeAsset();
+      const chainAsset = await utils.testToChain();
 
       const tx = await callAs(0, "testPipe", userAccount, "0x", input, { value: 5n });
 
       await expect(tx)
         .to.emit(host, "CreditToCalled")
-        .withArgs(userAccount, nativeAsset, 5n, 5n);
+        .withArgs(userAccount, chainAsset, 5n, 5n);
     });
 
     it("reverts UnexpectedState when final threaded state is non-empty", async () => {

@@ -10,12 +10,13 @@ import {Cursors, Cur} from "../utils/Cursors.sol";
 import {Flags} from "../utils/Flags.sol";
 import {Budget, Budgets} from "../execution/Budget.sol";
 import {Action} from "../annotations/Action.sol";
+import {Clearinghouse} from "../annotations/Clearinghouse.sol";
 
 using Writers for Writer;
 using Budgets for Budget;
 using Executions for Execution;
 
-contract TestBlocksHelper is Action {
+contract TestBlocksHelper is Action, Clearinghouse {
     bytes4 private constant TestKey = bytes4(uint32(1));
 
     function openInput(
@@ -60,6 +61,10 @@ contract TestBlocksHelper is Action {
 
     function publishAction(uint entity, uint value) external {
         action(entity, value);
+    }
+
+    function publishClearinghouse(uint entity, uint host) external {
+        clearinghouse(entity, host);
     }
 
     function groupedCapacity() external pure returns (uint) {
@@ -496,6 +501,24 @@ contract TestBlocksHelper is Action {
         return writer.finish();
     }
 
+    function createAssetLiability(bytes32 asset, bytes32 liability) external pure returns (bytes memory) {
+        return Blocks.createAssetLiability(asset, liability);
+    }
+
+    function appendAssetLiability(bytes32 asset, bytes32 liability) external pure returns (bytes memory) {
+        Writer memory writer = Writers.init(Specs.AssetLiability, 1);
+        writer.appendAssetLiability(asset, liability);
+        return writer.finish();
+    }
+
+    function executionUnpackAssetLiability(
+        bytes calldata input
+    ) external view returns (bytes32 asset, bytes32 liability) {
+        uint descriptor = Executions.describe(Specs.Empty, Specs.AssetLiability, Specs.Empty, 0);
+        Execution memory exec = openInput(input, descriptor);
+        return exec.unpackAssetLiability();
+    }
+
     function writeHostAsset(uint offset, uint host, bytes32 asset) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.HostAsset);
         Blocks.writeHostAsset(dst, offset, host, asset);
@@ -892,6 +915,10 @@ contract TestBlocksHelper is Action {
 
     function unpackAccountAsset(bytes calldata source) external pure returns (bytes32, bytes32) {
         return Blocks.unpackAccountAsset(position(source));
+    }
+
+    function unpackAssetLiability(bytes calldata source) external pure returns (bytes32, bytes32) {
+        return Blocks.unpackAssetLiability(position(source));
     }
 
     function unpackHostAsset(bytes calldata source) external pure returns (uint, bytes32) {

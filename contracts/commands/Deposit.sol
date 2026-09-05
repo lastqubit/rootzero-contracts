@@ -11,23 +11,30 @@ using Executions for Execution;
 abstract contract DepositHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
-    /// output after each call.
+    /// output after each call using the amount returned by the hook.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param amount Amount received.
-    function deposit(bytes32 account, bytes32 asset, uint amount) internal virtual;
+    /// @param amount Requested deposit amount.
+    /// @return balance Actual amount received and represented as BALANCE state.
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal virtual returns (uint balance);
 }
 
 /// @notice Hook implemented by hosts that accept value-funded deposits.
 abstract contract DepositPayableHook {
     /// @notice Override to receive externally sourced funds for `account`.
     /// Called once per AMOUNT block. A matching BALANCE block is appended to the
-    /// output after each call.
+    /// output after each call using the amount returned by the hook.
     /// @param account Destination account identifier.
     /// @param asset Asset identifier.
-    /// @param amount Amount received.
+    /// @param amount Requested deposit amount.
     /// @param funds Mutable execution used only for its remaining native-value budget.
-    function deposit(bytes32 account, bytes32 asset, uint amount, Execution memory funds) internal virtual;
+    /// @return balance Actual amount received and represented as BALANCE state.
+    function deposit(
+        bytes32 account,
+        bytes32 asset,
+        uint amount,
+        Execution memory funds
+    ) internal virtual returns (uint balance);
 }
 
 /// @title Deposit
@@ -54,7 +61,7 @@ abstract contract Deposit is CommandBase, DepositHook, Action {
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount();
-            deposit(exec.account, asset, amount);
+            amount = deposit(exec.account, asset, amount);
             exec.outputBalance(asset, amount);
         }
 
@@ -85,7 +92,7 @@ abstract contract DepositPayable is CommandBase, DepositPayableHook, Action {
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackAmount();
-            deposit(exec.account, asset, amount, exec);
+            amount = deposit(exec.account, asset, amount, exec);
             exec.outputBalance(asset, amount);
         }
 

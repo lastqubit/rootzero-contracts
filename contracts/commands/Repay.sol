@@ -11,9 +11,13 @@ import {UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
-/// @notice Hook implemented by hosts that repay liabilities using native value.
+/// @notice Hook implemented by hosts that fully repay liabilities using native value.
 abstract contract RepayPayableHook {
-    /// @notice Override to repay one liability for `account` with a shared value budget.
+    /// @notice Override to satisfy one liability exactly using a shared value budget.
+    /// @dev Returning successfully asserts that the complete exact-net `debt` was
+    /// satisfied. Partial fulfillment is invalid because the consuming command emits
+    /// no debt remainder. Revert if the complete quantity cannot be satisfied. Fees
+    /// and sourcing costs must be paid in addition to, and must not reduce, `debt`.
     /// @param account Account whose liability is being repaid.
     /// @param liability Identifier for the liability side.
     /// @param debt Quantity on the liability side.
@@ -41,9 +45,7 @@ abstract contract Repay is CommandBase, RepayHook, Action {
     /// @param context Command context carrying the DEBT state stream.
     /// @return Empty output state.
     /// @return Zero native budget credit.
-    function repay(
-        bytes calldata context
-    ) external onlyCommand returns (bytes memory, uint) {
+    function repay(bytes calldata context) external onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
@@ -70,9 +72,7 @@ abstract contract RepayPayable is CommandBase, RepayPayableHook, Action {
     /// @param context Command context carrying the DEBT state stream.
     /// @return Empty output state.
     /// @return Native value to add to the caller's budget.
-    function repayPayable(
-        bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, uint) {
+    function repayPayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
@@ -99,9 +99,7 @@ abstract contract RepayPosition is CommandBase, RepayHook, Action {
     /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
     /// @return Zero native budget credit.
-    function repayPosition(
-        bytes calldata context
-    ) external onlyCommand returns (bytes memory, uint) {
+    function repayPosition(bytes calldata context) external onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
@@ -121,9 +119,7 @@ abstract contract RepayPositionPayable is CommandBase, RepayPayableHook, Action 
 
     constructor() {
         uint id;
-        (id, descriptor) = command(
-            "repayPositionPayable", Specs.Position, Specs.Empty, Specs.Balance, Flags.Funded
-        );
+        (id, descriptor) = command("repayPositionPayable", Specs.Position, Specs.Empty, Specs.Balance, Flags.Funded);
         action(id, Actions.Repay);
     }
 
@@ -131,9 +127,7 @@ abstract contract RepayPositionPayable is CommandBase, RepayPayableHook, Action 
     /// @param context Command context carrying the POSITION state stream.
     /// @return BALANCE output state containing each released asset side.
     /// @return Native value to add to the caller's budget.
-    function repayPositionPayable(
-        bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, uint) {
+    function repayPositionPayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {

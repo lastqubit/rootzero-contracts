@@ -9,6 +9,7 @@ import {InsufficientValue, OutOfBounds, UnexpectedPosition, UnconsumedData} from
 import {Budget} from "./Budget.sol";
 import {
     AssetAmount,
+    AssetLiability,
     AccountAsset,
     HostAsset,
     AccountAmount,
@@ -464,6 +465,26 @@ library Executions {
     function unpackAsset(Execution memory exec) internal pure returns (bytes32 asset) {
         uint abs = take(exec, Sizes.B32);
         asset = Blocks.unpackAsset(abs);
+    }
+
+    /// @notice Decode and consume one ASSET_LIABILITY block from input.
+    /// @param exec Execution whose input cursor is advanced.
+    /// @return asset Decoded asset identifier.
+    /// @return liability Decoded liability identifier.
+    function unpackAssetLiability(
+        Execution memory exec
+    ) internal pure returns (bytes32 asset, bytes32 liability) {
+        uint abs = take(exec, Sizes.B64);
+        (asset, liability) = Blocks.unpackAssetLiability(abs);
+    }
+
+    /// @notice Decode one ASSET_LIABILITY block into its structured value.
+    /// @param exec Execution whose input cursor is advanced.
+    /// @return value Decoded asset and liability pair.
+    function unpackAssetLiabilityValue(
+        Execution memory exec
+    ) internal pure returns (AssetLiability memory value) {
+        (value.asset, value.liability) = unpackAssetLiability(exec);
     }
 
     /// @notice Decode and consume one ACCOUNT_ASSET block from input.
@@ -966,6 +987,24 @@ library Executions {
     function outputAccountAsset(Execution memory exec, bytes32 account, bytes32 asset) internal pure {
         uint i = reserve(exec, Sizes.B64);
         Blocks.writeAccountAsset(exec.output, i, account, asset);
+    }
+
+    /// @notice Append an ASSET_LIABILITY block to execution output.
+    /// @param exec Execution receiving the block.
+    /// @param asset Asset identifier to encode.
+    /// @param liability Liability identifier to encode.
+    function outputAssetLiability(
+        Execution memory exec,
+        bytes32 asset,
+        bytes32 liability
+    ) internal pure {
+        uint i = reserve(exec, Sizes.B64);
+        Blocks.writeAssetLiability(exec.output, i, asset, liability);
+    }
+
+    /// @notice Append a structured ASSET_LIABILITY value to execution output.
+    function outputAssetLiability(Execution memory exec, AssetLiability memory value) internal pure {
+        outputAssetLiability(exec, value.asset, value.liability);
     }
 
     /// @notice Append a HOST_ASSET block to execution output.

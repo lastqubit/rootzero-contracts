@@ -13,6 +13,7 @@ import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
+import { Realize, RealizeDebt, RealizePosition } from "../commands/Realize.sol";
 import { ExecuteRepay, RepayPayable, RepayPosition, RepayPositionPayable } from "../commands/Repay.sol";
 import { ExecuteSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
@@ -45,6 +46,9 @@ contract TestHost is
     RelayPayable,
     RelayBalancePayable,
     RecoverPayable,
+    Realize,
+    RealizeDebt,
+    RealizePosition,
     ExecuteRepay,
     RepayPayable,
     RepayPosition,
@@ -62,6 +66,9 @@ contract TestHost is
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event CashoutCalled(bytes32 account, uint amount);
+    error AmountBelowLimit(uint realized, uint limit);
+    error DebtAboveLimit(uint realized, uint limit);
+    event RealizeDebtCalled(bytes32 liability, uint debt, bytes32 to, uint limit);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
     event WithdrawCalled(bytes32 account, bytes32 asset, uint amount);
@@ -72,6 +79,7 @@ contract TestHost is
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint portal, uint resources, bytes32 account, bytes context);
     event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint value);
+    event RealizeCalled(bytes32 asset, uint amount, bytes32 to, uint limit);
     event SettleCalled(
         bytes32 account,
         bytes32 asset,
@@ -96,6 +104,10 @@ contract TestHost is
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
+    uint public depositFee;
+    uint public realizeFee;
+    uint public realizeDebtFee;
+
     constructor(uint rootzero) Host(rootzero) Allocate() Deposit() Provision() {
         schema(3, 64, "uint portal, uint resources", bytes32("relay.input"));
     }
@@ -108,8 +120,21 @@ contract TestHost is
         emit CashoutCalled(account, amount);
     }
 
-    function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
+    function setDepositFee(uint fee) external {
+        depositFee = fee;
+    }
+
+    function setRealizeFee(uint fee) external {
+        realizeFee = fee;
+    }
+
+    function setRealizeDebtFee(uint fee) external {
+        realizeDebtFee = fee;
+    }
+
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal override returns (uint) {
         emit DepositCalled(account, asset, amount);
+        return amount - depositFee;
     }
 
     function deposit(
@@ -117,8 +142,9 @@ contract TestHost is
         bytes32 asset,
         uint amount,
         Execution memory funds
-    ) internal override {
+    ) internal override returns (uint) {
         emit DepositPayableCalled(account, asset, funds.useValue(amount), funds.budget);
+        return amount - depositFee;
     }
 
     function withdraw(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -167,6 +193,30 @@ contract TestHost is
 
     function payout(bytes32 account, bytes32 to, bytes32 asset, uint amount) internal override {
         emit PayoutCalled(account, to, asset, amount);
+    }
+
+    function realizeDebt(
+        bytes32 liability,
+        uint debt,
+        bytes32 to,
+        uint limit
+    ) internal override returns (uint) {
+        emit RealizeDebtCalled(liability, debt, to, limit);
+        uint realized = debt - realizeDebtFee;
+        if (realized > limit) revert DebtAboveLimit(realized, limit);
+        return realized;
+    }
+
+    function realize(
+        bytes32 asset,
+        uint amount,
+        bytes32 to,
+        uint limit
+    ) internal override returns (uint) {
+        emit RealizeCalled(asset, amount, to, limit);
+        uint realized = amount - realizeFee;
+        if (realized < limit) revert AmountBelowLimit(realized, limit);
+        return realized;
     }
 
     function provision(bytes32 account, HostAmount memory custody) internal override {
@@ -258,7 +308,7 @@ contract TestHost is
         exec.budget = pipe(account, state, steps, budget);
         uint credit;
         (, credit) = exec.close();
-        post(bytes32(0), account, nativeAsset, credit);
+        post(bytes32(0), account, chainAsset, credit);
     }
 
     function getAdminAccount() external view returns (bytes32) {

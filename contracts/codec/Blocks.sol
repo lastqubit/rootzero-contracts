@@ -497,6 +497,22 @@ library Blocks {
         }
     }
 
+    /// @notice Write an ASSET_LIABILITY block at `i`.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
+    /// @param dst Destination buffer.
+    /// @param i Relative write position.
+    /// @param asset Asset identifier to encode.
+    /// @param liability Liability identifier to encode.
+    function writeAssetLiability(bytes memory dst, uint i, bytes32 asset, bytes32 liability) internal pure {
+        uint spec = Specs.AssetLiability;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), liability)
+        }
+    }
+
     /// @notice Write an ACCOUNT_ASSET block at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
     /// @param dst Destination buffer.
@@ -1564,6 +1580,20 @@ library Blocks {
         if (head >> 192 != Specs.Debt >> 192) revert InvalidBlock();
     }
 
+    /// @notice Decode a low-level fixed-width ASSET_LIABILITY block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return asset Decoded asset identifier.
+    /// @return liability Decoded liability identifier.
+    function unpackAssetLiability(uint abs) internal pure returns (bytes32 asset, bytes32 liability) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            asset := calldataload(add(abs, 0x08))
+            liability := calldataload(add(abs, 0x28))
+        }
+        if (head >> 192 != Specs.AssetLiability >> 192) revert InvalidBlock();
+    }
+
     /// @notice Decode a low-level fixed-width ACCOUNT_ASSET block at `abs`.
     /// @param abs Absolute block position.
     /// @return account Decoded account identifier.
@@ -2103,6 +2133,14 @@ library Blocks {
         write32(value, 0, Keys.Action, bytes32(actionid));
     }
 
+    /// @notice Encode a CLEARINGHOUSE annotation block.
+    /// @param host Host responsible for clearing the annotated command; zero clears the association.
+    /// @return value Encoded CLEARINGHOUSE block bytes.
+    function createClearinghouse(uint host) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.B32);
+        write32(value, 0, Keys.Clearinghouse, bytes32(host));
+    }
+
     /// @notice Encode a SCHEMA block.
     /// @param spec Block specification.
     /// @param body Schema body.
@@ -2150,6 +2188,15 @@ library Blocks {
     function createBalance(bytes32 asset, uint amount) internal pure returns (bytes memory value) {
         value = allocate(Sizes.Balance);
         writeBalance(value, 0, asset, amount);
+    }
+
+    /// @notice Encode an ASSET_LIABILITY block.
+    /// @param asset Asset identifier.
+    /// @param liability Liability identifier.
+    /// @return value Encoded ASSET_LIABILITY block bytes.
+    function createAssetLiability(bytes32 asset, bytes32 liability) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.B64);
+        writeAssetLiability(value, 0, asset, liability);
     }
 
     /// @notice Encode a DEBT block.

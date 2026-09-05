@@ -78,6 +78,10 @@ pragma solidity ^0.8.33;
 // - while a balance, debt, or custody is in-flight as pipeline state, it is not simultaneously persisted
 //   in another ledger/store by this protocol
 // - debt carries only a live liability side; position pairs live balance and debt sides
+// - debt quantities are exact net obligations: consuming debt requires satisfying the
+//   complete quantity or preserving any unsatisfied remainder as debt state
+// - fees and sourcing costs do not reduce fulfilled debt; when fulfillment produces
+//   custody, the amount actually reaching custody must equal the consumed debt
 // - either position side may be absent by setting both its identifier and quantity to zero,
 //   analogous to omitting a transaction side with a zero `from` or `to`
 // - debt and position state are transient and do not themselves create or erase an externally persisted obligation
@@ -117,6 +121,7 @@ library Schemas {
     // Two-word payloads
 
     string constant Amount = "bytes32 asset, uint amount";
+    string constant AssetLiability = "bytes32 asset, bytes32 liability";
     string constant AccountAsset = "bytes32 account, bytes32 asset";
     string constant HostAsset = "uint host, bytes32 asset";
 
@@ -147,6 +152,7 @@ library Schemas {
     // Annotation payloads
 
     string constant Action = "uint action";
+    string constant Clearinghouse = "uint host";
     string constant Label = "bytes32 namespace, #string as name";
     string constant Schema = "uint spec, #string as body, bytes32 name";
 }

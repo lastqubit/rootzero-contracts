@@ -9,6 +9,14 @@ struct AssetAmount {
     uint amount;
 }
 
+/// @notice Asset and liability identifier pair used to select a position shape.
+struct AssetLiability {
+    /// @dev Identifier for the asset side.
+    bytes32 asset;
+    /// @dev Identifier for the liability side.
+    bytes32 liability;
+}
+
 /// @notice Account-scoped asset shape.
 struct AccountAsset {
     /// @dev Account identifier.

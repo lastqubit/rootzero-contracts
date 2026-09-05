@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import { Accounts } from "../utils/Accounts.sol";
 import { Amounts, Assets } from "../utils/Assets.sol";
 import { Ids } from "../utils/Ids.sol";
+import { Layout } from "../utils/Layout.sol";
 import { Nodes } from "../utils/Nodes.sol";
 import { addrOr, applyBps, beforeBps, bytes32ToString, clear8, clear16, clear32, clear64, ensureContract, isFamily, matchesBase, toLocalBase, max8, max16, max32, max64, max128, max160, replace8, replace16, replace32, replace64 } from "../utils/Utils.sol";
 import { CommandBase } from "../commands/Base.sol";
@@ -27,6 +28,14 @@ contract TestUtils is CommandBase {
 
     function testEnsureContract(address target) external view returns (address) {
         return ensureContract(target);
+    }
+
+    function testRepresentations() external pure returns (uint8 rootzero, uint8 opaque, uint8 evm) {
+        return (Layout.Rootzero, Layout.Opaque, Layout.Evm);
+    }
+
+    function testAssetSubtypes() external pure returns (uint8 derived, uint8 virtual_, uint8 erc20) {
+        return (Layout.Derived, Layout.Virtual, Layout.Erc20);
     }
 
     function testEnforceSender(address expected) external view returns (address) {
@@ -101,12 +110,16 @@ contract TestUtils is CommandBase {
         return Accounts.matchKeccak(account, preimage);
     }
 
-    function testToNativeAsset() external view returns (bytes32) {
-        return Assets.toNative();
+    function testToChain() external view returns (bytes32) {
+        return Assets.toChain();
     }
 
     function testToErc20Asset(address addr) external view returns (bytes32) {
         return Assets.toErc20(addr);
+    }
+
+    function testToDerivedAsset(bytes32 asset, uint host) external pure returns (bytes32) {
+        return Assets.toDerived(asset, host);
     }
 
     function testIsEvmAsset(bytes32 asset) external pure returns (bool) {
@@ -117,6 +130,18 @@ contract TestUtils is CommandBase {
         return Assets.isOpaque(asset);
     }
 
+    function testIsDerivedAsset(bytes32 asset) external pure returns (bool) {
+        return Assets.isDerived(asset);
+    }
+
+    function testIsChain(bytes32 asset) external view returns (bool) {
+        return Assets.isChain(asset);
+    }
+
+    function testIsRootzero(bytes32 asset) external pure returns (bool) {
+        return Assets.isRootzero(asset);
+    }
+
     function testEvmAsset(bytes32 asset) external pure returns (bytes32) {
         return Assets.evm(asset);
     }
@@ -125,12 +150,28 @@ contract TestUtils is CommandBase {
         return Assets.opaque(asset);
     }
 
+    function testDerivedAsset(bytes32 asset) external pure returns (bytes32) {
+        return Assets.derived(asset);
+    }
+
+    function testChain(bytes32 asset) external view returns (bytes32) {
+        return Assets.chain(asset);
+    }
+
+    function testRootzero(bytes32 asset) external pure returns (bytes32) {
+        return Assets.rootzero(asset);
+    }
+
     function testToKeccakAsset(bytes memory preimage) external pure returns (bytes32) {
         return Assets.toKeccak(preimage);
     }
 
     function testMatchKeccakAsset(bytes32 asset, bytes memory preimage) external pure returns (bytes32) {
         return Assets.matchKeccak(asset, preimage);
+    }
+
+    function testMatchDerivedAsset(bytes32 value, bytes32 asset, uint host) external pure returns (bytes32) {
+        return Assets.matchDerived(value, asset, host);
     }
 
     function testResolveAmount(uint available, uint min, uint max) external pure returns (uint) {

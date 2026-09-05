@@ -15,8 +15,8 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 ///   - bits [191:160] — 4-byte ABI selector (commands, ports, queries, and guards)
 ///   - bits [159:0]   — 160-bit EVM contract address
 ///
-/// If the first byte is zero, the node is an opaque
-/// `0x00 || bytes31(hash)` ID. The callable target must be resolved by lookup
+/// An opaque node uses `[0x02][Node][subtype][bytes29(hash)]`. The callable
+/// target must be resolved by lookup
 /// or witness data before dispatch.
 ///
 /// The helpers in this library validate and deconstruct structured node IDs.
@@ -68,7 +68,7 @@ library Nodes {
 
     /// @notice Return true if `node` is opaque.
     function isOpaque(uint node) internal pure returns (bool) {
-        return Ids.isOpaque(bytes32(node));
+        return Ids.isOpaque(bytes32(node), Layout.Node);
     }
 
     /// @notice Return true if `node` belongs to the EVM node family on the current chain.
@@ -128,7 +128,7 @@ library Nodes {
     /// @param value Node ID to validate.
     /// @return node The same `value` if it is opaque.
     function opaque(uint value) internal pure returns (uint node) {
-        if (!Ids.isOpaque(bytes32(value))) revert InvalidId();
+        if (!isOpaque(value)) revert InvalidId();
         return value;
     }
 
@@ -252,10 +252,10 @@ library Nodes {
     }
 
     /// @notice Derive an opaque node ID from a keccak preimage.
-    /// @param preimage Preimage whose first byte is `0x01`.
-    /// @return node `0x00 || bytes31(keccak256(preimage))`.
+    /// @param preimage Preimage encoded as `0x01 || Node || subtype || payload`.
+    /// @return node `[0x02][Node][subtype][bytes29(keccak256(preimage))]`.
     function toKeccak(bytes memory preimage) internal pure returns (uint node) {
-        return uint(Ids.toKeccak(preimage));
+        return uint(Ids.toKeccak(Layout.Node, preimage));
     }
 
     /// @notice Assert that `node` matches the opaque keccak ID for `preimage`.
@@ -263,7 +263,7 @@ library Nodes {
     /// @param preimage Preimage whose first byte is `0x01`.
     /// @return The same `node` value if it matches.
     function matchKeccak(uint node, bytes memory preimage) internal pure returns (uint) {
-        if (node != uint(Ids.toKeccak(preimage))) revert InvalidId();
+        if (node != uint(Ids.toKeccak(Layout.Node, preimage))) revert InvalidId();
         return node;
     }
 

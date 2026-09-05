@@ -111,9 +111,11 @@ library Specs {
     uint constant Label = uint(bytes32(Keys.Label)) | UnboundedMin40Hint256;
     uint constant Annotation = uint(bytes32(Keys.Annotation)) | UnboundedMin40Hint256;
     uint constant Action = uint(bytes32(Keys.Action)) | Exact32;
+    uint constant Clearinghouse = uint(bytes32(Keys.Clearinghouse)) | Exact32;
     uint constant Schema = uint(bytes32(Keys.Schema)) | UnboundedMin72Hint256;
 
     uint constant Status = uint(bytes32(Keys.Status)) | Exact32;
+    uint constant AssetLiability = uint(bytes32(Keys.AssetLiability)) | Exact64;
     uint constant AccountAsset = uint(bytes32(Keys.AccountAsset)) | Exact64;
     uint constant HostAsset = uint(bytes32(Keys.HostAsset)) | Exact64;
     uint constant AccountAmount = uint(bytes32(Keys.AccountAmount)) | Exact96;

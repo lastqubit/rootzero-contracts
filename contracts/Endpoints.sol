@@ -7,7 +7,7 @@ pragma solidity ^0.8.33;
 // Shared endpoint hooks
 import {Flags} from "./utils/Flags.sol";
 import {ExecuteHook, PipeHook} from "./core/Pipeline.sol";
-import {CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} from "./core/Settlement.sol";
+import {CreditHostHook, DebitHostHook, CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook} from "./core/Settlement.sol";
 
 // Commands
 import {CommandBase} from "./commands/Base.sol";
@@ -21,6 +21,13 @@ import {Deposit, DepositHook, DepositPayable, DepositPayableHook} from "./comman
 import {Payout, PayoutHook} from "./commands/Payout.sol";
 import {Provision, ProvisionHook, ProvisionPayable, ProvisionPayableHook} from "./commands/Provision.sol";
 import {RecoverPayable, RecoverPayableHook} from "./commands/Recover.sol";
+import {
+    Realize,
+    RealizeHook,
+    RealizeDebt,
+    RealizeDebtHook,
+    RealizePosition
+} from "./commands/Realize.sol";
 import {
     Repay,
     ExecuteRepay,
@@ -49,8 +56,8 @@ import {Unauthorize} from "./commands/admin/Unauthorize.sol";
 import {PortBase} from "./ports/Base.sol";
 import {AllowAssetsPort, DenyAssetsPort, RequestAssetPort, RequestAssetHook} from "./ports/Assets.sol";
 import {RequestAllowancePort} from "./ports/Allowance.sol";
-import {CreditAccountPort} from "./ports/Credit.sol";
-import {DebitAccountPort} from "./ports/Debit.sol";
+import {CreditPort, CreditAccountPort} from "./ports/Credit.sol";
+import {DebitPort, DebitAccountPort} from "./ports/Debit.sol";
 import {PipePayablePort, PortPipePayableSelector} from "./ports/Pipe.sol";
 import {DispatchPayablePort, DispatchPayableHook} from "./ports/Dispatch.sol";
 import {PostPort} from "./ports/Post.sol";
@@ -62,4 +69,9 @@ import {Revoke, RevokeAllowance, RevokeAsset} from "./guards/Revoke.sol";
 // Query endpoints
 import {QueryBase} from "./queries/Base.sol";
 import {AssetStatus, AssetStatusHook} from "./queries/Assets.sol";
-import {GetBalances, GetBalancesHook} from "./queries/Balances.sol";
+import {
+    GetBalances,
+    GetBalancesHook,
+    GetAccountBalances,
+    GetAccountBalancesHook
+} from "./queries/Balances.sol";

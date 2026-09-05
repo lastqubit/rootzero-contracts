@@ -11,9 +11,13 @@ import {UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
-/// @notice Hook implemented by hosts that settle positions using native value.
+/// @notice Hook implemented by hosts that fully settle positions using native value.
 abstract contract SettlePayableHook {
     /// @notice Override to settle one position for `account` with a shared value budget.
+    /// @dev Returning successfully asserts that the complete exact-net `debt` was
+    /// satisfied. Partial fulfillment is invalid because the consuming command emits
+    /// no debt remainder. Revert if the complete quantity cannot be satisfied. Fees
+    /// and sourcing costs must be paid in addition to, and must not reduce, `debt`.
     /// @param account Account whose position is being settled.
     /// @param asset Identifier for the asset side.
     /// @param amount Quantity on the asset side.

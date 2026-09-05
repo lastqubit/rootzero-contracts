@@ -4,27 +4,33 @@ pragma solidity ^0.8.33;
 import {Layout} from "./Layout.sol";
 import {BadAmount, InvalidAsset, UnauthorizedAsset, ZeroAmount} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
+import {Nodes} from "./Nodes.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Assets
 /// @notice Encoding and decoding helpers for 256-bit asset identifiers.
 ///
 /// Asset IDs embed a 4-byte type tag in bits [255:224]:
-///   - `Native` - native chain coin/token; no address payload
+///   - `Rootzero` - the singleton global Rootzero asset; no subtype or payload
+///   - `ChainAsset` - the chain coin/token; no address payload
+///   - `Derived` - an opaque, host-scoped derivative of another asset ID
 ///   - `Erc20` - ERC-20 token; contract address in bits [191:32]
 ///
-/// If the first byte is zero, the asset is an opaque
-/// `0x00 || bytes31(hash)` ID. The full asset metadata must be supplied by
-/// lookup or witness data when native token handling needs it.
+/// An opaque asset uses `[0x02][Asset][subtype][bytes29(hash)]`. The full asset
+/// metadata must be supplied by
+/// lookup or witness data when chain token handling needs it.
 ///
 /// The helpers in this library validate and deconstruct structured asset IDs.
 ///
-/// All asset IDs are chain-local (include `block.chainid` in bits [223:192]).
+/// EVM asset IDs are chain-local and include `block.chainid` in bits [223:192].
+/// The Rootzero asset ID is global and leaves the remaining 28 bytes zero.
 library Assets {
+    /// @dev Complete singleton global Rootzero asset ID `[Rootzero][Asset][0][0]`.
+    bytes32 constant Rootzero = bytes32((uint(Layout.Rootzero) << 248) | (uint(Layout.Asset) << 240));
     /// @dev 16-bit family tag shared by all EVM-backed asset types.
     uint16 constant Family = (uint16(Layout.Evm) << 8) | uint16(Layout.Asset);
-    /// @dev Full 4-byte type prefix for the native chain coin/token asset.
-    uint32 constant Native = (uint32(Layout.Evm) << 24) | (uint32(Layout.Asset) << 16) | (uint32(Layout.Native) << 8);
+    /// @dev Full 4-byte type prefix for the chain coin/token asset.
+    uint32 constant Chain = (uint32(Layout.Evm) << 24) | (uint32(Layout.Asset) << 16);
     /// @dev Full 4-byte type prefix for ERC-20 assets.
     uint32 constant Erc20 = (uint32(Layout.Evm) << 24) | (uint32(Layout.Asset) << 16) | (uint32(Layout.Erc20) << 8);
 
@@ -35,17 +41,27 @@ library Assets {
 
     /// @notice Return true if `asset` is opaque.
     function isOpaque(bytes32 asset) internal pure returns (bool) {
-        return Ids.isOpaque(asset);
+        return Ids.isOpaque(asset, Layout.Asset);
     }
 
-    /// @notice Return true if `asset` is the local native chain coin/token asset.
-    function isNative(bytes32 asset) internal view returns (bool) {
-        return asset == toNative();
+    /// @notice Return true if `asset` is the singleton global Rootzero asset.
+    function isRootzero(bytes32 asset) internal pure returns (bool) {
+        return asset == Rootzero;
+    }
+
+    /// @notice Return true if `asset` is the local chain coin/token asset.
+    function isChain(bytes32 asset) internal view returns (bool) {
+        return asset == toChain();
     }
 
     /// @notice Return true if `asset` is a local ERC-20 asset.
     function isErc20(bytes32 asset) internal view returns (bool) {
         return matchesBase(asset, toLocalBase(Erc20));
+    }
+
+    /// @notice Return true if `asset` is an opaque derived asset.
+    function isDerived(bytes32 asset) internal pure returns (bool) {
+        return Ids.isOpaque(asset, Layout.Asset, Layout.Derived);
     }
 
     /// @notice Assert that `value` belongs to the EVM asset family and return it unchanged.
@@ -60,15 +76,23 @@ library Assets {
     /// @param value Asset identifier to validate.
     /// @return asset The same `value` if it is opaque.
     function opaque(bytes32 value) internal pure returns (bytes32 asset) {
-        if (!Ids.isOpaque(value)) revert InvalidAsset();
+        if (!isOpaque(value)) revert InvalidAsset();
         return value;
     }
 
-    /// @notice Assert that `value` is the local native chain coin/token asset and return it unchanged.
+    /// @notice Assert that `value` is the global Rootzero asset and return it unchanged.
     /// @param value Asset identifier to validate.
-    /// @return asset The same `value` if it is the local native asset.
-    function native(bytes32 value) internal view returns (bytes32 asset) {
-        if (!isNative(value)) revert InvalidAsset();
+    /// @return asset The same `value` if it is the Rootzero asset.
+    function rootzero(bytes32 value) internal pure returns (bytes32 asset) {
+        if (!isRootzero(value)) revert InvalidAsset();
+        return value;
+    }
+
+    /// @notice Assert that `value` is the local chain coin/token asset and return it unchanged.
+    /// @param value Asset identifier to validate.
+    /// @return asset The same `value` if it is the local chain asset.
+    function chain(bytes32 value) internal view returns (bytes32 asset) {
+        if (!isChain(value)) revert InvalidAsset();
         return value;
     }
 
@@ -80,10 +104,16 @@ library Assets {
         return value;
     }
 
-    /// @notice Create a chain-local native coin/token asset ID.
-    /// @return Asset ID for the native token on the current chain.
-    function toNative() internal view returns (bytes32) {
-        return bytes32(toLocalBase(Native));
+    /// @notice Assert that `value` is an opaque derived asset and return it unchanged.
+    function derived(bytes32 value) internal pure returns (bytes32 asset) {
+        if (!isDerived(value)) revert InvalidAsset();
+        return value;
+    }
+
+    /// @notice Create the chain-local coin/token asset ID.
+    /// @return Asset ID for the chain token on the current chain.
+    function toChain() internal view returns (bytes32) {
+        return bytes32(toLocalBase(Chain));
     }
 
     /// @notice Create a chain-local ERC-20 asset ID for `addr`.
@@ -93,11 +123,30 @@ library Assets {
         return bytes32(toLocalBase(Erc20) | (uint(uint160(addr)) << 32));
     }
 
+    /// @notice Derive a host-scoped opaque asset from another asset ID.
+    /// @dev The canonical preimage is `[Keccak][Asset][Derived][host][asset]`.
+    /// @param asset Underlying protocol asset ID.
+    /// @param host Host node ID that defines the derived asset's namespace.
+    function toDerived(bytes32 asset, uint host) internal pure returns (bytes32) {
+        if (asset == bytes32(0)) revert InvalidAsset();
+        Nodes.host(host);
+        return Ids.toKeccak(
+            Layout.Asset,
+            abi.encodePacked(Ids.Keccak, Layout.Asset, Layout.Derived, bytes32(host), asset)
+        );
+    }
+
+    /// @notice Assert that `value` is the derived asset for `asset` under `host`.
+    function matchDerived(bytes32 value, bytes32 asset, uint host) internal pure returns (bytes32) {
+        if (value != toDerived(asset, host)) revert InvalidAsset();
+        return value;
+    }
+
     /// @notice Derive an opaque asset ID from a keccak preimage.
-    /// @param preimage Preimage whose first byte is `0x01`.
-    /// @return asset `0x00 || bytes31(keccak256(preimage))`.
+    /// @param preimage Preimage encoded as `0x01 || Asset || subtype || payload`.
+    /// @return asset `[0x02][Asset][subtype][bytes29(keccak256(preimage))]`.
     function toKeccak(bytes memory preimage) internal pure returns (bytes32 asset) {
-        return Ids.toKeccak(preimage);
+        return Ids.toKeccak(Layout.Asset, preimage);
     }
 
     /// @notice Assert that `asset` matches the opaque keccak ID for `preimage`.
@@ -105,7 +154,7 @@ library Assets {
     /// @param preimage Preimage whose first byte is `0x01`.
     /// @return The same `asset` value if it matches.
     function matchKeccak(bytes32 asset, bytes memory preimage) internal pure returns (bytes32) {
-        if (asset != Ids.toKeccak(preimage)) revert InvalidAsset();
+        if (asset != Ids.toKeccak(Layout.Asset, preimage)) revert InvalidAsset();
         return asset;
     }
 

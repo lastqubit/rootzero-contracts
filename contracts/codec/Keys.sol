@@ -68,11 +68,15 @@ library Keys {
     bytes4 constant Annotation = bytes4(keccak256("#annotation"));
     /// @dev Primary semantic action annotation - (uint action)
     bytes4 constant Action = bytes4(keccak256("#action"));
+    /// @dev Entity clearinghouse annotation - (uint host)
+    bytes4 constant Clearinghouse = bytes4(keccak256("#clearinghouse"));
     /// @dev Block schema publication - (bytes4 key, #string as body, bytes32 name)
     bytes4 constant Schema = bytes4(keccak256("#schema"));
 
     /// @dev Structural status form - (uint code)
     bytes4 constant Status = bytes4(keccak256("#status"));
+    /// @dev Structural asset-liability pair - (bytes32 asset, bytes32 liability)
+    bytes4 constant AssetLiability = bytes4(keccak256("#assetLiability"));
     /// @dev Structural account asset form - (bytes32 account, bytes32 asset)
     bytes4 constant AccountAsset = bytes4(keccak256("#accountAsset"));
     /// @dev Structural host asset form - (uint host, bytes32 asset)

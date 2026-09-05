@@ -46,6 +46,9 @@ error ZeroAmount();
 /// @dev Thrown when an amount falls outside its allowed range.
 error BadAmount(uint amount);
 
+/// @dev Thrown when an operation produces an amount other than the exact amount expected.
+error UnexpectedAmount();
+
 /// @dev Thrown when an opaque ID preimage is missing or unsupported.
 error InvalidPreimage();
 

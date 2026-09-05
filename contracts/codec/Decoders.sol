@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Debt, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AssetLiability, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Debt, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
@@ -418,6 +418,16 @@ library Decoders {
         asset = Blocks.unpackAsset(abs);
     }
 
+    /// @notice Decode and consume one ASSET_LIABILITY block.
+    /// @param cur Cursor advanced past the block.
+    /// @return asset Decoded asset identifier.
+    /// @return liability Decoded liability identifier.
+    function unpackAssetLiability(Cur memory cur) internal pure returns (bytes32 asset, bytes32 liability) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.B64);
+        (asset, liability) = Blocks.unpackAssetLiability(abs);
+    }
+
     /// @notice Decode and consume one ACCOUNT_ASSET block.
     /// @param cur Cursor advanced past the block.
     /// @return account Decoded account identifier.
@@ -632,6 +642,13 @@ library Decoders {
     /// @return value Structured account and asset.
     function unpackAccountAssetValue(Cur memory cur) internal pure returns (AccountAsset memory value) {
         (value.account, value.asset) = unpackAccountAsset(cur);
+    }
+
+    /// @notice Decode one ASSET_LIABILITY block into its structured value.
+    /// @param cur Cursor advanced past the block.
+    /// @return value Structured asset and liability pair.
+    function unpackAssetLiabilityValue(Cur memory cur) internal pure returns (AssetLiability memory value) {
+        (value.asset, value.liability) = unpackAssetLiability(cur);
     }
 
     /// @notice Decode one HOST_ASSET block into its structured value.

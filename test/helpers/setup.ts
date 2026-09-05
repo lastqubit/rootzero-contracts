@@ -44,11 +44,11 @@ export async function deployAs(signerIndex: number, contractName: string, ...arg
   return contract;
 }
 
-const HostPrefix = 0x01020200n;
-const CommandPrefix = 0x01020300n;
-const PortPrefix = 0x01020400n;
-const QueryPrefix = 0x01020500n;
-const GuardPrefix = 0x01020600n;
+const HostPrefix = 0x03020200n;
+const CommandPrefix = 0x03020300n;
+const PortPrefix = 0x03020400n;
+const QueryPrefix = 0x03020500n;
+const GuardPrefix = 0x03020600n;
 
 function selector(signature: string) {
   if (/^0x[0-9a-fA-F]{8}$/.test(signature)) return BigInt(signature);

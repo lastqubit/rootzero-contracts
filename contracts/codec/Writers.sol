@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AccountAmount, HostAmount, Debt, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AssetLiability, AccountAmount, HostAmount, Debt, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Buffers} from "./Buffers.sol";
 import {Sizes, Specs} from "./Specs.sol";
@@ -197,6 +197,17 @@ library Writers {
     /// @param value Structured asset balance to encode.
     function appendBalance(Writer memory writer, AssetAmount memory value) internal pure {
         appendBalance(writer, value.asset, value.amount);
+    }
+
+    /// @notice Append an ASSET_LIABILITY block.
+    function appendAssetLiability(Writer memory writer, bytes32 asset, bytes32 liability) internal pure {
+        uint i = reserve(writer, Sizes.B64);
+        Blocks.writeAssetLiability(writer.dst, i, asset, liability);
+    }
+
+    /// @notice Append a structured ASSET_LIABILITY value.
+    function appendAssetLiability(Writer memory writer, AssetLiability memory value) internal pure {
+        appendAssetLiability(writer, value.asset, value.liability);
     }
 
     /// @notice Append a DEBT block.

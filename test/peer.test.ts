@@ -77,6 +77,28 @@ describe("Port Entrypoints", () => {
       .to.emit(host, "Endpoint")
       .withArgs(
         await host.host(),
+        await port("portCredit(bytes)"),
+        endpointDescriptor({ input: Keys.Amount }),
+      );
+    await expect(tx!)
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portCredit(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portCredit"));
+
+    await expect(tx!)
+      .to.emit(host, "Endpoint")
+      .withArgs(
+        await host.host(),
+        await port("portDebit(bytes)"),
+        endpointDescriptor({ input: Keys.Amount }),
+      );
+    await expect(tx!)
+      .to.emit(host, "Annotation")
+      .withArgs(await port("portDebit(bytes)"), encodeLabelBlock(ethers.ZeroHash, "portDebit"));
+
+    await expect(tx!)
+      .to.emit(host, "Endpoint")
+      .withArgs(
+        await host.host(),
         await port("portCreditAccount(bytes)"),
         endpointDescriptor({ input: Keys.AccountAmount }),
       );
@@ -127,6 +149,8 @@ describe("Port Entrypoints", () => {
     signerIndex: number,
     method:
       | "portRequestAllowance(bytes)"
+      | "portCredit(bytes)"
+      | "portDebit(bytes)"
       | "portCreditAccount(bytes)"
       | "portDebitAccount(bytes)"
       | "portPost(bytes)"
@@ -243,6 +267,47 @@ describe("Port Entrypoints", () => {
     });
   });
 
+  describe("portCredit", () => {
+    const method = "portCredit(bytes)";
+    const asset = ethers.zeroPadValue("0xe1", 32);
+
+    it("credits the host from a single AMOUNT block", async () => {
+      const tx = await callAs(1, method, encodeAmountBlock(asset, 123n));
+      await expect(tx).to.emit(host, "PortCreditCalled").withArgs(asset, 123n);
+    });
+
+    it("credits each host amount when multiple are present", async () => {
+      const asset2 = ethers.zeroPadValue("0xe2", 32);
+      const tx = await callAs(1, method, concat(
+        encodeAmountBlock(asset, 123n),
+        encodeAmountBlock(asset2, 456n),
+      ));
+
+      await expect(tx).to.emit(host, "PortCreditCalled").withArgs(asset, 123n);
+      await expect(tx).to.emit(host, "PortCreditCalled").withArgs(asset2, 456n);
+    });
+
+    it("returns empty bytes and accepts an empty batch", async () => {
+      const signer = await getSigner(1);
+      expect(await (host.connect(signer) as any)[method].staticCall(
+        encodeAmountBlock(asset, 123n),
+      )).to.equal("0x");
+      await callAs(1, method);
+    });
+
+    it("rejects commander and untrusted callers", async () => {
+      await expect(callAs(0, method, encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+      await expect(callAs(2, method, encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("rejects non-AMOUNT input", async () => {
+      await expect(callAs(1, method, encodeAccountAmountBlock(ethers.ZeroHash, asset, 123n)))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
+    });
+  });
+
   describe("portCreditAccount", () => {
     const method = "portCreditAccount(bytes)";
     const account = encodeUserAccount("0x11");
@@ -348,6 +413,47 @@ describe("Port Entrypoints", () => {
     it("reverts OutOfBounds when input cannot decode as an ACCOUNT_AMOUNT block", async () => {
       await expect(callAs(1, method, encodeBalanceBlock(asset, 123n)))
         .to.be.revertedWithCustomError(host, "OutOfBounds");
+    });
+  });
+
+  describe("portDebit", () => {
+    const method = "portDebit(bytes)";
+    const asset = ethers.zeroPadValue("0xe3", 32);
+
+    it("debits the host from a single AMOUNT block", async () => {
+      const tx = await callAs(1, method, encodeAmountBlock(asset, 123n));
+      await expect(tx).to.emit(host, "PortDebitCalled").withArgs(asset, 123n);
+    });
+
+    it("debits each host amount when multiple are present", async () => {
+      const asset2 = ethers.zeroPadValue("0xe4", 32);
+      const tx = await callAs(1, method, concat(
+        encodeAmountBlock(asset, 123n),
+        encodeAmountBlock(asset2, 456n),
+      ));
+
+      await expect(tx).to.emit(host, "PortDebitCalled").withArgs(asset, 123n);
+      await expect(tx).to.emit(host, "PortDebitCalled").withArgs(asset2, 456n);
+    });
+
+    it("returns empty bytes and accepts an empty batch", async () => {
+      const signer = await getSigner(1);
+      expect(await (host.connect(signer) as any)[method].staticCall(
+        encodeAmountBlock(asset, 123n),
+      )).to.equal("0x");
+      await callAs(1, method);
+    });
+
+    it("rejects commander and untrusted callers", async () => {
+      await expect(callAs(0, method, encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+      await expect(callAs(2, method, encodeAmountBlock(asset, 123n)))
+        .to.be.revertedWithCustomError(host, "AccessDenied");
+    });
+
+    it("rejects non-AMOUNT input", async () => {
+      await expect(callAs(1, method, encodeAccountAmountBlock(ethers.ZeroHash, asset, 123n)))
+        .to.be.revertedWithCustomError(host, "InvalidBlock");
     });
   });
 

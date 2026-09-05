@@ -106,8 +106,10 @@ export const Keys = {
   Label: blockKey("#label"),
   Annotation: blockKey("#annotation"),
   Action: blockKey("#action"),
+  Clearinghouse: blockKey("#clearinghouse"),
   Schema: blockKey("#schema"),
   Status: blockKey("#status"),
+  AssetLiability: blockKey("#assetLiability"),
   AccountAsset: blockKey("#accountAsset"),
   HostAsset: blockKey("#hostAsset"),
   AccountAmount: blockKey("#accountAmount"),
@@ -124,7 +126,7 @@ export function pad32(value: bigint | string): string {
   return ethers.zeroPadValue(value, 32);
 }
 
-const USER_PREFIX = 0x01010300n;
+const USER_PREFIX = 0x03010300n;
 
 export function encodeUserAccount(addr: string): string {
   const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
@@ -164,6 +166,10 @@ export function encodeHostAccountAssetBlock(host: bigint, account: string, asset
 
 export function encodeAccountAssetBlock(account: string, asset: string): string {
   return encodeBlock(Keys.AccountAsset, ethers.concat([pad32(account), pad32(asset)]));
+}
+
+export function encodeAssetLiabilityBlock(asset: string, liability: string): string {
+  return encodeBlock(Keys.AssetLiability, ethers.concat([pad32(asset), pad32(liability)]));
 }
 
 export function encodeHostAssetBlock(host: bigint, asset: string): string {
@@ -266,6 +272,10 @@ export function encodeAnnotationBlock(entity: bigint, data: string): string {
 
 export function encodeActionBlock(action: bigint): string {
   return encodeBlock(Keys.Action, pad32(action));
+}
+
+export function encodeClearinghouseBlock(host: bigint): string {
+  return encodeBlock(Keys.Clearinghouse, pad32(host));
 }
 
 export function encodeSchemaBlock(spec: bigint, body: string, name: string): string {

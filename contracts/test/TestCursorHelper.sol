@@ -198,6 +198,10 @@ contract TestCursorHelper {
         return Blocks.createAction(value);
     }
 
+    function testToClearinghouseBlock(uint host) external pure returns (bytes memory) {
+        return Blocks.createClearinghouse(host);
+    }
+
     function testToSchemaBlock(uint spec, string memory body, bytes32 name) external pure returns (bytes memory) {
         return Blocks.createSchema(spec, body, name);
     }

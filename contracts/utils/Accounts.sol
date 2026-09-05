@@ -13,8 +13,8 @@ import {ensureAddr, isFamily, toLocalBase, toUnspecifiedBase} from "./Utils.sol"
 ///   - `Admin`    — chain-local EVM address in bits [191:32]
 ///   - `User`     — chain-agnostic EVM address in bits [191:32]
 ///
-/// If the first byte is zero, the account is an opaque
-/// `0x00 || bytes31(hash)` ID. The full account identity must be supplied by
+/// An opaque account uses `[0x02][Account][subtype][bytes29(hash)]`. The full
+/// account identity must be supplied by
 /// lookup or witness data when native account metadata is needed.
 ///
 /// The helpers in this library validate and deconstruct structured account IDs.
@@ -41,7 +41,7 @@ library Accounts {
 
     /// @notice Return true if `account` is opaque.
     function isOpaque(bytes32 account) internal pure returns (bool) {
-        return Ids.isOpaque(account);
+        return Ids.isOpaque(account, Layout.Account);
     }
 
     /// @notice Return true if `account` is an admin account.
@@ -70,7 +70,7 @@ library Accounts {
     /// @param value Account identifier to validate.
     /// @return account The same `value` if it is opaque.
     function opaque(bytes32 value) internal pure returns (bytes32 account) {
-        if (!Ids.isOpaque(value)) revert InvalidAccount();
+        if (!isOpaque(value)) revert InvalidAccount();
         return value;
     }
 
@@ -109,10 +109,10 @@ library Accounts {
     }
 
     /// @notice Derive an opaque account ID from a keccak preimage.
-    /// @param preimage Preimage whose first byte is `0x01`.
-    /// @return account `0x00 || bytes31(keccak256(preimage))`.
+    /// @param preimage Preimage encoded as `0x01 || Account || subtype || payload`.
+    /// @return account `[0x02][Account][subtype][bytes29(keccak256(preimage))]`.
     function toKeccak(bytes memory preimage) internal pure returns (bytes32 account) {
-        return Ids.toKeccak(preimage);
+        return Ids.toKeccak(Layout.Account, preimage);
     }
 
     /// @notice Assert that `account` matches the opaque keccak ID for `preimage`.
@@ -120,7 +120,7 @@ library Accounts {
     /// @param preimage Preimage whose first byte is `0x01`.
     /// @return The same `account` value if it matches.
     function matchKeccak(bytes32 account, bytes memory preimage) internal pure returns (bytes32) {
-        if (account != Ids.toKeccak(preimage)) revert InvalidAccount();
+        if (account != Ids.toKeccak(Layout.Account, preimage)) revert InvalidAccount();
         return account;
     }
 

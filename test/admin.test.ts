@@ -75,7 +75,7 @@ describe("Admin Commands", () => {
       const provider = await getProvider();
       const network = await provider.getNetwork();
       const address = await (await getSigner(7)).getAddress();
-      const foreignNode = (0x01020200n << 224n)
+      const foreignNode = (0x03020200n << 224n)
         | ((network.chainId + 1n) << 192n)
         | BigInt(address);
 

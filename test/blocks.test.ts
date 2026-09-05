@@ -5,11 +5,13 @@ import "./helpers/matchers.js";
 import {
   Keys,
   encodeActionBlock,
+  encodeClearinghouseBlock,
   encodeAccountAmountBlock,
   encodeAllocationBlock,
   encodeAllowanceBlock,
   encodeAmountBlock,
   encodeAssetBlock,
+  encodeAssetLiabilityBlock,
   encodeBalanceBlock,
   encodeBootstrapBlock,
   encodeDebtBlock,
@@ -195,6 +197,17 @@ describe("Cursors", () => {
       expect(await helper.testUnpackAccountAsset(data)).to.deep.equal([account, asset]);
     });
 
+    it("assetLiability block round-trips through factories, writers, and execution", async () => {
+      const liability = ethers.zeroPadValue("0x44", 32);
+      const data = encodeAssetLiabilityBlock(asset, liability);
+      expect(ethers.getBytes(data).length).to.equal(72);
+      expect(data.slice(0, 10)).to.equal(Keys.AssetLiability);
+      expect(await blocksHelper.unpackAssetLiability(data)).to.deep.equal([asset, liability]);
+      expect(await blocksHelper.createAssetLiability(asset, liability)).to.equal(data);
+      expect(await blocksHelper.appendAssetLiability(asset, liability)).to.equal(data);
+      expect(await blocksHelper.executionUnpackAssetLiability(data)).to.deep.equal([asset, liability]);
+    });
+
     it("hostAsset block round-trips", async () => {
       const host = 1234n;
       const data = encodeHostAssetBlock(host, asset);
@@ -289,6 +302,8 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackDebt(encodeDebtBlock(other, 99n))).to.deep.equal([other, 99n]);
+      expect(await blocksHelper.unpackAssetLiability(encodeAssetLiabilityBlock(asset, other)))
+        .to.deep.equal([asset, other]);
       expect(await blocksHelper.unpackAccountAsset(encodeAccountAssetBlock(account, asset)))
         .to.deep.equal([account, asset]);
       expect(await blocksHelper.unpackHostAsset(encodeHostAssetBlock(host, asset)))
@@ -516,6 +531,29 @@ describe("Cursors", () => {
       await expect(blocksHelper.publishAction(123n, 4n))
         .to.emit(blocksHelper, "Annotation")
         .withArgs(123n, encodeActionBlock(4n));
+    });
+
+    it("clearinghouse factory matches the canonical encoding", async () => {
+      const host = (0x03020200n << 224n) | 2n;
+      expect(await helper.testToClearinghouseBlock(host)).to.equal(encodeClearinghouseBlock(host));
+    });
+
+    it("publishes a clearinghouse annotation for an entity", async () => {
+      const command = (0x03020300n << 224n) | 1n;
+      const host = (0x03020200n << 224n) | 2n;
+
+      await expect(blocksHelper.publishClearinghouse(command, host))
+        .to.emit(blocksHelper, "Annotation")
+        .withArgs(command, encodeClearinghouseBlock(host));
+      await expect(blocksHelper.publishClearinghouse(command, 0n))
+        .to.emit(blocksHelper, "Annotation")
+        .withArgs(command, encodeClearinghouseBlock(0n));
+    });
+
+    it("leaves clearinghouse claim validation to consumers", async () => {
+      await expect(blocksHelper.publishClearinghouse(123n, 456n))
+        .to.emit(blocksHelper, "Annotation")
+        .withArgs(123n, encodeClearinghouseBlock(456n));
     });
 
     it("schema factory matches the canonical SCHEMA encoding", async () => {
@@ -1515,7 +1553,7 @@ describe("Cursors", () => {
     });
 
     it("expectErc20Amount reverts InvalidAsset when the asset is not a local ERC20", async () => {
-      const assetId = await utils.testToNativeAsset();
+      const assetId = await utils.testToChain();
       const source = encodeAmountBlock(assetId, 77n);
 
       await expect(erc20Helper.testExpectErc20Amount(source, 0n))

@@ -23,7 +23,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
     }
 
     /// @dev Bootstrap one local balance, using assigned value before debiting
-    /// any remaining native-asset amount from the account.
+    /// any remaining chain-asset amount from the account.
     function bootstrap(
         bytes32 account,
         bytes32 asset,
@@ -31,7 +31,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
         uint budget,
         uint value
     ) private returns (uint) {
-        if (asset == nativeAsset) {
+        if (asset == chainAsset) {
             uint funded = amount < value ? amount : value;
             unchecked {
                 amount -= funded;
@@ -43,7 +43,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
             amount = budget;
         }
 
-        if (amount != 0) debitAccount(account, nativeAsset, amount);
+        if (amount != 0) debitAccount(account, chainAsset, amount);
         return value + budget;
     }
 
@@ -51,7 +51,7 @@ abstract contract Bootstrap is CommandBase, DebitAccountHook {
     /// @param account Account funding the pipeline.
     /// @param state Empty pipeline state required by the command schema.
     /// @param input BOOTSTRAP block stream.
-    /// @param value Native value available to fund native-asset balances.
+    /// @param value Native value available to fund chain-asset balances.
     /// @return handled Always true because this helper executed the command.
     /// @return output One BALANCE block per BOOTSTRAP input.
     /// @return credit Sourced budget contributions plus unused assigned value.

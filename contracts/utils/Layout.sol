@@ -9,22 +9,26 @@ pragma solidity ^0.8.33;
 ///   `[uint32 type][uint32 chainid][192-bit payload]`
 /// where `type` is `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`.
 ///
-/// Values whose first byte is zero are opaque IDs:
-///   `[0x00][bytes31 truncated hash]`
-/// They require lookup or witness data when the native preimage is needed.
-/// Opaque preimages start with a one-byte format/hash tag. `0x01` means the ID
-/// is `0x00 || bytes31(keccak256(preimage))`; remaining bytes are host/domain-specific.
-/// Values whose first byte is nonzero follow the structured layout above.
+/// Representation `Opaque` IDs use
+/// `[0x02][category][subtype][bytes29 truncated hash]` and require lookup or
+/// witness data when the native preimage is needed. `0x00` is reserved for the
+/// null/unset ID.
+/// Opaque preimages start with `[format/hash][category][subtype]`. `0x01` means
+/// the ID hash is keccak256; remaining bytes are host/domain-specific.
 library Layout {
     // -------------------------------------------------------------------------
     // Representation tags (first byte of the ID type field)
     // -------------------------------------------------------------------------
 
+    /// @dev Rootzero-native structured ID.
+    uint8 constant Rootzero = 0x01;
+    /// @dev Opaque hash-backed ID; category and subtype follow this byte, then a 29-byte hash.
+    uint8 constant Opaque = 0x02;
     /// @dev EVM-compatible ID; lower 20 payload bytes hold an address when present.
-    uint8 constant Evm = 0x01;
+    uint8 constant Evm = 0x03;
 
     // -------------------------------------------------------------------------
-    // Category tags (uint8, third byte of the ID type field)
+    // Category tags (uint8, second byte of the ID type field)
     // -------------------------------------------------------------------------
 
     /// @dev ID encodes an account.
@@ -35,7 +39,7 @@ library Layout {
     uint8 constant Asset = 0x03;
 
     // -------------------------------------------------------------------------
-    // Account subtype tags (uint8, fourth byte of the ID type field)
+    // Account subtype tags (uint8, third byte of the ID type field)
     // -------------------------------------------------------------------------
 
     /// @dev Admin account — chain-local, backed by an EVM address.
@@ -43,7 +47,7 @@ library Layout {
     /// @dev User account — chain-agnostic, backed by an EVM address.
     uint8 constant User = 0x03;
     // -------------------------------------------------------------------------
-    // Node subtype tags (uint8, fourth byte of the ID type field)
+    // Node subtype tags (uint8, third byte of the ID type field)
     // -------------------------------------------------------------------------
 
     /// @dev Node is a chain/domain identifier.
@@ -60,11 +64,13 @@ library Layout {
     uint8 constant Guard = 0x06;
 
     // -------------------------------------------------------------------------
-    // Asset subtype tags (uint8, fourth byte of the ID type field)
+    // Asset subtype tags (uint8, third byte of the ID type field)
     // -------------------------------------------------------------------------
 
-    /// @dev Native chain coin/token asset.
-    uint8 constant Native = 0x01;
+    /// @dev Host-scoped asset derived from another protocol asset ID.
+    uint8 constant Derived = 0x01;
+    /// @dev Virtual asset whose realization is defined by its host or application.
+    uint8 constant Virtual = 0x02;
     /// @dev ERC-20 fungible token; lower 20 bytes of the ID hold the contract address.
-    uint8 constant Erc20 = 0x02;
+    uint8 constant Erc20 = 0x03;
 }

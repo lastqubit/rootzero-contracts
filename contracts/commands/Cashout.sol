@@ -10,18 +10,18 @@ import {InvalidAsset, UnexpectedInput} from "../utils/Errors.sol";
 
 using Executions for Execution;
 
-/// @notice Hook implemented by hosts that withdraw native assets from accounts.
+/// @notice Hook implemented by hosts that withdraw chain assets from accounts.
 abstract contract CashoutHook {
-    /// @notice Withdraw an exact native-asset amount from `account`.
-    /// Called once per native BALANCE block in state.
+    /// @notice Withdraw an exact chain-asset amount from `account`.
+    /// Called once per chain-asset BALANCE block in state.
     /// @dev Implementations must revert when the requested amount cannot be withdrawn.
-    /// @param account Account whose native asset is withdrawn.
+    /// @param account Account whose chain asset is withdrawn.
     /// @param amount Native-asset amount to withdraw.
     function cashout(bytes32 account, uint amount) internal virtual;
 }
 
 /// @title Cashout
-/// @notice Command that withdraws requested native-asset amounts from its account.
+/// @notice Command that withdraws requested chain-asset amounts from its account.
 abstract contract Cashout is CommandBase, CashoutHook, Action {
     uint private immutable descriptor;
     uint private immutable id;
@@ -36,7 +36,7 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
         return id;
     }
 
-    /// @notice Withdraw native BALANCE state from the command account.
+    /// @notice Withdraw chain-asset BALANCE state from the command account.
     /// @param context Command context carrying a BALANCE state stream.
     /// @return output Empty output state.
     /// @return credit Zero native budget credit.
@@ -47,7 +47,7 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
 
         while (exec.more()) {
             (bytes32 asset, uint amount) = exec.unpackBalance();
-            if (asset != nativeAsset) revert InvalidAsset();
+            if (asset != chainAsset) revert InvalidAsset();
             cashout(exec.account, amount);
         }
 
@@ -58,8 +58,8 @@ abstract contract Cashout is CommandBase, CashoutHook, Action {
 /// @title ExecuteCashout
 /// @notice Extends cashout with optimized local pipeline execution.
 abstract contract ExecuteCashout is Cashout {
-    /// @notice Execute cashout directly against native BALANCE state held in memory.
-    /// @param account Account whose native asset is withdrawn.
+    /// @notice Execute cashout directly against chain-asset BALANCE state held in memory.
+    /// @param account Account whose chain asset is withdrawn.
     /// @param state BALANCE block stream held in pipeline memory.
     /// @param input Empty input required by the command schema.
     /// @param value Native value assigned to this command; must be zero.
@@ -78,7 +78,7 @@ abstract contract ExecuteCashout is Cashout {
         (uint abs, uint end) = Memory.bounds(state, Sizes.Balance);
         while (abs < end) {
             (bytes32 asset, uint amount) = Memory.unpackBalance(abs);
-            if (asset != nativeAsset) revert InvalidAsset();
+            if (asset != chainAsset) revert InvalidAsset();
             cashout(account, amount);
             unchecked {
                 abs += Sizes.Balance;

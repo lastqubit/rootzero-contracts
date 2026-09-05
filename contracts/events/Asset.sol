@@ -8,9 +8,9 @@ abstract contract AssetEvent is EventEmitter {
     string private constant ABI = "event Asset(uint indexed host, bytes32 asset, bytes preimage)";
 
     /// @param host Host node ID that manages this asset declaration.
-    /// @param asset Asset identifier, typically `0x00 || bytes31(hash(preimage))`.
+    /// @param asset Opaque asset ID `[0x02][Asset][subtype][bytes29(hash(preimage))]`.
     /// @param preimage Canonical preimage used to derive or resolve the opaque asset ID.
-    /// The first byte is a format/hash tag; `0x01` means keccak256.
+    /// The preimage starts with `[formatHash][Asset][subtype]`; `0x01` means keccak256.
     event Asset(uint indexed host, bytes32 asset, bytes preimage);
 
     constructor() {
