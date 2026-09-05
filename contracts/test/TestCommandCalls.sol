@@ -10,10 +10,25 @@ import {
 } from "../core/Calls.sol";
 import {Pipeline} from "../core/Pipeline.sol";
 import {Nodes} from "../utils/Nodes.sol";
+import {Blocks} from "../codec/Blocks.sol";
 
 contract TestCommandCalls is Pipeline {
     error TargetFailure(uint value);
     event BytesCalled(bytes data, uint value);
+    event ContextCalled(bytes context, uint value);
+
+    function testPipeUsage(
+        bytes32 account,
+        bytes memory state,
+        bytes calldata steps
+    ) external returns (uint allocated, uint usedGas) {
+        uint start;
+        assembly ("memory-safe") { start := mload(0x40) }
+        uint beforeGas = gasleft();
+        pipe(account, state, steps, 0);
+        usedGas = beforeGas - gasleft();
+        assembly ("memory-safe") { allocated := sub(mload(0x40), start) }
+    }
 
     function testPipe(
         bytes32 account,
@@ -90,6 +105,23 @@ contract TestCommandCalls is Pipeline {
         return ("", uint(keccak256(context)) ^ msg.value);
     }
 
+    /// @dev Hash the full ABI call, including padding outside the context bytes.
+    function inspectCommand(bytes calldata) external payable returns (bytes memory, uint) {
+        return ("", uint(keccak256(msg.data)) ^ msg.value);
+    }
+
+    function replaceState(bytes calldata context) external payable returns (bytes memory, uint) {
+        uint abs;
+        assembly ("memory-safe") { abs := context.offset }
+        (, , bytes calldata input, ) = Blocks.unpackContext(abs);
+        emit ContextCalled(context, msg.value);
+        return (input, msg.value);
+    }
+
+    function discard(bytes calldata) external pure returns (bytes memory, uint) {
+        return ("", 0);
+    }
+
     function failing(bytes calldata) external pure returns (bytes memory, uint) {
         revert TargetFailure(7);
     }
@@ -128,7 +160,7 @@ contract TestCommandCalls is Pipeline {
         }
     }
 
-    function enforceCommand(uint cmd) internal pure override returns (bytes4 selector, address target) {
+    function enforceCommand(uint cmd) internal pure virtual override returns (bytes4 selector, address target) {
         uint node = Nodes.command(cmd);
         selector = bytes4(uint32(node >> 160));
         target = address(uint160(node));
@@ -142,5 +174,18 @@ contract TestCommandCalls is Pipeline {
         uint
     ) internal pure override returns (bool, bytes memory, uint) {
         return (false, state, 0);
+    }
+}
+
+/// @dev Poison temporary memory immediately before invokeCommand builds its call.
+contract TestDirtyCommandCalls is TestCommandCalls {
+    function enforceCommand(uint cmd) internal pure override returns (bytes4 selector, address target) {
+        (selector, target) = super.enforceCommand(cmd);
+        assembly ("memory-safe") {
+            let start := mload(0x40)
+            for { let p := start } lt(p, add(start, 0x4000)) { p := add(p, 0x20) } {
+                mstore(p, not(0))
+            }
+        }
     }
 }

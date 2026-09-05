@@ -1,10 +1,62 @@
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { commandId, deploy } from "./helpers/setup.js";
-import { encodeContextBlock, encodeStepBlock } from "./helpers/blocks.js";
+import { concat, encodeContextBlock, encodeRelayBlock, encodeStepBlock } from "./helpers/blocks.js";
 import "./helpers/matchers.js";
 
 describe("Command calls", () => {
+  describe("invokeCommand", () => {
+    const account = ethers.zeroPadValue("0xab", 32);
+    const bytes = (length: number, byte = "a5") => "0x" + byte.repeat(length);
+    let helper: Awaited<ReturnType<typeof deploy>>;
+
+    before(async () => { helper = await deploy("TestDirtyCommandCalls"); });
+
+    for (const handoff of [false, true]) {
+      for (const stateLength of [0, 1, 7, 8, 9, 31, 32, 33, 63, 64, 65]) {
+        it(`encodes canonical ${handoff ? "handoff" : "ordinary"} calls with ${stateLength} state bytes in dirty memory`, async () => {
+          const command = await commandId("inspectCommand(bytes)", helper, handoff ? 0x81n : 0x01n);
+          const state = bytes(stateLength);
+          // Both the state/input boundary and the final ABI padding vary.
+          for (const inputLength of [0, 1, 7, 8, 9, 31, 32, 33, 63, 64, 65]) {
+            const input = bytes(inputLength, "b6");
+            for (const remaining of handoff ? ["0x", encodeStepBlock(0n, 0n, bytes(inputLength, "c7"))] : ["0x"]) {
+              const context = encodeContextBlock(account, state, handoff ? encodeRelayBlock(input, remaining) : input);
+              const encoded = helper.interface.encodeFunctionData("inspectCommand", [context]);
+              const steps = concat(encodeStepBlock(command, 7n, input), remaining);
+              expect(await helper.testPipe.staticCall(account, state, steps, { value: 7n }))
+                .to.equal(BigInt(ethers.keccak256(encoded)) ^ 7n);
+            }
+          }
+        });
+      }
+    }
+
+    it("preserves contexts and credits while returned state grows and shrinks across calls", async () => {
+      const command = await commandId("replaceState(bytes)", helper, 0x01n);
+      const outputs = [bytes(4097), bytes(1), bytes(65), bytes(31), bytes(8193), "0x"];
+      const states = [bytes(33, "d8"), ...outputs.slice(0, -1)];
+      const steps = concat(...outputs.map((input) => encodeStepBlock(command, 7n, input)));
+      expect(await helper.testPipe.staticCall(account, states[0], steps, { value: 7n })).to.equal(7n);
+      const tx = await helper.testPipe(account, states[0], steps, { value: 7n });
+      const receipt = await tx.wait();
+      const calls = receipt!.logs.map((log) => helper.interface.parseLog(log)).filter((log) => log?.name === "ContextCalled");
+      expect(calls.map((log) => [...log!.args])).to.deep.equal(
+        outputs.map((input, i) => [encodeContextBlock(account, states[i], input), 7n]),
+      );
+    });
+
+    it("reuses large temporary inputs across repeated calls with empty outputs", async () => {
+      const clean = await deploy("TestCommandCalls");
+      const command = await commandId("discard(bytes)", clean);
+      const steps = concat(...Array.from({ length: 8 }, () => encodeStepBlock(command, 0n, bytes(4096))));
+      const [allocated, usedGas] = await clean.testPipeUsage.staticCall(account, "0x", steps);
+      console.log(`        invokeCommand benchmark: ${allocated} bytes retained, ${usedGas} execution gas`);
+      // Eight empty return tuples need far less retained memory than eight 4 KiB inputs.
+      expect(allocated).to.be.lessThan(4096n);
+    });
+  });
+
   it("calls a selector with one memory bytes argument and forwards value", async () => {
     const helper = await deploy("TestCommandCalls");
     const selector = helper.interface.getFunction("echoBytes")!.selector;

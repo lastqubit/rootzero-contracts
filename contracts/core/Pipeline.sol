@@ -78,6 +78,10 @@ abstract contract Pipeline is CommandAccess, PipeHook, ExecuteHook {
     }
 
     /// @dev Execute the prepared command call and strictly decode `(bytes, uint)`.
+    /// `run` passes either a 64-bit input offset/length pair for ordinary calls,
+    /// or the complete cursor for handoffs. A complete cursor always has a nonzero
+    /// command-input offset in bits 64-95, even when that input is empty, because
+    /// takeStep obtained it from a BYTES block inside the current calldata.
     function invokeCommand(
         bytes4 selector,
         address target,
@@ -138,8 +142,9 @@ abstract contract Pipeline is CommandAccess, PipeHook, ExecuteHook {
                 mstore(p, or(shl(224, 0x6911b332), shl(192, stepslen)))
                 calldatacopy(add(p, 0x08), and(input, 0xffffffff), stepslen)
             }
+            // Temporary memory can be dirty; canonical ABI bytes padding is zero.
+            mstore(add(add(scratch, 0x44), ctxlen), 0)
             ctxlen := add(68, and(add(ctxlen, 0x1f), not(0x1f)))
-            let inputend := and(add(add(scratch, ctxlen), 0x1f), not(0x1f))
             let success := call(
                 gas(),
                 and(target, 0xffffffffffffffffffffffffffffffffffffffff),
@@ -180,10 +185,9 @@ abstract contract Pipeline is CommandAccess, PipeHook, ExecuteHook {
             credit := mload(add(scratch, 0x20))
 
             let retend := and(add(add(scratch, retlen), 0x1f), not(0x1f))
-            if gt(retend, inputend) {
-                inputend := retend
-            }
-            mstore(0x40, inputend)
+            // Only returndata survives this call. The encoded input was temporary
+            // and its remaining memory can be reused by later pipeline steps.
+            mstore(0x40, retend)
         }
     }
 
