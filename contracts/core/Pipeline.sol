@@ -91,103 +91,86 @@ abstract contract Pipeline is CommandAccess, PipeHook, ExecuteHook {
         uint input
     ) private returns (bytes memory output, uint credit) {
         assembly ("memory-safe") {
+            // Encode selector(bytes): ABI prefix, CONTEXT(account, state, input),
+            // then zero padding. The allocation remains temporary until the call.
+            function encodeCall(ptr, callSelector, activeAccount, stateBytes, inputCursor) -> size {
+                let context := add(ptr, 0x44)
+                let stateBlock := add(context, 40)
+                let stateLength := mload(stateBytes)
+                mstore(stateBlock, or(shl(224, 0x6911b332), shl(192, stateLength)))
+                mcopy(add(stateBlock, 8), add(stateBytes, 32), stateLength)
+                let inputPtr := add(add(stateBlock, 8), stateLength)
+                let end
+                // Ordinary calls carry BYTES input; handoffs carry RELAY(input, remaining steps).
+                switch iszero(shr(64, inputCursor))
+                case 1 {
+                    let inputLength := and(shr(32, inputCursor), 0xffffffff)
+                    mstore(inputPtr, or(shl(224, 0x6911b332), shl(192, inputLength)))
+                    calldatacopy(add(inputPtr, 8), and(inputCursor, 0xffffffff), inputLength)
+                    end := add(add(inputPtr, 8), inputLength)
+                }
+                default {
+                    let inputLength := and(shr(96, inputCursor), 0xffffffff)
+                    let stepsOffset := and(inputCursor, 0xffffffff)
+                    let stepsLength := sub(and(shr(32, inputCursor), 0xffffffff), stepsOffset)
+                    let relayLength := add(16, add(inputLength, stepsLength))
+                    mstore(inputPtr, or(shl(224, 0x6911b332), shl(192, add(8, relayLength))))
+                    mstore(add(inputPtr, 8), or(shl(224, 0xc34cc52a), shl(192, relayLength)))
+                    let inputBlock := add(inputPtr, 16)
+                    mstore(inputBlock, or(shl(224, 0x6911b332), shl(192, inputLength)))
+                    calldatacopy(add(inputBlock, 8), and(shr(64, inputCursor), 0xffffffff), inputLength)
+                    let stepsBlock := add(add(inputBlock, 8), inputLength)
+                    mstore(stepsBlock, or(shl(224, 0x6911b332), shl(192, stepsLength)))
+                    calldatacopy(add(stepsBlock, 8), stepsOffset, stepsLength)
+                    end := add(add(stepsBlock, 8), stepsLength)
+                }
+                let contextLength := sub(end, context)
+                mstore(context, or(shl(224, 0xc5769e23), shl(192, sub(contextLength, 8))))
+                mstore(add(context, 8), activeAccount)
+                mstore(ptr, callSelector)
+                mstore(add(ptr, 4), 32)
+                mstore(add(ptr, 36), contextLength)
+                // Scratch memory may be dirty, including the final ABI padding.
+                mstore(end, 0)
+                size := add(68, and(add(contextLength, 31), not(31)))
+            }
+
+            // Preserve the failing endpoint and its complete revert data.
+            function revertCall(ptr, callTarget, callSelector) {
+                let length := returndatasize()
+                mstore(ptr, shl(224, 0x20577b07)) // FailedCall(address,bytes4,bytes)
+                mstore(add(ptr, 4), callTarget)
+                mstore(add(ptr, 36), shl(224, shr(224, callSelector)))
+                mstore(add(ptr, 68), 96)
+                mstore(add(ptr, 100), length)
+                mstore(add(add(ptr, 132), length), 0)
+                returndatacopy(add(ptr, 132), 0, length)
+                revert(ptr, add(132, and(add(length, 31), not(31))))
+            }
+
+            // Strictly decode (bytes, uint), reusing the call's scratch space.
+            // Only returndata survives; temporary call input is free to be reused.
+            function decodeResult(ptr) -> result, returnedCredit {
+                let length := returndatasize()
+                if lt(length, 96) { revert(0, 0) }
+                returndatacopy(ptr, 0, length)
+                if iszero(eq(mload(ptr), 64)) { revert(0, 0) }
+                let stateLength := mload(add(ptr, 64))
+                if gt(stateLength, sub(length, 96)) { revert(0, 0) }
+                let paddedLength := and(add(stateLength, 31), not(31))
+                if iszero(eq(length, add(96, paddedLength))) { revert(0, 0) }
+                result := add(ptr, 64)
+                returnedCredit := mload(add(ptr, 32))
+                mstore(0x40, and(add(add(ptr, length), 31), not(31)))
+            }
+
             let scratch := mload(0x40)
-            let ctxlen
-            switch iszero(shr(64, input))
-            case 1 {
-                let statelen := mload(state)
-                let inputlen := and(shr(32, input), 0xffffffff)
-                ctxlen := add(56, add(statelen, inputlen))
-
-                mstore(scratch, selector)
-                mstore(add(scratch, 0x04), 0x20)
-                mstore(add(scratch, 0x24), ctxlen)
-
-                let p := add(scratch, 0x44)
-                mstore(p, or(shl(224, 0xc5769e23), shl(192, sub(ctxlen, 8))))
-                mstore(add(p, 0x08), account)
-                p := add(p, 0x28)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, statelen)))
-                mcopy(add(p, 0x08), add(state, 0x20), statelen)
-                p := add(add(p, 0x08), statelen)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, inputlen)))
-                calldatacopy(add(p, 0x08), and(input, 0xffffffff), inputlen)
+            let size := encodeCall(scratch, selector, account, state, input)
+            let callTarget := and(target, 0xffffffffffffffffffffffffffffffffffffffff)
+            if iszero(call(gas(), callTarget, value, scratch, size, 0, 0)) {
+                revertCall(scratch, callTarget, selector)
             }
-            default {
-                let statelen := mload(state)
-                let inputlen := and(shr(96, input), 0xffffffff)
-                let stepslen := sub(and(shr(32, input), 0xffffffff), and(input, 0xffffffff))
-                let relaylen := add(16, add(inputlen, stepslen))
-                ctxlen := add(64, add(statelen, relaylen))
-
-                mstore(scratch, selector)
-                mstore(add(scratch, 0x04), 0x20)
-                mstore(add(scratch, 0x24), ctxlen)
-
-                let p := add(scratch, 0x44)
-                mstore(p, or(shl(224, 0xc5769e23), shl(192, sub(ctxlen, 8))))
-                mstore(add(p, 0x08), account)
-                p := add(p, 0x28)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, statelen)))
-                mcopy(add(p, 0x08), add(state, 0x20), statelen)
-
-                p := add(add(p, 0x08), statelen)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, add(8, relaylen))))
-                p := add(p, 0x08)
-                mstore(p, or(shl(224, 0xc34cc52a), shl(192, relaylen)))
-                p := add(p, 0x08)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, inputlen)))
-                calldatacopy(add(p, 0x08), and(shr(64, input), 0xffffffff), inputlen)
-                p := add(add(p, 0x08), inputlen)
-                mstore(p, or(shl(224, 0x6911b332), shl(192, stepslen)))
-                calldatacopy(add(p, 0x08), and(input, 0xffffffff), stepslen)
-            }
-            // Temporary memory can be dirty; canonical ABI bytes padding is zero.
-            mstore(add(add(scratch, 0x44), ctxlen), 0)
-            ctxlen := add(68, and(add(ctxlen, 0x1f), not(0x1f)))
-            let success := call(
-                gas(),
-                and(target, 0xffffffffffffffffffffffffffffffffffffffff),
-                value,
-                scratch,
-                ctxlen,
-                0,
-                0
-            )
-            let retlen := returndatasize()
-            if iszero(success) {
-                mstore(scratch, shl(224, 0x20577b07))
-                mstore(add(scratch, 0x04), and(target, 0xffffffffffffffffffffffffffffffffffffffff))
-                mstore(add(scratch, 0x24), shl(224, shr(224, selector)))
-                mstore(add(scratch, 0x44), 0x60)
-                mstore(add(scratch, 0x64), retlen)
-                mstore(add(add(scratch, 0x84), retlen), 0)
-                returndatacopy(add(scratch, 0x84), 0, retlen)
-                revert(scratch, add(0x84, and(add(retlen, 0x1f), not(0x1f))))
-            }
-
-            if lt(retlen, 0x60) {
-                revert(0, 0)
-            }
-            returndatacopy(scratch, 0, retlen)
-            if iszero(eq(mload(scratch), 0x40)) {
-                revert(0, 0)
-            }
-            let len1 := mload(add(scratch, 0x40))
-            if gt(len1, sub(retlen, 0x60)) {
-                revert(0, 0)
-            }
-            let pad1 := and(add(len1, 0x1f), not(0x1f))
-            if iszero(eq(retlen, add(0x60, pad1))) {
-                revert(0, 0)
-            }
-            output := add(scratch, 0x40)
-            credit := mload(add(scratch, 0x20))
-
-            let retend := and(add(add(scratch, retlen), 0x1f), not(0x1f))
-            // Only returndata survives this call. The encoded input was temporary
-            // and its remaining memory can be reused by later pipeline steps.
-            mstore(0x40, retend)
+            output, credit := decodeResult(scratch)
         }
     }
 
