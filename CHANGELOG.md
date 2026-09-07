@@ -8,6 +8,8 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+## 1.36.0
+
 - Add `Accounts.account(value)` to validate only the account category and return
   the ID unchanged, reverting with `InvalidAccount` for non-account values,
   including zero.
