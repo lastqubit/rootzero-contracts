@@ -34,15 +34,16 @@ needs and implements their policy hooks:
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { AccountBalances, CommandHost } from "@rootzero/contracts/Core.sol";
+import { Balances, CommandHost } from "@rootzero/contracts/Core.sol";
 import { Deposit } from "@rootzero/contracts/Endpoints.sol";
 
-contract ExampleHost is CommandHost, AccountBalances, Deposit {
+contract ExampleHost is CommandHost, Balances, Deposit {
     constructor(uint commander) CommandHost(commander) {}
 
-    function deposit(bytes32 account, bytes32 asset, uint amount) internal override {
+    function deposit(bytes32 account, bytes32 asset, uint amount) internal override returns (uint) {
         uint balance = creditTo(account, asset, amount);
-        emit Balance(account, asset, balance, int(amount), depositId);
+        emit Balance(account, asset, balance, int(amount));
+        return amount;
     }
 }
 ```
@@ -130,10 +131,10 @@ Standard block aliases are intrinsic protocol metadata: indexers resolve names
 such as `balance`, `step`, and `context` from their standard keys even when no
 named schema annotation is emitted.
 
-Entities such as commands and assets may carry a `#clearinghouse { uint host }`
-annotation identifying the host responsible for clearing them. The latest
-trusted value replaces the earlier association, and host zero clears it. The
-helper emits the claim without validating either ID.
+Entities such as commands and assets may carry a `#counterparty { bytes32 account }`
+annotation identifying their counterparty account, including host accounts. The latest trusted value
+replaces the earlier association, and account zero identifies Rootzero. The
+helper emits the claim without validating either ID or granting authority.
 The full schema language is specified in
 [`docs/Schema.md`](https://github.com/lastqubit/rootzero-evm/blob/main/docs/Schema.md). The standard block schemas live in
 `Schemas` and their runtime keys in `Keys` (both via
@@ -207,6 +208,17 @@ Structured EVM IDs use:
 [uint32 type][uint32 chainid][192-bit payload]
 ```
 
+Embedded EVM addresses always occupy the low 160 bits:
+
+```txt
+Account / ERC-20: [type:4][chain:4][zero:4]    [address:20]
+Node:            [type:4][chain:4][selector:4][address:20]
+```
+
+Account and ERC-20 encoders leave the middle four bytes zero. After validating
+the ID's representation and category, extract the address with
+`address(uint160(uint256(id)))`.
+
 where `type` packs
 `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`. A
 structured ID announces what it is (an account, an asset, a node) and which
@@ -217,14 +229,9 @@ Assets are unique IDs in the same single-word form as accounts and nodes.
 Nodes are hosts, commands, ports, queries, and guards.
 
 Asset subtype `0x00` identifies the default asset for representations that
-define one, `0x01` identifies a host-scoped derived asset, `0x02` identifies a
-virtual asset, and `0x03` identifies an ERC-20 asset. `Virtual` is currently a
-taxonomy value without dedicated helpers.
-
-A derived asset is an opaque identity for an underlying asset within a host's
-namespace. `Assets.toDerived(asset, host)` hashes the canonical preimage
-`[0x01][Asset][Derived][host:32][asset:32]`. The same pair always produces the
-same ID, while changing either the host or underlying asset changes the ID.
+define one. `Derived = 0x01` and `Virtual = 0x02` remain reserved taxonomy
+values without dedicated helpers or a standardized payload. `Erc20 = 0x03`
+identifies an ERC-20 asset.
 
 The Rootzero asset is the singleton global ID
 `[Rootzero][Asset][0][0]` with zero chain and payload fields. Its exact value is
@@ -243,9 +250,17 @@ The `Utils.sol` entry point provides the constructors and inspectors:
 bytes32 account = Accounts.toUser(msg.sender); // chain-agnostic user account
 bytes32 asset = Assets.toErc20(tokenAddress);  // ERC-20 asset ID
 uint hostId = Nodes.toHost(address(this));       // host node ID
+bytes32 hostAccount = Accounts.toHost(hostId); // deterministic host account
 bytes32 opaque = Ids.toKeccak(preimage);  // preimage: 0x01 || category || subtype || payload
-bytes32 derived = Assets.toDerived(asset, hostId); // host-scoped opaque asset
 ```
+
+Host accounts use `[Evm][Account][Host][0]`, a chain ID, and an address in
+bits `[159:0]`. `Layout.Host` is shared with host nodes; the category distinguishes
+them. `Accounts.toHost(address)` uses the current chain, while `Accounts.toHost(uint)`
+validates a host node prefix and preserves its chain and address, including remote
+chains. `Accounts.isHost` classifies the prefix; `Accounts.host` additionally
+requires a nonzero address. Neither grants authority or requires deployed code.
+A host account can be used with `settle`; the same host account can also identify a position handled by `realize`.
 
 ## Hosts
 
@@ -253,8 +268,8 @@ A host is one contract assembled from mixins. The base `Host` brings access
 control and the admin surface (authorize, unauthorize, appoint, dismiss,
 annotate, executePayable) plus the guardian `revoke` action; you add the
 endpoints you need and the policy hooks they require. Keeping a ledger is
-optional: the `AccountBalances` and host-scoped `Balances` mixins provide
-standard implementations, but a host can just as well
+optional: the `Balances` mixin provides an account-and-asset ledger; hosts store their
+own balances under `Accounts.toHost(host)`, but a host can just as well
 implement commands that hold no persistent state in the host at all —
 forwarding funds elsewhere, or operating only on the state threaded through a
 pipeline.
@@ -308,31 +323,46 @@ runtime source semantics. A command that does not consume supplied state rejects
 it when closing, while `takeRawState` explicitly consumes an intact forwarded
 state source. `takeRawBalances` additionally validates every forwarded block as
 BALANCE and is used by `relayBalancePayable`; empty state remains accepted.
-This is especially important for `#debt` and `#position`, because dropping
-either could silently discard an outstanding debt requirement.
+This is especially important for `#position`, because dropping it could
+silently discard an outstanding debt requirement.
 
 The input carries instructions; the state carries live value. While a sequence
-of commands executes, `#balance`, `#debt`, `#custody`, and `#position` blocks in
+of commands executes, `#balance`, `#custody`, and `#position` blocks in
 the state are the value being moved — produced by one command, consumed by the
-next. Balance carries `{ asset, amount }`, debt carries `{ liability, debt }`,
+next. Balance carries `{ asset, amount }`,
 custody carries `{ host, asset, amount }`, and position carries the flat
-asset-liability combination `{ asset, amount, liability, debt }`.
+position `{ asset, amount, liability, debt, counterparty }`. The counterparty
+field identifies the settlement counterparty. Zero identifies Rootzero and
+preserves existing settlement behavior. Generic codecs preserve the field;
+`settle` passes all five fields as a `Position memory` struct and leaves
+counterparty validation and authorization to its hook. Settlement hooks take
+`(account, position)`, plus `Execution memory funds` for funded settlement. The default `Settlement` hook accepts Rootzero (`0`) or an account-category
+counterparty. For an account, it transfers liability from the active account to
+the counterparty, then transfers the asset in the opposite direction. Zero
+skips the counterparty debit and credit.
+
+Every nonzero position counterparty is an account, including host accounts.
+`settle` can exchange balances with any account counterparty on the executing
+host. A host account can instead be realized by its host, whose hook compares
+against `Accounts.toHost(host)` and fulfills the obligation before returning zero.
+The subtype identifies the account, not the route: offchain metadata and available
+balances determine where to settle or realize. See [counterparty semantics](docs/Schema.md#counterparty-semantics).
 
 Either side of a position may be absent. An absent asset side is encoded as
 `asset = 0, amount = 0`; an absent liability side is encoded as
 `liability = 0, debt = 0`. This mirrors transaction blocks, where a zero `from`
 or `to` omits that side of the transfer. A one-sided position remains useful
 when a command must preserve position-shaped state for later composition;
-otherwise the narrower `#balance` or `#debt` block expresses the same live
-value more directly.
+a liability-only position is the standard representation of debt. An asset-only
+value can also use the narrower `#balance` block.
 
-`#debt` and `#position` are general live state rather than persisted
-lending-specific debt records. Debt carries value owed or required; position
+`#position` is general live state rather than a persisted
+lending-specific debt record. Its liability side carries value owed or required; it
 pairs that liability with value acquired or controlled. A command may preserve
 or replace either side and return the resulting state for the next step;
 `settle` terminally consumes a position pair. This supports swaps,
 borrowing, refinancing, collateral changes, callback obligations, cross-host
-claims, fees, netting, and other multi-step operations. Debt and position are
+claims, fees, netting, and other multi-step operations. Positions are
 transient representations and do not themselves create or erase an obligation
 recorded by an external system.
 
@@ -342,11 +372,11 @@ revert. Transfer fees and other sourcing costs are paid in addition to the debt
 or reflected in the gross amount sourced upstream; they must not silently
 reduce the fulfilled quantity. When fulfillment produces custody, the amount
 that actually reaches custody must equal the debt. Partial fulfillment requires
-preserving the unsatisfied remainder as debt state rather than consuming it.
+preserving the unsatisfied remainder in a position rather than consuming it.
 
 The standard `Deposit` mixin shows the canonical shape: open the execution,
 decode its input, call the hook, and write the output run. Execution helpers
-route known state blocks (`#balance`, `#debt`, `#custody`, and `#position`) to
+route known state blocks (`#balance`, `#custody`, and `#position`) to
 state automatically; generic and custom-schema decoding consumes input:
 
 ```solidity
@@ -413,17 +443,15 @@ an initial balance and native-value budget), `cashout` (withdraw native
 `depositPayable` (external funds in), `settlePayable` (funded settlement),
 `withdraw` and `burn` (funds out),
 `debitAccount` and `creditAccount` (internal movements), `payout` (deliver
-state to other accounts), `realize` (convert each balance into its paired
-requested asset with an AMOUNT input carrying its minimum output), `realizeDebt`
-(convert debt with an AMOUNT input carrying the destination liability and maximum
-replacement debt), `realizePosition` (transform positions
-using two AMOUNT inputs per position: asset/minimum, then liability/maximum),
+state to other accounts), `realize` (pass each position and decoded QUOTE to
+`realize(position, quote)`; the hook validates the returned identifiers and
+counterparty, minimum asset amount, and maximum debt, using
+`Positions.requireQuoted(position, quote)` for the standard checks),
 `allocate` (turn balance state
 into custody),
 `provision` (provision custody from an external allocation), `settle` (consume
-asset-liability position state), `repay` and `repayPayable` (consume standalone
-debt state), `repayPosition` and `repayPositionPayable` (repay a position's debt
-and return its asset as balance state), `relayPayable` (relay a pipeline without
+asset-liability position state, including liability-only positions),
+`relayPayable` (relay a pipeline without
 state), and `relayBalancePayable` (relay balance state and a pipeline to another
 portal).
 
@@ -470,6 +498,15 @@ if (state.length != 0) revert UnexpectedState();
 `Pipeline.pipe` takes the available native-value budget as a `uint` and returns
 the remaining budget after every step has executed. The enclosing entrypoint
 settles that final value once.
+
+`portPipePayable` shares one native-value budget across all supplied CONTEXT
+blocks. After every context has executed, it calls `cashin(account, amount)`
+once for any nonzero remainder, crediting the **last context's account**.
+Context ordering therefore determines who receives the remaining budget; it
+is not split between accounts. Hosts implement `CashinHook` to credit the full
+amount and validate the account, including their zero-account policy. Empty
+input with native value passes the zero account to `cashin`; without value,
+the hook is skipped.
 
 The EVM pipeline is deliberately coupled to the canonical wire layout for gas
 efficiency. It extracts command selectors, targets, and flags directly from
@@ -526,13 +563,11 @@ parameters. A `resources` word is never itself native value; EVM adapters use
 `useResourceValue` to extract its low 128-bit value lane before spending it.
 
 Hosts that implement a pipeline locally can inherit `Bootstrap`,
-`ExecuteCashout`, `ExecuteDebitAccount`, `ExecuteCreditAccount`,
-`ExecuteSettle`, and
-`ExecuteRepay` to register canonical command metadata while executing
+`ExecuteCashout`, `ExecuteDebitAccount`, `ExecuteCreditAccount`, and
+`ExecuteSettle` to register canonical command metadata while executing
 their local command IDs through `executeBootstrap`, `executeCashout`,
-`executeDebitAccount`, `executeCreditAccount`, `executeSettle`, and
-`executeRepay`. The bootstrap and debit adapters decode fixed-stride calldata
-input directly; cashout, credit, settle, and repay decode memory-backed pipeline
+`executeDebitAccount`, `executeCreditAccount`, and `executeSettle`. The bootstrap and debit adapters decode fixed-stride calldata
+input directly; cashout, credit, and settle decode memory-backed pipeline
 state. All return `handled = true` and avoid an
 external self-call. The host's `execute` hook must authorize a command before
 returning true. Returning `handled = false` delegates a local command to its
@@ -562,16 +597,10 @@ other commands may transform the asset side, the liability side, or both.
 
 Queries are the read endpoints: view functions that take a block-stream input
 and return a block-stream response, with the same batch shape as commands. The
-standard `getBalances` query reports assets actually held or controlled by its
-host without creating pipeline state:
+standard `getBalances` query takes a run of account-asset positions
+and answers each one in order. Query the host's own holdings by supplying its
+deterministic host account:
 
-```txt
-input:  asset { bytes32 asset }
-response: amount { bytes32 asset, uint amount }
-```
-
-The `getAccountBalances` query instead takes a run of account-asset positions
-and answers each one in order:
 
 ```txt
 input:  accountAsset { bytes32 account, bytes32 asset }
@@ -616,10 +645,9 @@ The central ports are batches all the way down:
 - `portRequestAllowance` consumes the same amount blocks and lets the
   authenticated peer set its own asset allowance through the same authoritative
   hook used by the admin allowance command.
-- `portCredit` and `portDebit` consume `amount` blocks and apply credits or
-  debits directly to the host. Their `portCreditAccount` and
-  `portDebitAccount` counterparts consume `accountAmount` blocks and apply the
-  operation to the specified account ledger.
+- `portCreditAccount` and `portDebitAccount` consume `accountAmount` blocks
+  and apply the operation to the specified account. To credit or debit a host,
+  pass `Accounts.toHost(host)` as that account. The same account hooks handle both.
 - `portPipePayable` consumes `context` blocks, each carrying an account, an
   initial state, and a run of steps — a complete pipeline delivered by another
   host, executed locally against the port call's shared value budget.
@@ -654,7 +682,8 @@ drop a trusted node immediately.
 Hosts are self-describing. At deployment a host emits the ABI of every event it
 uses (`EventAbi`), block schema events, endpoint descriptors, and labels for
 human-readable names. State changes then follow evented
-conventions: `Balance` for every ledger change and flow events (`Received`,
+conventions: `Balance` for account ledger changes (including host accounts),
+and flow events (`Received`,
 `Spent`, `Locked`, `Unlocked`) for value movement, each tagged with the endpoint that
 caused it. An indexer can reconstruct the entire repository — endpoints,
 names, access sets, balances — from logs alone, with no artifact files.
@@ -664,7 +693,7 @@ names, access sets, balances — from logs alone, with no artifact files.
 Import from the package entry points rather than deep paths:
 
 - `@rootzero/contracts/Core.sol` — `Host`, annotation helpers including
-  `Clearinghouse`, access control, `AccountBalances`, `Balances`, `Settlement`, `ExecuteHook`,
+  `Counterparty`, access control, `Balances`, `Settlement`, `ExecuteHook`,
   `PipeHook`, `ForwardHook`, `Pipeline`, `Portal`, validator
 - `@rootzero/contracts/Commands.sol` — `CommandBase`, `Execution`, `Flags`,
   codec helpers, and shared value types for authoring custom commands

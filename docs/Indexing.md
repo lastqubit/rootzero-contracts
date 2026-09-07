@@ -33,20 +33,36 @@ contains its full endpoint catalog:
 event Endpoint(uint indexed host, uint id, uint descriptor)
 ```
 
-- `descriptor` packs `[state key:4][stride:1]`,
-  `[input key:4][stride:1]`,
-  `[output key:4][min:4][max:4][hint:3][stride:1]`, five reserved bytes,
-  and one flags byte.
+- `descriptor` packs `[state key:4][stride:1]`, `[input key:4][stride:1]`,
+  `[output key:4][stride:1]`, `[source key:4][stride:1]`,
+  `[source group size:4][output group size:4]`, `[source shift:1]`,
+  two reserved bytes, and one flags byte.
+  From the least significant bit, the field offsets are: flags 0, reserved 8,
+  source shift 24, output group size 32, source group size 64,
+  source stride 96, source key 104,
+  output stride 136, output key 144, input stride 176, input key 184,
+  state stride 216, and state key 224.
   Flag bits 0 and 1 mean `funded` and `admin`; bit 7 means `handoff`, bit 6 is
   reserved for endpoint-defined behavior, and bits 2 through 5 remain reserved
   for future protocol flags.
-  A zero stride means group size 1 for a non-empty lane;
-  `group(lane, size)` supplies an explicit size.
-  The output bounds and hint allow a writer to be initialized directly from
-  the descriptor. The Solidity output decoder returns a left-aligned spec with
-  its encoded stride retained and its reserved fields cleared.
-  `Specs.count` applies the zero-to-one stride default for non-empty specs;
-  `Specs.group` assigns an explicit stride.
+  Strides are normalized during construction: present schemas default to one
+  block per group; absent lanes have zero stride. `Specs.group` assigns an explicit stride.
+  Source shift 128 selects state; 0 selects input or no source. A zero source
+  stride identifies no source. Execution shifts the packed decoders by this byte. Declared state
+  takes precedence over input even when the supplied state is empty.
+  The source lane copies the selected state or input key and normalized stride,
+  allowing allocation to read both directly.
+  Group sizes are allocation estimates computed as `(payload hint + 8) * stride`.
+  When the source byte length divides its nonzero group size exactly, execution
+  estimates groups by division; otherwise it counts the leading matching block run
+  and divides by source stride. Output capacity is groups times output group size.
+  With no declared source, capacity defaults to one output group. A declared but
+  empty source still estimates zero groups. Buffer allocation remains lazy.
+  These estimates do not validate or control consumption; normal decoding validates
+  the stream and the output buffer can grow. Output min/max bounds are no longer
+  included in the descriptor; schema annotations retain the full spec metadata.
+  This layout replaces the previous output min/max/hint lane; indexers must decode
+  descriptors according to the emitting deployment's format.
   A top-level list uses a context-local input key whose published schema body
   consists of one `many #item`, optionally wrapped in braces; nested lists in a
   body with sibling items continue to use the generic `#list` key.
@@ -82,8 +98,9 @@ The standard types currently use these rules:
 
 - An `#action` is identified by its entity. The latest trusted action replaces
   the previous value; `Actions.None` clears the primary action classification.
-- A `#clearinghouse` is identified by its entity. The latest trusted host
-  replaces the previous clearinghouse, and host zero clears the association.
+- A `#counterparty` is identified by its entity. The latest trusted account
+  replaces the previous counterparty, and account zero identifies Rootzero.
+  Host accounts do not by themselves specify a settlement or realization route.
   Indexers interpret and validate the entity type in context and should require
   a host-node value before accepting a nonzero claim.
 - A `#label` is identified by `(entity, namespace)`. The latest trusted label
@@ -146,10 +163,8 @@ Opaque preimages use `[formatHash][category][subtype][payload...]`; `0x01`
 means keccak256. The category and subtype must match the ID. The remaining
 bytes are host/domain-specific for now.
 
-Opaque derived assets carry `[Opaque][Asset][Derived]` in their first three
-bytes. Their canonical preimage is
-`[0x01][Asset][Derived][host:32][underlyingAsset:32]`, allowing indexers to
-verify both the host namespace and underlying asset when those inputs are known.
+`Derived` and `Virtual` remain reserved asset subtypes. No standardized
+subtype-specific preimage payload or dedicated helper is currently provided.
 
 ### Cold-Start Recipe
 
@@ -177,13 +192,15 @@ mutation flows through virtual hooks (`deposit`, `withdraw`, `burn`,
 `denyAsset`, ...), and the hook implementation is the layer that knows the
 host's ledger policy - in particular the asset binding and the resulting
 balance. Command-returned native credit replenishes the pipeline budget. The
-enclosing entrypoint settles the final budget through its posting hook, so the
-ledger emits one receiving event. The `create-rootzero` template
+enclosing entrypoint settles the final budget through its host hooks, so the
+ledger emits one receiving event. `portPipePayable` calls `cashin` for the last
+context's account; funded empty input passes the zero account to that hook.
+The `create-rootzero` template
 (`rootzero-evm-commander`) is the reference implementation of the remaining
 host conventions.
 
 ```txt
-event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change, uint access)
+event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change)
 event Positioned(bytes32 indexed account, bytes32 asset, uint amount, bytes32 liability, uint debt, uint32 action)
 event Received(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
 event Spent(bytes32 indexed account, bytes32 asset, uint amount, uint32 action, uint context)
@@ -207,10 +224,11 @@ its chain context. A root host labels itself with an
 `Annotation` containing a `#label` block. Child hosts are discovered through
 `Introduction` on their commander.
 
-**Account balances.** Every account-ledger mutation emits `Balance` with the resulting total,
-the signed change, and `access` set to the node ID of the endpoint that
-performed the change. Hosts using the built-in `AccountBalances` ledger key balances
-directly by `(account, asset)`, so query results and events agree.
+**Balances.** The `Balance` event identifies a `bytes32` account, asset,
+resulting total, and signed change. The built-in `Balances` ledger keys every
+balance by `(account, asset)`, including host holdings under `Accounts.toHost(host)`.
+Its mutation helpers leave event emission to the host. There is no separate
+host balance event or ledger.
 
 **Positions.** An action that exposes a resulting live position may emit
 `Positioned` with both the asset and liability sides and the primary `Actions`
@@ -230,21 +248,20 @@ with the matching `Actions` code:
 | debitAccount               | `Spent`    | `Actions.Transfer` |
 | payout                     | `Spent` / `Received` | `Actions.Payout` |
 | realize                    | host-defined | `Actions.Realize` |
-| realizeDebt                | host-defined | `Actions.Realize` |
-| realizePosition            | host-defined | `Actions.Realize` |
 | portPost                   | `Spent` / `Received` | `Actions.Post` |
 | final pipeline budget      | `Received` | host posting action |
 | provision (lock custody)   | `Locked`   | per operation      |
 | custody release            | `Unlocked` | per operation      |
 
 `Balance` and flow events are complementary, not redundant: flow events record
-that value moved and why; `Balance` records the resulting total, which gives
+that value moved and why; balance events record the resulting total, which gives
 indexers a checkpoint that survives missed deltas. An operation that both moves
 value and changes a ledger total emits both.
 
 Command native credit is trusted return data and produces no immediate ledger
 event. It can fund later steps; the enclosing entrypoint emits through the host
-posting hook only when it settles the final budget. Synchronous EVM execution
+settlement hooks (including `cashin` for the pipeline port) only when it settles
+the final budget. Synchronous EVM execution
 remains atomic: if settlement or a later pipeline step reverts, its event is
 reverted as well.
 
@@ -265,7 +282,7 @@ logs of the transaction to attribute effects to the invocation.
 
 ### Correlation Fields
 
-`access` (on `Balance`) and `context` (on flow events) carry the node ID of the
+`context` on flow events carries the node ID of the
 causing endpoint — the innermost command, port, or guard whose semantic
 performed the change — or zero when no endpoint context exists. `action` is a
 code from `utils/Actions.sol`:
@@ -276,9 +293,10 @@ Mint 7, Burn 8, Swap 9, Borrow 10, Repay 11, Liquidate 12, Refund 13, Post 14,
 Cashout 15, Cashin 16, Realize 17
 ```
 
-Joins available to an indexer: `access`/`context` -> the endpoint repository
+Joins available to an indexer: `context` -> the endpoint repository
 from discovery; transaction grouping -> the `Rooted` invocation and sibling
-events; `(account, asset)` -> balance and flow history across all state events.
+events; `(account, asset)` -> account balance and flow history, including host
+accounts. Balance events have no endpoint correlation field.
 
 ## Proposed Improvements
 
@@ -288,33 +306,15 @@ non-breaking per the changelog conventions.
 
 ### Proposed: Emitting Ledger Helpers
 
-Add overloads to `AccountBalances` that combine the mutation with the conforming
-emission:
-
-```solidity
-function creditTo(bytes32 account, bytes32 asset, uint amount, uint access)
-    internal returns (uint balance);
-function debitFrom(bytes32 account, bytes32 asset, uint amount, uint access)
-    internal returns (uint balance);
-```
-
-Each applies the raw mutation keyed by `asset` and emits
-`Balance(account, asset, balance, +/-amount, access)`.
-`AccountBalances` already inherits `BalanceEvent` and the raw functions already return
-the new total, so the change is additive; hosts with custom ledger schemes keep
-using the raw overloads and emit on their own.
-
-The motivation is correctness, not convenience: every host currently
-hand-writes the same unpack-mutate-emit boilerplate, and the reference
-template itself misattributes credits (its credit hook emits the debit
-command's ID as `access`). A helper makes the conforming pattern the path of
-least resistance. The cost is one log per mutation (~2k gas plus data words),
-small next to the storage writes these operations already perform.
+Add opt-in helpers to `Balances` that combine ledger mutation with emission
+of `Balance(account, asset, balance, change)`. Keep the existing raw helpers for
+hosts that emit at their settlement boundary. Any helper must handle the unsigned
+amount to signed delta conversion without wrapping.
 
 ### Proposed: Make Correlation Semantics Normative
 
-The `context` parameters are currently documented as "reserved for future use"
-and `Balance.access` as "command ID or context identifier", which is too loose
+The flow event `context` parameters are currently documented as "reserved for
+future use", which is too loose
 to index against. Adopt the definition in [Correlation Fields](#correlation-fields)
 as normative and update the event NatSpec accordingly.
 
@@ -345,3 +345,8 @@ Replacing `Labeled` and `Schema` with block-based `Annotation` changes the
 discovery event surface and is breaking for indexers that consume the former
 events. Consumers must decode annotation block streams and recognize `#label`
 blocks for names and `#schema` blocks for block definitions.
+
+The unified `Balance` event identifies an indexed account (`bytes32`) without
+`access`. Host holdings use the deterministic host account. Indexers must replace
+the former `AccountBalance` and host-indexed `Balance` subscriptions with this
+single event signature.

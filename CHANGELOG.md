@@ -8,6 +8,126 @@ sections are immutable and must continue to describe the tagged release.
 
 ## Unreleased
 
+- Add `Accounts.account(value)` to validate only the account category and return
+  the ID unchanged, reverting with `InvalidAccount` for non-account values,
+  including zero.
+
+- `PipePayablePort` now requires `CashinHook` and credits any remaining shared
+  budget to the last context's account after all pipelines complete. Empty input
+  with native value passes the zero account to `cashin`; account validation is
+  the hook's responsibility.
+
+- Add the abstract `CashinHook` for crediting native value already held by a host
+  to an account. Group it with `CashoutHook` in `core/Cash.sol` and export both
+  through `Core.sol` and `Endpoints.sol`.
+
+- Add an exact counterparty requirement to QUOTE (160-byte payload), share the Position struct for decoded quotes, and reject mismatched returned counterparties during realization.
+
+- Repack endpoint descriptors into uniform key/stride lanes with a dedicated source key/stride lane, a direct decoder shift, and precomputed source and output group sizes. Prefer declared state over input for allocation. Estimate output capacity by divisible source length, falling back to run counting; default source-free output capacity to one group; remove unused output bounds from discovery descriptors.
+
+### Breaking Changes
+
+- Move `Budget` and `Budgets` from `execution/Budget.sol` to `core/Budget.sol`.
+  The `Core.sol` exports are unchanged.
+
+- Move embedded EVM account and ERC-20 addresses from bits `[191:32]` to
+  `[159:0]`, matching node IDs. Their encoders now leave bits `[191:160]` zero.
+  Existing account and ERC-20 IDs must be re-encoded, including persisted keys
+  and offchain inputs; old IDs are not automatically migrated. Node IDs and
+  opaque IDs keep their existing layouts.
+
+- Removed the remaining `RepayPosition`/`RepayPositionPayable` commands and
+  `RepayHook`/`RepayPayableHook`. Use `settle`/`settlePayable` with liability-only
+  positions to repay. Default settlement debits the liability directly; full
+  positions settle both sides and no longer have a repay-to-BALANCE command.
+
+- Renamed the `Clearinghouse` annotation mixin/helper to `Counterparty` and its
+  block from `#clearinghouse` to `#counterparty`. The payload is now `bytes32 account`,
+  including host accounts; zero identifies Rootzero. Updated the schema, spec, factory, and public export.
+
+- Settlement hooks now take `(bytes32 account, Position memory position)`, plus
+  `Execution memory funds` for funded settlement. `settle`, `settlePayable`, and
+  `ExecuteSettle` forward the complete struct without checking its counterparty.
+  Counterparty validation and authorization
+  belong to the hook; the default `Settlement` implementation accepts Rootzero
+  or an account category via `Accounts.counterparty`. It transfers liability to
+  the counterparty and the asset in the opposite direction, skipping counterparty
+  operations for Rootzero.
+
+- Moved `UnexpectedValue()` from `Blocks` to shared `utils/Errors.sol` and
+  exported it through `Utils.sol`. Import the shared error instead of using
+  `Blocks.UnexpectedValue`; its revert selector is unchanged.
+
+- Removed `Assets.toDerived`, `isDerived`, `derived`, and `matchDerived`.
+  `Layout.Derived = 0x01` remains reserved without dedicated helpers or a
+  standardized subtype-specific payload.
+
+- Consolidated realization into `Realize`/`realize`: it consumes and returns
+  POSITION state, with one QUOTE input (asset/minimum, liability/maximum, and exact counterparty).
+  Removed `RealizePosition`/`realizePosition` and the former balance-only behavior.
+
+- Removed the DEBT schema, its codec APIs and `Debt` value type, and the
+  `RealizeDebt`, `Repay`, `RepayPayable`, and `ExecuteRepay` commands/adapters.
+  Debt is a POSITION with zero asset and amount; use position commands instead.
+- Added `bytes32 counterparty` as the fifth POSITION field, increasing its payload
+  from 128 to 160 bytes. The default settlement hook accepts Rootzero
+  (`0`) or an account counterparty and rejects other categories with `InvalidAccount()`.
+  Realization delegates counterparty validation to its hook. Generic codecs
+  preserve all five fields. Old POSITION encodings must migrate.
+
+- Replaced the primitive realization hooks with `realize(Position, Position quote) -> Position`.
+  The hook validates and fulfills the counterparty obligation and chooses its
+  internal operation order. The command decodes the paired QUOTE before calling
+  the hook and emits its complete result. The hook must enforce the quote;
+  `Positions.requireQuoted(position, quote)` provides shared decoded checks.
+  Removed the unused encoded-validation helpers `Blocks.requireQuoted`,
+  `Decoders.requireQuoted`, and `Executions.requireQuoted`.
+
+- Renamed `BadAmount(uint amount)` to `AmountOutOfRange()`, removing the argument
+  and updating the amount validation helpers and public export.
+
+- Unified stored balances in `Balances`, keyed by `(account, asset)`. Removed
+  `AccountBalances` and the separate host ledger; hosts use `Accounts.toHost(host)`.
+  The mapping is now `balances[account][asset]`, with `creditTo`/`debitFrom` helpers.
+  This changes the storage layout of the former host ledger.
+- Removed `CreditHostHook`/`DebitHostHook` and `CreditPort`/`DebitPort`.
+  Use `portCreditAccount`/`portDebitAccount` and account hooks for host accounts too.
+- Consolidated balance queries into `GetBalances`/`GetBalancesHook`, with
+  the account-based `getBalance(account, asset)` hook and `getBalances`
+  endpoint. Supply the host account to query host holdings.
+- Unified balance events as `Balance(bytes32 indexed account, bytes32 asset,
+  uint balance, int change)` from `BalanceEvent`. Removed `AccountBalanceEvent`;
+  there is no separate host-indexed event or access field.
+
+### Features
+
+- Refactored pipeline command invocation into named Yul helpers for call encoding,
+  failure wrapping, and result decoding. Preserved scratch-memory reuse, canonical
+  ordinary/handoff encoding, and strict return-shape validation.
+
+- Added deterministic host accounts using the shared `Layout.Host` subtype under
+  `Layout.Account`, with `Accounts.Host`, `isHost`, `host`, and `toHost` overloads
+  for addresses and host node IDs. Node conversion preserves the source chain.
+
+- Added `Memory.unpackPositionValue` for decoding a complete position struct;
+  `ExecuteSettle` uses it to forward all fields to the settlement hook.
+
+- Added `Accounts.isAccount` to classify the account category byte and
+  `Accounts.counterparty` to accept Rootzero (`0`) or that category unchanged,
+  reverting with `InvalidAccount()` otherwise. These helpers do not validate
+  representation, subtype, payload, or authorization.
+
+- Added the five-field QUOTE input schema sharing the `Position` value type, with block,
+  cursor, execution, and writer helpers. Asset amount is a minimum and liability
+  debt is a maximum; counterparty must match exactly. `Positions.requireQuoted`
+  checks matching identifiers and inclusive limits against a decoded quote,
+  using `UnexpectedValue()` and `AmountOutOfRange()`.
+
+- POSITION counterparties are Rootzero (`0`) or account IDs, including host
+  accounts. Realization hooks match the executing host account instead of its
+  node ID. Host accounts also support ordinary settlement where funded; routing
+  is independent of account subtype. Both commands delegate validation to hooks.
+
 ## 1.35.0
 
 ### Breaking Changes

@@ -67,7 +67,7 @@ The bridge knows how to deliver bytes to the destination chain, but Rootzero cor
 | Block key constants | `codec/Keys.sol` | `bytes4(keccak256("#name"))`; portable to any keccak library. |
 | Pipeline state model | `core/Pipeline.sol` | STEP stream and threaded `bytes` state. Local execution, dispatch, and posting are chain-specific. |
 | TRANSACTION schema | `core/Types.sol` | Abstract `(from, to, asset, amount)` ledger model. |
-| Balance ledgers | `core/Balances.sol` | Host `map(asset => amount)` and account `map(account => map(asset => amount))`; map to any key/value store. |
+| Balance ledgers | `core/Balances.sol` | One `map(account => map(asset => amount))`, including host accounts; map to any key/value store. |
 | Command/Port/Query/Guard roles | `commands/`, `ports/`, `queries/` | Same logical roles, expressed with local call primitives. |
 | Port pipe input shape | `ports/Pipe.sol`, `codec/Schema.sol` | CONTEXT blocks carry `(account, state, input)`; the input bytes are a STEP stream. |
 | Access control model | `core/Access.sol` | Commander, trusted nodes, and guardians. Identities are local. |
@@ -101,6 +101,11 @@ The current Solidity layout is:
 ```
 
 That layout is appropriate for EVM because `block.chainid`, ABI selectors, and 20-byte addresses are native EVM concepts. It should remain the EVM implementation detail.
+
+EVM account and ERC-20 asset IDs use the same address position, bits `[159:0]`.
+Their encoders leave the middle four bytes, bits `[191:160]`, zero instead of
+storing a selector. Address extraction therefore uses the low 160 bits for all
+these EVM ID categories after the appropriate representation and category checks.
 
 For portable ports, the ID model has two forms. Opaque IDs are:
 
@@ -291,16 +296,15 @@ The pattern to port is:
 - resolve asset IDs only inside asset hooks when native transfers require it
 
 The shared asset subtype assignments are `Derived = 0x01`, `Virtual = 0x02`,
-and `Erc20 = 0x03`. Derived assets use the opaque representation with canonical
-preimage `[0x01][Asset][Derived][host:32][underlyingAsset:32]`. `Virtual` is a
-taxonomy value only; a port should not infer standard issuance or redemption
-behavior from it.
+and `Erc20 = 0x03`. Derived and Virtual are reserved taxonomy values without
+dedicated helpers or standardized subtype-specific payloads. A port should not
+infer issuance or redemption behavior from these reserved values.
 
 Examples:
 
 | Chain | Helper examples |
 |-------|-----------------|
-| EVM | `toChain()`, `toDerived(asset, host)`, `toErc20(address)` |
+| EVM | `toChain()`, `toErc20(address)` |
 | Solana | `to_native_sol()`, `to_spl_mint(pubkey)`, `to_token_account(pubkey)` if token accounts are represented separately |
 | CosmWasm | `to_native_denom(denom)`, `to_cw20(contract_addr)`, `to_ibc_denom(denom)` |
 | NEAR | `to_native_near()`, `to_nep141(account_id)` |
@@ -628,6 +632,14 @@ authorized as trusted local nodes before using the local chain's call mechanism.
 #### Port Pipe
 
 `ports/Pipe.sol` is the cross-chain execution pattern to preserve. The port pipe entrypoint consumes raw CONTEXT blocks from a trusted local caller, then forwards the nested STEP stream into `pipe()`.
+
+All contexts share one native-value budget. After the loop, `portPipePayable`
+credits any nonzero remaining budget to the **last context's account** through
+`cashin(account, amount)`. The sender controls the recipient through context
+ordering; the remainder is not split between accounts. Hosts must implement
+`CashinHook` to credit the full amount and validate the account, including their
+zero-account policy. Empty input with native value passes the zero account to
+`cashin`; empty input without value skips the hook.
 
 This means the bridge does not need a special "execute remote command" API. It only needs to deliver bytes to the destination host's port pipe. From that point onward, execution is identical to local pipeline execution.
 

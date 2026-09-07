@@ -290,8 +290,9 @@ create CosmWasm accounts that fail a shared `is_account` check, or CosmWasm
 assets that fail `is_asset`.
 
 Reserve the shared asset subtype assignments `Derived = 0x01`,
-`Virtual = 0x02`, and `Erc20 = 0x03`. A CosmWasm port may use Derived and
-Virtual where their shared meanings apply, but should not expose ERC-20 helpers.
+`Virtual = 0x02`, and `Erc20 = 0x03`. Derived and Virtual have no dedicated
+helpers or standardized subtype-specific payloads. A CosmWasm port should not
+expose ERC-20 helpers.
 Chain-specific asset subtypes must not reuse these assigned values.
 
 ## CosmWasm Asset Helpers
@@ -428,8 +429,6 @@ deposit
 withdraw
 payout
 realize
-realizeDebt
-realizePosition
 ```
 
 Command inputs and state outputs remain Rootzero block streams. Every command

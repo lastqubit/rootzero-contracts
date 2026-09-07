@@ -54,11 +54,12 @@ The standard `#action { uint action }` annotation assigns one primary semantic
 action to an entity. The latest trusted value replaces the previous value, and
 `Actions.None` clears the classification.
 
-The standard `#clearinghouse { uint host }` annotation assigns a clearing host
-to an entity such as a command or asset. The latest trusted value replaces the
-previous host, and zero clears the association. Like other annotation helpers,
-it encodes the claim without validating either ID; consumers apply type and
-trust policy.
+The standard `#counterparty { bytes32 account }` annotation assigns a counterparty
+account to an entity such as a command or asset. The latest trusted value replaces
+the previous account, and zero identifies Rootzero. Host accounts use the same
+representation as in POSITION. The annotation identifies the counterparty, not
+whether to settle or realize it. Like other annotation helpers, it encodes the
+claim without validating either ID; consumers apply type and trust policy.
 
 For example, a host-specific payment block can use a small literal, the command
 selector, or any other chosen `bytes4` value as long as that key is not
@@ -348,22 +349,21 @@ last byte of the ID type field. Flag bit 7 and the envelope
 untouched remaining STEP stream in this envelope, then transfers ownership of
 that continuation to the command.
 
-`#balance`, `#debt`, `#custody`, and `#position` are live state carried between
-command steps for the active account. Balance carries only the asset side, debt
-carries only the liability side, and position carries both:
+`#balance`, `#custody`, and `#position` are live state carried between
+command steps for the active account. Balance carries only the asset side;
+a position can carry either or both sides:
 
 ```txt
 balance  { bytes32 asset, uint amount }
-debt     { bytes32 liability, uint debt }
 custody  { uint host, bytes32 asset, uint amount }
-position { bytes32 asset, uint amount, bytes32 liability, uint debt }
+position { bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty }
 ```
 
-These four standard aliases form the protocol's closed set of typed state
+These three standard aliases form the protocol's closed set of typed state
 blocks. Custom schemas and dynamic composite blocks are command input, not new
 state types. This distinction is enforced by the execution API: generic
 navigation and custom-schema helpers consume input, while `unpackBalance`,
-`unpackDebt`, `unpackCustody`, and `unpackPosition` consume state directly.
+`unpackCustody` and `unpackPosition` consume state directly.
 Callers do not select or switch an active decoder source.
 
 Standalone `Cur` decoders remain source-agnostic because they represent one
@@ -376,9 +376,9 @@ An empty stream is accepted. Adding another typed pipeline-state
 shape therefore requires a standard protocol block and a dedicated execution
 unpacker; publishing a custom schema alone does not create a state type.
 
-`debt` is an exact net obligation. Consuming a debt block means satisfying its
+`debt` is an exact net obligation. Consuming a position liability means satisfying its
 complete quantity; a command that cannot do so must revert or return the
-unsatisfied remainder as debt state. Fees and sourcing costs are additional to
+unsatisfied remainder in a position. Fees and sourcing costs are additional to
 that quantity and must not silently reduce it. If fulfillment creates custody,
 the amount actually placed in custody must equal the consumed debt quantity.
 
@@ -386,50 +386,123 @@ The two sides of a position are independently optional. Encode an absent asset
 side as `asset = 0, amount = 0`, and an absent liability side as
 `liability = 0, debt = 0`. This follows the same convention as a transaction
 whose zero `from` or `to` omits that side. One-sided positions allow a command
-to retain a position-shaped output for later composition; use `#balance` or
-`#debt` when that narrower state shape is sufficient.
+to retain a position-shaped output for later composition. Debt is represented
+only as a position with `asset = 0, amount = 0`. `#balance` remains available
+for asset-only state.
 
-The position layout is deliberately the flat combination of the balance and
-debt layouts; it is not a nested Solidity struct. The asset side represents
+`counterparty` is a 32-byte identifier. Generic position writers and unpackers
+preserve it. Zero names Rootzero and uses the existing settlement path.
+`unpackPosition` returns all five fields without a counterparty check;
+settlement and realization hooks validate the counterparty.
+The payload is 160 bytes (168 bytes including its header). The old 128-byte
+POSITION payload and standalone DEBT schema are no longer accepted.
+
+### Counterparty Semantics
+
+The counterparty identifies who stands on the other side of the position:
+
+| Counterparty | Command | Intended behavior |
+| --- | --- | --- |
+| `0` (Rootzero) | `settle` | Apply the existing settlement semantics for the active account. |
+| Account ID | `settle` | Debit the asset amount from that account and credit the active account; debit the liability amount from the active account and credit the counterparty. Both transfers are atomic and require the host's applicable authorization. |
+| Host account ID | `settle` or `realize` | Settle against this account's balances on the executing host, or route to its host for realization. The realization hook matches `Accounts.toHost(host)` and returns counterparty zero after fulfillment. |
+
+Every nonzero POSITION counterparty is an account ID. Host node IDs are not
+position counterparties. The host account subtype alone does not choose the
+operation or destination: offchain routing metadata and balance availability
+determine whether to settle on a particular host or invoke realization.
+The command does not automatically forward positions. Realization must fulfill
+the obligation before clearing the counterparty; changing the field alone is
+not fulfillment.
+
+**Current stage:** codecs support any counterparty. `settle`, `settlePayable`,
+and `ExecuteSettle` pass the complete `Position` struct to the hook. Calldata
+commands use `unpackPositionValue`; the memory adapter uses
+`Memory.unpackPositionValue` to decode the same struct. The hooks are `settle(account, position)` and
+`settle(account, position, funds)` for funded settlement. The command does not
+check the counterparty's type or value. The hook must validate that it is
+Rootzero (`0`) or an accepted account and authorize the resulting exchange.
+The default `Settlement` hook uses `Accounts.counterparty` to accept Rootzero
+or an account-category ID and reject other categories with `InvalidAccount()`.
+It debits the active account for the liability and credits the counterparty,
+then debits the counterparty for the asset and credits the active account.
+Zero skips the counterparty operations, preserving Rootzero settlement. Zero
+amounts skip their entire side. Any failure reverts the exchange. The category
+check does not authorize debits; trusted callers and account hooks remain
+responsible for authorization.
+
+`realize` passes the complete position to its hook, which validates its host account
+counterparty and fulfills the obligation before returning counterparty zero.
+The command takes one QUOTE input per position.
+
+### Position Transformations
+
+The position layout is flat, with both sides followed by the counterparty;
+it is not a nested Solidity struct. The asset side represents
 value acquired or controlled, and the liability side represents value owed or
 required. Commands may preserve or replace either side and return a new
-position. The terminal `settle` command consumes the pair. Debt and position
-state are transient protocol state; rewriting either does not by itself create,
+position. The terminal `settle` command consumes the pair. Positions, including
+liability-only positions, are transient state; rewriting them does not by itself create,
 discharge, or replace an obligation persisted by a host or external protocol.
 The responsible command hook must perform or verify those effects. A command
-must not ignore supplied debt or position state: it must explicitly consume,
+must not ignore supplied position state: it must explicitly consume,
 transform, forward, or reject it, so an obligation cannot disappear
 accidentally.
 
-The repayment commands reflect the state shapes directly. `repay` and
-`repayPayable` consume `#debt` and return empty state. `repayPosition` and
-`repayPositionPayable` consume `#position`, repay its liability side, and return
-the released asset side as `#balance`. `realize` pairs each `#balance` with an
-`#amount(destination, limit)` input, where `limit` is the minimum output balance.
-`realizeDebt` pairs each `#debt` with the same input shape, where `limit` is the
-maximum replacement debt, and emits the complete replacement `#debt`. Limits
-are inclusive and denominated in destination units. Commands pass `limit` to
-their hooks; the hooks enforce it, with no additional check in the command loop.
-Zero is an unbounded asset minimum; max uint is an unbounded debt maximum.
-The debt realization
-hook must transform the entire source obligation or revert: no source remainder
-is emitted, and fees or rounding must not silently discard debt. Source and
-replacement amounts may use different units and need not be numerically equal
-or ordered. `realizePosition` pairs each `#position` with two consecutive
-`#amount` inputs: destination asset and minimum output first, then destination
-liability and maximum debt. It consumes each input immediately before invoking
-the corresponding `realize` or `realizeDebt` hook and emits the combined
-`#position`. A missing or malformed second input reverts the earlier asset hook's
-changes as well. Its descriptor declares an input stride of two.
+`settle` and `settlePayable` consume positions, including liability-only
+positions, and return empty state. To repay, use a POSITION with zero asset and
+amount. There are no separate repayment commands or repayment hooks. Default
+settlement debits the liability directly through `debitAccount`; a position with
+an asset side also settles that side instead of returning a BALANCE block.
+The single `realize` command calls one hook:
+
+```solidity
+function realize(Position memory position, Position memory quote) internal virtual returns (Position memory);
+```
+
+The hook fulfills both sides in their existing asset and liability denominations.
+It validates the counterparty, chooses its internal operation order, and returns
+the complete realized position with counterparty zero. It must fulfill the entire
+obligation or revert: no source remainder is emitted, and fees or rounding must
+not silently discard debt. The command passes the paired quote to the hook,
+which must enforce its exact identifiers and inclusive limits before returning.
+
+Each `#position` is paired with one `#quote` input:
+
+```txt
+#quote { bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty }
+```
+
+A QUOTE constrains the resulting position: `asset`, `liability`, and `counterparty` must match exactly,
+`amount` is the minimum asset output, and `debt` is the maximum debt. Limits are
+inclusive; zero is an unbounded minimum and max uint is an unbounded maximum.
+The quote has five words (160 payload bytes, 168 bytes including the header),
+matching the POSITION field layout. Counterparty zero requires Rootzero backing;
+it is not a wildcard. It is an input schema, not live position state.
+
+Before calling the hook, the command uses `exec.unpackQuoteValue()` to decode
+the paired QUOTE into a `Position memory quote`; the decoder still requires
+the QUOTE block key. Validation of the result belongs to the hook. Hosts can
+call `Positions.requireQuoted(position, quote)`, exported through `Utils.sol`,
+to enforce the standard checks. Identifier mismatches revert with
+`UnexpectedValue()`; limit violations revert with `AmountOutOfRange()`.
+Cursor and execution helpers decode quotes with `unpackQuoteValue()` before
+validation through `Positions.requireQuoted`.
+The quote constrains the returned position counterparty, not the realizing host.
+A hook that clears the counterparty therefore requires a quote with counterparty zero.
+The command emits the complete returned position without checking it against
+the quote again. Missing or malformed quotes are rejected before invoking the
+paired hook. Failed comparisons and later decode or hook failures revert all
+earlier hook changes.
 
 This representation supports ordinary forward transformations as well as
 backward composition. For example, an exact-output route can carry its desired
 asset while successive hops replace the upstream liability:
 
 ```txt
-position(C, 100, C, 100)
-→ position(C, 100, B, 50)
-→ position(C, 100, A, 25)
+position(C, 100, C, 100, 0)
+→ position(C, 100, B, 50, 0)
+→ position(C, 100, A, 25, 0)
 → settle
 ```
 
@@ -631,11 +704,9 @@ Opaque IDs carry the same protocol category and subtype taxonomy as structured
 IDs, allowing their role to be validated without external context. Their native
 identity and metadata still require lookup or witness data.
 
-Asset subtypes are `0x00` for a representation's default asset, `0x01` for a
-host-scoped derived asset, `0x02` for a virtual asset, and `0x03` for ERC-20.
-A derived asset uses the opaque representation and the canonical preimage
-`[0x01][Asset][Derived][host:32][underlyingAsset:32]`. Virtual is currently a
-reserved taxonomy value without a standard constructor or behavior.
+Asset subtypes are `0x00` for a representation's default asset, `Derived = 0x01`,
+`Virtual = 0x02`, and `Erc20 = 0x03`. Derived and Virtual are reserved taxonomy
+values without dedicated helpers or standardized subtype-specific payloads.
 
 ## Identifiers
 
@@ -723,7 +794,26 @@ context            bytes32 account, #bytes as state, #bytes as input
 recover            uint handler, uint resources, bytes32 key, #bytes as witness
 annotation         uint entity, #bytes as data
 action             uint action
-clearinghouse      uint host
+counterparty      bytes32 account
 label              bytes32 namespace, #string as name
 schema             uint spec, #string as body, bytes32 name
 ```
+
+### Host Accounts
+
+The EVM account subtypes are `Admin = 0x01`, `Host = 0x02`, and `User = 0x03`.
+`Layout.Host` is also the host node subtype; categories distinguish the two IDs.
+A host account encodes `[0x03010200][uint32 chainid][zero:4][address:20]`.
+It is deterministic and chain-bound, with no registration required.
+
+`Accounts.toHost(address)` uses the current chain. `Accounts.toHost(uint node)`
+checks the EVM host node prefix and translates its chain and address to the account
+layout. The latter preserves remote chain IDs. Like other account encoders, these
+functions can encode a zero address; `Accounts.host` rejects it. `Accounts.isHost`
+checks only the full prefix, and `Accounts.host` does not require a local chain.
+Neither checks deployed code or grants authority over balances.
+
+A host account counterparty may be settled through account debit/credit hooks
+on any host where it has sufficient balances, or realized by its own host.
+The subtype does not dictate routing. Deriving a host account does not invoke
+that host or make it a trusted peer.
