@@ -22,7 +22,12 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Credi
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
+    event CashinCalled(bytes32 account, uint amount);
     constructor(uint cmdr) Host(cmdr) {}
+
+    function cashin(bytes32 account, uint amount) internal override {
+        emit CashinCalled(account, amount);
+    }
 
     /// @notice Test-only helper for invoking commands on a host commanded by this contract.
     function testCall(address target, bytes calldata data) external payable returns (bytes memory out) {

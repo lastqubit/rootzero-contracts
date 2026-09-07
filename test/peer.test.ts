@@ -633,12 +633,13 @@ describe("Port Entrypoints", () => {
         .to.be.revertedWithCustomError(host, "InsufficientValue");
     });
 
-    it("forwards assigned step value and keeps the unspent remainder on the host", async () => {
+    it("forwards assigned step value and cashes in the unspent remainder", async () => {
       const input = encodeContextBlock(account, "0x", encodeStepBlock(await command("noop"), 1n, "0x"));
       const provider = await getProvider();
       const hostAddress = await host.getAddress();
 
       const tx = await callAs(1, method, input, { value: 2n });
+      await expect(tx).to.emit(host, "CashinCalled").withArgs(account, 1n);
       const receipt = await tx.wait();
       if (!receipt || receipt.status === 0) throw new Error("portPipePayable tx reverted");
 
@@ -648,6 +649,44 @@ describe("Port Entrypoints", () => {
       const remoteAfter = await provider.getBalance(await remote.getAddress(), receipt.blockNumber);
       expect(after - before).to.equal(1n);
       expect(remoteAfter - remoteBefore).to.equal(1n);
+    });
+
+    it("cashes in only once for the last account after sharing the budget", async () => {
+      const lastAccount = encodeUserAccount("0x55");
+      const cmd = await command("noop");
+      const input = concat(
+        encodeContextBlock(account, "0x", encodeStepBlock(cmd, 2n, "0x")),
+        encodeContextBlock(lastAccount, "0x", encodeStepBlock(cmd, 3n, "0x")),
+      );
+      const tx = await callAs(1, method, input, { value: 6n });
+      await expect(tx).to.emit(host, "CashinCalled").withArgs(lastAccount, 1n);
+      const receipt = await tx.wait();
+      const topic = host.interface.getEvent("CashinCalled")!.topicHash;
+      expect(receipt!.logs.filter((log: any) => log.topics[0] === topic)).to.have.length(1);
+    });
+
+    it("skips cashin when the budget is exhausted", async () => {
+      const input = encodeContextBlock(account, "0x", encodeStepBlock(await command("noop"), 2n, "0x"));
+      const receipt = await (await callAs(1, method, input, { value: 2n })).wait();
+      const topic = host.interface.getEvent("CashinCalled")!.topicHash;
+      expect(receipt!.logs.filter((log: any) => log.topics[0] === topic)).to.have.length(0);
+    });
+
+    it("cashes in the whole budget for an empty pipeline", async () => {
+      const input = encodeContextBlock(account, "0x", "0x");
+      await expect(callAs(1, method, input, { value: 2n }))
+        .to.emit(host, "CashinCalled").withArgs(account, 2n);
+    });
+
+    it("accepts empty input without value and skips cashin", async () => {
+      const receipt = await (await callAs(1, method)).wait();
+      const topic = host.interface.getEvent("CashinCalled")!.topicHash;
+      expect(receipt!.logs.filter((log: any) => log.topics[0] === topic)).to.have.length(0);
+    });
+
+    it("passes the zero account to cashin for empty input with value", async () => {
+      await expect(callAs(1, method, "0x", { value: 1n }))
+        .to.emit(host, "CashinCalled").withArgs(ethers.ZeroHash, 1n);
     });
   });
 

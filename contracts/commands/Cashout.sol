@@ -7,18 +7,9 @@ import {Sizes} from "../codec/Specs.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
 import {InvalidAsset, UnexpectedInput} from "../utils/Errors.sol";
+import {CashoutHook} from "../core/Cash.sol";
 
 using Executions for Execution;
-
-/// @notice Hook implemented by hosts that withdraw chain assets from accounts.
-abstract contract CashoutHook {
-    /// @notice Withdraw an exact chain-asset amount from `account`.
-    /// Called once per chain-asset BALANCE block in state.
-    /// @dev Implementations must revert when the requested amount cannot be withdrawn.
-    /// @param account Account whose chain asset is withdrawn.
-    /// @param amount Native-asset amount to withdraw.
-    function cashout(bytes32 account, uint amount) internal virtual;
-}
 
 /// @title Cashout
 /// @notice Command that withdraws requested chain-asset amounts from its account.

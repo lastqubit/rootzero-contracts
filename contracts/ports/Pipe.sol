@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import {PortBase} from "./Base.sol";
 import {Flags} from "../utils/Flags.sol";
 import {PipeHook} from "../core/Pipeline.sol";
+import {CashinHook} from "../core/Cash.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
@@ -15,7 +16,7 @@ bytes4 constant PortPipePayableSelector = bytes4(keccak256("portPipePayable(byte
 /// @title PipePayablePort
 /// @notice Port that consumes CONTEXT blocks and executes each input as a step stream.
 /// Each context's input bytes are passed to the shared pipeline.
-abstract contract PipePayablePort is PortBase, PipeHook {
+abstract contract PipePayablePort is PortBase, PipeHook, CashinHook {
     uint private immutable descriptor;
 
     constructor() {
@@ -23,19 +24,26 @@ abstract contract PipePayablePort is PortBase, PipeHook {
     }
 
     /// @notice Execute peer-supplied contexts through the shared payable pipe.
-    /// @dev All contexts share the peer call's native-value budget. Any unspent
-    ///      `msg.value` remains on this host.
+    /// @dev All contexts share the peer call's native-value budget. Any remainder
+    /// is credited through `cashin` to the last context's account after all pipes.
+    /// Empty input with value passes the zero account to `cashin`.
+    /// Account validation belongs to the hook.
     /// @param data CONTEXT block stream supplied by the trusted peer.
     /// @return Empty response bytes.
     function portPipePayable(bytes calldata data) external payable onlyPeer returns (bytes memory) {
         Execution memory exec = openInput(data, descriptor);
         uint budget = exec.drainBudget();
 
+        bytes32 account;
         while (exec.more()) {
-            (bytes32 account, bytes calldata state, bytes calldata input) = exec.unpackContext();
+            bytes calldata state;
+            bytes calldata input;
+            (account, state, input) = exec.unpackContext();
             budget = pipe(account, state, input, budget);
         }
-        
+
+        if (budget != 0) cashin(account, budget);
+
         return "";
     }
 }

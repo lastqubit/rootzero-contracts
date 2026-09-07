@@ -10,6 +10,7 @@ import { Label } from "./annotations/Label.sol";
 import { Schema } from "./annotations/Schema.sol";
 import { AccessDenied, AdminAccess, CallerAccess, CommandAccess, enforceSender, GuardianAccess, NodeAccess, PeerAccess, PortAccess } from "./core/Access.sol";
 import { AccountBalances, Balances, InsufficientFunds } from "./core/Balances.sol";
+import { CashinHook, CashoutHook } from "./core/Cash.sol";
 import { Escrows, InsufficientEscrow } from "./core/Escrows.sol";
 import { ChainAsset, Runtime } from "./core/Runtime.sol";
 import { CommandHost, Host, HostAnnouncer, HostIntroduction, IHostIntroduction } from "./core/Host.sol";
