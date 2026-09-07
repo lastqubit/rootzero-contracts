@@ -86,6 +86,122 @@ describe("Utils", () => {
   // ── Accounts ──────────────────────────────────────────────────────────────
 
   describe("Accounts", () => {
+    it("aligns account, ERC-20, and node addresses in the low 160 bits", async () => {
+      const accountAddr = "0x1234567890abcdef1234567890abcdef12345678";
+      const expectedAddress = BigInt(accountAddr);
+      const mask = (1n << 160n) - 1n;
+      const accounts = [
+        await utils.testToAdminAccount(accountAddr),
+        await utils.testToUserAccount(accountAddr),
+        await utils.testToHostAccount(accountAddr),
+      ];
+      const asset = await utils.testToErc20Asset(accountAddr);
+      const node = await utils.testToCommandId("example", accountAddr);
+      for (const id of [...accounts, asset, node]) {
+        expect(BigInt(id) & mask).to.equal(expectedAddress);
+      }
+      for (const id of [...accounts, asset]) {
+        expect((BigInt(id) >> 160n) & 0xffffffffn).to.equal(0n);
+      }
+      for (const account of accounts) {
+        expect((await utils.testAccountAddr(account)).toLowerCase()).to.equal(accountAddr);
+      }
+      expect((await utils.testLocalErc20Addr(asset)).toLowerCase()).to.equal(accountAddr);
+      expect((BigInt(node) >> 160n) & 0xffffffffn)
+        .to.equal(BigInt(ethers.id("example(bytes)").slice(0, 10)));
+    });
+
+    it("does not treat middle bytes as part of a zero account address", async () => {
+      const middle = 0x12345678n << 160n;
+      for (const [prefix, validate] of [
+        [0x03010100n, "testAdminAccount"],
+        [0x03010200n, "testHostAccount"],
+        [0x03010300n, "testUserAccount"],
+      ] as const) {
+        const account = ethers.toBeHex((prefix << 224n) | middle, 32);
+        await expectCustomError(utils[validate](account), "ZeroAddress");
+        await expectCustomError(utils.testAccountAddr(account), "ZeroAddress");
+      }
+      const asset = ethers.toBeHex((0x03030300n << 224n) | (chainId << 192n) | middle, 32);
+      await expectCustomError(utils.testLocalErc20Addr(asset), "ZeroAddress");
+    });
+
+    it("derives the same chain-bound host account from an address and host node", async () => {
+      const node = (0x03020200n << 224n) | (chainId << 192n) | BigInt(signerAddress);
+      const expected = ethers.toBeHex((0x03010200n << 224n) | (chainId << 192n) | BigInt(signerAddress), 32);
+      expect(await utils.testToHostAccount(signerAddress)).to.equal(expected);
+      expect(await utils.testHostNodeAccount(node)).to.equal(expected);
+      expect(await utils.testIsHostAccount(expected)).to.be.true;
+      expect(await utils.testHostAccount(expected)).to.equal(expected);
+      expect(await utils.testAccountAddr(expected)).to.equal(signerAddress);
+      expect(await utils.testIsAccount(expected)).to.be.true;
+      expect(await utils.testCounterparty(expected)).to.equal(expected);
+      expect(await utils.testIsAdminAccount(expected)).to.be.false;
+      expect(await utils.testIsUserAccount(expected)).to.be.false;
+    });
+
+    it("preserves remote host chains instead of substituting the current chain", async () => {
+      for (const remote of [0n, chainId + 1n, 0xffffffffn]) {
+        const node = (0x03020200n << 224n) | (remote << 192n) | BigInt(signerAddress);
+        const expected = ethers.toBeHex((0x03010200n << 224n) | (remote << 192n) | BigInt(signerAddress), 32);
+        expect(await utils.testHostNodeAccount(node)).to.equal(expected);
+        expect(await utils.testHostAccount(expected)).to.equal(expected);
+      }
+    });
+
+    it("distinguishes host account classification from address validation", async () => {
+      const zero = await utils.testToHostAccount(ethers.ZeroAddress);
+      expect(await utils.testIsHostAccount(zero)).to.be.true;
+      await expectCustomError(utils.testHostAccount(zero), "ZeroAddress");
+      expect(await utils.testHostNodeAccount((0x03020200n << 224n) | (chainId << 192n))).to.equal(zero);
+    });
+
+    it("rejects other categories, representations, subtypes, and flags as host accounts", async () => {
+      for (const prefix of [0x03020200n, 0x03010100n, 0x03010300n, 0x02010200n, 0x03010201n]) {
+        const value = ethers.toBeHex((prefix << 224n) | BigInt(signerAddress), 32);
+        expect(await utils.testIsHostAccount(value)).to.be.false;
+        await expectCustomError(utils.testHostAccount(value), "InvalidAccount");
+      }
+      for (const prefix of [0n, 0x03010200n, 0x03020300n, 0x02020200n, 0x03020201n]) {
+        await expectCustomError(utils.testHostNodeAccount((prefix << 224n) | BigInt(signerAddress)), "InvalidId");
+      }
+    });
+
+    it("classifies only the account category, regardless of representation or payload", async () => {
+      for (const value of [
+        await utils.testToAdminAccount(signerAddress),
+        encodeUserAccount(signerAddress),
+        opaqueKeccak(1, 255, "0x1234").id,
+        "0x0001" + "00".repeat(30),
+        "0xff01" + "ff".repeat(30),
+      ]) {
+        expect(await utils.testIsAccount(value)).to.be.true;
+        expect(await utils.testAccount(value)).to.equal(value);
+        expect(await utils.testCounterparty(value)).to.equal(value);
+      }
+    });
+
+    it("accepts Rootzero as counterparty without classifying it as an account", async () => {
+      expect(await utils.testIsAccount(ethers.ZeroHash)).to.be.false;
+      await expectCustomError(utils.testAccount(ethers.ZeroHash), "InvalidAccount");
+      expect(await utils.testCounterparty(ethers.ZeroHash)).to.equal(ethers.ZeroHash);
+    });
+
+    it("rejects non-account categories, including hosts and asset IDs", async () => {
+      for (const value of [
+        "0x03020200" + "00".repeat(28),
+        "0x03030300" + "00".repeat(28),
+        "0x03030000" + "00".repeat(28),
+        "0x0100" + "01".repeat(30),
+        "0xff05" + "ff".repeat(30),
+        ethers.toBeHex(1n, 32),
+      ]) {
+        expect(await utils.testIsAccount(value)).to.be.false;
+        await expectCustomError(utils.testAccount(value), "InvalidAccount");
+        await expectCustomError(utils.testCounterparty(value), "InvalidAccount");
+      }
+    });
+
     it("addrOr returns or when addr is zero", async () => {
       const or = "0x" + "ab".repeat(20);
       const result = await utils.testAddrOr(ethers.ZeroAddress, or);
@@ -114,8 +230,8 @@ describe("Utils", () => {
       const val = BigInt(result);
       // First byte is the EVM representation.
       expect((val >> 248n) & 0xffn).to.equal(0x03n);
-      // Address is in bits 32..191
-      const embeddedAddr = (val >> 32n) & ((1n << 160n) - 1n);
+      // Address is in bits 0..159
+      const embeddedAddr = val & ((1n << 160n) - 1n);
       expect("0x" + embeddedAddr.toString(16).padStart(40, "0")).to.equal(signerAddress.toLowerCase());
     });
 
@@ -265,45 +381,8 @@ describe("Utils", () => {
       const asset: string = await utils.testToErc20Asset(token);
       const val = BigInt(asset);
       expect((val >> 232n) & 0xffn).to.equal(0x03n);
-      const embedded = (val >> 32n) & ((1n << 160n) - 1n);
+      const embedded = val & ((1n << 160n) - 1n);
       expect("0x" + embedded.toString(16).padStart(40, "0")).to.equal(token.toLowerCase());
-    });
-
-    it("derives a deterministic opaque asset scoped to its host", async () => {
-      const underlying = "0x01030000" + "00".repeat(28);
-      const host: bigint = await utils.testToHostId(signerAddress);
-      const payload = ethers.concat([ethers.toBeHex(host, 32), underlying]);
-      const { id: expected } = opaqueKeccak(0x03, 0x01, payload);
-      const { id: virtual } = opaqueKeccak(0x03, 0x02, payload);
-      const derived = await utils.testToDerivedAsset(underlying, host);
-
-      expect(derived).to.equal(expected);
-      expect(await utils.testIsDerivedAsset(derived)).to.be.true;
-      expect(await utils.testDerivedAsset(derived)).to.equal(derived);
-      expect(await utils.testMatchDerivedAsset(derived, underlying, host)).to.equal(derived);
-      expect(await utils.testIsOpaqueAsset(derived)).to.be.true;
-      expect(await utils.testIsDerivedAsset(virtual)).to.be.false;
-    });
-
-    it("separates derived assets by host and underlying asset", async () => {
-      const underlying = "0x01030000" + "00".repeat(28);
-      const otherAsset = await utils.testToChain();
-      const host: bigint = await utils.testToHostId(signerAddress);
-      const otherHost: bigint = await utils.testToHostId("0x00000000000000000000000000000000000000ab");
-      const derived = await utils.testToDerivedAsset(underlying, host);
-
-      expect(await utils.testToDerivedAsset(underlying, otherHost)).not.to.equal(derived);
-      expect(await utils.testToDerivedAsset(otherAsset, host)).not.to.equal(derived);
-      await expectCustomError(utils.testMatchDerivedAsset(derived, underlying, otherHost), "InvalidAsset");
-    });
-
-    it("rejects invalid derived-asset inputs", async () => {
-      const host: bigint = await utils.testToHostId(signerAddress);
-      const command: bigint = await utils.testToCommandId("example", signerAddress);
-
-      await expectCustomError(utils.testToDerivedAsset(ethers.ZeroHash, host), "InvalidAsset");
-      await expectCustomError(utils.testToDerivedAsset(await utils.testToChain(), command), "InvalidId");
-      await expectCustomError(utils.testDerivedAsset(await utils.testToChain()), "InvalidAsset");
     });
 
     it("EVM asset helpers accept supported EVM assets", async () => {
@@ -340,8 +419,8 @@ describe("Utils", () => {
       expect(await utils.testResolveAmount(50n, 10n, 100n)).to.equal(50n);
     });
 
-    it("resolveAmount reverts BadAmount when below min", async () => {
-      await expectCustomError(utils.testResolveAmount(5n, 10n, 100n), "BadAmount");
+    it("resolveAmount reverts AmountOutOfRange when below min", async () => {
+      await expectCustomError(utils.testResolveAmount(5n, 10n, 100n), "AmountOutOfRange");
     });
 
     it("ensureAmount reverts ZeroAmount on zero", async () => {
@@ -352,9 +431,9 @@ describe("Utils", () => {
       expect(await utils.testEnsureAmount(42n)).to.equal(42n);
     });
 
-    it("ensureAmount with range reverts BadAmount when out of range", async () => {
-      await expectCustomError(utils.testEnsureAmountRange(0n, 1n, 10n), "BadAmount");
-      await expectCustomError(utils.testEnsureAmountRange(11n, 1n, 10n), "BadAmount");
+    it("ensureAmount with range reverts AmountOutOfRange when out of range", async () => {
+      await expectCustomError(utils.testEnsureAmountRange(0n, 1n, 10n), "AmountOutOfRange");
+      await expectCustomError(utils.testEnsureAmountRange(11n, 1n, 10n), "AmountOutOfRange");
     });
 
     it("localErc20Addr extracts token address from ERC20 asset", async () => {

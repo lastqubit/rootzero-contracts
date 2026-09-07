@@ -1,29 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-/// @dev Thrown when an operation attempts to spend more value than remains.
-error InsufficientValue();
-
-/// @dev Thrown when a decoder or execution is finalized with unread data.
-error UnconsumedData();
-
-/// @dev Thrown when an operation requires empty state but receives state data.
-error UnexpectedState();
-
-/// @dev Thrown when an operation requires empty input but receives input data.
-error UnexpectedInput();
-
 /// @dev Thrown when an ID does not match the expected convention or type.
 error InvalidId();
 
-/// @dev Thrown when an operation exceeds its logical data boundary.
-error OutOfBounds();
-
-/// @dev Thrown when a value exceeds the target integer width.
-error ValueOverflow();
-
-/// @dev Thrown when a value is not evenly divisible by its divisor.
-error NotDivisible();
+/// @dev Thrown when an opaque ID preimage is missing or unsupported.
+error InvalidPreimage();
 
 /// @dev Thrown when an identifier contains a zero address.
 error ZeroAddress();
@@ -44,15 +26,34 @@ error UnauthorizedAsset();
 error ZeroAmount();
 
 /// @dev Thrown when an amount falls outside its allowed range.
-error BadAmount(uint amount);
+error AmountOutOfRange();
 
 /// @dev Thrown when an operation produces an amount other than the exact amount expected.
 error UnexpectedAmount();
 
-/// @dev Thrown when an opaque ID preimage is missing or unsupported.
-error InvalidPreimage();
+/// @dev Thrown when a value does not match the expected value.
+error UnexpectedValue();
+
+/// @dev Thrown when an operation attempts to spend more value than remains.
+error InsufficientValue();
+
+/// @dev Thrown when a value exceeds the target integer width.
+error ValueOverflow();
+
+/// @dev Thrown when a value is not evenly divisible by its divisor.
+error NotDivisible();
+
+/// @dev Thrown when an operation exceeds its logical data boundary.
+error OutOfBounds();
 
 /// @dev Thrown when a cursor is not at the expected absolute position.
 error UnexpectedPosition();
 
-/// @dev Thrown when no packed cursor matches a requested identity.
+/// @dev Thrown when a decoder or execution is finalized with unread data.
+error UnconsumedData();
+
+/// @dev Thrown when an operation requires empty state but receives state data.
+error UnexpectedState();
+
+/// @dev Thrown when an operation requires empty input but receives input data.
+error UnexpectedInput();

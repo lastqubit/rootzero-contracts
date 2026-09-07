@@ -290,7 +290,7 @@ describe("Admin Commands", () => {
         .withArgs(
           await host.host(),
           await cmd("annotate"),
-          endpointDescriptor({ input: Keys.Annotation, admin: true }),
+          endpointDescriptor({ input: Keys.Annotation, inputHint: 256, admin: true }),
         );
       await expect(deployment!).to.emit(host, "Annotation")
         .withArgs(await cmd("annotate"), encodeLabelBlock(ethers.ZeroHash, "annotate"));

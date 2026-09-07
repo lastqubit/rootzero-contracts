@@ -15,7 +15,6 @@ import {
     AccountAmount,
     HostAmount,
     HostAccountAsset,
-    Debt,
     Position,
     Tx
 } from "../core/Types.sol";
@@ -41,45 +40,48 @@ library Executions {
     // Description and opening
     // -------------------------------------------------------------------------
 
-    /// @notice Describe an endpoint's state, input, output, and behavior.
-    /// @dev Layout: `[state key:4][stride:1]`
-    /// `[input key:4][stride:1]`
-    /// `[output key:4][min:4][max:4][hint:3][stride:1]`
-    /// `[reserved:5][flags:1]`.
+    /// @notice Describe an endpoint's schemas, allocation metadata, and behavior.
+    /// @dev Layout: `[state key:4][stride:1][input key:4][stride:1]`
+    /// `[output key:4][stride:1][source key:4][stride:1]`
+    /// `[source group size:4][output group size:4][source shift:1][reserved:2][flags:1]`.
+    /// Source shift: 128 = state, 0 = input or none. Group sizes include headers.
+    /// Declared state takes precedence over input, including when supplied state is empty.
     function describe(uint state, uint input, uint output, uint8 flags) internal pure returns (uint descriptor) {
-        output = Specs.normalize(output);
-        descriptor |= uint(Specs.lane(state)) << 216;
-        descriptor |= uint(Specs.lane(input)) << 176;
-        descriptor |= (output >> 128) << 48;
+        uint40 stateLane = Specs.lane(state);
+        uint40 inputLane = Specs.lane(input);
+        uint40 outputLane = Specs.lane(output);
+        uint40 sourceLane = uint8(stateLane) != 0 ? stateLane : inputLane;
+        uint source = uint8(stateLane) != 0 ? state : input;
+        uint sourceShift = uint8(stateLane) != 0 ? 128 : 0;
+        descriptor |= uint(stateLane) << 216;
+        descriptor |= uint(inputLane) << 176;
+        descriptor |= uint(outputLane) << 136;
+        descriptor |= uint(sourceLane) << 96;
+        descriptor |= Specs.groupSize(source) << 64;
+        descriptor |= Specs.groupSize(output) << 32;
+        descriptor |= sourceShift << 24;
         descriptor |= flags;
     }
 
-    /// @dev Initialize the output writer from input when declared, otherwise state.
+    /// @dev Capacity is only a hint; decoding validates the stream and buffers can grow.
     function writerCursor(uint decoders, uint descriptor) private pure returns (uint writer) {
-        uint outputStride = uint8(descriptor >> 48);
+        uint8 outputStride = uint8(descriptor >> 136);
         if (outputStride == 0) return 0;
-
-        uint decoderStride = uint8(decoders >> 64);
-        uint sourceShift = 176;
-        if (decoderStride == 0) {
-            decoderStride = uint8(decoders >> 192);
-            sourceShift = 216;
-        }
-        uint count;
-        if (decoderStride != 0) {
-            uint abs = uint32(decoders);
-            uint end = uint32(decoders >> 32);
-            if (sourceShift == 216) {
-                abs = uint32(decoders >> 128);
-                end = uint32(decoders >> 160);
+        uint sourceStride = uint8(descriptor >> 96);
+        uint groups = 1;
+        if (sourceStride != 0) {
+            uint source = decoders >> uint8(descriptor >> 24);
+            uint abs = uint32(source);
+            uint end = uint32(source >> 32);
+            uint groupSize = uint32(descriptor >> 64);
+            if (groupSize != 0 && (end - abs) % groupSize == 0) {
+                groups = (end - abs) / groupSize;
+            } else {
+                bytes4 key = bytes4(uint32(descriptor >> 104));
+                groups = Blocks.runCount(abs, end, key) / sourceStride;
             }
-            count =
-                (Blocks.runCount(abs, end, bytes4(uint32(descriptor >> (sourceShift + 8)))) / decoderStride) *
-                outputStride;
         }
-
-        uint capacity = count * (Sizes.Header + uint24(descriptor >> 56));
-        writer = Buffers.cursor(capacity, uint8(outputStride));
+        writer = Buffers.cursor(groups * uint32(descriptor >> 32), outputStride);
     }
 
     /// @notice Open an execution containing only the current call-value budget.
@@ -478,6 +480,17 @@ library Executions {
         asset = Blocks.unpackAsset(abs);
     }
 
+    /// @notice Decode and consume one QUOTE input with minimum amount and maximum debt.
+    function unpackQuote(Execution memory exec) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
+        uint abs = take(exec, Sizes.Quote);
+        (asset, amount, liability, debt, counterparty) = Blocks.unpackQuote(abs);
+    }
+
+    /// @notice Decode one QUOTE into its structured value.
+    function unpackQuoteValue(Execution memory exec) internal pure returns (Position memory quote) {
+        (quote.asset, quote.amount, quote.liability, quote.debt, quote.counterparty) = unpackQuote(exec);
+    }
+
     /// @notice Decode and consume one ASSET_LIABILITY block from input.
     /// @param exec Execution whose input cursor is advanced.
     /// @return asset Decoded asset identifier.
@@ -564,22 +577,6 @@ library Executions {
         (value.asset, value.amount) = unpackBalance(exec);
     }
 
-    /// @notice Decode and consume one DEBT block from state.
-    /// @param exec Execution whose state cursor is advanced.
-    /// @return liability Decoded liability identifier.
-    /// @return debt Decoded debt amount.
-    function unpackDebt(Execution memory exec) internal pure returns (bytes32 liability, uint debt) {
-        uint abs = takeState(exec, Sizes.Debt);
-        (liability, debt) = Blocks.unpackDebt(abs);
-    }
-
-    /// @notice Decode and consume one DEBT block from state into its structured value.
-    /// @param exec Execution whose state cursor is advanced.
-    /// @return value Decoded liability and debt amount.
-    function unpackDebtValue(Execution memory exec) internal pure returns (Debt memory value) {
-        (value.liability, value.debt) = unpackDebt(exec);
-    }
-
     /// @notice Decode and consume one CUSTODY block from state.
     /// @param exec Execution whose state cursor is advanced.
     /// @return host Decoded host identifier.
@@ -603,18 +600,19 @@ library Executions {
     /// @return amount Decoded asset amount.
     /// @return liability Decoded liability identifier.
     /// @return debt Decoded debt amount.
+    /// @return counterparty Decoded settlement counterparty.
     function unpackPosition(
         Execution memory exec
-    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         uint abs = takeState(exec, Sizes.Position);
-        (asset, amount, liability, debt) = Blocks.unpackPosition(abs);
+        (asset, amount, liability, debt, counterparty) = Blocks.unpackPosition(abs);
     }
 
     /// @notice Decode and consume one POSITION block from state into its structured value.
     /// @param exec Execution whose state cursor is advanced.
     /// @return value Decoded asset and liability position.
     function unpackPositionValue(Execution memory exec) internal pure returns (Position memory value) {
-        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(exec);
+        (value.asset, value.amount, value.liability, value.debt, value.counterparty) = unpackPosition(exec);
     }
 
     /// @notice Decode and consume one BALANCE block from state and associate it with `host`.
@@ -963,15 +961,15 @@ library Executions {
         outputBalance(exec, value.asset, value.amount);
     }
 
-    /// @notice Append a DEBT block to execution output.
-    function outputDebt(Execution memory exec, bytes32 liability, uint debt) internal pure {
-        uint i = reserve(exec, Sizes.Debt);
-        Blocks.writeDebt(exec.output, i, liability, debt);
+    /// @notice Append a QUOTE with minimum amount and maximum debt.
+    function outputQuote(Execution memory exec, bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) internal pure {
+        uint i = reserve(exec, Sizes.Quote);
+        Blocks.writeQuote(exec.output, i, asset, amount, liability, debt, counterparty);
     }
 
-    /// @notice Append a structured DEBT value to execution output.
-    function outputDebt(Execution memory exec, Debt memory value) internal pure {
-        outputDebt(exec, value.liability, value.debt);
+    /// @notice Append a structured QUOTE.
+    function outputQuote(Execution memory exec, Position memory quote) internal pure {
+        outputQuote(exec, quote.asset, quote.amount, quote.liability, quote.debt, quote.counterparty);
     }
 
     /// @notice Append a POSITION block to execution output.
@@ -980,15 +978,16 @@ library Executions {
         bytes32 asset,
         uint amount,
         bytes32 liability,
-        uint debt
+        uint debt,
+        bytes32 counterparty
     ) internal pure {
         uint i = reserve(exec, Sizes.Position);
-        Blocks.writePosition(exec.output, i, asset, amount, liability, debt);
+        Blocks.writePosition(exec.output, i, asset, amount, liability, debt, counterparty);
     }
 
     /// @notice Append a structured POSITION value to execution output.
     function outputPosition(Execution memory exec, Position memory value) internal pure {
-        outputPosition(exec, value.asset, value.amount, value.liability, value.debt);
+        outputPosition(exec, value.asset, value.amount, value.liability, value.debt, value.counterparty);
     }
 
     /// @notice Append an ACCOUNT_ASSET block to execution output.

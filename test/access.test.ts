@@ -37,7 +37,7 @@ describe("Access Control", () => {
   it("adminAccount encodes the commander host's native identity", async () => {
     const adminAccount: string = await host.getAdminAccount();
     const val = BigInt(adminAccount);
-    const embedded = (val >> 32n) & ((1n << 160n) - 1n);
+    const embedded = val & ((1n << 160n) - 1n);
     expect("0x" + embedded.toString(16).padStart(40, "0"))
       .to.equal(commander.toLowerCase());
   });
@@ -175,7 +175,7 @@ describe("Access Control", () => {
 
     const adminAccount: string = await selfManaged.getAdminAccount();
     const val = BigInt(adminAccount);
-    const embedded = (val >> 32n) & ((1n << 160n) - 1n);
+    const embedded = val & ((1n << 160n) - 1n);
     expect("0x" + embedded.toString(16).padStart(40, "0"))
       .to.equal(selfManagedAddress.toLowerCase());
   });

@@ -75,15 +75,9 @@ struct HostAccountAmount {
     uint amount;
 }
 
-/// @notice Liability and debt pair threaded as live pipeline state.
-struct Debt {
-    /// @dev Identifier for the liability side.
-    bytes32 liability;
-    /// @dev Quantity owed on the liability side.
-    uint debt;
-}
-
 /// @notice Asset and liability pair threaded as live pipeline state.
+/// Also represents decoded QUOTE fields: amount is a minimum, debt a maximum,
+/// and asset, liability, and counterparty are exact requirements.
 /// Either side may be absent by setting both its identifier and quantity to zero.
 struct Position {
     /// @dev Identifier for the asset side.
@@ -94,6 +88,8 @@ struct Position {
     bytes32 liability;
     /// @dev Quantity owed on the liability side.
     uint debt;
+    /// @dev Settlement counterparty: Rootzero (zero) or an account ID, including a host account.
+    bytes32 counterparty;
 }
 
 /// @notice Transfer payload used by transaction blocks and peer posting.

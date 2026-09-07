@@ -62,8 +62,36 @@ contract TestUtils is CommandBase {
         return Accounts.toAdmin(addr);
     }
 
+    function testIsAccount(bytes32 value) external pure returns (bool) {
+        return Accounts.isAccount(value);
+    }
+
+    function testCounterparty(bytes32 value) external pure returns (bytes32) {
+        return Accounts.counterparty(value);
+    }
+
+    function testAccount(bytes32 value) external pure returns (bytes32) {
+        return Accounts.account(value);
+    }
+
     function testToUserAccount(address addr) external pure returns (bytes32) {
         return Accounts.toUser(addr);
+    }
+
+    function testToHostAccount(address addr) external view returns (bytes32) {
+        return Accounts.toHost(addr);
+    }
+
+    function testHostNodeAccount(uint node) external pure returns (bytes32) {
+        return Accounts.toHost(node);
+    }
+
+    function testIsHostAccount(bytes32 account) external pure returns (bool) {
+        return Accounts.isHost(account);
+    }
+
+    function testHostAccount(bytes32 account) external pure returns (bytes32) {
+        return Accounts.host(account);
     }
 
     function testAccountAddr(bytes32 account) external pure returns (address) {
@@ -118,20 +146,12 @@ contract TestUtils is CommandBase {
         return Assets.toErc20(addr);
     }
 
-    function testToDerivedAsset(bytes32 asset, uint host) external pure returns (bytes32) {
-        return Assets.toDerived(asset, host);
-    }
-
     function testIsEvmAsset(bytes32 asset) external pure returns (bool) {
         return Assets.isEvm(asset);
     }
 
     function testIsOpaqueAsset(bytes32 asset) external pure returns (bool) {
         return Assets.isOpaque(asset);
-    }
-
-    function testIsDerivedAsset(bytes32 asset) external pure returns (bool) {
-        return Assets.isDerived(asset);
     }
 
     function testIsChain(bytes32 asset) external view returns (bool) {
@@ -150,10 +170,6 @@ contract TestUtils is CommandBase {
         return Assets.opaque(asset);
     }
 
-    function testDerivedAsset(bytes32 asset) external pure returns (bytes32) {
-        return Assets.derived(asset);
-    }
-
     function testChain(bytes32 asset) external view returns (bytes32) {
         return Assets.chain(asset);
     }
@@ -168,10 +184,6 @@ contract TestUtils is CommandBase {
 
     function testMatchKeccakAsset(bytes32 asset, bytes memory preimage) external pure returns (bytes32) {
         return Assets.matchKeccak(asset, preimage);
-    }
-
-    function testMatchDerivedAsset(bytes32 value, bytes32 asset, uint host) external pure returns (bytes32) {
-        return Assets.matchDerived(value, asset, host);
     }
 
     function testResolveAmount(uint available, uint min, uint max) external pure returns (uint) {

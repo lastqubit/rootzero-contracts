@@ -3,13 +3,13 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { Deposit } from "../commands/Deposit.sol";
-import { GetAccountBalances } from "../queries/Balances.sol";
+import { GetBalances } from "../queries/Balances.sol";
 
-contract TestCompositeHost is Host, Deposit, GetAccountBalances {
+contract TestCompositeHost is Host, Deposit, GetBalances {
     constructor(uint cmdr)
         Host(0)
         Deposit()
-        GetAccountBalances()
+        GetBalances()
     {
         if (cmdr != 0) setNode(cmdr, true);
     }

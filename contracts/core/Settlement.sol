@@ -1,28 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-/// @title DebitHostHook
-/// @notice Hook for exactly debiting funds held or controlled directly by a host.
-abstract contract DebitHostHook {
-    /// @notice Override to debit exactly `amount` of `asset` from the host.
-    /// @dev Returning successfully asserts that the complete amount was debited.
-    /// The hook must revert if it cannot debit the exact amount. Fees must not
-    /// reduce the amount made available to the consuming operation.
-    /// @param asset Asset identifier.
-    /// @param amount Exact amount to debit.
-    function debitHost(bytes32 asset, uint amount) internal virtual;
-}
-
-/// @title CreditHostHook
-/// @notice Hook for crediting funds held or controlled directly by a host.
-abstract contract CreditHostHook {
-    /// @notice Override to credit `amount` of `asset` to the host.
-    /// @dev Returning successfully asserts that the complete amount was credited.
-    /// The hook must revert if it cannot credit the complete amount.
-    /// @param asset Asset identifier.
-    /// @param amount Exact amount to credit.
-    function creditHost(bytes32 asset, uint amount) internal virtual;
-}
+import {Position} from "./Types.sol";
+import {Accounts} from "../utils/Accounts.sol";
 
 /// @title DebitAccountHook
 /// @notice Hook for exactly debiting externally managed account funds.
@@ -63,20 +43,6 @@ abstract contract PostHook {
     function post(bytes32 from, bytes32 to, bytes32 asset, uint amount) internal virtual;
 }
 
-/// @title RepayHook
-/// @notice Hook for fully repaying one account liability.
-abstract contract RepayHook {
-    /// @notice Override to satisfy `debt` denominated in `liability` for `account`.
-    /// @dev Returning successfully asserts that the complete exact-net `debt` was
-    /// satisfied. Partial fulfillment is invalid because the consuming command emits
-    /// no debt remainder. Revert if the complete quantity cannot be satisfied. Fees
-    /// and sourcing costs must be paid in addition to, and must not reduce, `debt`.
-    /// @param account Account whose liability is repaid.
-    /// @param liability Liability identifier.
-    /// @param debt Exact debt amount to repay.
-    function repay(bytes32 account, bytes32 liability, uint debt) internal virtual;
-}
-
 /// @title SettleHook
 /// @notice Hook for fully settling one asset-liability position.
 abstract contract SettleHook {
@@ -86,16 +52,13 @@ abstract contract SettleHook {
     /// no debt remainder. Revert if the complete quantity cannot be satisfied. Fees
     /// and sourcing costs must be paid in addition to, and must not reduce, `debt`.
     /// @param account Account whose position is settled.
-    /// @param asset Asset-side identifier.
-    /// @param amount Exact asset-side amount.
-    /// @param liability Liability-side identifier.
-    /// @param debt Exact liability-side debt amount.
-    function settle(bytes32 account, bytes32 asset, uint amount, bytes32 liability, uint debt) internal virtual;
+    /// @param position Full position; the hook validates and authorizes its counterparty.
+    function settle(bytes32 account, Position memory position) internal virtual;
 }
 
 /// @title Settlement
 /// @notice Default account-hook implementation for transaction posting and position settlement.
-abstract contract Settlement is PostHook, DebitAccountHook, CreditAccountHook, SettleHook, RepayHook {
+abstract contract Settlement is PostHook, DebitAccountHook, CreditAccountHook, SettleHook {
     /// @notice Post one transaction by debiting its source and crediting its destination.
     /// Returns without calling either hook when `amount` is zero and skips either
     /// operation when the corresponding account is zero.
@@ -109,33 +72,24 @@ abstract contract Settlement is PostHook, DebitAccountHook, CreditAccountHook, S
         if (to != 0) creditAccount(to, asset, amount);
     }
 
-    /// @notice Fully repay one exact-net liability by debiting it from the account.
-    /// @dev Skips the debit when `debt` is zero. `debitAccount` is exact-or-revert,
-    /// so successful return satisfies the complete debt quantity.
-    /// @param account Account whose liability is repaid.
-    /// @param liability Liability identifier.
-    /// @param debt Exact debt amount to repay.
-    function repay(bytes32 account, bytes32 liability, uint debt) internal virtual override {
-        if (debt != 0) debitAccount(account, liability, debt);
-    }
-
-    /// @notice Fully settle one position by crediting its asset and repaying its liability.
+    /// @notice Settle the liability from account to counterparty and the asset in the opposite direction.
+    /// @dev Zero counterparty skips its debit and credit, preserving Rootzero settlement.
+    /// Nonzero counterparties must have the account category. The trusted caller and
+    /// account hooks remain responsible for authorization.
     /// @dev A successful return means the complete exact-net `debt` was satisfied.
     /// Skips either operation when its corresponding amount is zero, including position
     /// sides encoded as absent with a zero identifier and quantity.
     /// @param account Account whose position is settled.
-    /// @param asset Asset-side identifier.
-    /// @param amount Exact asset-side amount.
-    /// @param liability Liability-side identifier.
-    /// @param debt Exact liability-side debt amount.
-    function settle(
-        bytes32 account,
-        bytes32 asset,
-        uint amount,
-        bytes32 liability,
-        uint debt
-    ) internal virtual override {
-        repay(account, liability, debt);
-        if (amount != 0) creditAccount(account, asset, amount);
+    /// @param position Full position; the hook validates and authorizes its counterparty.
+    function settle(bytes32 account, Position memory position) internal virtual override {
+        bytes32 counterparty = Accounts.counterparty(position.counterparty);
+        if (position.debt != 0) {
+            debitAccount(account, position.liability, position.debt);
+            if (counterparty != 0) creditAccount(counterparty, position.liability, position.debt);
+        }
+        if (position.amount != 0) {
+            if (counterparty != 0) debitAccount(counterparty, position.asset, position.amount);
+            creditAccount(account, position.asset, position.amount);
+        }
     }
 }

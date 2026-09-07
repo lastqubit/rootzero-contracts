@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {Accounts} from "../utils/Accounts.sol";
+import {Positions} from "../utils/Positions.sol";
+
 import { Host } from "../core/Host.sol";
 import { Allocate } from "../commands/Allocate.sol";
 import { Bootstrap } from "../commands/Bootstrap.sol";
@@ -13,8 +16,7 @@ import { Payout } from "../commands/Payout.sol";
 import { Provision, ProvisionPayable } from "../commands/Provision.sol";
 import { RelayPayable, RelayBalancePayable } from "../commands/Relay.sol";
 import { RecoverPayable } from "../commands/Recover.sol";
-import { Realize, RealizeDebt, RealizePosition } from "../commands/Realize.sol";
-import { ExecuteRepay, RepayPayable, RepayPosition, RepayPositionPayable } from "../commands/Repay.sol";
+import { Realize } from "../commands/Realize.sol";
 import { ExecuteSettle, SettlePayable } from "../commands/Settle.sol";
 import { Pipeline } from "../core/Pipeline.sol";
 import { Settlement, SettleHook } from "../core/Settlement.sol";
@@ -23,10 +25,11 @@ import { AllowAssets } from "../commands/admin/AllowAssets.sol";
 import { DenyAssets } from "../commands/admin/DenyAssets.sol";
 import { Allowance } from "../commands/admin/Allowance.sol";
 import { RevokeAllowance, RevokeAsset } from "../guards/Revoke.sol";
-import { HostAmount } from "../core/Types.sol";
+import { HostAmount, Position } from "../core/Types.sol";
 import { Execution, Executions } from "../execution/Execution.sol";
 import { Blocks } from "../codec/Blocks.sol";
 import { Specs } from "../codec/Specs.sol";
+import { UnexpectedValue } from "../utils/Errors.sol";
 
 using Executions for Execution;
 
@@ -47,12 +50,6 @@ contract TestHost is
     RelayBalancePayable,
     RecoverPayable,
     Realize,
-    RealizeDebt,
-    RealizePosition,
-    ExecuteRepay,
-    RepayPayable,
-    RepayPosition,
-    RepayPositionPayable,
     ExecuteSettle,
     SettlePayable,
     Settlement,
@@ -66,9 +63,6 @@ contract TestHost is
 {
     event AllocateCalled(uint host_, bytes32 account, bytes32 asset, uint amount);
     event CashoutCalled(bytes32 account, uint amount);
-    error AmountBelowLimit(uint realized, uint limit);
-    error DebtAboveLimit(uint realized, uint limit);
-    event RealizeDebtCalled(bytes32 liability, uint debt, bytes32 to, uint limit);
     event DepositCalled(bytes32 account, bytes32 asset, uint amount);
     event DepositPayableCalled(bytes32 account, bytes32 asset, uint amount, uint remaining);
     event WithdrawCalled(bytes32 account, bytes32 asset, uint amount);
@@ -79,7 +73,7 @@ contract TestHost is
     event ProvisionPayableCalled(uint host_, bytes32 account, bytes32 asset, uint amount, uint remaining);
     event RelayCalled(uint portal, uint resources, bytes32 account, bytes context);
     event RecoverCalled(uint handler, uint resources, bytes32 key, bytes witness, uint value);
-    event RealizeCalled(bytes32 asset, uint amount, bytes32 to, uint limit);
+    event RealizeCalled(bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty);
     event SettleCalled(
         bytes32 account,
         bytes32 asset,
@@ -95,15 +89,21 @@ contract TestHost is
         uint debt,
         uint remaining
     );
-    event RepayPayableCalled(
-        bytes32 account,
-        bytes32 liability,
-        uint debt,
-        uint remaining
-    );
     event AllowAssetCalled(bytes32 asset);
     event DenyAssetCalled(bytes32 asset);
     event AllowanceCalled(uint host_, bytes32 asset, uint amount);
+    event SettleCounterpartyChecked(bytes32 counterparty);
+    bytes32 private acceptedSettleCounterparty;
+
+    function setAcceptedSettleCounterparty(bytes32 counterparty) external {
+        acceptedSettleCounterparty = counterparty;
+    }
+
+    function checkSettleCounterparty(bytes32 counterparty) private {
+        if (counterparty != acceptedSettleCounterparty) revert UnexpectedValue();
+        emit SettleCounterpartyChecked(counterparty);
+    }
+
     uint public depositFee;
     uint public realizeFee;
     uint public realizeDebtFee;
@@ -151,36 +151,15 @@ contract TestHost is
         emit WithdrawCalled(account, asset, amount);
     }
 
-    function settle(
-        bytes32 account,
-        bytes32 asset,
-        uint amount,
-        bytes32 liability,
-        uint debt
-    ) internal override(Settlement, SettleHook) {
-        emit SettleCalled(account, asset, amount, liability, debt);
+    function settle(bytes32 account, Position memory position) internal override(Settlement, SettleHook) {
+        checkSettleCounterparty(position.counterparty);
+        emit SettleCalled(account, position.asset, position.amount, position.liability, position.debt);
     }
 
-    function settle(
-        bytes32 account,
-        bytes32 asset,
-        uint amount,
-        bytes32 liability,
-        uint debt,
-        Execution memory funds
-    ) internal override {
-        funds.useValue(amount + debt);
-        emit SettlePayableCalled(account, asset, amount, liability, debt, funds.budget);
-    }
-
-    function repay(
-        bytes32 account,
-        bytes32 liability,
-        uint debt,
-        Execution memory funds
-    ) internal override {
-        funds.useValue(debt);
-        emit RepayPayableCalled(account, liability, debt, funds.budget);
+    function settle(bytes32 account, Position memory position, Execution memory funds) internal override {
+        checkSettleCounterparty(position.counterparty);
+        funds.useValue(position.amount + position.debt);
+        emit SettlePayableCalled(account, position.asset, position.amount, position.liability, position.debt, funds.budget);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -195,28 +174,14 @@ contract TestHost is
         emit PayoutCalled(account, to, asset, amount);
     }
 
-    function realizeDebt(
-        bytes32 liability,
-        uint debt,
-        bytes32 to,
-        uint limit
-    ) internal override returns (uint) {
-        emit RealizeDebtCalled(liability, debt, to, limit);
-        uint realized = debt - realizeDebtFee;
-        if (realized > limit) revert DebtAboveLimit(realized, limit);
-        return realized;
-    }
-
-    function realize(
-        bytes32 asset,
-        uint amount,
-        bytes32 to,
-        uint limit
-    ) internal override returns (uint) {
-        emit RealizeCalled(asset, amount, to, limit);
-        uint realized = amount - realizeFee;
-        if (realized < limit) revert AmountBelowLimit(realized, limit);
-        return realized;
+    function realize(Position memory position, Position memory quote) internal override returns (Position memory) {
+        if (position.counterparty != Accounts.toHost(host)) revert UnexpectedValue();
+        emit RealizeCalled(position.asset, position.amount, position.liability, position.debt, position.counterparty);
+        position.amount -= realizeFee;
+        position.debt -= realizeDebtFee;
+        position.counterparty = bytes32(0);
+        Positions.requireQuoted(position, quote);
+        return position;
     }
 
     function provision(bytes32 account, HostAmount memory custody) internal override {
@@ -293,10 +258,6 @@ contract TestHost is
         if (cid == settleId()) {
             enforceCommand(cid);
             return executeSettle(account, state, input, value);
-        }
-        if (cid == repayId()) {
-            enforceCommand(cid);
-            return executeRepay(account, state, input, value);
         }
         return (false, state, 0);
     }

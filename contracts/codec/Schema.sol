@@ -108,9 +108,8 @@ library Schemas {
     // Live pipeline state
 
     string constant Balance = "bytes32 asset, uint amount";
-    string constant Debt = "bytes32 liability, uint debt";
     string constant Custody = "uint host, bytes32 asset, uint amount";
-    string constant Position = "bytes32 asset, uint amount, bytes32 liability, uint debt";
+    string constant Position = "bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty";
 
     // One-word payloads
 
@@ -118,6 +117,7 @@ library Schemas {
     string constant Account = "bytes32 account";
     string constant Asset = "bytes32 asset";
     string constant Status = "uint code";
+
     // Two-word payloads
 
     string constant Amount = "bytes32 asset, uint amount";
@@ -139,6 +139,11 @@ library Schemas {
     string constant Transaction = "bytes32 from, bytes32 to, bytes32 asset, uint amount";
     string constant HostAccountAmount = "uint host, bytes32 account, bytes32 asset, uint amount";
 
+    // Five-word input payloads
+
+    /// @dev Amount is a minimum and debt is a maximum, both inclusive.
+    string constant Quote = "bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty";
+
     // Composite payloads
 
     string constant Step = "uint cmd, uint value, #bytes as input";
@@ -152,7 +157,7 @@ library Schemas {
     // Annotation payloads
 
     string constant Action = "uint action";
-    string constant Clearinghouse = "uint host";
+    string constant Counterparty = "bytes32 account";
     string constant Label = "bytes32 namespace, #string as name";
     string constant Schema = "uint spec, #string as body, bytes32 name";
 }

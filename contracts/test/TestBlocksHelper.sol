@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {UnexpectedValue} from "../utils/Errors.sol";
+
 import {Blocks} from "../codec/Blocks.sol";
 import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
@@ -10,13 +12,13 @@ import {Cursors, Cur} from "../utils/Cursors.sol";
 import {Flags} from "../utils/Flags.sol";
 import {Budget, Budgets} from "../core/Budget.sol";
 import {Action} from "../annotations/Action.sol";
-import {Clearinghouse} from "../annotations/Clearinghouse.sol";
+import {Counterparty} from "../annotations/Counterparty.sol";
 
 using Writers for Writer;
 using Budgets for Budget;
 using Executions for Execution;
 
-contract TestBlocksHelper is Action, Clearinghouse {
+contract TestBlocksHelper is Action, Counterparty {
     bytes4 private constant TestKey = bytes4(uint32(1));
 
     function openInput(
@@ -63,12 +65,16 @@ contract TestBlocksHelper is Action, Clearinghouse {
         action(entity, value);
     }
 
-    function publishClearinghouse(uint entity, uint host) external {
-        clearinghouse(entity, host);
+    function publishCounterparty(uint entity, bytes32 account) external {
+        counterparty(entity, account);
     }
 
     function groupedCapacity() external pure returns (uint) {
         return Specs.allocation(Specs.group(Specs.Balance, 3), 2);
+    }
+
+    function describeSpecs(uint state, uint input, uint output) external pure returns (uint) {
+        return Executions.describe(state, input, output, 0);
     }
 
     function descriptorWord() external pure returns (uint) {
@@ -119,17 +125,7 @@ contract TestBlocksHelper is Action, Clearinghouse {
     ) external view returns (bytes memory output) {
         uint descriptor = Executions.describe(Specs.Empty, Specs.Empty, Specs.Position, 0);
         Execution memory exec = openInput(msg.data[0:0], descriptor);
-        Executions.outputPosition(exec, asset, amount, liability, debt);
-        output = Executions.finish(exec);
-    }
-
-    function executionOutputDebt(
-        bytes32 liability,
-        uint debt
-    ) external view returns (bytes memory output) {
-        uint descriptor = Executions.describe(Specs.Empty, Specs.Empty, Specs.Debt, 0);
-        Execution memory exec = openInput(msg.data[0:0], descriptor);
-        Executions.outputDebt(exec, liability, debt);
+        Executions.outputPosition(exec, asset, amount, liability, debt, bytes32(0));
         output = Executions.finish(exec);
     }
 
@@ -149,18 +145,10 @@ contract TestBlocksHelper is Action, Clearinghouse {
 
     function executionUnpackPosition(
         bytes calldata state
-    ) external view returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) external view returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         uint descriptor = Executions.describe(Specs.Position, Specs.Empty, Specs.Empty, 0);
         Execution memory exec = openState(state, descriptor);
         return exec.unpackPosition();
-    }
-
-    function executionUnpackDebt(
-        bytes calldata state
-    ) external view returns (bytes32 liability, uint debt) {
-        uint descriptor = Executions.describe(Specs.Debt, Specs.Empty, Specs.Empty, 0);
-        Execution memory exec = openState(state, descriptor);
-        return exec.unpackDebt();
     }
 
     function executionIsEmpty(bytes calldata input, uint spec, bytes4 key) external view returns (bool) {
@@ -677,7 +665,7 @@ contract TestBlocksHelper is Action, Clearinghouse {
             Blocks.require32(abs, expected);
             return;
         }
-        revert Blocks.UnexpectedValue();
+        revert UnexpectedValue();
     }
 
     function read32AsUint(bytes calldata source, uint i) external pure returns (uint) {
@@ -755,15 +743,6 @@ contract TestBlocksHelper is Action, Clearinghouse {
         Blocks.writeBalance(dst, offset, asset, amount);
     }
 
-    function writeDebt(
-        uint offset,
-        bytes32 liability,
-        uint debt
-    ) external pure returns (bytes memory dst) {
-        dst = new bytes(offset + Sizes.Debt);
-        Blocks.writeDebt(dst, offset, liability, debt);
-    }
-
     function writePosition(
         uint offset,
         bytes32 asset,
@@ -772,7 +751,7 @@ contract TestBlocksHelper is Action, Clearinghouse {
         uint debt
     ) external pure returns (bytes memory dst) {
         dst = new bytes(offset + Sizes.Position);
-        Blocks.writePosition(dst, offset, asset, amount, liability, debt);
+        Blocks.writePosition(dst, offset, asset, amount, liability, debt, bytes32(0));
     }
 
     function writeList(uint offset, bytes memory value) external pure returns (bytes memory dst) {
@@ -905,11 +884,7 @@ contract TestBlocksHelper is Action, Clearinghouse {
         return Blocks.unpackBalance(position(source));
     }
 
-    function unpackDebt(bytes calldata source) external pure returns (bytes32, uint) {
-        return Blocks.unpackDebt(position(source));
-    }
-
-    function unpackPosition(bytes calldata source) external pure returns (bytes32, uint, bytes32, uint) {
+    function unpackPosition(bytes calldata source) external pure returns (bytes32, uint, bytes32, uint, bytes32) {
         return Blocks.unpackPosition(position(source));
     }
 

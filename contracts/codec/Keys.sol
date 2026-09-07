@@ -22,14 +22,15 @@ library Keys {
 
     /// @dev Asset balance state - (bytes32 asset, uint amount)
     bytes4 constant Balance = bytes4(keccak256("#balance"));
-    /// @dev Liability-only debt state - (bytes32 liability, uint debt)
-    bytes4 constant Debt = bytes4(keccak256("#debt"));
     /// @dev Cross-host custody state - (uint host, bytes32 asset, uint amount)
     bytes4 constant Custody = bytes4(keccak256("#custody"));
-    /// @dev Asset-liability position state - (bytes32 asset, uint amount, bytes32 liability, uint debt)
+    /// @dev Asset-liability position state - (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty)
     bytes4 constant Position = bytes4(keccak256("#position"));
 
     // Input and value blocks
+
+    /// @dev Expected position outcome - (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty)
+    bytes4 constant Quote = bytes4(keccak256("#quote"));
 
     /// @dev Input amount - (bytes32 asset, uint amount)
     bytes4 constant Amount = bytes4(keccak256("#amount"));
@@ -68,8 +69,8 @@ library Keys {
     bytes4 constant Annotation = bytes4(keccak256("#annotation"));
     /// @dev Primary semantic action annotation - (uint action)
     bytes4 constant Action = bytes4(keccak256("#action"));
-    /// @dev Entity clearinghouse annotation - (uint host)
-    bytes4 constant Clearinghouse = bytes4(keccak256("#clearinghouse"));
+    /// @dev Entity counterparty annotation - (bytes32 account)
+    bytes4 constant Counterparty = bytes4(keccak256("#counterparty"));
     /// @dev Block schema publication - (bytes4 key, #string as body, bytes32 name)
     bytes4 constant Schema = bytes4(keccak256("#schema"));
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import { HostAmount, Debt, Position, Tx } from "../core/Types.sol";
+import { HostAmount, Position, Tx } from "../core/Types.sol";
 import { Specs } from "../codec/Specs.sol";
 import { Blocks, Cur, Decoders, Memory, Sizes, Writer } from "../Codec.sol";
 import {Cursors} from "../utils/Cursors.sol";
@@ -94,18 +94,6 @@ contract TestCursorHelper {
         return w.finish();
     }
 
-    function testWriteDebtBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
-        Writer memory w = Writers.init(Specs.Debt, 1);
-        w.appendDebt(liability, debt);
-        return w.finish();
-    }
-
-    function testWriteDebtStructBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
-        Writer memory w = Writers.init(Specs.Debt, 1);
-        w.appendDebt(Debt(liability, debt));
-        return w.finish();
-    }
-
     function testWriteEmptyBlock(bytes4 key) external pure returns (bytes memory) {
         Writer memory w = Writers.init(Specs.Balance, 1);
         w.appendEmpty(key);
@@ -129,8 +117,12 @@ contract TestCursorHelper {
         uint debt
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.init(Specs.Position, 1);
-        w.appendPosition(asset, amount, liability, debt);
+        w.appendPosition(asset, amount, liability, debt, bytes32(0));
         return w.finish();
+    }
+
+    function testWritePositionCounterparty(bytes32 counterparty) external pure returns (bytes memory) {
+        return Blocks.createPosition(bytes32(0), 0, bytes32(0), 0, counterparty);
     }
 
     function testWritePositionStructBlock(
@@ -140,7 +132,7 @@ contract TestCursorHelper {
         uint debt
     ) external pure returns (bytes memory) {
         Writer memory w = Writers.init(Specs.Position, 1);
-        w.appendPosition(Position(asset, amount, liability, debt));
+        w.appendPosition(Position(asset, amount, liability, debt, bytes32(0)));
         return w.finish();
     }
 
@@ -174,10 +166,6 @@ contract TestCursorHelper {
         return Blocks.createBalance(asset, amount);
     }
 
-    function testToDebtBlock(bytes32 liability, uint debt) external pure returns (bytes memory) {
-        return Blocks.createDebt(liability, debt);
-    }
-
     function testToAmountBlock(bytes32 asset, uint amount) external pure returns (bytes memory) {
         return Blocks.createAmount(asset, amount);
     }
@@ -198,8 +186,8 @@ contract TestCursorHelper {
         return Blocks.createAction(value);
     }
 
-    function testToClearinghouseBlock(uint host) external pure returns (bytes memory) {
-        return Blocks.createClearinghouse(host);
+    function testToCounterpartyBlock(bytes32 account) external pure returns (bytes memory) {
+        return Blocks.createCounterparty(account);
     }
 
     function testToSchemaBlock(uint spec, string memory body, bytes32 name) external pure returns (bytes memory) {
@@ -224,7 +212,7 @@ contract TestCursorHelper {
         bytes32 liability,
         uint debt
     ) external pure returns (bytes memory) {
-        return Blocks.createPosition(asset, amount, liability, debt);
+        return Blocks.createPosition(asset, amount, liability, debt, bytes32(0));
     }
 
     function testToTransactionBlock(
@@ -259,39 +247,35 @@ contract TestCursorHelper {
         return cur.unpackBootstrap();
     }
 
-    function testUnpackDebt(bytes calldata source) external pure returns (bytes32 liability, uint debt) {
-        Cur memory cur = Decoders.open(source);
-        return cur.unpackDebt();
-    }
-
-    function testUnpackDebtValue(bytes calldata source) external pure returns (bytes32 liability, uint debt) {
-        Cur memory cur = Decoders.open(source);
-        Debt memory value = cur.unpackDebtValue();
-        return (value.liability, value.debt);
-    }
-
     function testUnpackPosition(
         bytes calldata source
-    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         Cur memory cur = Decoders.open(source);
         return cur.unpackPosition();
     }
 
     function testUnpackPositionValue(
         bytes calldata source
-    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         Cur memory cur = Decoders.open(source);
         Position memory value = cur.unpackPositionValue();
-        return (value.asset, value.amount, value.liability, value.debt);
+        return (value.asset, value.amount, value.liability, value.debt, value.counterparty);
     }
 
     function testMemoryUnpackPosition(
         bytes calldata source
-    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) external pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         bytes memory data = source;
         (uint abs, uint end) = Memory.bounds(data, Sizes.Position);
         if (end - abs != Sizes.Position) revert Blocks.InvalidBlock();
         return Memory.unpackPosition(abs);
+    }
+
+    function testMemoryUnpackPositionValue(bytes calldata source) external pure returns (Position memory) {
+        bytes memory data = source;
+        (uint abs, uint end) = Memory.bounds(data, Sizes.Position);
+        if (end - abs != Sizes.Position) revert Blocks.InvalidBlock();
+        return Memory.unpackPositionValue(abs);
     }
 
     function testMemoryUnpackBalance(
@@ -301,15 +285,6 @@ contract TestCursorHelper {
         (uint abs, uint end) = Memory.bounds(data, Sizes.Balance);
         if (end - abs != Sizes.Balance) revert Blocks.InvalidBlock();
         return Memory.unpackBalance(abs);
-    }
-
-    function testMemoryUnpackDebt(
-        bytes calldata source
-    ) external pure returns (bytes32 liability, uint debt) {
-        bytes memory data = source;
-        (uint abs, uint end) = Memory.bounds(data, Sizes.Debt);
-        if (end - abs != Sizes.Debt) revert Blocks.InvalidBlock();
-        return Memory.unpackDebt(abs);
     }
 
     function testMemoryUnpackTwoBalances(

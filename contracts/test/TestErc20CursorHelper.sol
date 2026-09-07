@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
+import {UnexpectedValue} from "../utils/Errors.sol";
+
 import { Cur, Decoders } from "../Codec.sol";
 import { Assets } from "../utils/Assets.sol";
 import {Blocks} from "../codec/Blocks.sol";
@@ -29,7 +31,7 @@ contract TestErc20CursorHelper {
         bytes32 asset;
         cur.state = cur.state.seek(i);
         (actualHost, asset, amount) = Decoders.unpackCustody(cur);
-        if (actualHost != host) revert Blocks.UnexpectedValue();
+        if (actualHost != host) revert UnexpectedValue();
         token = Assets.erc20Addr(asset);
     }
 
@@ -76,7 +78,7 @@ contract TestErc20CursorHelper {
         uint actualHost;
         bytes32 asset;
         (actualHost, asset, amount) = Decoders.unpackCustody(cur);
-        if (actualHost != host) revert Blocks.UnexpectedValue();
+        if (actualHost != host) revert UnexpectedValue();
         token = Assets.erc20Addr(asset);
         i = cur.state.position() - Cursors.base(source);
     }

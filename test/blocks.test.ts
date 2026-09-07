@@ -5,7 +5,7 @@ import "./helpers/matchers.js";
 import {
   Keys,
   encodeActionBlock,
-  encodeClearinghouseBlock,
+  encodeCounterpartyBlock,
   encodeAccountAmountBlock,
   encodeAllocationBlock,
   encodeAllowanceBlock,
@@ -14,7 +14,7 @@ import {
   encodeAssetLiabilityBlock,
   encodeBalanceBlock,
   encodeBootstrapBlock,
-  encodeDebtBlock,
+  encodeLiabilityPosition,
   encodePositionBlock,
   encodeBytesBlock,
   encodeCallBlock,
@@ -113,31 +113,13 @@ describe("Cursors", () => {
       expect(await helper.testUnpackBalance(data)).to.deep.equal([asset, amount]);
     });
 
-    it("debt block round-trips through every codec layer", async () => {
+    it("represents debt as a liability-only position", async () => {
       const liability = ethers.zeroPadValue("0x02", 32);
-      const debt = 300n;
-      const expected = encodeDebtBlock(liability, debt);
-
-      expect(ethers.getBytes(expected).length).to.equal(72);
-      expect(expected.slice(0, 10)).to.equal(Keys.Debt);
-      expect(expected.slice(10, 18)).to.equal("00000040");
-      expect(await helper.testWriteDebtBlock(liability, debt)).to.equal(expected);
-      expect(await helper.testWriteDebtStructBlock(liability, debt)).to.equal(expected);
-      expect(await helper.testToDebtBlock(liability, debt)).to.equal(expected);
-      expect(await blocksHelper.writeDebt(5n, liability, debt)).to.equal(
-        ethers.concat([new Uint8Array(5), expected]),
-      );
-      expect(await blocksHelper.unpackDebt(expected)).to.deep.equal([liability, debt]);
-      expect(await helper.testUnpackDebt(expected)).to.deep.equal([liability, debt]);
-      expect(await helper.testUnpackDebtValue(expected)).to.deep.equal([liability, debt]);
-      expect(await helper.testMemoryUnpackDebt(expected)).to.deep.equal([liability, debt]);
-      expect(await blocksHelper.executionOutputDebt(liability, debt)).to.equal(expected);
-      expect(await blocksHelper.executionUnpackDebt(expected)).to.deep.equal([liability, debt]);
-    });
-
-    it("debt decoder rejects another two-word block", async () => {
-      await expect(blocksHelper.unpackDebt(encodeBalanceBlock(asset, amount)))
-        .to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+      const data = encodeLiabilityPosition(liability, 300n);
+      expect(data).to.equal(await helper.testWritePositionBlock(ethers.ZeroHash, 0n, liability, 300n));
+      expect(await helper.testUnpackPosition(data)).to.deep.equal([
+        ethers.ZeroHash, 0n, liability, 300n, ethers.ZeroHash,
+      ]);
     });
 
     it("encodes empty blocks through factories, writers, and executions", async () => {
@@ -153,9 +135,9 @@ describe("Cursors", () => {
       const debt = 300n;
       const expected = encodePositionBlock(asset, positionAmount, liability, debt);
 
-      expect(ethers.getBytes(expected).length).to.equal(136);
+      expect(ethers.getBytes(expected).length).to.equal(168);
       expect(expected.slice(0, 10)).to.equal(Keys.Position);
-      expect(expected.slice(10, 18)).to.equal("00000080");
+      expect(expected.slice(10, 18)).to.equal("000000a0");
       expect(await helper.testWritePositionBlock(asset, positionAmount, liability, debt)).to.equal(expected);
       expect(await helper.testWritePositionStructBlock(asset, positionAmount, liability, debt)).to.equal(expected);
       expect(await helper.testToPositionBlock(asset, positionAmount, liability, debt)).to.equal(expected);
@@ -164,13 +146,62 @@ describe("Cursors", () => {
       );
       expect(await blocksHelper.executionOutputPosition(asset, positionAmount, liability, debt)).to.equal(expected);
       expect(await blocksHelper.executionUnpackPosition(expected)).to.deep.equal([
-        asset, positionAmount, liability, debt,
+        asset, positionAmount, liability, debt, ethers.ZeroHash,
       ]);
-      expect(await helper.testUnpackPosition(expected)).to.deep.equal([asset, positionAmount, liability, debt]);
-      expect(await helper.testUnpackPositionValue(expected)).to.deep.equal([asset, positionAmount, liability, debt]);
+      expect(await helper.testUnpackPosition(expected)).to.deep.equal([asset, positionAmount, liability, debt, ethers.ZeroHash]);
+      expect(await helper.testUnpackPositionValue(expected)).to.deep.equal([asset, positionAmount, liability, debt, ethers.ZeroHash]);
       expect(await helper.testMemoryUnpackPosition(expected)).to.deep.equal([
-        asset, positionAmount, liability, debt,
+        asset, positionAmount, liability, debt, ethers.ZeroHash,
       ]);
+    });
+
+    it("decodes all memory position struct fields and rejects malformed headers", async () => {
+      const counterparty = encodeUserAccount("0x42");
+      const liability = pad32(12n);
+      const data = encodePositionBlock(asset, 123n, liability, 456n, counterparty);
+      expect(await helper.testMemoryUnpackPositionValue(data))
+        .to.deep.equal([asset, 123n, liability, 456n, counterparty]);
+      for (const invalid of [
+        concat(Keys.Balance, ethers.dataSlice(data, 4)),
+        concat(ethers.dataSlice(data, 0, 4), "0x00000080", ethers.dataSlice(data, 8)),
+        ethers.dataSlice(data, 0, 167),
+        "0x",
+      ]) {
+        await expect(helper.testMemoryUnpackPositionValue(invalid))
+          .to.be.revertedWithCustomError(helper, "InvalidBlock");
+      }
+    });
+
+    it("rejects legacy position/debt encodings across decoders", async () => {
+      const position = encodePositionBlock(asset, amount, ethers.ZeroHash, 0n);
+      const invalid = [
+        encodeBlock(Keys.Position, ethers.dataSlice(position, 8, 136)),
+        encodeBlock(ethers.id("#debt").slice(0, 10), concat(pad32(asset), pad32(amount))),
+      ];
+      for (const data of invalid) {
+        await expect(blocksHelper.unpackPosition(data)).to.be.revertedWithCustomError(blocksHelper, "InvalidBlock");
+        await expect(helper.testMemoryUnpackPosition(data)).to.be.revertedWithCustomError(helper, "InvalidBlock");
+        await expect(helper.testMemoryUnpackPositionValue(data)).to.be.revertedWithCustomError(helper, "InvalidBlock");
+        await expect(helper.testUnpackPosition(data)).to.be.revertedWithCustomError(helper,
+          ethers.dataLength(data) < 168 ? "OutOfBounds" : "InvalidBlock");
+        await expect(blocksHelper.executionUnpackPosition(data)).to.be.revertedWithCustomError(blocksHelper,
+          ethers.dataLength(data) < 168 ? "OutOfBounds" : "InvalidBlock");
+      }
+      expect(await helper.testWritePositionCounterparty(ethers.ZeroHash))
+        .to.equal(encodePositionBlock(ethers.ZeroHash, 0n, ethers.ZeroHash, 0n));
+    });
+
+    it("preserves nonzero counterparties through generic position codecs", async () => {
+      const counterparty = pad32((0x03010200n << 224n) | 123n);
+      const data = await helper.testWritePositionCounterparty(counterparty);
+      expect(data).to.equal(encodePositionBlock(ethers.ZeroHash, 0n, ethers.ZeroHash, 0n, counterparty));
+      const expected = [ethers.ZeroHash, 0n, ethers.ZeroHash, 0n, counterparty];
+      expect(await blocksHelper.unpackPosition(data)).to.deep.equal(expected);
+      expect(await helper.testUnpackPosition(data)).to.deep.equal(expected);
+      expect(await helper.testUnpackPositionValue(data)).to.deep.equal(expected);
+      expect(await helper.testMemoryUnpackPosition(data)).to.deep.equal(expected);
+      expect(await helper.testMemoryUnpackPositionValue(data)).to.deep.equal(expected);
+      expect(await blocksHelper.executionUnpackPosition(data)).to.deep.equal(expected);
     });
 
     it("position decoder rejects another four-word block", async () => {
@@ -301,7 +332,6 @@ describe("Cursors", () => {
       expect(await blocksHelper.unpackStatus(encodeStatusBlock(7n))).to.equal(7n);
       expect(await blocksHelper.unpackAmount(encodeAmountBlock(asset, amount))).to.deep.equal([asset, amount]);
       expect(await blocksHelper.unpackBalance(encodeBalanceBlock(asset, amount))).to.deep.equal([asset, amount]);
-      expect(await blocksHelper.unpackDebt(encodeDebtBlock(other, 99n))).to.deep.equal([other, 99n]);
       expect(await blocksHelper.unpackAssetLiability(encodeAssetLiabilityBlock(asset, other)))
         .to.deep.equal([asset, other]);
       expect(await blocksHelper.unpackAccountAsset(encodeAccountAssetBlock(account, asset)))
@@ -324,7 +354,7 @@ describe("Cursors", () => {
         .to.deep.equal([host, account, asset]);
 
       expect(await blocksHelper.unpackPosition(encodePositionBlock(asset, amount, other, 99n)))
-        .to.deep.equal([asset, amount, other, 99n]);
+        .to.deep.equal([asset, amount, other, 99n, ethers.ZeroHash]);
       expect(await blocksHelper.unpackTransaction(encodeTxBlock(account, other, asset, amount)))
         .to.deep.equal([account, other, asset, amount]);
       expect(await blocksHelper.unpackHostAccountAmount(
@@ -533,27 +563,22 @@ describe("Cursors", () => {
         .withArgs(123n, encodeActionBlock(4n));
     });
 
-    it("clearinghouse factory matches the canonical encoding", async () => {
-      const host = (0x03020200n << 224n) | 2n;
-      expect(await helper.testToClearinghouseBlock(host)).to.equal(encodeClearinghouseBlock(host));
-    });
+    for (const account of [ethers.ZeroHash, encodeUserAccount("0x42"), pad32((0x03010200n << 224n) | 2n)]) {
+      it(`encodes and publishes counterparty account ${account}`, async () => {
+        const encoded = encodeCounterpartyBlock(account);
+        expect(ethers.dataLength(encoded)).to.equal(40);
+        expect(ethers.dataSlice(encoded, 8)).to.equal(account);
+        expect(await helper.testToCounterpartyBlock(account)).to.equal(encoded);
+        await expect(blocksHelper.publishCounterparty(123n, account))
+          .to.emit(blocksHelper, "Annotation").withArgs(123n, encoded);
+      });
+    }
 
-    it("publishes a clearinghouse annotation for an entity", async () => {
-      const command = (0x03020300n << 224n) | 1n;
-      const host = (0x03020200n << 224n) | 2n;
-
-      await expect(blocksHelper.publishClearinghouse(command, host))
+    it("leaves counterparty claim validation to consumers", async () => {
+      const value = pad32(456n);
+      await expect(blocksHelper.publishCounterparty(123n, value))
         .to.emit(blocksHelper, "Annotation")
-        .withArgs(command, encodeClearinghouseBlock(host));
-      await expect(blocksHelper.publishClearinghouse(command, 0n))
-        .to.emit(blocksHelper, "Annotation")
-        .withArgs(command, encodeClearinghouseBlock(0n));
-    });
-
-    it("leaves clearinghouse claim validation to consumers", async () => {
-      await expect(blocksHelper.publishClearinghouse(123n, 456n))
-        .to.emit(blocksHelper, "Annotation")
-        .withArgs(123n, encodeClearinghouseBlock(456n));
+        .withArgs(123n, encodeCounterpartyBlock(value));
     });
 
     it("schema factory matches the canonical SCHEMA encoding", async () => {
@@ -592,10 +617,10 @@ describe("Cursors", () => {
         .to.deep.equal([6n * 72n, 3n]);
     });
 
-    it("uses input before state as the output hint source", async () => {
+    it("uses state before input as the output hint source", async () => {
       const balanceSpec = exactSpec(Keys.Balance, 64);
       const amountSpec = exactSpec(Keys.Amount, 64);
-      const positionSpec = exactSpec(Keys.Position, 128);
+      const positionSpec = exactSpec(Keys.Position, 160);
       const state = encodeBalanceBlock(asset, 1n);
       const input = concat(
         encodeAmountBlock(asset, 2n),
@@ -610,7 +635,7 @@ describe("Cursors", () => {
           amountSpec,
           positionSpec,
         ),
-      ).to.deep.equal([2n * 136n, 1n]);
+      ).to.deep.equal([168n, 1n]);
     });
 
     it("uses state as the output-hint source when descriptor input is empty", async () => {
@@ -626,14 +651,50 @@ describe("Cursors", () => {
         .to.deep.equal([3n * 72n, 1n]);
     });
 
+    it("precomputes absent sources and maximum group sizes without truncation", async () => {
+      const grouped = rangedSpec(Keys.Bytes, 0, 0, 0xffffff) | (255n << 128n);
+      const descriptor = await blocksHelper.describeSpecs(0, grouped, grouped);
+      const size = (0xffffffn + 8n) * 255n;
+      expect((descriptor >> 64n) & 0xffffffffn).to.equal(size);
+      expect((descriptor >> 32n) & 0xffffffffn).to.equal(size);
+      expect((descriptor >> 104n) & 0xffffffffn).to.equal(BigInt(Keys.Bytes));
+      expect((descriptor >> 96n) & 0xffn).to.equal(255n);
+      expect((descriptor >> 24n) & 0xffn).to.equal(0n);
+      const noSource = await blocksHelper.describeSpecs(0, 0, exactSpec(Keys.Balance, 64));
+      expect((noSource >> 64n) & 0xffffffffn).to.equal(0n);
+      expect((noSource >> 96n) & 0xffffffffffn).to.equal(0n);
+      expect((noSource >> 24n) & 0xffn).to.equal(0n);
+      expect(await blocksHelper.executionWriterHint("0x", "0x", 0, 0, exactSpec(Keys.Balance, 64)))
+        .to.deep.equal([72n, 1n]);
+    });
+
+    it("uses divisible byte estimates and scans nondivisible variable groups", async () => {
+      const spec = rangedSpec(Keys.Bytes, 0, 0, 128);
+      const output = exactSpec(Keys.Balance, 64);
+      // Seventeen empty blocks occupy one hinted block: deliberately underestimate.
+      const small = concat(...Array.from({ length: 17 }, () => encodeBytesBlock("0x")));
+      expect(await blocksHelper.executionWriterHint("0x", small, 0, spec, output))
+        .to.deep.equal([72n, 1n]);
+      // Three encoded 264-byte blocks do not divide by a hinted 272-byte pair.
+      const large = concat(...Array.from({ length: 3 }, () => encodeBytesBlock("0x" + "a5".repeat(256))));
+      expect(await blocksHelper.executionWriterHint("0x", large, 0, spec | (2n << 128n), output))
+        .to.deep.equal([72n, 1n]);
+      expect(await blocksHelper.executionWriterHint(small, "0x", spec, 0, output))
+        .to.deep.equal([72n, 1n]);
+      // Declared state remains the selected source even when empty.
+      expect(await blocksHelper.executionWriterHint("0x", small, spec, spec, output))
+        .to.deep.equal([0n, 1n]);
+    });
+
     it("packs complete descriptor metadata without exposing field accessors", async () => {
-      const output = exactSpec(Keys.Amount, 64) | (4n << 128n);
       const expected =
         (BigInt(Keys.Balance) << 224n) |
         (2n << 216n) |
         (BigInt(Keys.Asset) << 184n) |
         (3n << 176n) |
-        ((output >> 128n) << 48n) |
+        (BigInt(Keys.Amount) << 144n) | (4n << 136n) |
+        (BigInt(Keys.Balance) << 104n) | (2n << 96n) |
+        (144n << 64n) | (288n << 32n) | (128n << 24n) |
         3n;
 
       expect(await blocksHelper.descriptorWord()).to.equal(expected);

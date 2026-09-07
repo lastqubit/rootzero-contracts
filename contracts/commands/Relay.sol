@@ -9,7 +9,7 @@ using Executions for Execution;
 abstract contract RelayPayableHook {
     /// @notice Override to relay a complete destination command context.
     /// @dev Relay hooks may forward only EMPTY or BALANCE state. They must not
-    /// relay DEBT, POSITION, or other state whose destination handling can fail:
+    /// relay POSITION or other state whose destination handling can fail:
     /// the source state is consumed before destination success is known.
     /// `funds` contains only this handoff STEP's assigned value, not the source
     /// pipeline's complete remaining budget. Implementations must consume or

@@ -8,6 +8,8 @@ pragma solidity ^0.8.33;
 /// IDs are structured as:
 ///   `[uint32 type][uint32 chainid][192-bit payload]`
 /// where `type` is `[uint8 representation][uint8 category][uint8 subtype][uint8 flags]`.
+/// Embedded EVM addresses occupy bits [159:0]. The middle bits [191:160]
+/// hold the selector for callable nodes and are zero in account and ERC-20 encodings.
 ///
 /// Representation `Opaque` IDs use
 /// `[0x02][category][subtype][bytes29 truncated hash]` and require lookup or
@@ -52,7 +54,7 @@ library Layout {
 
     /// @dev Node is a chain/domain identifier.
     uint8 constant Chain = 0x01;
-    /// @dev Node is a host contract.
+    /// @dev Shared subtype: a host node under Node, or a host account under Account.
     uint8 constant Host = 0x02;
     /// @dev Node is a command contract.
     uint8 constant Command = 0x03;
@@ -67,7 +69,7 @@ library Layout {
     // Asset subtype tags (uint8, third byte of the ID type field)
     // -------------------------------------------------------------------------
 
-    /// @dev Host-scoped asset derived from another protocol asset ID.
+    /// @dev Reserved derived asset subtype; no dedicated helpers.
     uint8 constant Derived = 0x01;
     /// @dev Virtual asset whose realization is defined by its host or application.
     uint8 constant Virtual = 0x02;

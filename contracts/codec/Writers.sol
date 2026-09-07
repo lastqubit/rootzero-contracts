@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AssetLiability, AccountAmount, HostAmount, Debt, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AssetLiability, AccountAmount, HostAmount, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Buffers} from "./Buffers.sol";
 import {Sizes, Specs} from "./Specs.sol";
@@ -210,17 +210,6 @@ library Writers {
         appendAssetLiability(writer, value.asset, value.liability);
     }
 
-    /// @notice Append a DEBT block.
-    function appendDebt(Writer memory writer, bytes32 liability, uint debt) internal pure {
-        uint i = reserve(writer, Sizes.Debt);
-        Blocks.writeDebt(writer.dst, i, liability, debt);
-    }
-
-    /// @notice Append a structured DEBT value.
-    function appendDebt(Writer memory writer, Debt memory value) internal pure {
-        appendDebt(writer, value.liability, value.debt);
-    }
-
     /// @notice Append an ACCOUNT_ASSET block.
     /// @param writer Destination writer.
     /// @param account Account identifier to encode.
@@ -326,21 +315,33 @@ library Writers {
         Blocks.writeHostAccountAsset(writer.dst, i, host, account, asset);
     }
 
+    /// @notice Append a QUOTE with minimum amount and maximum debt.
+    function appendQuote(Writer memory writer, bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) internal pure {
+        uint i = reserve(writer, Sizes.Quote);
+        Blocks.writeQuote(writer.dst, i, asset, amount, liability, debt, counterparty);
+    }
+
+    /// @notice Append a structured QUOTE.
+    function appendQuote(Writer memory writer, Position memory quote) internal pure {
+        appendQuote(writer, quote.asset, quote.amount, quote.liability, quote.debt, quote.counterparty);
+    }
+
     /// @notice Append a POSITION block.
     function appendPosition(
         Writer memory writer,
         bytes32 asset,
         uint amount,
         bytes32 liability,
-        uint debt
+        uint debt,
+        bytes32 counterparty
     ) internal pure {
         uint i = reserve(writer, Sizes.Position);
-        Blocks.writePosition(writer.dst, i, asset, amount, liability, debt);
+        Blocks.writePosition(writer.dst, i, asset, amount, liability, debt, counterparty);
     }
 
     /// @notice Append a structured POSITION value.
     function appendPosition(Writer memory writer, Position memory value) internal pure {
-        appendPosition(writer, value.asset, value.amount, value.liability, value.debt);
+        appendPosition(writer, value.asset, value.amount, value.liability, value.debt, value.counterparty);
     }
 
     /// @notice Append a TRANSACTION block.

@@ -3,8 +3,8 @@ pragma solidity ^0.8.33;
 
 import { Host } from "../core/Host.sol";
 import { RequestAllowancePort } from "../ports/Allowance.sol";
-import { CreditPort, CreditAccountPort } from "../ports/Credit.sol";
-import { DebitPort, DebitAccountPort } from "../ports/Debit.sol";
+import { CreditAccountPort } from "../ports/Credit.sol";
+import { DebitAccountPort } from "../ports/Debit.sol";
 import { PipePayablePort } from "../ports/Pipe.sol";
 import { DispatchPayablePort } from "../ports/Dispatch.sol";
 import { PostPort } from "../ports/Post.sol";
@@ -14,11 +14,9 @@ import { Pipeline } from "../core/Pipeline.sol";
 import { Position } from "../core/Types.sol";
 import { Execution } from "../execution/Execution.sol";
 
-contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, CreditPort, CreditAccountPort, DebitPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
+contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, CreditAccountPort, DebitAccountPort, PostPort, RequestAssetPort, PipePayablePort, DispatchPayablePort {
     event PortRequestAllowanceCalled(uint peer, bytes32 asset, uint amount);
-    event PortDebitCalled(bytes32 asset, uint amount);
     event PortDebitAccountCalled(bytes32 account, bytes32 asset, uint amount);
-    event PortCreditCalled(bytes32 asset, uint amount);
     event PortCreditAccountCalled(bytes32 account, bytes32 asset, uint amount);
     event PortDispatchCalled(uint portal, bytes payload, uint resources, uint remaining);
     event PortRequestAssetCalled(uint peer, bytes32 asset, uint amount);
@@ -48,16 +46,8 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Credi
         emit PortRequestAssetCalled(peer, asset, amount);
     }
 
-    function debitHost(bytes32 asset, uint amount) internal override {
-        emit PortDebitCalled(asset, amount);
-    }
-
     function debitAccount(bytes32 account, bytes32 asset, uint amount) internal override {
         emit PortDebitAccountCalled(account, asset, amount);
-    }
-
-    function creditHost(bytes32 asset, uint amount) internal override {
-        emit PortCreditCalled(asset, amount);
     }
 
     function creditAccount(bytes32 account, bytes32 asset, uint amount) internal override {
@@ -65,7 +55,7 @@ contract TestPortHost is Host, Settlement, Pipeline, RequestAllowancePort, Credi
     }
 
     function testSettle(bytes32 account, Position calldata position) external {
-        settle(account, position.asset, position.amount, position.liability, position.debt);
+        settle(account, position);
     }
 
     function dispatchTo(uint portal, uint resources, bytes memory payload, Execution memory funds) internal override {

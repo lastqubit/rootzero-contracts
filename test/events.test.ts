@@ -29,3 +29,45 @@ describe("Positioned Event", () => {
       .withArgs(account, asset, 100n, liability, 25n, 7);
   });
 });
+
+describe("Balance events", () => {
+  const signatures = [
+    "event Balance(bytes32 indexed account, bytes32 asset, uint balance, int change)",
+  ];
+
+  for (const contract of ["TestBalanceEvents", "TestBalancesLedger"]) {
+    it(`${contract} publishes the account balance event ABI without access`, async () => {
+      const emitter = await deploy(contract);
+      const receipt = await emitter.deploymentTransaction()!.wait();
+      const published = receipt.logs
+        .map((log: any) => emitter.interface.parseLog(log))
+        .filter((log: any) => log?.name === "EventAbi")
+        .map((log: any) => log.args.abi);
+      expect(published).to.have.members(signatures);
+      expect(published).to.have.length(1);
+    });
+  }
+
+  for (const [index, name, method, owner] of [
+    [0, "Balance", "emitBalance", ethers.zeroPadValue("0x21", 32)],
+  ] as const) {
+    for (const change of [30n, -30n, 0n]) {
+      it(`${name} indexes its owner and encodes change ${change}`, async () => {
+        const emitter = await deploy("TestBalanceEvents");
+        const asset = ethers.zeroPadValue("0x11", 32);
+        const receipt = await (await emitter[method](owner, asset, 70n, change)).wait();
+        const decoder = new ethers.Interface([signatures[index]!]);
+        expect(receipt.logs).to.have.length(1);
+        const log = receipt.logs[0];
+        expect(log.topics).to.deep.equal([
+          decoder.getEvent(name)!.topicHash,
+          ethers.toBeHex(BigInt(owner), 32),
+        ]);
+        expect(ethers.dataLength(log.data)).to.equal(96);
+        expect(Array.from(decoder.parseLog(log)!.args)).to.deep.equal([
+          owner, asset, 70n, change,
+        ]);
+      });
+    }
+  }
+});

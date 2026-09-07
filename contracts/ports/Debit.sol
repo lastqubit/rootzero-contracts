@@ -2,36 +2,11 @@
 pragma solidity ^0.8.33;
 
 import {PortBase} from "./Base.sol";
-import {DebitHostHook, DebitAccountHook} from "../core/Settlement.sol";
+import {DebitAccountHook} from "../core/Settlement.sol";
 import {Specs} from "../Codec.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 
 using Executions for Execution;
-
-/// @title DebitPort
-/// @notice Port that lets a trusted peer debit the host directly.
-/// Each AMOUNT block calls `debitHost` for its asset.
-abstract contract DebitPort is PortBase, DebitHostHook {
-    uint private immutable descriptor;
-
-    constructor() {
-        (, descriptor) = port("portDebit", Specs.Amount, Specs.Empty, 0);
-    }
-
-    /// @notice Execute the host-level port-debit call.
-    /// @param data AMOUNT block stream supplied by the trusted peer.
-    /// @return Empty response bytes.
-    function portDebit(bytes calldata data) external onlyPeer returns (bytes memory) {
-        Execution memory exec = openInput(data, descriptor);
-
-        while (exec.more()) {
-            (bytes32 asset, uint amount) = exec.unpackAmount();
-            debitHost(asset, amount);
-        }
-
-        return "";
-    }
-}
 
 /// @title DebitAccountPort
 /// @notice Port that lets a trusted peer debit supplied accounts directly.

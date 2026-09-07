@@ -29,8 +29,10 @@ function laneStride(lane: string, stride?: number): number {
 export function endpointDescriptor({
   state = Keys.Empty,
   stateStride,
+  stateHint = 0,
   input = Keys.Empty,
   inputStride,
+  inputHint = 0,
   output = Keys.Empty,
   outputStride,
   funded = false,
@@ -39,8 +41,10 @@ export function endpointDescriptor({
 }: {
   state?: string;
   stateStride?: number;
+  stateHint?: number;
   input?: string;
   inputStride?: number;
+  inputHint?: number;
   output?: string | bigint;
   outputStride?: number;
   funded?: boolean;
@@ -62,12 +66,15 @@ export function endpointDescriptor({
     : encodedOutputStride;
   const stateLane = (BigInt(state) << 8n) | BigInt(stateLaneStride);
   const inputLane = (BigInt(input) << 8n) | BigInt(inputLaneStride);
-  const outputLane = ((outputSpec >> 128n) & ~0xffn) | BigInt(outputLaneStride);
-  const descriptor =
-    (stateLane << 216n) |
-    (inputLane << 176n) |
-    (outputLane << 48n) |
-    flags;
+  const outputLane = ((outputSpec >> 224n) << 8n) | BigInt(outputLaneStride);
+  const sourceStride = stateLaneStride || inputLaneStride;
+  const sourceShift = stateLaneStride ? 128 : 0;
+  const sourceGroupSize = BigInt((8 + (stateLaneStride ? stateHint : inputHint)) * sourceStride);
+  const outputGroupSize = (8n + ((outputSpec >> 136n) & 0xffffffn)) * BigInt(outputLaneStride);
+  const descriptor = (stateLane << 216n) | (inputLane << 176n) | (outputLane << 136n)
+    | ((stateLaneStride ? stateLane : inputLane) << 96n)
+    | (sourceGroupSize << 64n) | (outputGroupSize << 32n)
+    | (BigInt(sourceShift) << 24n) | flags;
 
   return descriptor;
 }
@@ -82,12 +89,12 @@ export const Keys = {
 
   // Live pipeline state
   Balance: blockKey("#balance"),
-  Debt: blockKey("#debt"),
   Custody: blockKey("#custody"),
   Position: blockKey("#position"),
 
   // Input and value blocks
   Amount: blockKey("#amount"),
+  Quote: blockKey("#quote"),
   Bootstrap: blockKey("#bootstrap"),
   Allocation: blockKey("#allocation"),
   Allowance: blockKey("#allowance"),
@@ -106,7 +113,7 @@ export const Keys = {
   Label: blockKey("#label"),
   Annotation: blockKey("#annotation"),
   Action: blockKey("#action"),
-  Clearinghouse: blockKey("#clearinghouse"),
+  Counterparty: blockKey("#counterparty"),
   Schema: blockKey("#schema"),
   Status: blockKey("#status"),
   AssetLiability: blockKey("#assetLiability"),
@@ -129,7 +136,7 @@ export function pad32(value: bigint | string): string {
 const USER_PREFIX = 0x03010300n;
 
 export function encodeUserAccount(addr: string): string {
-  const account = (USER_PREFIX << 224n) | (BigInt(ethers.zeroPadValue(addr, 20)) << 32n);
+  const account = (USER_PREFIX << 224n) | BigInt(ethers.zeroPadValue(addr, 20));
   return ethers.zeroPadValue(ethers.toBeHex(account), 32);
 }
 
@@ -156,8 +163,9 @@ export function encodeBalanceBlock(asset: string, amount: bigint): string {
   return encodeBlock(Keys.Balance, ethers.concat([pad32(asset), pad32(amount)]));
 }
 
-export function encodeDebtBlock(liability: string, debt: bigint): string {
-  return encodeBlock(Keys.Debt, ethers.concat([pad32(liability), pad32(debt)]));
+/** Debt is a POSITION with its asset side and counterparty set to zero. */
+export function encodeLiabilityPosition(liability: string, debt: bigint): string {
+  return encodePositionBlock(ethers.ZeroHash, 0n, liability, debt);
 }
 
 export function encodeHostAccountAssetBlock(host: bigint, account: string, asset: string): string {
@@ -192,17 +200,24 @@ export function encodeCustodyBlock(host: bigint, asset: string, amount: bigint):
   return encodeBlock(Keys.Custody, ethers.concat([pad32(host), pad32(asset), pad32(amount)]));
 }
 
+/** Expected outcome: amount is a minimum and debt is a maximum. */
+export function encodeQuoteBlock(asset: string, amount: bigint, liability: string, debt: bigint, counterparty = ethers.ZeroHash): string {
+  return encodeBlock(Keys.Quote, ethers.concat([pad32(asset), pad32(amount), pad32(liability), pad32(debt), pad32(counterparty)]));
+}
+
 export function encodePositionBlock(
   asset: string,
   amount: bigint,
   liability: string,
   debt: bigint,
+  counterparty: string = ethers.ZeroHash,
 ): string {
   return encodeBlock(Keys.Position, ethers.concat([
     pad32(asset),
     pad32(amount),
     pad32(liability),
     pad32(debt),
+    pad32(counterparty),
   ]));
 }
 
@@ -274,8 +289,8 @@ export function encodeActionBlock(action: bigint): string {
   return encodeBlock(Keys.Action, pad32(action));
 }
 
-export function encodeClearinghouseBlock(host: bigint): string {
-  return encodeBlock(Keys.Clearinghouse, pad32(host));
+export function encodeCounterpartyBlock(account: string): string {
+  return encodeBlock(Keys.Counterparty, pad32(account));
 }
 
 export function encodeSchemaBlock(spec: bigint, body: string, name: string): string {
@@ -311,3 +326,9 @@ export function guardSelector(name: string): string {
   return ethers.dataSlice(ethers.id(name + GUARD_ARGS), 0, 4);
 }
 
+
+/** Derive a host account from the chain and address of an EVM host node ID. */
+export function encodeHostAccount(host: bigint): string {
+  return ethers.toBeHex((0x03010200n << 224n) | (host & (0xffffffffn << 192n))
+    | (host & ((1n << 160n) - 1n)), 32);
+}

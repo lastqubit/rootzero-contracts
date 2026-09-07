@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {AssetAmount, AssetLiability, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Debt, Position, Tx} from "../core/Types.sol";
+import {AssetAmount, AssetLiability, AccountAsset, HostAsset, AccountAmount, HostAmount, HostAccountAsset, Position, Tx} from "../core/Types.sol";
 import {Blocks} from "./Blocks.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
@@ -468,16 +468,6 @@ library Decoders {
         (asset, amount) = Blocks.unpackBalance(abs);
     }
 
-    /// @notice Decode and consume one DEBT block.
-    /// @param cur Cursor advanced past the block.
-    /// @return liability Decoded liability identifier.
-    /// @return debt Decoded debt quantity.
-    function unpackDebt(Cur memory cur) internal pure returns (bytes32 liability, uint debt) {
-        uint abs;
-        (cur.state, abs) = cur.state.consume(Sizes.Debt);
-        (liability, debt) = Blocks.unpackDebt(abs);
-    }
-
     /// @notice Decode one BALANCE block and associate it with `host`.
     /// @param cur Cursor advanced past the block.
     /// @param host Host identifier associated with the balance.
@@ -672,13 +662,6 @@ library Decoders {
         (value.asset, value.amount) = unpackBalance(cur);
     }
 
-    /// @notice Decode one DEBT block into its structured value.
-    /// @param cur Cursor advanced past the block.
-    /// @return value Structured liability and debt.
-    function unpackDebtValue(Cur memory cur) internal pure returns (Debt memory value) {
-        (value.liability, value.debt) = unpackDebt(cur);
-    }
-
     /// @notice Decode and consume one HOST_ACCOUNT_ASSET block.
     /// @param cur Cursor advanced past the block.
     /// @return host Decoded host identifier.
@@ -742,18 +725,30 @@ library Decoders {
         (value.host, value.asset, value.amount) = unpackCustody(cur);
     }
 
+    /// @notice Decode and consume one QUOTE input with minimum amount and maximum debt.
+    function unpackQuote(Cur memory cur) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
+        uint abs;
+        (cur.state, abs) = cur.state.consume(Sizes.Quote);
+        (asset, amount, liability, debt, counterparty) = Blocks.unpackQuote(abs);
+    }
+
+    /// @notice Decode one QUOTE into its structured value.
+    function unpackQuoteValue(Cur memory cur) internal pure returns (Position memory quote) {
+        (quote.asset, quote.amount, quote.liability, quote.debt, quote.counterparty) = unpackQuote(cur);
+    }
+
     /// @notice Decode and consume one POSITION block.
     function unpackPosition(
         Cur memory cur
-    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         uint abs;
         (cur.state, abs) = cur.state.consume(Sizes.Position);
-        (asset, amount, liability, debt) = Blocks.unpackPosition(abs);
+        (asset, amount, liability, debt, counterparty) = Blocks.unpackPosition(abs);
     }
 
     /// @notice Decode one POSITION block into its structured value.
     function unpackPositionValue(Cur memory cur) internal pure returns (Position memory value) {
-        (value.asset, value.amount, value.liability, value.debt) = unpackPosition(cur);
+        (value.asset, value.amount, value.liability, value.debt, value.counterparty) = unpackPosition(cur);
     }
 
     /// @notice Decode one TRANSACTION block into its structured value.

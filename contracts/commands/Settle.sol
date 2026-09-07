@@ -2,6 +2,7 @@
 pragma solidity ^0.8.33;
 
 import {Execution, Executions, CommandBase, Flags, Specs} from "./Base.sol";
+import {Position} from "../core/Types.sol";
 import {SettleHook} from "../core/Settlement.sol";
 import {Action} from "../annotations/Action.sol";
 import {Actions} from "../utils/Actions.sol";
@@ -19,19 +20,9 @@ abstract contract SettlePayableHook {
     /// no debt remainder. Revert if the complete quantity cannot be satisfied. Fees
     /// and sourcing costs must be paid in addition to, and must not reduce, `debt`.
     /// @param account Account whose position is being settled.
-    /// @param asset Identifier for the asset side.
-    /// @param amount Quantity on the asset side.
-    /// @param liability Identifier for the liability side.
-    /// @param debt Quantity on the liability side.
+    /// @param position Full position; the hook validates and authorizes its counterparty.
     /// @param funds Mutable execution used only for its remaining native-value budget.
-    function settle(
-        bytes32 account,
-        bytes32 asset,
-        uint amount,
-        bytes32 liability,
-        uint debt,
-        Execution memory funds
-    ) internal virtual;
+    function settle(bytes32 account, Position memory position, Execution memory funds) internal virtual;
 }
 
 /// @title Settle
@@ -54,14 +45,11 @@ abstract contract Settle is CommandBase, SettleHook, Action {
     /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
     /// @return Zero native budget credit.
-    function settle(
-        bytes calldata context
-    ) external onlyCommand returns (bytes memory, uint) {
+    function settle(bytes calldata context) external onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
-            settle(exec.account, asset, amount, liability, debt);
+            settle(exec.account, exec.unpackPositionValue());
         }
 
         return exec.close();
@@ -83,14 +71,11 @@ abstract contract SettlePayable is CommandBase, SettlePayableHook, Action {
     /// @param context Command context carrying the POSITION state stream.
     /// @return Empty output state.
     /// @return Native value to add to the caller's budget.
-    function settlePayable(
-        bytes calldata context
-    ) external payable onlyCommand returns (bytes memory, uint) {
+    function settlePayable(bytes calldata context) external payable onlyCommand returns (bytes memory, uint) {
         Execution memory exec = openCommand(context, descriptor);
 
         while (exec.more()) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = exec.unpackPosition();
-            settle(exec.account, asset, amount, liability, debt, exec);
+            settle(exec.account, exec.unpackPositionValue(), exec);
         }
 
         return exec.close();
@@ -122,8 +107,7 @@ abstract contract ExecuteSettle is Settle {
 
         (uint abs, uint end) = Memory.bounds(state, Sizes.Position);
         while (abs < end) {
-            (bytes32 asset, uint amount, bytes32 liability, uint debt) = Memory.unpackPosition(abs);
-            settle(account, asset, amount, liability, debt);
+            settle(account, Memory.unpackPositionValue(abs));
             unchecked {
                 abs += Sizes.Position;
             }

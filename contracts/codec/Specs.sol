@@ -30,14 +30,15 @@ library Sizes {
 
     /// @dev BALANCE block: 8 header + 32 asset + 32 amount = 72 bytes
     uint constant Balance = B64;
-    /// @dev DEBT block: 8 header + 32 liability + 32 debt = 72 bytes
-    uint constant Debt = B64;
     /// @dev CUSTODY block: 8 header + 32 host + 32 asset + 32 amount = 104 bytes
     uint constant Custody = B96;
-    /// @dev POSITION block: 8 header + four-word asset-liability pair = 136 bytes
-    uint constant Position = B128;
+    /// @dev POSITION block: 8 header + five-word position = 168 bytes
+    uint constant Position = B160;
 
     // Input and structural blocks
+
+    /// @dev QUOTE block: 8 header + five-word outcome = 168 bytes.
+    uint constant Quote = B160;
 
     /// @dev BOOTSTRAP block: 8 header + 32 asset + 32 amount + 32 budget = 104 bytes
     uint constant Bootstrap = B96;
@@ -68,6 +69,7 @@ library Specs {
     uint private constant Exact64 = 64 * SizeFields;
     uint private constant Exact96 = 96 * SizeFields;
     uint private constant Exact128 = 128 * SizeFields;
+    uint private constant Exact160 = 160 * SizeFields;
     uint private constant UnboundedHint128 = uint(128) << 136;
     uint private constant UnboundedMin16Hint256 = (uint(16) << 192) | (uint(256) << 136);
     uint private constant UnboundedMin40Hint256 = (uint(40) << 192) | (uint(256) << 136);
@@ -85,11 +87,12 @@ library Specs {
     // Live pipeline state
 
     uint constant Balance = uint(bytes32(Keys.Balance)) | Exact64;
-    uint constant Debt = uint(bytes32(Keys.Debt)) | Exact64;
     uint constant Custody = uint(bytes32(Keys.Custody)) | Exact96;
-    uint constant Position = uint(bytes32(Keys.Position)) | Exact128;
+    uint constant Position = uint(bytes32(Keys.Position)) | Exact160;
 
     // Input and value blocks
+
+    uint constant Quote = uint(bytes32(Keys.Quote)) | Exact160;
 
     uint constant Amount = uint(bytes32(Keys.Amount)) | Exact64;
     uint constant Bootstrap = uint(bytes32(Keys.Bootstrap)) | Exact96;
@@ -111,7 +114,7 @@ library Specs {
     uint constant Label = uint(bytes32(Keys.Label)) | UnboundedMin40Hint256;
     uint constant Annotation = uint(bytes32(Keys.Annotation)) | UnboundedMin40Hint256;
     uint constant Action = uint(bytes32(Keys.Action)) | Exact32;
-    uint constant Clearinghouse = uint(bytes32(Keys.Clearinghouse)) | Exact32;
+    uint constant Counterparty = uint(bytes32(Keys.Counterparty)) | Exact32;
     uint constant Schema = uint(bytes32(Keys.Schema)) | UnboundedMin72Hint256;
 
     uint constant Status = uint(bytes32(Keys.Status)) | Exact32;
@@ -247,14 +250,19 @@ library Specs {
         return groups * n;
     }
 
+    /// @notice Return the estimated encoded bytes per group, including block headers.
+    /// @param spec Packed block specification; implicit strides are normalized.
+    /// @return Estimated group size, using the payload hint for variable-size specs.
+    function groupSize(uint spec) internal pure returns (uint) {
+        return count(spec, 1) * (Sizes.Header + uint24(spec >> 136));
+    }
+
     /// @notice Return the initial buffer capacity for `groups` of `spec`.
     /// @param spec Packed block specification.
     /// @param groups Number of groups to allocate.
     /// @return capacity Initial encoded byte capacity.
     function allocation(uint spec, uint groups) internal pure returns (uint capacity) {
-        uint8 n = uint8(spec >> 128);
-        if (n == 0 && uint32(spec >> 224) != 0) n = 1;
-        capacity = groups * n * (Sizes.Header + uint24(spec >> 136));
+        capacity = groups * groupSize(spec);
     }
 
     /// @notice Return `spec` grouped with an explicit stride.

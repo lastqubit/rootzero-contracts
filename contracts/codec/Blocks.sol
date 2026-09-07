@@ -4,6 +4,8 @@ pragma solidity ^0.8.33;
 import {Keys} from "./Keys.sol";
 import {Sizes, Specs} from "./Specs.sol";
 import {max32} from "../utils/Utils.sol";
+import {Position} from "../core/Types.sol";
+import {UnexpectedValue} from "../utils/Errors.sol";
 
 /// @title Blocks
 /// @notice Stateless helpers for inspecting and encoding protocol blocks.
@@ -34,8 +36,6 @@ library Blocks {
     error MalformedBlocks();
     /// @dev A block key or payload size does not match its expected shape.
     error InvalidBlock();
-    /// @dev A decoded value did not match the expected value.
-    error UnexpectedValue();
     /// @dev A scoped block run contained no blocks.
     error EmptyRun();
 
@@ -529,22 +529,6 @@ library Blocks {
         }
     }
 
-    /// @notice Write a DEBT block at `i`.
-    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
-    /// @param dst Destination buffer.
-    /// @param i Relative write position.
-    /// @param liability Liability identifier to encode.
-    /// @param debt Debt quantity to encode.
-    function writeDebt(bytes memory dst, uint i, bytes32 liability, uint debt) internal pure {
-        uint spec = Specs.Debt;
-        assembly ("memory-safe") {
-            let p := add(add(dst, 0x20), i)
-            mstore(p, spec)
-            mstore(add(p, 0x08), liability)
-            mstore(add(p, 0x28), debt)
-        }
-    }
-
     /// @notice Write a HOST_ASSET block at `i`.
     /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B64` bytes first.
     /// @param dst Destination buffer.
@@ -689,23 +673,40 @@ library Blocks {
         }
     }
 
-    // Four-word payloads
+    /// @notice Write a QUOTE with minimum amount and maximum debt.
+    /// @dev Unchecked memory write; reserve Sizes.Quote bytes first.
+    function writeQuote(bytes memory dst, uint i, bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) internal pure {
+        uint spec = Specs.Quote;
+        assembly ("memory-safe") {
+            let p := add(add(dst, 0x20), i)
+            mstore(p, spec)
+            mstore(add(p, 0x08), asset)
+            mstore(add(p, 0x28), amount)
+            mstore(add(p, 0x48), liability)
+            mstore(add(p, 0x68), debt)
+            mstore(add(p, 0x88), counterparty)
+        }
+    }
+
+    // Position payload
 
     /// @notice Write a POSITION block at `i`.
-    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.B128` bytes first.
+    /// @dev DANGER: Unchecked memory write. Reserve `Sizes.Position` bytes first.
     /// @param dst Destination buffer.
     /// @param i Relative write position.
     /// @param asset Identifier for the asset side.
     /// @param amount Quantity on the asset side.
     /// @param liability Identifier for the liability side.
     /// @param debt Quantity owed on the liability side.
+    /// @param counterparty Settlement counterparty: Rootzero (zero) or an account ID, including a host account.
     function writePosition(
         bytes memory dst,
         uint i,
         bytes32 asset,
         uint amount,
         bytes32 liability,
-        uint debt
+        uint debt,
+        bytes32 counterparty
     ) internal pure {
         uint spec = Specs.Position;
         assembly ("memory-safe") {
@@ -715,6 +716,7 @@ library Blocks {
             mstore(add(p, 0x28), amount)
             mstore(add(p, 0x48), liability)
             mstore(add(p, 0x68), debt)
+            mstore(add(p, 0x88), counterparty)
         }
     }
 
@@ -1566,20 +1568,6 @@ library Blocks {
         if (head >> 192 != Specs.Balance >> 192) revert InvalidBlock();
     }
 
-    /// @notice Decode a low-level fixed-width DEBT block at `abs`.
-    /// @param abs Absolute block position.
-    /// @return liability Decoded liability identifier.
-    /// @return debt Decoded debt quantity.
-    function unpackDebt(uint abs) internal pure returns (bytes32 liability, uint debt) {
-        uint head;
-        assembly ("memory-safe") {
-            head := calldataload(abs)
-            liability := calldataload(add(abs, 0x08))
-            debt := calldataload(add(abs, 0x28))
-        }
-        if (head >> 192 != Specs.Debt >> 192) revert InvalidBlock();
-    }
-
     /// @notice Decode a low-level fixed-width ASSET_LIABILITY block at `abs`.
     /// @param abs Absolute block position.
     /// @return asset Decoded asset identifier.
@@ -1722,17 +1710,11 @@ library Blocks {
         if (head >> 192 != Specs.HostAccountAsset >> 192) revert InvalidBlock();
     }
 
-    // Four-word payloads
+    // Five-word quote and position payloads
 
-    /// @notice Decode a low-level fixed-width POSITION block at `abs`.
-    /// @param abs Absolute block position.
-    /// @return asset Decoded asset-side identifier.
-    /// @return amount Decoded asset-side quantity.
-    /// @return liability Decoded liability-side identifier.
-    /// @return debt Decoded liability-side debt.
-    function unpackPosition(
-        uint abs
-    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    /// @notice Decode a QUOTE at an in-bounds absolute calldata position.
+    /// Amount is the minimum output and debt is the maximum replacement debt.
+    function unpackQuote(uint abs) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         uint head;
         assembly ("memory-safe") {
             head := calldataload(abs)
@@ -1740,6 +1722,29 @@ library Blocks {
             amount := calldataload(add(abs, 0x28))
             liability := calldataload(add(abs, 0x48))
             debt := calldataload(add(abs, 0x68))
+            counterparty := calldataload(add(abs, 0x88))
+        }
+        if (head >> 192 != Specs.Quote >> 192) revert InvalidBlock();
+    }
+
+    /// @notice Decode a low-level fixed-width POSITION block at `abs`.
+    /// @param abs Absolute block position.
+    /// @return asset Decoded asset-side identifier.
+    /// @return amount Decoded asset-side quantity.
+    /// @return liability Decoded liability-side identifier.
+    /// @return debt Decoded liability-side debt.
+    /// @return counterparty Decoded settlement counterparty.
+    function unpackPosition(
+        uint abs
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
+        uint head;
+        assembly ("memory-safe") {
+            head := calldataload(abs)
+            asset := calldataload(add(abs, 0x08))
+            amount := calldataload(add(abs, 0x28))
+            liability := calldataload(add(abs, 0x48))
+            debt := calldataload(add(abs, 0x68))
+            counterparty := calldataload(add(abs, 0x88))
         }
         if (head >> 192 != Specs.Position >> 192) revert InvalidBlock();
     }
@@ -2133,12 +2138,12 @@ library Blocks {
         write32(value, 0, Keys.Action, bytes32(actionid));
     }
 
-    /// @notice Encode a CLEARINGHOUSE annotation block.
-    /// @param host Host responsible for clearing the annotated command; zero clears the association.
-    /// @return value Encoded CLEARINGHOUSE block bytes.
-    function createClearinghouse(uint host) internal pure returns (bytes memory value) {
+    /// @notice Encode a COUNTERPARTY annotation block.
+    /// @param account Counterparty account ID, or zero for Rootzero.
+    /// @return value Encoded COUNTERPARTY block bytes.
+    function createCounterparty(bytes32 account) internal pure returns (bytes memory value) {
         value = allocate(Sizes.B32);
-        write32(value, 0, Keys.Clearinghouse, bytes32(host));
+        write32(value, 0, Keys.Counterparty, account);
     }
 
     /// @notice Encode a SCHEMA block.
@@ -2199,15 +2204,6 @@ library Blocks {
         writeAssetLiability(value, 0, asset, liability);
     }
 
-    /// @notice Encode a DEBT block.
-    /// @param liability Liability identifier.
-    /// @param debt Debt quantity.
-    /// @return value Encoded DEBT block bytes.
-    function createDebt(bytes32 liability, uint debt) internal pure returns (bytes memory value) {
-        value = allocate(Sizes.Debt);
-        writeDebt(value, 0, liability, debt);
-    }
-
     /// @notice Encode a CUSTODY block.
     /// @param host Host node ID holding the custody.
     /// @param asset Asset identifier.
@@ -2218,20 +2214,28 @@ library Blocks {
         writeCustody(value, 0, host, asset, amount);
     }
 
+    /// @notice Encode a QUOTE with minimum amount and maximum debt.
+    function createQuote(bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) internal pure returns (bytes memory value) {
+        value = allocate(Sizes.Quote);
+        writeQuote(value, 0, asset, amount, liability, debt, counterparty);
+    }
+
     /// @notice Encode a POSITION block.
     /// @param asset Identifier for the asset side.
     /// @param amount Quantity on the asset side.
     /// @param liability Identifier for the liability side.
     /// @param debt Quantity owed on the liability side.
+    /// @param counterparty Settlement counterparty: Rootzero (zero) or an account ID, including a host account.
     /// @return value Encoded POSITION block bytes.
     function createPosition(
         bytes32 asset,
         uint amount,
         bytes32 liability,
-        uint debt
+        uint debt,
+        bytes32 counterparty
     ) internal pure returns (bytes memory value) {
         value = allocate(Sizes.Position);
-        writePosition(value, 0, asset, amount, liability, debt);
+        writePosition(value, 0, asset, amount, liability, debt, counterparty);
     }
 
     /// @notice Encode a TRANSACTION block.
@@ -2382,8 +2386,7 @@ library Blocks {
 /// complete encoded block size, and stop at the returned end position.
 library Memory {
     uint64 private constant BalanceHeader = (uint64(uint32(Keys.Balance)) << 32) | 64;
-    uint64 private constant DebtHeader = (uint64(uint32(Keys.Debt)) << 32) | 64;
-    uint64 private constant PositionHeader = (uint64(uint32(Keys.Position)) << 32) | 128;
+    uint64 private constant PositionHeader = (uint64(uint32(Keys.Position)) << 32) | 160;
     uint64 private constant TransactionHeader = (uint64(uint32(Keys.Transaction)) << 32) | 128;
 
     /// @notice Return absolute bounds for a fixed-stride memory block stream.
@@ -2415,21 +2418,10 @@ library Memory {
         if (actual != BalanceHeader) revert Blocks.InvalidBlock();
     }
 
-    /// @notice Decode a DEBT block at an in-bounds absolute memory position.
-    function unpackDebt(uint abs) internal pure returns (bytes32 liability, uint debt) {
-        uint64 actual;
-        assembly ("memory-safe") {
-            actual := shr(192, mload(abs))
-            liability := mload(add(abs, 0x08))
-            debt := mload(add(abs, 0x28))
-        }
-        if (actual != DebtHeader) revert Blocks.InvalidBlock();
-    }
-
     /// @notice Decode a POSITION block at an in-bounds absolute memory position.
     function unpackPosition(
         uint abs
-    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt) {
+    ) internal pure returns (bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty) {
         uint64 actual;
         assembly ("memory-safe") {
             actual := shr(192, mload(abs))
@@ -2437,8 +2429,15 @@ library Memory {
             amount := mload(add(abs, 0x28))
             liability := mload(add(abs, 0x48))
             debt := mload(add(abs, 0x68))
+            counterparty := mload(add(abs, 0x88))
         }
         if (actual != PositionHeader) revert Blocks.InvalidBlock();
+    }
+
+    /// @notice Decode a POSITION struct at an in-bounds absolute memory position.
+    /// @dev Validates the exact header and preserves all fields, including counterparty.
+    function unpackPositionValue(uint abs) internal pure returns (Position memory value) {
+        (value.asset, value.amount, value.liability, value.debt, value.counterparty) = unpackPosition(abs);
     }
 
     /// @notice Decode a TRANSACTION block at an in-bounds absolute memory position.

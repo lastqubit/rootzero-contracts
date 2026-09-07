@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.33;
 
-import {Realize, RealizeDebt, RealizePosition} from "../commands/Realize.sol";
+import {Accounts} from "../utils/Accounts.sol";
+import {Positions} from "../utils/Positions.sol";
+
+import {Realize} from "../commands/Realize.sol";
+import {Position} from "../core/Types.sol";
+import {UnexpectedValue} from "../utils/Errors.sol";
 import {Runtime} from "../core/Runtime.sol";
 
 /// @dev Stateful hooks let tests observe transaction rollback and failure order.
-contract TestRealize is Realize, RealizeDebt, RealizePosition {
+contract TestRealize is Realize {
     error AssetFailure(uint assetCalls, uint debtCalls);
     error DebtFailure(uint assetCalls, uint debtCalls);
-    error AmountBelowLimit(uint realized, uint limit);
-    error DebtAboveLimit(uint realized, uint limit);
+    event QuoteReceived(bytes32 asset, uint amount, bytes32 liability, uint debt, bytes32 counterparty);
 
     uint public assetCalls;
     uint public debtCalls;
@@ -17,13 +21,8 @@ contract TestRealize is Realize, RealizeDebt, RealizePosition {
     uint public realizedDebts;
     uint private failAssetAt;
     uint private failDebtAt;
-    bool private enforceLimits = true;
 
     constructor() Runtime(0) {}
-
-    function setEnforceLimits(bool enabled) external {
-        enforceLimits = enabled;
-    }
 
     function failAt(uint assetCall, uint debtCall) external {
         failAssetAt = assetCall;
@@ -34,19 +33,18 @@ contract TestRealize is Realize, RealizeDebt, RealizePosition {
         return caller;
     }
 
-    function realize(bytes32, uint amount, bytes32, uint limit) internal override returns (uint) {
-        ++assetCalls;
-        realizedAssets += amount;
-        if (assetCalls == failAssetAt) revert AssetFailure(assetCalls, debtCalls);
-        if (enforceLimits && amount < limit) revert AmountBelowLimit(amount, limit);
-        return amount;
-    }
-
-    function realizeDebt(bytes32, uint debt, bytes32, uint limit) internal override returns (uint) {
+    function realize(Position memory position, Position memory quote) internal override returns (Position memory) {
+        emit QuoteReceived(quote.asset, quote.amount, quote.liability, quote.debt, quote.counterparty);
+        if (position.counterparty != Accounts.toHost(host)) revert UnexpectedValue();
+        // This host chooses debt first; the command does not prescribe the order.
         ++debtCalls;
-        realizedDebts += debt;
+        realizedDebts += position.debt;
         if (debtCalls == failDebtAt) revert DebtFailure(assetCalls, debtCalls);
-        if (enforceLimits && debt > limit) revert DebtAboveLimit(debt, limit);
-        return debt;
+        ++assetCalls;
+        realizedAssets += position.amount;
+        if (assetCalls == failAssetAt) revert AssetFailure(assetCalls, debtCalls);
+        position.counterparty = bytes32(0);
+        Positions.requireQuoted(position, quote);
+        return position;
     }
 }

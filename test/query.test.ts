@@ -42,7 +42,7 @@ describe("Queries", () => {
       .withArgs(
         await query.host(),
         await qry("incrementQuery"),
-        endpointDescriptor({ input: Value, output: ValueSpec }),
+        endpointDescriptor({ input: Value, inputHint: 32, output: ValueSpec }),
       );
     await expect(tx!)
       .to.emit(query, "Annotation")
@@ -90,7 +90,7 @@ describe("Queries", () => {
         .withArgs(
           await keyedQuery.host(),
           await keyedQry("keyedLocalQuery"),
-          endpointDescriptor({ input: KeyedValue, output: KeyedValueSpec }),
+          endpointDescriptor({ input: KeyedValue, inputHint: 32, output: KeyedValueSpec }),
         );
       await expect(tx!)
         .to.emit(keyedQuery, "Annotation")

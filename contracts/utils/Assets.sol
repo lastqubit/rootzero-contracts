@@ -2,9 +2,8 @@
 pragma solidity ^0.8.33;
 
 import {Layout} from "./Layout.sol";
-import {BadAmount, InvalidAsset, UnauthorizedAsset, ZeroAmount} from "./Errors.sol";
+import {AmountOutOfRange, InvalidAsset, UnauthorizedAsset, ZeroAmount} from "./Errors.sol";
 import {Ids} from "./Ids.sol";
-import {Nodes} from "./Nodes.sol";
 import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 
 /// @title Assets
@@ -13,8 +12,9 @@ import {ensureAddr, isFamily, matchesBase, toLocalBase} from "./Utils.sol";
 /// Asset IDs embed a 4-byte type tag in bits [255:224]:
 ///   - `Rootzero` - the singleton global Rootzero asset; no subtype or payload
 ///   - `ChainAsset` - the chain coin/token; no address payload
-///   - `Derived` - an opaque, host-scoped derivative of another asset ID
-///   - `Erc20` - ERC-20 token; contract address in bits [191:32]
+///   - `Derived` and `Virtual` - reserved subtypes without dedicated helpers
+///   - `Erc20` - ERC-20 token; contract address in bits [159:0]
+/// ERC-20 asset encoders leave the middle bits [191:160] zero.
 ///
 /// An opaque asset uses `[0x02][Asset][subtype][bytes29(hash)]`. The full asset
 /// metadata must be supplied by
@@ -59,11 +59,6 @@ library Assets {
         return matchesBase(asset, toLocalBase(Erc20));
     }
 
-    /// @notice Return true if `asset` is an opaque derived asset.
-    function isDerived(bytes32 asset) internal pure returns (bool) {
-        return Ids.isOpaque(asset, Layout.Asset, Layout.Derived);
-    }
-
     /// @notice Assert that `value` belongs to the EVM asset family and return it unchanged.
     /// @param value Asset identifier to validate.
     /// @return asset The same `value` if it is an EVM asset.
@@ -104,12 +99,6 @@ library Assets {
         return value;
     }
 
-    /// @notice Assert that `value` is an opaque derived asset and return it unchanged.
-    function derived(bytes32 value) internal pure returns (bytes32 asset) {
-        if (!isDerived(value)) revert InvalidAsset();
-        return value;
-    }
-
     /// @notice Create the chain-local coin/token asset ID.
     /// @return Asset ID for the chain token on the current chain.
     function toChain() internal view returns (bytes32) {
@@ -118,28 +107,9 @@ library Assets {
 
     /// @notice Create a chain-local ERC-20 asset ID for `addr`.
     /// @param addr ERC-20 token contract address.
-    /// @return Asset ID with `addr` embedded in bits [191:32].
+    /// @return Asset ID with `addr` embedded in bits [159:0].
     function toErc20(address addr) internal view returns (bytes32) {
-        return bytes32(toLocalBase(Erc20) | (uint(uint160(addr)) << 32));
-    }
-
-    /// @notice Derive a host-scoped opaque asset from another asset ID.
-    /// @dev The canonical preimage is `[Keccak][Asset][Derived][host][asset]`.
-    /// @param asset Underlying protocol asset ID.
-    /// @param host Host node ID that defines the derived asset's namespace.
-    function toDerived(bytes32 asset, uint host) internal pure returns (bytes32) {
-        if (asset == bytes32(0)) revert InvalidAsset();
-        Nodes.host(host);
-        return Ids.toKeccak(
-            Layout.Asset,
-            abi.encodePacked(Ids.Keccak, Layout.Asset, Layout.Derived, bytes32(host), asset)
-        );
-    }
-
-    /// @notice Assert that `value` is the derived asset for `asset` under `host`.
-    function matchDerived(bytes32 value, bytes32 asset, uint host) internal pure returns (bytes32) {
-        if (value != toDerived(asset, host)) revert InvalidAsset();
-        return value;
+        return bytes32(toLocalBase(Erc20) | uint(uint160(addr)));
     }
 
     /// @notice Derive an opaque asset ID from a keccak preimage.
@@ -161,9 +131,9 @@ library Assets {
     /// @notice Extract the ERC-20 contract address from an asset ID.
     /// Reverts if `asset` is not a local ERC-20 asset.
     /// @param asset ERC-20 asset identifier.
-    /// @return Token contract address embedded in bits [191:32].
+    /// @return Token contract address embedded in bits [159:0].
     function erc20Addr(bytes32 asset) internal view returns (address) {
-        return ensureAddr(address(uint160(uint(erc20(asset)) >> 32)));
+        return ensureAddr(address(uint160(uint(erc20(asset)))));
     }
 
     /// @notice Assert that `asset` is a local ERC-20 for `token` and return it unchanged.
@@ -197,7 +167,7 @@ library Amounts {
     /// @return The same `amount` value if valid.
     function ensure(uint amount, uint min, uint max) internal pure returns (uint) {
         if (amount < min || amount > max) {
-            revert BadAmount(amount);
+            revert AmountOutOfRange();
         }
         return amount;
     }
@@ -212,7 +182,7 @@ library Amounts {
     function resolve(uint available, uint min, uint max) internal pure returns (uint) {
         uint amount = available > max ? max : available;
         if (amount < min) {
-            revert BadAmount(amount);
+            revert AmountOutOfRange();
         }
         return amount;
     }
