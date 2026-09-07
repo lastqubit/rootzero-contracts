@@ -6,7 +6,7 @@ import {Buffers} from "../codec/Buffers.sol";
 import {Sizes, Specs} from "../codec/Specs.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
 import {InsufficientValue, OutOfBounds, UnexpectedPosition, UnconsumedData} from "../utils/Errors.sol";
-import {Budget} from "./Budget.sol";
+import {Budget} from "../core/Budget.sol";
 import {
     AssetAmount,
     AssetLiability,

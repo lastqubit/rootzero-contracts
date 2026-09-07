@@ -17,7 +17,7 @@ import { CommandHost, Host, HostAnnouncer, HostIntroduction, IHostIntroduction }
 import { FailedCall, rawCall, rawCallCopy, rawQuery, tryRawCall, tryRawCallCopy } from "./core/Calls.sol";
 import { EndpointBase, InputEndpointBase } from "./core/Endpoint.sol";
 import { ExecuteHook, PipeHook, Pipeline } from "./core/Pipeline.sol";
-import { Budget, Budgets } from "./execution/Budget.sol";
+import { Budget, Budgets } from "./core/Budget.sol";
 import { CreditHostHook, DebitHostHook, CreditAccountHook, DebitAccountHook, PostHook, RepayHook, SettleHook, Settlement } from "./core/Settlement.sol";
 import { UnexpectedAmount } from "./utils/Errors.sol";
 import { ForwardHook, Portal } from "./core/Portal.sol";

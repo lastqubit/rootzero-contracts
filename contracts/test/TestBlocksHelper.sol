@@ -8,7 +8,7 @@ import {Writer, Writers} from "../codec/Writers.sol";
 import {Execution, Executions} from "../execution/Execution.sol";
 import {Cursors, Cur} from "../utils/Cursors.sol";
 import {Flags} from "../utils/Flags.sol";
-import {Budget, Budgets} from "../execution/Budget.sol";
+import {Budget, Budgets} from "../core/Budget.sol";
 import {Action} from "../annotations/Action.sol";
 import {Clearinghouse} from "../annotations/Clearinghouse.sol";
 
